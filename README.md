@@ -82,14 +82,17 @@ anymore), not actively cleaned up.
 **Home:** The default landing tab. A to-do list up top — plain-text quick-add (type +
 Enter, no modal, mirrors the Wants quick-add pattern and the gist of the Android
 Reminders "type a new line" flow), tap the circle to check off, unchecked items stay
-on top and checked ones sink to the bottom with a strikethrough, a "Clear completed"
-button appears once anything's checked. No default/seed items — it's empty until you
-add your own. Below that, three tappable glance cards summarizing the other tabs and
-jumping straight to them: **Today** (today's AM/PM step names from Skin/Hair, wash-day
-badge when relevant), **Capsule** (owned/total + progress bar, mirrors Style), and
-**Wants** (pending count + total, plus the cheapest pending item as a "Next:" teaser).
-The glance cards re-render every time you land on Home, so they never show stale
-numbers from something you changed on another tab.
+on top and checked ones sink to the bottom with a strikethrough, a header badge shows
+"N open" (or "All done"), a "Clear completed" button appears once anything's checked.
+No default/seed items — it's empty until you add your own. Below that, three tappable
+glance cards summarizing the other tabs and jumping straight to them: **Today**
+(today's AM/PM step names from Skin/Hair, wash-day badge on wash Saturdays, otherwise
+a "Next wash day: in N days" countdown), **Capsule** (owned/total + progress bar,
+mirrors Style, plus a "Still need: …" teaser naming the next unowned item), and
+**Wants** (pending count + total, the cheapest pending item as a "Next:" teaser with
+its own inline "Mark bought" button — buyable straight from Home, no need to open the
+Wants tab). The glance cards re-render every time you land on Home, so they never show
+stale numbers from something you changed on another tab.
 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid

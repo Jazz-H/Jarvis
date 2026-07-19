@@ -725,6 +725,9 @@ function renderHome(){
       </button>
     </div>`;
   html += `<div class="card">`;
+  if (todoList.length > 0){
+    html += `<div class="glance-head"><h3>To-Do</h3><span class="insight">${incomplete.length ? incomplete.length+' open' : 'All done'}</span></div>`;
+  }
   if (todoList.length === 0){
     html += `<div class="empty">Nothing on your list — add one above.</div>`;
   } else {
@@ -744,6 +747,8 @@ function renderHome(){
     const shortLabel = (s) => s[0].replace(/\s*—\s*last step$/i, "");
     const amNames = today.am.map(shortLabel).join(", ");
     const pmNames = pmSteps.map(shortLabel).join(", ");
+    const washDays = daysUntilWashDay();
+    const washNote = isWashSat ? "" : `<div class="glance-detail">Next wash day: ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
           <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashSat?'<span class="badge wash">Wash day</span>':''}</div>
@@ -752,15 +757,18 @@ function renderHome(){
         <div class="glance-stat">${today.am.length} AM · ${pmSteps.length} PM</div>
         <div class="glance-detail">${amNames}</div>
         <div class="glance-detail">${pmNames}</div>
+        ${washNote}
       </div>`;
   }
 
   const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
   const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
+  const nextNeeded = capsule.find(i => currentCapState(i) !== "owned");
   html += `<div class="card glance" onclick="activateTab('style')">
       <div class="glance-head"><h3>Capsule</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="glance-stat">${ownedCount}/${capsule.length} · ${capPct}%</div>
       <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
+      ${nextNeeded?`<div class="glance-detail" style="margin-top:8px;">Still need: ${nextNeeded.title}</div>`:''}
     </div>`;
 
   const pendingItems = wantsList.filter(w => !wantsState[w.id]);
@@ -769,7 +777,10 @@ function renderHome(){
   html += `<div class="card glance" onclick="activateTab('wants')">
       <div class="glance-head"><h3>Wants</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="glance-stat">${pendingItems.length} pending · $${fmtMoney(pendingTotal)}</div>
-      ${cheapest?`<div class="glance-detail">Next: ${cheapest.name}${cheapest.price!=null?` — $${fmtMoney(cheapest.price)}`:''}</div>`:''}
+      ${cheapest?`<div class="glance-detail" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span>Next: ${cheapest.name}${cheapest.price!=null?` — $${fmtMoney(cheapest.price)}`:''}</span>
+          <button class="toggle" style="flex-shrink:0;" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);">Mark bought</button>
+        </div>`:''}
     </div>`;
 
   el.innerHTML = html;
@@ -858,6 +869,17 @@ function isWashWeek(){
   const thisSaturday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
   const diffWeeks = Math.round((thisSaturday - WASH_DAY_ANCHOR) / (7 * 86400000));
   return ((diffWeeks % 2) + 2) % 2 === 0;
+}
+function isWashSaturday(satDate){
+  const diffWeeks = Math.round((satDate - WASH_DAY_ANCHOR) / (7 * 86400000));
+  return ((diffWeeks % 2) + 2) % 2 === 0;
+}
+function daysUntilWashDay(){
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let cand = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
+  while (!isWashSaturday(cand)) cand = new Date(cand.getFullYear(), cand.getMonth(), cand.getDate() + 7);
+  return Math.round((cand - today) / 86400000);
 }
 function stepHtml(s,n,dayIdx,band){
   const body = `<b>${s[0]}</b> — ${s[1]}${s[2]?`<span class="note">${s[2]}</span>`:""}`;
