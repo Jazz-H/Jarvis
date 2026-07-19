@@ -6,7 +6,7 @@
 <title>Jazz 2.0</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#18191b">
+<meta name="theme-color" content="#08080b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,17 +15,19 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <style>
   :root{
-    --bg:#18191b;
-    --surface:#232427;
-    --surface-2:#2b2c30;
-    --line:#37383c;
-    --text:#ededee;
-    --text-dim:#95979d;
-    --gold:#c8a24a;
-    --navy:#3a4a6b;
-    --olive:#7c8a63;
-    --olive-dim:#565f47;
-    --danger:#a4573f;
+    /* "Neon Nights" theme -- true-black ground, electric cyan (AM), neon
+       magenta (PM), acid-lime primary accent. */
+    --bg:#08080b;
+    --surface:#131316;
+    --surface-2:#1a1a1f;
+    --line:#2c2c34;
+    --text:#f4f4f8;
+    --text-dim:#8d8d9c;
+    --gold:#00e5ff;
+    --navy:#ff2e9a;
+    --olive:#c6ff3d;
+    --olive-dim:#5f6b23;
+    --danger:#ff3b5c;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
@@ -70,7 +72,7 @@
   .card h2{margin:0 0 10px; font-size:15px; font-weight:700;}
   .card h3{margin:0 0 8px; font-size:13px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em;}
 
-  .pinned{border-color:var(--olive-dim); background:linear-gradient(180deg, rgba(124,138,99,.10), var(--surface) 70%); padding:0; overflow:hidden;}
+  .pinned{border-color:var(--olive-dim); background:linear-gradient(180deg, rgba(198,255,61,.10), var(--surface) 70%); padding:0; overflow:hidden;}
   .pinned .coll-head{
     display:flex; align-items:center; justify-content:space-between;
     padding:16px; cursor:pointer;
@@ -105,7 +107,7 @@
   .band.pm{border-left:3px solid var(--navy); border-top:1px solid var(--line);}
   .band .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin-bottom:8px;}
   .band.am .label{color:var(--gold);}
-  .band.pm .label{color:#7a8cbf;}
+  .band.pm .label{color:var(--navy);}
   .step{font-size:13px; line-height:1.45; margin-bottom:7px; display:flex; gap:8px;}
   .step:last-child{margin-bottom:0;}
   .step .n{color:var(--text-dim); font-variant-numeric:tabular-nums; flex-shrink:0;}
@@ -129,7 +131,7 @@
   .item .sub{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
   .badge{display:inline-block; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700;
     padding:2px 6px; border-radius:5px; margin-left:6px; vertical-align:1px;}
-  .badge.pending{background:rgba(200,162,74,.18); color:var(--gold);}
+  .badge.pending{background:rgba(0,229,255,.18); color:var(--gold);}
 
   /* fitness */
   .exday{margin-bottom:6px;}
@@ -180,8 +182,8 @@
   .insight{font-size:10.5px; font-weight:600; color:var(--text-dim); background:var(--surface-2);
     padding:2px 7px; border-radius:8px; white-space:nowrap;}
   .footnote{font-size:11px; color:var(--text-dim); margin:8px 0 0; font-style:italic;}
-  .badge.today{background:rgba(124,138,99,.22); color:var(--olive); margin-left:8px;}
-  .badge.wash{background:rgba(58,74,107,.28); color:#7a8cbf; margin-left:8px;}
+  .badge.today{background:rgba(198,255,61,.22); color:var(--olive); margin-left:8px;}
+  .badge.wash{background:rgba(255,46,154,.22); color:var(--navy); margin-left:8px;}
   .day.today .day-head{border-left:3px solid var(--olive);}
   .progress-wrap{margin-bottom:12px;}
   .progress-label{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;}
@@ -209,7 +211,7 @@
     white-space:nowrap;
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
-  .toast.error{border-color:var(--danger); color:#e0a493;}
+  .toast.error{border-color:var(--danger); color:#ffb3c0;}
 
   .empty{font-size:12.5px; color:var(--text-dim); font-style:italic; padding:6px 2px;}
   .tabpanel{display:none;}
@@ -257,7 +259,7 @@
     width:100%; margin-top:8px; padding:10px; border-radius:10px; border:1.5px dashed var(--olive-dim);
     background:none; color:var(--olive); font-size:12.5px; font-weight:700; font-family:inherit;
   }
-  .add-row:active{background:rgba(124,138,99,.12);}
+  .add-row:active{background:rgba(198,255,61,.12);}
 
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.55);
@@ -288,7 +290,7 @@
   .modal-actions{display:flex; gap:10px; margin-top:6px;}
   .modal-btn{flex:1; padding:12px; border-radius:10px; border:none; font-size:13.5px; font-weight:700; font-family:inherit;}
   .modal-btn.primary{background:var(--olive); color:#161710;}
-  .modal-btn.danger{background:none; border:1.5px solid var(--danger); color:#e0a493;}
+  .modal-btn.danger{background:none; border:1.5px solid var(--danger); color:#ffb3c0;}
 </style>
 </head>
 <body>
