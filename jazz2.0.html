@@ -214,6 +214,24 @@
   .empty{font-size:12.5px; color:var(--text-dim); font-style:italic; padding:6px 2px;}
   .tabpanel{display:none;}
   .tabpanel.active{display:block;}
+
+  #pull-indicator{
+    height:0; overflow:hidden; display:flex; align-items:center; justify-content:center;
+    gap:8px; color:var(--text-dim); font-size:12px; font-weight:600; letter-spacing:.02em;
+  }
+  #pull-indicator.animated{transition:height .2s ease;}
+  #pull-indicator.ready{color:var(--olive);}
+  .pull-spinner{
+    width:14px; height:14px; border-radius:50%;
+    border:2px solid var(--text-dim); border-top-color:transparent;
+    flex-shrink:0; opacity:0; transition:opacity .15s;
+  }
+  #pull-indicator.ready .pull-spinner{border-color:var(--olive); border-top-color:transparent;}
+  #pull-indicator.refreshing .pull-spinner{opacity:1; animation:spin .6s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion: reduce){
+    #pull-indicator.refreshing .pull-spinner{animation:none;}
+  }
 </style>
 </head>
 <body>
@@ -224,6 +242,7 @@
 </header>
 
 <main>
+  <div id="pull-indicator"><span class="pull-spinner"></span><span class="pull-label">Pull to refresh</span></div>
   <!-- SKIN / HAIR -->
   <section class="tabpanel active" id="panel-skin"></section>
   <!-- STYLE -->
@@ -795,6 +814,68 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     if (dx > 0 && idx > 0) activateTab(TAB_ORDER[idx - 1]);
   }, {passive:true});
 })();
+
+// Pull-to-refresh: dragging down from the top of main triggers a hard refresh
+// (clears the service worker cache + unregisters it, then reloads) rather than
+// a normal reload, so stale cached assets can't linger.
+(function(){
+  const mainEl = document.querySelector("main");
+  const indicator = document.getElementById("pull-indicator");
+  const label = indicator.querySelector(".pull-label");
+  const THRESHOLD = 70;
+  const MAX_PULL = 110;
+  let startY = 0, pulling = false, dragging = false;
+
+  mainEl.addEventListener("touchstart", e => {
+    pulling = mainEl.scrollTop <= 0;
+    dragging = false;
+    startY = e.touches[0].clientY;
+  }, {passive:true});
+
+  mainEl.addEventListener("touchmove", e => {
+    if (!pulling) return;
+    if (mainEl.scrollTop > 0){ pulling = false; return; }
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) return;
+    dragging = true;
+    e.preventDefault();
+    indicator.classList.remove("animated");
+    const pull = Math.min(dy * 0.5, MAX_PULL);
+    indicator.style.height = pull + "px";
+    const ready = pull >= THRESHOLD;
+    indicator.classList.toggle("ready", ready);
+    label.textContent = ready ? "Release to refresh" : "Pull to refresh";
+  }, {passive:false});
+
+  mainEl.addEventListener("touchend", () => {
+    if (!dragging){ pulling = false; return; }
+    dragging = false;
+    indicator.classList.add("animated");
+    if (indicator.classList.contains("ready")){
+      indicator.classList.add("refreshing");
+      label.textContent = "Refreshing…";
+      indicator.style.height = THRESHOLD + "px";
+      hardRefresh();
+    } else {
+      indicator.style.height = "0px";
+    }
+    pulling = false;
+  }, {passive:true});
+})();
+
+async function hardRefresh(){
+  try{
+    if ("caches" in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  }catch(e){ console.error("hard refresh cleanup failed", e); }
+  location.reload();
+}
 
 // ---------- INIT ----------
 (async function init(){
