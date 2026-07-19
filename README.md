@@ -27,6 +27,13 @@ Home Screen" on mobile should work from the URL above.
   the service worker's cache and unregisters it before reloading, so it can't serve
   stale cached assets (native browser pull-to-refresh is disabled via
   `overscroll-behavior-y:none` so this custom one doesn't fight with it)
+- Service worker uses network-first for the HTML shell (`jazz2.0.html`/`index.html`)
+  and cache-first for static assets (icons, manifest) — first ship of the service
+  worker was cache-first for everything, which meant a stale cached copy of the app
+  could keep serving itself indefinitely (including hiding fixes shipped after it,
+  like pull-to-refresh itself not working until this was fixed); registration also
+  passes `updateViaCache: "none"` so the browser always re-checks `sw.js` itself for
+  changes instead of caching it for up to 24h
 - Standardized chevron pattern for ALL collapsible sections (rules cards, day
   accordions, capsule need/owned cards, fitness day cards) — same SVG path, same
   180° rotate-on-open behavior
