@@ -100,7 +100,12 @@ push, Friday home/dumbbells). Per-exercise checkboxes that persist until manuall
 reset — NOT auto-reset weekly (explicit user preference). "Reset week" button clears
 all three days at once, now with a confirm() prompt since it's destructive/no-undo.
 
-**Wants:** Trailco pouch ($19.45), Sample Cooker ($49.45), Sample Rain Jacket
+**Wants:** A quick-add bar sits at the top of the tab, always available regardless of
+edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
+straight onto the list with no modal, no price/link required upfront; focus stays in
+the field so you can add several in a row. (Edit mode's "+ Add want" still exists for
+filling in price/link/notes upfront in one form.) Trailco pouch ($19.45), Sample Cooker
+Duo 3qt ($49.45), Sample Rain Jacket
 jacket gray size S ($130, Sample Store), Sample boot black size 8 ($119.45,
 Sample Store), Sample Fitness Band ($399.45), brown leather belt square buckle
 (~$20 est., unconfirmed, pending decision on whether to merge with the style capsule's

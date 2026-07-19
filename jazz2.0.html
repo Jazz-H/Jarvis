@@ -156,6 +156,18 @@
   .reset-btn:active{background:var(--line);}
 
   /* wants */
+  .quick-add{display:flex; gap:8px; margin-bottom:16px;}
+  .quick-add input{
+    flex:1; min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    color:var(--text); font-size:14px; font-family:inherit; padding:0 14px; height:46px;
+  }
+  .quick-add input::placeholder{color:var(--text-dim);}
+  .quick-add input:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  .quick-add button{
+    flex-shrink:0; width:46px; height:46px; border-radius:12px; border:none;
+    background:var(--olive); color:#161710; display:flex; align-items:center; justify-content:center;
+  }
+  .quick-add button:active{opacity:.85;}
   .want-card{display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line);}
   .want-card:last-child{border-bottom:none;}
   .want-card .body{flex:1;}
@@ -1156,7 +1168,13 @@ function renderWants(){
   };
   pendingItems.forEach(w => { pending += wantRow(w, false); pendingTotal += (w.price||0); });
   doneItems.forEach(w => { done += wantRow(w, true); doneTotal += (w.price||0); });
-  let html = `<div class="card"><div class="section-title">Pending</div>${pending||'<div class="empty">All caught up.</div>'}
+  let html = `<div class="quick-add">
+      <input type="text" id="quick-add-input" placeholder="What do you want?" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
+      <button onclick="quickAddWant()" aria-label="Add want">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>`;
+  html += `<div class="card"><div class="section-title">Pending</div>${pending||'<div class="empty">All caught up.</div>'}
       <div class="total-row">Pending total <span>$${fmtMoney(pendingTotal)}</span></div>
       ${editMode?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
       </div>`;
@@ -1164,6 +1182,16 @@ function renderWants(){
       <div class="total-row">Spent so far <span>$${fmtMoney(doneTotal)}</span></div></div>`;
   html += `<div class="card"><div class="total-row grand">List total <span>$${fmtMoney(pendingTotal+doneTotal)}</span></div></div>`;
   el.innerHTML = html;
+}
+function quickAddWant(){
+  const input = document.getElementById("quick-add-input");
+  const name = input.value.trim();
+  if (!name) return;
+  wantsList.push({id:genId("want"), name, meta:"", price:null, link:null});
+  saveContent("wants-content", wantsList);
+  renderWants();
+  const freshInput = document.getElementById("quick-add-input");
+  freshInput.focus();
 }
 async function toggleWant(id){
   wantsState[id] = !wantsState[id];
