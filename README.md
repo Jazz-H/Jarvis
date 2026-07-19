@@ -23,6 +23,10 @@ Home Screen" on mobile should work from the URL above.
 - Accents: gold `#c8a24a` (AM / skincare), navy `#3a4a6b` (PM), olive `#7c8a63` (primary
   interactive accent — checkboxes, active tab, progress bar), danger `#a4573f`
 - Bottom tab bar (app-style), swipe left/right between tabs supported
+- Pull-to-refresh (swipe down from the top of a tab) triggers a hard refresh — clears
+  the service worker's cache and unregisters it before reloading, so it can't serve
+  stale cached assets (native browser pull-to-refresh is disabled via
+  `overscroll-behavior-y:none` so this custom one doesn't fight with it)
 - Standardized chevron pattern for ALL collapsible sections (rules cards, day
   accordions, capsule need/owned cards, fitness day cards) — same SVG path, same
   180° rotate-on-open behavior
