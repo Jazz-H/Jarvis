@@ -52,11 +52,13 @@ errors, since saves no longer go through Anthropic's artifact storage bridge at 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid
 same-day-different-session rule, SPF always last AM step, lash serum always last PM
-step). Hair mist is standardized to Daily Hair Spray every day it
-appears (replaced the old Hair oil seal-and-oil and Lion Locs rotation). Wash day
-(Clarifying shampoo + Hair mask) runs biweekly on Saturday, not every week — last
-wash was the week of Jul 16, 2026, badged "Wash day" on the Saturdays it lands on;
-off-weeks get a regular PM routine instead.
+step). Hair mist (Daily Hair Spray, standardized from the old
+Hair oil seal-and-oil / Lion Locs / rice water rotation) runs twice daily — once in
+AM (before SPF, which stays the final AM step) and once in PM — every day of the week.
+Wash day (Clarifying shampoo + Hair mask) runs biweekly on Saturday, not every
+week — last wash was the week of Jul 16, 2026, badged "Wash day" on the Saturdays it
+lands on; off-weeks get the regular AM/PM routine instead (wash-day PM swaps in the
+shampoo + mask in place of the mist, since that already covers hair care for the day).
 
 **Style:** Fit rules card (front-tuck, regular inseam, size-to-hips, no oversized/
 drop-shoulder, ankle dress pants = business casual only w/ no-show socks + loafers
