@@ -134,13 +134,15 @@
   .badge.pending{background:rgba(0,229,255,.18); color:var(--gold);}
 
   /* fitness */
-  .exday{margin-bottom:6px;}
+  .exday{margin-bottom:6px; border-left:3px solid var(--olive-dim); transition:border-color .2s;}
+  .exday.done{border-left-color:var(--olive);}
   .exday summary{list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center;}
   .exday summary::-webkit-details-marker{display:none;}
   .exday summary .chev{transition:transform .2s; color:var(--text-dim); flex-shrink:0;}
   .exday[open] summary .chev{transform:rotate(180deg);}
   .exday-title{font-size:14px; font-weight:700;}
   .exday-sub{font-size:11.5px; color:var(--text-dim); font-weight:500;}
+  .insight.complete{background:rgba(198,255,61,.18); color:var(--olive);}
   .ex-row{display:flex; align-items:center; gap:10px; padding:9px 2px; border-top:1px solid var(--line);}
   .ex-row .meta{flex:1; order:1;}
   .ex-row .box{order:2;}
@@ -1024,11 +1026,12 @@ function renderFitness(){
   let html = "";
   fitnessDays.forEach(day => {
     const doneCount = day.exercises.filter((ex,i) => !!fitnessState[`${day.id}:${i}`]).length;
+    const isComplete = day.exercises.length > 0 && doneCount === day.exercises.length;
     const dayEditBtn = editMode ? `<button class="row-edit-btn" onclick="event.preventDefault(); event.stopPropagation(); editFitnessDay('${day.id}')">${PENCIL_ICON}</button>` : "";
-    html += `<details class="card exday" open><summary>
+    html += `<details class="card exday${isComplete?' done':''}" open><summary>
         <div><div class="exday-title">${day.title}</div><div class="exday-sub">${day.sub}</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="insight">${doneCount}/${day.exercises.length} done</span>
+          <span class="insight${isComplete?' complete':''}">${doneCount}/${day.exercises.length} done</span>
           ${dayEditBtn}
           <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
         </div>
