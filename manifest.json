@@ -1,0 +1,15 @@
+{
+  "name": "Jazz 2.0",
+  "short_name": "Jazz 2.0",
+  "description": "Skin/Hair, Style, Fitness, and Wants — Jazz 2.0 personal dashboard",
+  "start_url": "./jazz2.0.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#18191b",
+  "theme_color": "#18191b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
