@@ -894,7 +894,7 @@ async function hardRefresh(){
 // ---------- PWA: service worker registration (only works when hosted on a real http(s) origin) ----------
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(err => console.log("SW registration skipped:", err));
+    navigator.serviceWorker.register("sw.js", {updateViaCache:"none"}).catch(err => console.log("SW registration skipped:", err));
   });
 }
 </script>
