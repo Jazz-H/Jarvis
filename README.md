@@ -109,8 +109,11 @@ Duo 3qt ($49.45), Sample Rain Jacket
 jacket gray size S ($130, Sample Store), Sample boot black size 8 ($119.45,
 Sample Store), Sample Fitness Band ($399.45), brown leather belt square buckle
 (~$20 est., unconfirmed, pending decision on whether to merge with the style capsule's
-separate brown/cognac belt line item). Pending/Purchased sections each show a running
-total, plus a grand list total. Links now point to direct product pages (Amazon,
+separate brown/cognac belt line item). Pending and Purchased are collapsible cards
+(matching the pattern used elsewhere — Key Rules, Still Need/In Closet), each showing
+item count and running total in the header even when collapsed; Pending starts open,
+Purchased starts closed. A grand list total sits below both. Links now point to direct
+product pages (Amazon,
 Sample Store, Sample Store, Sample Cooker's own site) picked to match the noted spec
 (color/size) as closely as possible from search results — retailer sites block
 automated fetch/scrape verification (403s across the board, the same issue the
