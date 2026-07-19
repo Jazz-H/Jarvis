@@ -749,11 +749,13 @@ function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
   let pendingTotal = 0, doneTotal = 0;
-  WANTS.forEach(w => {
-    const isDone = !!wantsState[w.id];
+  const byPriceAsc = (a,b) => (a.price ?? Infinity) - (b.price ?? Infinity);
+  const pendingItems = WANTS.filter(w => !wantsState[w.id]).sort(byPriceAsc);
+  const doneItems = WANTS.filter(w => !!wantsState[w.id]).sort(byPriceAsc);
+  const wantRow = (w, isDone) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${w.price.toFixed(2)}${w.estimated?' (est.)':''}` : "—";
     const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
-    const row = `<div class="want-card">
+    return `<div class="want-card">
         <div class="body">
           <div class="name">${w.name}</div>
           ${w.meta?`<div class="meta">${w.meta}</div>`:""}
@@ -762,9 +764,9 @@ function renderWants(){
         </div>
         <button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
       </div>`;
-    if (isDone){ done += row; doneTotal += (w.price||0); }
-    else { pending += row; pendingTotal += (w.price||0); }
-  });
+  };
+  pendingItems.forEach(w => { pending += wantRow(w, false); pendingTotal += (w.price||0); });
+  doneItems.forEach(w => { done += wantRow(w, true); doneTotal += (w.price||0); });
   let html = `<div class="card"><div class="section-title">Pending</div>${pending||'<div class="empty">All caught up.</div>'}
       <div class="total-row">Pending total <span>$${pendingTotal.toFixed(2)}</span></div></div>`;
   html += `<div class="card"><div class="section-title">Purchased</div>${done||'<div class="empty">Nothing marked yet.</div>'}
