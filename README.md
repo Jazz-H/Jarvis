@@ -26,7 +26,9 @@ Home Screen" on mobile should work from the URL above.
 - Standardized chevron pattern for ALL collapsible sections (rules cards, day
   accordions, capsule need/owned cards, fitness day cards) — same SVG path, same
   180° rotate-on-open behavior
-- Every collapsible section shows an "insight" (count/progress) in its header
+- Every collapsible section shows an "insight" (count/progress) in its header,
+  except the Skin/Hair day accordions — the AM/PM step-count insight was removed
+  per user preference
 
 ## Data / storage
 Uses plain `localStorage`, one JSON blob per tab: `style-state`, `fitness-state`,
@@ -39,7 +41,11 @@ errors, since saves no longer go through Anthropic's artifact storage bridge at 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid
 same-day-different-session rule, SPF always last AM step, lash serum always last PM
-step).
+step). Hair mist is standardized to Daily Hair Spray every day it
+appears (replaced the old Hair oil seal-and-oil and Lion Locs rotation). Wash day
+(Clarifying shampoo + Hair mask) runs biweekly on Saturday, not every week — last
+wash was the week of Jul 16, 2026, badged "Wash day" on the Saturdays it lands on;
+off-weeks get a regular PM routine instead.
 
 **Style:** Fit rules card (front-tuck, regular inseam, size-to-hips, no oversized/
 drop-shoulder, ankle dress pants = business casual only w/ no-show socks + loafers

@@ -179,9 +179,9 @@
   .cat-title:first-child{margin-top:0;}
   .insight{font-size:10.5px; font-weight:600; color:var(--text-dim); background:var(--surface-2);
     padding:2px 7px; border-radius:8px; white-space:nowrap;}
-  .day-insight{font-size:11px; color:var(--text-dim); font-weight:600; margin-left:8px;}
   .footnote{font-size:11px; color:var(--text-dim); margin:8px 0 0; font-style:italic;}
   .badge.today{background:rgba(124,138,99,.22); color:var(--olive); margin-left:8px;}
+  .badge.wash{background:rgba(58,74,107,.28); color:#7a8cbf; margin-left:8px;}
   .day.today .day-head{border-left:3px solid var(--olive);}
   .progress-wrap{margin-bottom:12px;}
   .progress-label{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;}
@@ -318,7 +318,7 @@ const DAYS = [
       ["Niacinamide","10% + Zinc"],
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
-      ["Hair — seal &amp; oil","Hair Rosemary Mint Light Oil","Length + ends first, scalp last"],
+      ["Hair mist","Daily Hair Spray"],
       ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
     ]
   },
@@ -373,7 +373,7 @@ const DAYS = [
       ["Niacinamide","10% + Zinc"],
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
-      ["Hair mist","Lion Locs Rosewater Spray","Lighter refresh option"],
+      ["Hair mist","Daily Hair Spray"],
       ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
     ]
   },
@@ -392,7 +392,7 @@ const DAYS = [
       ["Niacinamide","10% + Zinc"],
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
-      ["Hair — seal &amp; oil","Hair Rosemary Mint Light Oil","Length + ends first, scalp last"],
+      ["Hair mist","Daily Hair Spray"],
       ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
     ]
   },
@@ -405,12 +405,20 @@ const DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["SPF — last step","Daily Sunscreen SPF 30"]
     ],
-    pm:[
+    pmWash:[
       ["Wash day","Clarifying Shampoo"],
       ["Mask","Strengthening Hair Mask"],
       ["Cleanse","Glucoside Foaming Cleanser"],
       ["Niacinamide","10% + Zinc"],
       ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair mist","Daily Hair Spray"],
       ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
     ]
   },
@@ -544,11 +552,14 @@ function renderSkin(){
   SKINHAIR_RULES.forEach(r => html += `<p class="rule">${r}</p>`);
   html += `</div></div></div>`;
   const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
+  const washWeek = isWashWeek();
   DAYS.forEach((d,i) => {
     const isToday = d.day === todayName;
+    const isWashSat = d.day === "Saturday" && washWeek;
+    const pmSteps = d.day === "Saturday" ? (washWeek ? d.pmWash : d.pm) : d.pm;
     html += `<div class="day ${isToday?'today open':''}" data-idx="${i}">
       <div class="day-head" onclick="toggleDay(${i})">
-        <span class="name">${d.day}${isToday?'<span class="badge today">Today</span>':''}<span class="day-insight">AM ${d.am.length} · PM ${d.pm.length}</span></span>
+        <span class="name">${d.day}${isToday?'<span class="badge today">Today</span>':''}${isWashSat?'<span class="badge wash">Wash day</span>':''}</span>
         <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div class="day-body">
@@ -556,12 +567,20 @@ function renderSkin(){
           ${d.am.map((s,n)=>stepHtml(s,n)).join("")}
         </div>
         <div class="band pm"><div class="label">PM</div>
-          ${d.pm.map((s,n)=>stepHtml(s,n)).join("")}
+          ${pmSteps.map((s,n)=>stepHtml(s,n)).join("")}
         </div>
       </div>
     </div>`;
   });
   el.innerHTML = html;
+}
+// Wash day falls on Saturday every 2 weeks; last wash was Sat Jul 18, 2026 (the week of the 16th).
+const WASH_DAY_ANCHOR = new Date(2026, 6, 18);
+function isWashWeek(){
+  const today = new Date();
+  const thisSaturday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
+  const diffWeeks = Math.round((thisSaturday - WASH_DAY_ANCHOR) / (7 * 86400000));
+  return ((diffWeeks % 2) + 2) % 2 === 0;
 }
 function stepHtml(s,n){
   return `<div class="step"><span class="n">${n+1}.</span><div><b>${s[0]}</b> — ${s[1]}${s[2]?`<span class="note">${s[2]}</span>`:""}</div></div>`;
