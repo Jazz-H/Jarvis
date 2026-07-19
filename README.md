@@ -41,12 +41,36 @@ Home Screen" on mobile should work from the URL above.
   except the Skin/Hair day accordions — the AM/PM step-count insight was removed
   per user preference
 
+## Editing
+Every list in the app — Skin/Hair rules and AM/PM steps, Style fit rules/sizing/capsule
+items, Fitness workout days/exercises, Wants items — is fully editable in-app: add,
+edit, and delete, no code changes needed. Tap the pencil icon top-right of the header
+to enter edit mode. While it's on:
+- Rows with no existing tap action (rules, skin/hair steps, sizing) become tappable —
+  tap anywhere on the row to edit or delete it.
+- Rows that already have a primary tap action (capsule owned/needed toggle, fitness
+  done-checkbox, wants mark-bought) get a small separate pencil button so editing
+  doesn't collide with that action.
+- "+ Add …" buttons appear at the bottom of every list, including "+ Add workout day"
+  for Fitness (Skin/Hair's 7 weekdays are NOT addable/removable, since "today" and
+  wash-day detection depend on the fixed Mon–Sun set matching real calendar weekdays).
+- New AM steps are inserted before the last step if that step's label contains "last
+  step" (so SPF/lash-serum ordering rules stay intact automatically).
+- Edits use a bottom-sheet modal with Save/Delete; deleting always confirms first.
+Edit mode itself persists across reloads (`edit-mode` in localStorage).
+
 ## Data / storage
-Uses plain `localStorage`, one JSON blob per tab: `style-state`, `fitness-state`,
-`wants-state`. (Originally used `window.storage`, an artifact-only API from Claude's
-in-browser preview environment; migrated to `localStorage` now that the app runs on
-its own hosted origin — this also resolved the intermittent "Storage set failed"
-errors, since saves no longer go through Anthropic's artifact storage bridge at all.)
+Two layers, both plain `localStorage`, both survive a hard refresh (pull-to-refresh
+only clears the service worker's cache, never localStorage):
+- **Content** (the editable lists themselves): `skin-rules-content`, `skin-days-content`,
+  `style-rules-content`, `sizes-content`, `capsule-content`, `fitness-days-content`,
+  `wants-content`. Each seeds from the built-in defaults on first run, then persists
+  whatever the user edits it to.
+- **State** (checkbox/toggle state, keyed by item id): `style-state`, `fitness-state`,
+  `wants-state`. (Originally used `window.storage`, an artifact-only API from Claude's
+  in-browser preview environment; migrated to `localStorage` now that the app runs on
+  its own hosted origin — this also resolved the intermittent "Storage set failed"
+  errors, since saves no longer go through Anthropic's artifact storage bridge at all.)
 
 ## Tab-by-tab content
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
@@ -89,10 +113,10 @@ its price is a rough estimate pending the merge decision below.
 ## Known open items / suggested next steps
 1. Search/filter for the capsule list (explicitly deferred, not built)
 2. Consider a 5th "Home/overview" tab (today's skin/hair + today's fitness at a glance)
-3. Confirm whether the Crest Whitestrips course (should've finished ~mid-July) needs
-   any remaining reference in the Skin/Hair routine, or is fully done
-4. Resolve the brown belt merge question (wants list vs. style capsule) — once
-   resolved, add its product link too
+3. The brown belt merge question (Wants list vs. style capsule "still need") is now
+   trivially self-serve — delete whichever entry is redundant in edit mode
+4. Wash day's biweekly cadence/anchor date isn't exposed in edit mode (it's a computed
+   rule, not a list item) — still requires a code change if the schedule shifts
 
 ## Working style
 Make judgment calls and show finished output; expect targeted corrections rather than full rewrites.
