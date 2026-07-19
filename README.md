@@ -4,16 +4,18 @@ A single-file mobile web app consolidating the Jazz 2.0 series (previously separ
 Word docs) into one tabbed, installable PWA: **Skin/Hair, Style, Fitness, Wants.**
 
 ## Files
+- `index.html` — redirects to `jazz2.0.html`, so the bare repo root URL works instead
+  of falling through to GitHub Pages' auto-rendered README
 - `jazz2.0.html` — the entire app (HTML/CSS/JS, no build step, no framework)
 - `manifest.json` — PWA manifest (name, icons, standalone display)
-- `sw.js` — service worker, caches all 5 files for offline use
+- `sw.js` — service worker, caches all 6 files for offline use
 - `icon-192.png` / `icon-512.png` — generated app icons (dark charcoal bg, olive "J2" monogram)
 
 ## Status / how to deploy
-This only becomes a real installable PWA once hosted on an actual http(s) origin
-(manifest + service worker won't register from a local file or sandboxed preview).
-To deploy: enable GitHub Pages on this repo (Settings → Pages → Deploy from branch →
-main → root), then open the live URL on mobile and "Add to Home Screen."
+Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main` /
+root). The manifest + service worker only register on a real http(s) origin, so this
+didn't work from a local file or sandboxed preview — now that it's hosted, "Add to
+Home Screen" on mobile should work from the URL above.
 
 ## Design system
 - Dark charcoal theme: bg `#18191b`, surface `#232427`, surface-2 `#2b2c30`, line `#37383c`
