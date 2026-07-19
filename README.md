@@ -1,9 +1,7 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 A single-file mobile web app consolidating the Jazz 2.0 series (previously separate
-Word docs) into one tabbed, installable PWA: **Skin/Hair, Style, Wants** (3 tabs — a
-Fitness tab was removed since workouts are tracked in a different app; a 4th tab slot
-is open, see Known open items).
+Word docs) into one tabbed, installable PWA: **Home, Skin/Hair, Style, Wants.**
 
 ## Files
 - `index.html` — redirects to `jazz2.0.html`, so the bare repo root URL works instead
@@ -67,8 +65,9 @@ Edit mode itself persists across reloads (`edit-mode` in localStorage).
 Two layers, both plain `localStorage`, both survive a hard refresh (pull-to-refresh
 only clears the service worker's cache, never localStorage):
 - **Content** (the editable lists themselves): `skin-rules-content`, `skin-days-content`,
-  `style-rules-content`, `sizes-content`, `capsule-content`, `wants-content`. Each seeds
-  from the built-in defaults on first run, then persists whatever the user edits it to.
+  `style-rules-content`, `sizes-content`, `capsule-content`, `wants-content`,
+  `todo-content`. Each seeds from the built-in defaults on first run (`todo-content`
+  seeds empty — no default to-dos), then persists whatever the user edits it to.
 - **State** (checkbox/toggle state, keyed by item id): `style-state`, `wants-state`.
   (Originally used `window.storage`, an artifact-only API from Claude's in-browser
   preview environment; migrated to `localStorage` now that the app runs on its own
@@ -80,6 +79,18 @@ keys in any browser that had already loaded the app — harmless (nothing reads 
 anymore), not actively cleaned up.
 
 ## Tab-by-tab content
+**Home:** The default landing tab. A to-do list up top — plain-text quick-add (type +
+Enter, no modal, mirrors the Wants quick-add pattern and the gist of the Android
+Reminders "type a new line" flow), tap the circle to check off, unchecked items stay
+on top and checked ones sink to the bottom with a strikethrough, a "Clear completed"
+button appears once anything's checked. No default/seed items — it's empty until you
+add your own. Below that, three tappable glance cards summarizing the other tabs and
+jumping straight to them: **Today** (today's AM/PM step names from Skin/Hair, wash-day
+badge when relevant), **Capsule** (owned/total + progress bar, mirrors Style), and
+**Wants** (pending count + total, plus the cheapest pending item as a "Next:" teaser).
+The glance cards re-render every time you land on Home, so they never show stale
+numbers from something you changed on another tab.
+
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid
 same-day-different-session rule, SPF always last AM step, lash serum always last PM
@@ -122,16 +133,13 @@ its price is a rough estimate pending the merge decision below.
 
 ## Known open items / suggested next steps
 1. Search/filter for the capsule list (explicitly deferred, not built)
-2. **4th tab is an open slot** — Fitness was removed (workouts tracked elsewhere);
-   candidates discussed: a Home/overview dashboard (today's skin/hair + wants progress
-   at a glance), a habits/wellness tracker (water, sleep, mood — distinct from the
-   daily skin/hair routine), a Budget/Bills tracker (recurring expenses, complements
-   Wants), or a beauty maintenance calendar (nail/brow/wax/salon appointments — periodic,
-   distinct from Skin/Hair's daily AM/PM routine)
-3. The brown belt merge question (Wants list vs. style capsule "still need") is now
+2. The brown belt merge question (Wants list vs. style capsule "still need") is now
    trivially self-serve — delete whichever entry is redundant in edit mode
-4. Wash day's biweekly cadence/anchor date isn't exposed in edit mode (it's a computed
+3. Wash day's biweekly cadence/anchor date isn't exposed in edit mode (it's a computed
    rule, not a list item) — still requires a code change if the schedule shifts
+4. To-dos have no due dates/times/notifications (unlike the Android Reminders app they
+   were modeled after) — deliberately kept to plain text + checkbox; revisit if that
+   turns out to be missed
 
 ## Working style
 Make judgment calls and show finished output; expect targeted corrections rather than full rewrites.
