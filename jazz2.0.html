@@ -432,7 +432,7 @@ let editMode = localStorage.getItem("edit-mode") === "1";
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["cap-needed-card"]);
+let openPinned = new Set(["cap-needed-card", "wants-pending-card"]);
 let openDays = null; // lazily seeded with today's index on first renderSkin()
 
 // ---------- DEFAULT DATA (seeds localStorage on first run; everything below is editable in-app after) ----------
@@ -1174,12 +1174,27 @@ function renderWants(){
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>`;
-  html += `<div class="card"><div class="section-title">Pending</div>${pending||'<div class="empty">All caught up.</div>'}
-      <div class="total-row">Pending total <span>$${fmtMoney(pendingTotal)}</span></div>
-      ${editMode?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
-      </div>`;
-  html += `<div class="card"><div class="section-title">Purchased</div>${done||'<div class="empty">Nothing marked yet.</div>'}
-      <div class="total-row">Spent so far <span>$${fmtMoney(doneTotal)}</span></div></div>`;
+  html += `<div class="card pinned ${openPinned.has('wants-pending-card')?'open':''}" id="wants-pending-card">
+      <div class="coll-head" onclick="toggleRules('wants-pending-card')">
+        <div style="display:flex;align-items:center;gap:8px;"><h3>Pending</h3><span class="insight">${pendingItems.length} · $${fmtMoney(pendingTotal)}</span></div>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="coll-body"><div class="coll-inner">
+        ${pending||'<div class="empty">All caught up.</div>'}
+        <div class="total-row">Pending total <span>$${fmtMoney(pendingTotal)}</span></div>
+        ${editMode?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
+      </div></div>
+    </div>`;
+  html += `<div class="card pinned ${openPinned.has('wants-purchased-card')?'open':''}" id="wants-purchased-card">
+      <div class="coll-head" onclick="toggleRules('wants-purchased-card')">
+        <div style="display:flex;align-items:center;gap:8px;"><h3>Purchased</h3><span class="insight">${doneItems.length} · $${fmtMoney(doneTotal)}</span></div>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="coll-body"><div class="coll-inner">
+        ${done||'<div class="empty">Nothing marked yet.</div>'}
+        <div class="total-row">Spent so far <span>$${fmtMoney(doneTotal)}</span></div>
+      </div></div>
+    </div>`;
   html += `<div class="card"><div class="total-row grand">List total <span>$${fmtMoney(pendingTotal+doneTotal)}</span></div></div>`;
   el.innerHTML = html;
 }
