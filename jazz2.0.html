@@ -520,15 +520,15 @@ const FITNESS = [
 
 const WANTS = [
   {id:"pouch", name:"Trailco Paddle Pouch", meta:"Size medium", price:19.45,
-   link:"https://www.amazon.com/s?k=Trailco+OWB+Nylon+Paddle+Pouch+Sig+Sample"},
+   link:"https://example.com/pouch"},
   {id: "cooker", name:"Sample Cooker", meta:"", price:49.45,
-   link:"https://www.amazon.com/s?k=Instant+Pot+Duo+3+Qt"},
+   link:"https://example.com/cooker"},
   {id: "jacket", name:"Sample Rain Jacket", meta:"Gray, size S · Sample Store", price:130.00,
    link:"https://example.com/jacket"},
   {id: "boot", name:"Sample Lace-Up Boot", meta:"Black, size 8 · Sample Store", price:119.45,
    link:"https://example.com/boot"},
   {id: "band", name:"Sample Fitness Band", meta:"Size M", price:399.45,
-   link:"https://www.amazon.com/s?k=Sample Band+Ring+5"},
+   link:"https://www.amazon.com/Sample Band-Ring-Smallest-Activity-Compatible/dp/B0GRJZX1D8"},
   {id:"belt-brown", name:"Brown leather belt, square buckle", meta:"Pending: merge with style capsule belt? Price/link not locked in", price:20.00, link:null, estimated:true}
 ];
 
@@ -714,7 +714,7 @@ function renderWants(){
   WANTS.forEach(w => {
     const isDone = !!wantsState[w.id];
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${w.price.toFixed(2)}${w.estimated?' (est.)':''}` : "—";
-    const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View / search →</a>` : "";
+    const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
     const row = `<div class="want-card">
         <div class="body">
           <div class="name">${w.name}</div>
