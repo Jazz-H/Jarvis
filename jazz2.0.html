@@ -133,6 +133,16 @@
     padding:2px 6px; border-radius:5px; margin-left:6px; vertical-align:1px;}
   .badge.pending{background:rgba(0,229,255,.18); color:var(--gold);}
 
+  /* home */
+  .glance{cursor:pointer;}
+  .glance:active{background:var(--surface-2);}
+  .glance-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .glance-head h3{margin:0;}
+  .glance-arrow{color:var(--text-dim); flex-shrink:0;}
+  .glance-stat{font-size:18px; font-weight:800; color:var(--olive); margin-bottom:6px;}
+  .glance-detail{font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:2px;}
+  .glance-detail:last-child{margin-bottom:0;}
+
   /* wants */
   .quick-add{display:flex; gap:8px; margin-bottom:16px;}
   .quick-add input{
@@ -288,7 +298,7 @@
 
 <header>
   <div class="eyebrow" id="eyebrow">Jazz 2.0</div>
-  <h1 id="headline">Skin &amp; Hair</h1>
+  <h1 id="headline">Home</h1>
   <button class="edit-toggle-btn" id="edit-toggle" onclick="toggleEditMode()" aria-label="Toggle edit mode" title="Edit">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
   </button>
@@ -296,8 +306,10 @@
 
 <main>
   <div id="pull-indicator"><span class="pull-spinner"></span><span class="pull-label">Pull to refresh</span></div>
+  <!-- HOME -->
+  <section class="tabpanel active" id="panel-home"></section>
   <!-- SKIN / HAIR -->
-  <section class="tabpanel active" id="panel-skin"></section>
+  <section class="tabpanel" id="panel-skin"></section>
   <!-- STYLE -->
   <section class="tabpanel" id="panel-style">
     <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
@@ -325,7 +337,11 @@
 </div>
 
 <nav class="tabbar">
-  <button data-tab="skin" class="active">
+  <button data-tab="home" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
+    Home
+  </button>
+  <button data-tab="skin">
     <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
     Skin/Hair
   </button>
@@ -340,7 +356,7 @@
 </nav>
 
 <script>
-const HEADLINES = {skin:"Skin & Hair", style:"Style Capsule", wants:"Wants List"};
+const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Style Capsule", wants:"Wants List"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 
 // ---------- storage helpers (one JSON blob per key, plain localStorage) ----------
@@ -626,7 +642,9 @@ const DEFAULT_WANTS = [
    link:"https://us.amazon.com/Leather-1-Pack-Classic-Square-Buckle/dp/B0GV2BGNC3", estimated:true}
 ];
 
-let skinRules, skinDays, styleRules, sizes, capsule, wantsList;
+const DEFAULT_TODO = [];
+
+let skinRules, skinDays, styleRules, sizes, capsule, wantsList, todoList;
 
 // ---------- MODAL ENGINE (reused for every add/edit form) ----------
 let modalFields = [];
@@ -684,6 +702,105 @@ function toggleEditMode(){
   localStorage.setItem("edit-mode", editMode ? "1" : "0");
   document.getElementById("edit-toggle").classList.toggle("active", editMode);
   renderSkin(); renderStyle(); renderWants();
+}
+
+// ---------- RENDER: HOME ----------
+function renderHome(){
+  const el = document.getElementById("panel-home");
+  let html = "";
+
+  const incomplete = todoList.filter(t => !t.done);
+  const complete = todoList.filter(t => t.done);
+  html += `<div class="quick-add">
+      <input type="text" id="todo-quick-add-input" placeholder="Add a to-do" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddTodo();">
+      <button onclick="quickAddTodo()" aria-label="Add to-do">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>`;
+  const todoRow = (t) => `<div class="item ${t.done?'checked':''}" onclick="toggleTodo('${t.id}')">
+      <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      <div class="body"><div class="title">${t.text}</div></div>
+      <button class="row-edit-btn" onclick="event.stopPropagation(); deleteTodo('${t.id}')" aria-label="Delete to-do">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>`;
+  html += `<div class="card">`;
+  if (todoList.length === 0){
+    html += `<div class="empty">Nothing on your list — add one above.</div>`;
+  } else {
+    incomplete.forEach(t => html += todoRow(t));
+    complete.forEach(t => html += todoRow(t));
+  }
+  if (complete.length > 0) html += `<button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>`;
+  html += `</div>`;
+
+  const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
+  const today = skinDays.find(d => d.day === todayName);
+  if (today){
+    const washWeek = isWashWeek();
+    const isWashSat = today.day === "Saturday" && !!today.pmWash && washWeek;
+    const pmBand = (today.day === "Saturday" && today.pmWash) ? (washWeek ? "pmWash" : "pm") : "pm";
+    const pmSteps = today[pmBand];
+    const shortLabel = (s) => s[0].replace(/\s*—\s*last step$/i, "");
+    const amNames = today.am.map(shortLabel).join(", ");
+    const pmNames = pmSteps.map(shortLabel).join(", ");
+    html += `<div class="card glance" onclick="activateTab('skin')">
+        <div class="glance-head">
+          <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashSat?'<span class="badge wash">Wash day</span>':''}</div>
+          <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="glance-stat">${today.am.length} AM · ${pmSteps.length} PM</div>
+        <div class="glance-detail">${amNames}</div>
+        <div class="glance-detail">${pmNames}</div>
+      </div>`;
+  }
+
+  const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
+  const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
+  html += `<div class="card glance" onclick="activateTab('style')">
+      <div class="glance-head"><h3>Capsule</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="glance-stat">${ownedCount}/${capsule.length} · ${capPct}%</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
+    </div>`;
+
+  const pendingItems = wantsList.filter(w => !wantsState[w.id]);
+  const pendingTotal = pendingItems.reduce((sum,w) => sum + (w.price||0), 0);
+  const cheapest = pendingItems.slice().sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
+  html += `<div class="card glance" onclick="activateTab('wants')">
+      <div class="glance-head"><h3>Wants</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="glance-stat">${pendingItems.length} pending · $${fmtMoney(pendingTotal)}</div>
+      ${cheapest?`<div class="glance-detail">Next: ${cheapest.name}${cheapest.price!=null?` — $${fmtMoney(cheapest.price)}`:''}</div>`:''}
+    </div>`;
+
+  el.innerHTML = html;
+}
+function quickAddTodo(){
+  const input = document.getElementById("todo-quick-add-input");
+  const text = input.value.trim();
+  if (!text) return;
+  todoList.push({id:genId("todo"), text, done:false});
+  saveContent("todo-content", todoList);
+  renderHome();
+  const fresh = document.getElementById("todo-quick-add-input");
+  fresh.focus();
+}
+function toggleTodo(id){
+  const t = todoList.find(x=>x.id===id);
+  t.done = !t.done;
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function deleteTodo(id){
+  const idx = todoList.findIndex(x=>x.id===id);
+  todoList.splice(idx,1);
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function clearCompletedTodos(){
+  if (!confirm("Clear all completed to-dos? This can't be undone.")) return;
+  todoList = todoList.filter(t => !t.done);
+  saveContent("todo-content", todoList);
+  renderHome();
 }
 
 // ---------- RENDER: SKIN/HAIR ----------
@@ -1082,11 +1199,12 @@ function addWant(){
 }
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["skin","style","wants"];
-let currentTab = "skin";
+const TAB_ORDER = ["home","skin","style","wants"];
+let currentTab = "home";
 
 function activateTab(tab){
   currentTab = tab;
+  if (tab === "home") renderHome(); // refreshes glance cards with whatever changed on other tabs
   document.querySelectorAll("nav.tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
   document.getElementById("headline").textContent = HEADLINES[tab];
@@ -1189,6 +1307,7 @@ async function hardRefresh(){
   sizes = loadContent("sizes-content", DEFAULT_SIZES);
   capsule = loadContent("capsule-content", DEFAULT_CAPSULE);
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
+  todoList = loadContent("todo-content", DEFAULT_TODO);
 
   document.getElementById("edit-toggle").classList.toggle("active", editMode);
 
@@ -1200,6 +1319,7 @@ async function hardRefresh(){
   styleState = s; wantsState = w;
   renderStyle();
   renderWants();
+  renderHome();
 })();
 
 // ---------- PWA: service worker registration (only works when hosted on a real http(s) origin) ----------
