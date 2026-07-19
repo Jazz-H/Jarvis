@@ -1,7 +1,9 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 A single-file mobile web app consolidating the Jazz 2.0 series (previously separate
-Word docs) into one tabbed, installable PWA: **Skin/Hair, Style, Fitness, Wants.**
+Word docs) into one tabbed, installable PWA: **Skin/Hair, Style, Wants** (3 tabs — a
+Fitness tab was removed since workouts are tracked in a different app; a 4th tab slot
+is open, see Known open items).
 
 ## Files
 - `index.html` — redirects to `jazz2.0.html`, so the bare repo root URL works instead
@@ -38,25 +40,24 @@ see chat history if revisiting the palette.
   passes `updateViaCache: "none"` so the browser always re-checks `sw.js` itself for
   changes instead of caching it for up to 24h
 - Standardized chevron pattern for ALL collapsible sections (rules cards, day
-  accordions, capsule need/owned cards, fitness day cards) — same SVG path, same
-  180° rotate-on-open behavior
+  accordions, capsule need/owned cards) — same SVG path, same 180° rotate-on-open
+  behavior
 - Every collapsible section shows an "insight" (count/progress) in its header,
   except the Skin/Hair day accordions — the AM/PM step-count insight was removed
   per user preference
 
 ## Editing
 Every list in the app — Skin/Hair rules and AM/PM steps, Style fit rules/sizing/capsule
-items, Fitness workout days/exercises, Wants items — is fully editable in-app: add,
-edit, and delete, no code changes needed. Tap the pencil icon top-right of the header
-to enter edit mode. While it's on:
+items, Wants items — is fully editable in-app: add, edit, and delete, no code changes
+needed. Tap the pencil icon top-right of the header to enter edit mode. While it's on:
 - Rows with no existing tap action (rules, skin/hair steps, sizing) become tappable —
   tap anywhere on the row to edit or delete it.
-- Rows that already have a primary tap action (capsule owned/needed toggle, fitness
-  done-checkbox, wants mark-bought) get a small separate pencil button so editing
-  doesn't collide with that action.
-- "+ Add …" buttons appear at the bottom of every list, including "+ Add workout day"
-  for Fitness (Skin/Hair's 7 weekdays are NOT addable/removable, since "today" and
-  wash-day detection depend on the fixed Mon–Sun set matching real calendar weekdays).
+- Rows that already have a primary tap action (capsule owned/needed toggle, wants
+  mark-bought) get a small separate pencil button so editing doesn't collide with
+  that action.
+- "+ Add …" buttons appear at the bottom of every list (Skin/Hair's 7 weekdays are NOT
+  addable/removable, since "today" and wash-day detection depend on the fixed Mon–Sun
+  set matching real calendar weekdays).
 - New AM steps are inserted before the last step if that step's label contains "last
   step" (so SPF/lash-serum ordering rules stay intact automatically).
 - Edits use a bottom-sheet modal with Save/Delete; deleting always confirms first.
@@ -66,14 +67,17 @@ Edit mode itself persists across reloads (`edit-mode` in localStorage).
 Two layers, both plain `localStorage`, both survive a hard refresh (pull-to-refresh
 only clears the service worker's cache, never localStorage):
 - **Content** (the editable lists themselves): `skin-rules-content`, `skin-days-content`,
-  `style-rules-content`, `sizes-content`, `capsule-content`, `fitness-days-content`,
-  `wants-content`. Each seeds from the built-in defaults on first run, then persists
-  whatever the user edits it to.
-- **State** (checkbox/toggle state, keyed by item id): `style-state`, `fitness-state`,
-  `wants-state`. (Originally used `window.storage`, an artifact-only API from Claude's
-  in-browser preview environment; migrated to `localStorage` now that the app runs on
-  its own hosted origin — this also resolved the intermittent "Storage set failed"
-  errors, since saves no longer go through Anthropic's artifact storage bridge at all.)
+  `style-rules-content`, `sizes-content`, `capsule-content`, `wants-content`. Each seeds
+  from the built-in defaults on first run, then persists whatever the user edits it to.
+- **State** (checkbox/toggle state, keyed by item id): `style-state`, `wants-state`.
+  (Originally used `window.storage`, an artifact-only API from Claude's in-browser
+  preview environment; migrated to `localStorage` now that the app runs on its own
+  hosted origin — this also resolved the intermittent "Storage set failed" errors,
+  since saves no longer go through Anthropic's artifact storage bridge at all.)
+
+Removing the Fitness tab left `fitness-days-content` and `fitness-state` as orphaned
+keys in any browser that had already loaded the app — harmless (nothing reads them
+anymore), not actively cleaned up.
 
 ## Tab-by-tab content
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
@@ -94,11 +98,6 @@ Denim M, Shoes 8, Ring 8). Capsule
 wardrobe: "Still need" and "In closet" as separate collapsible cards, both grouped by
 category (Tops/Bottoms/Shoes/Outerwear/Accessories), tappable to move between them,
 persisted. Progress bar showing % of capsule owned.
-
-**Fitness:** 3-day split (Sunday Crunch/machines/pull, weekday busy-gym/free-weights/
-push, Friday home/dumbbells). Per-exercise checkboxes that persist until manually
-reset — NOT auto-reset weekly (explicit user preference). "Reset week" button clears
-all three days at once, now with a confirm() prompt since it's destructive/no-undo.
 
 **Wants:** A quick-add bar sits at the top of the tab, always available regardless of
 edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
@@ -123,7 +122,12 @@ its price is a rough estimate pending the merge decision below.
 
 ## Known open items / suggested next steps
 1. Search/filter for the capsule list (explicitly deferred, not built)
-2. Consider a 5th "Home/overview" tab (today's skin/hair + today's fitness at a glance)
+2. **4th tab is an open slot** — Fitness was removed (workouts tracked elsewhere);
+   candidates discussed: a Home/overview dashboard (today's skin/hair + wants progress
+   at a glance), a habits/wellness tracker (water, sleep, mood — distinct from the
+   daily skin/hair routine), a Budget/Bills tracker (recurring expenses, complements
+   Wants), or a beauty maintenance calendar (nail/brow/wax/salon appointments — periodic,
+   distinct from Skin/Hair's daily AM/PM routine)
 3. The brown belt merge question (Wants list vs. style capsule "still need") is now
    trivially self-serve — delete whichever entry is redundant in edit mode
 4. Wash day's biweekly cadence/anchor date isn't exposed in edit mode (it's a computed
