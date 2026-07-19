@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Jazz 2.0</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#18191b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jazz 2.0">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+  :root{
+    --bg:#18191b;
+    --surface:#232427;
+    --surface-2:#2b2c30;
+    --line:#37383c;
+    --text:#ededee;
+    --text-dim:#95979d;
+    --gold:#c8a24a;
+    --navy:#3a4a6b;
+    --olive:#7c8a63;
+    --olive-dim:#565f47;
+    --danger:#a4573f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    height:100%; overscroll-behavior-y:none;}
+  body{display:flex; flex-direction:column;}
+
+  header{
+    padding:18px 20px 14px;
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:var(--bg); z-index:5;
+  }
+  header .eyebrow{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-dim); font-weight:600; margin-bottom:2px;
+  }
+  header h1{margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em;}
+
+  main{flex:1; overflow-y:auto; padding:16px 16px 100px;}
+
+  nav.tabbar{
+    position:fixed; bottom:0; left:0; right:0;
+    display:flex; background:var(--surface);
+    border-top:1px solid var(--line);
+    padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+    z-index:10;
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; color:var(--text-dim);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-size:10.5px; font-family:inherit; font-weight:600;
+    letter-spacing:.02em; padding:6px 2px; border-radius:10px;
+  }
+  nav.tabbar button svg{width:21px; height:21px;}
+  nav.tabbar button.active{color:var(--olive);}
+  nav.tabbar button.active svg{stroke:var(--olive);}
+
+  .card{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:14px; padding:16px; margin-bottom:12px;
+  }
+  .card h2{margin:0 0 10px; font-size:15px; font-weight:700;}
+  .card h3{margin:0 0 8px; font-size:13px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em;}
+
+  .pinned{border-color:var(--olive-dim); background:linear-gradient(180deg, rgba(124,138,99,.10), var(--surface) 70%); padding:0; overflow:hidden;}
+  .pinned .coll-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px; cursor:pointer;
+  }
+  .pinned .coll-head h3{margin:0;}
+  .pinned .chev{transition:transform .2s; color:var(--text-dim); flex-shrink:0;}
+  .pinned.open .chev{transform:rotate(180deg);}
+  .pinned .coll-body{max-height:0; overflow:hidden; transition:max-height .25s ease;}
+  .pinned.open .coll-body{max-height:2400px;}
+  .pinned .coll-inner{padding:0 16px 16px;}
+
+  .rule{font-size:13.5px; line-height:1.5; color:var(--text); margin:0 0 8px; padding-left:14px; position:relative;}
+  .rule:before{content:"·"; position:absolute; left:0; color:var(--olive); font-weight:900;}
+  .rule:last-child{margin-bottom:0;}
+
+  .sizegrid{display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; font-size:13px;}
+  .sizegrid div span{display:block; color:var(--text-dim); font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:1px;}
+
+  /* Day accordion (skin/hair) */
+  .day{border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; background:var(--surface);}
+  .day-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; cursor:pointer; background:var(--surface-2);
+  }
+  .day-head .name{font-weight:700; font-size:14.5px;}
+  .day-head .chev{transition:transform .2s; color:var(--text-dim);}
+  .day.open .chev{transform:rotate(180deg);}
+  .day-body{max-height:0; overflow:hidden; transition:max-height .25s ease;}
+  .day.open .day-body{max-height:900px;}
+  .band{padding:12px 16px;}
+  .band.am{border-left:3px solid var(--gold);}
+  .band.pm{border-left:3px solid var(--navy); border-top:1px solid var(--line);}
+  .band .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin-bottom:8px;}
+  .band.am .label{color:var(--gold);}
+  .band.pm .label{color:#7a8cbf;}
+  .step{font-size:13px; line-height:1.45; margin-bottom:7px; display:flex; gap:8px;}
+  .step:last-child{margin-bottom:0;}
+  .step .n{color:var(--text-dim); font-variant-numeric:tabular-nums; flex-shrink:0;}
+  .step b{font-weight:600;}
+  .step .note{color:var(--text-dim); font-size:12px; display:block;}
+
+  /* checklist items */
+  .item{display:flex; align-items:flex-start; gap:11px; padding:10px 2px; border-bottom:1px solid var(--line);}
+  .item:last-child{border-bottom:none;}
+  .item .body{flex:1; order:1;}
+  .box{
+    width:21px; height:21px; border-radius:6px; border:1.5px solid var(--text-dim);
+    flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center;
+    transition:background .15s, border-color .15s; order:2;
+  }
+  .item .title{font-size:13.5px; font-weight:600; line-height:1.35;}
+  .item.checked .box{background:var(--olive); border-color:var(--olive);}
+  .box svg{width:13px; height:13px; opacity:0; transition:opacity .15s;}
+  .item.checked .box svg{opacity:1;}
+  .item.checked .title{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--line);}
+  .item .sub{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+  .badge{display:inline-block; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700;
+    padding:2px 6px; border-radius:5px; margin-left:6px; vertical-align:1px;}
+  .badge.pending{background:rgba(200,162,74,.18); color:var(--gold);}
+
+  /* fitness */
+  .exday{margin-bottom:6px;}
+  .exday summary{list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center;}
+  .exday summary::-webkit-details-marker{display:none;}
+  .exday summary .chev{transition:transform .2s; color:var(--text-dim); flex-shrink:0;}
+  .exday[open] summary .chev{transform:rotate(180deg);}
+  .exday-title{font-size:14px; font-weight:700;}
+  .exday-sub{font-size:11.5px; color:var(--text-dim); font-weight:500;}
+  .ex-row{display:flex; align-items:center; gap:10px; padding:9px 2px; border-top:1px solid var(--line);}
+  .ex-row .meta{flex:1; order:1;}
+  .ex-row .box{order:2;}
+  .ex-row .name{font-size:13px; font-weight:600;}
+  .ex-row .setsreps{font-size:11.5px; color:var(--text-dim);}
+  .reset-btn{
+    width:100%; margin-top:2px; padding:11px; border-radius:10px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--text-dim); font-size:12.5px; font-weight:700;
+    letter-spacing:.03em; font-family:inherit;
+  }
+  .reset-btn:active{background:var(--line);}
+
+  /* wants */
+  .want-card{display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line);}
+  .want-card:last-child{border-bottom:none;}
+  .want-card .body{flex:1;}
+  .want-card .name{font-size:13.5px; font-weight:700; line-height:1.35;}
+  .want-card .meta{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+  .want-card .link{font-size:12px; color:var(--olive); text-decoration:none; font-weight:600; display:inline-block; margin-top:4px;}
+  .want-card .price{font-size:14px; font-weight:700; color:var(--gold); margin-top:5px;}
+  .total-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 2px 2px; margin-top:6px; border-top:1px solid var(--line);
+    font-size:12.5px; font-weight:600; color:var(--text-dim);
+  }
+  .total-row span{font-size:14px; font-weight:700; color:var(--text);}
+  .total-row.grand{border-top:none; padding-top:2px;}
+  .total-row.grand span{color:var(--olive); font-size:16px;}
+  .toggle{
+    flex-shrink:0; padding:7px 12px; border-radius:20px; border:1.5px solid var(--olive-dim);
+    background:none; color:var(--olive); font-size:11px; font-weight:700; font-family:inherit;
+    letter-spacing:.03em; white-space:nowrap;
+  }
+  .toggle.done{background:var(--olive); color:#161710; border-color:var(--olive);}
+  .section-title{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); font-weight:700; margin:18px 0 8px;}
+  .section-title:first-child{margin-top:0;}
+  .cat-title{font-size:11.5px; font-weight:700; color:var(--olive); margin:12px 0 2px;}
+  .cat-title:first-child{margin-top:0;}
+  .insight{font-size:10.5px; font-weight:600; color:var(--text-dim); background:var(--surface-2);
+    padding:2px 7px; border-radius:8px; white-space:nowrap;}
+  .day-insight{font-size:11px; color:var(--text-dim); font-weight:600; margin-left:8px;}
+  .footnote{font-size:11px; color:var(--text-dim); margin:8px 0 0; font-style:italic;}
+  .badge.today{background:rgba(124,138,99,.22); color:var(--olive); margin-left:8px;}
+  .day.today .day-head{border-left:3px solid var(--olive);}
+  .progress-wrap{margin-bottom:12px;}
+  .progress-label{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;}
+  .progress-label b{color:var(--text); font-weight:700;}
+  .progress-bar{height:8px; border-radius:5px; background:var(--surface-2); overflow:hidden;}
+  .progress-fill{height:100%; background:var(--olive); border-radius:5px; transition:width .3s ease;}
+
+  .skeleton{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px;}
+  .skel-line{height:12px; border-radius:6px; background:var(--surface-2); margin-bottom:10px;
+    animation:pulse 1.2s ease-in-out infinite;}
+  .skel-line:last-child{margin-bottom:0; width:60%;}
+  @keyframes pulse{0%,100%{opacity:.5;} 50%{opacity:1;}}
+  @media (prefers-reduced-motion: reduce){ .skel-line{animation:none; opacity:.7;} }
+
+  :focus-visible{outline:2px solid var(--olive); outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.001ms !important; animation-duration:.001ms !important;}
+  }
+
+  .toast{
+    position:fixed; left:50%; bottom:82px; transform:translateX(-50%) translateY(10px);
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:20px;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:20;
+    white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{border-color:var(--danger); color:#e0a493;}
+
+  .empty{font-size:12.5px; color:var(--text-dim); font-style:italic; padding:6px 2px;}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow" id="eyebrow">Jazz 2.0</div>
+  <h1 id="headline">Skin &amp; Hair</h1>
+</header>
+
+<main>
+  <!-- SKIN / HAIR -->
+  <section class="tabpanel active" id="panel-skin"></section>
+  <!-- STYLE -->
+  <section class="tabpanel" id="panel-style">
+    <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
+  </section>
+  <!-- FITNESS -->
+  <section class="tabpanel" id="panel-fitness">
+    <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
+  </section>
+  <!-- WANTS -->
+  <section class="tabpanel" id="panel-wants">
+    <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+
+<nav class="tabbar">
+  <button data-tab="skin" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
+    Skin/Hair
+  </button>
+  <button data-tab="style">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>
+    Style
+  </button>
+  <button data-tab="fitness">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round"><path d="M4 9v6M2 10v4M20 9v6M22 10v4M7 12h10M6 8v8M18 8v8"/></svg>
+    Fitness
+  </button>
+  <button data-tab="wants">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
+    Wants
+  </button>
+</nav>
+
+<script>
+const HEADLINES = {skin:"Skin & Hair", style:"Style Capsule", fitness:"Fitness Split", wants:"Wants List"};
+
+// ---------- storage helpers (one JSON blob per tab, plain localStorage) ----------
+async function loadState(key){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+async function saveState(key, obj){
+  try{
+    localStorage.setItem(key, JSON.stringify(obj));
+    showToast("Saved");
+  }catch(e){
+    console.error("save failed", e);
+    showToast("Save failed — storage may be full or disabled", true);
+  }
+}
+let toastTimer;
+function showToast(msg, isError){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.toggle("error", !!isError);
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), isError ? 2600 : 1400);
+}
+
+let styleState = {};
+let fitnessState = {};
+let wantsState = {};
+
+// ---------- DATA ----------
+
+const SKINHAIR_RULES = [
+  "Vitamin C (AM) and Glycolic Acid (PM) are fine same day — just never same session.",
+  "SPF is the final AM step, no exceptions, even indoors.",
+  "Multi-Peptide Lash &amp; Brow Serum is always the very last PM step."
+];
+
+const DAYS = [
+  {
+    day:"Monday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Exfoliate","Glycolic Acid 7%","Mon / Wed / Fri only"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair — seal &amp; oil","Hair Rosemary Mint Light Oil","Length + ends first, scalp last"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  },
+  {
+    day:"Tuesday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair mist","Daily Hair Spray"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  },
+  {
+    day:"Wednesday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Exfoliate","Glycolic Acid 7%","Mon / Wed / Fri only"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair mist","Daily Hair Spray"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  },
+  {
+    day:"Thursday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair mist","Lion Locs Rosewater Spray","Lighter refresh option"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  },
+  {
+    day:"Friday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Exfoliate","Glycolic Acid 7%","Mon / Wed / Fri only"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair — seal &amp; oil","Hair Rosemary Mint Light Oil","Length + ends first, scalp last"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  },
+  {
+    day:"Saturday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Wash day","Clarifying Shampoo"],
+      ["Mask","Strengthening Hair Mask"],
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  },
+  {
+    day:"Sunday",
+    am:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Vitamin C","Ascorbyl Glucoside 12%"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Hair — rice water","Plant Therapy Rosemary Rice Water Spray"],
+      ["SPF — last step","Daily Sunscreen SPF 30"]
+    ],
+    pm:[
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Eye area","Caffeine Solution 5% + EGCG"],
+      ["Hair mist","Daily Hair Spray"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ]
+  }
+];
+
+const FIT_RULES = [
+  "Front-tuck shirts for a cleaner line.",
+  "Hem chinos and dress pants to fit.",
+  "Size bottoms for comfort.",
+  "Avoid oversized or drop-shoulder cuts.",
+  "Ankle-length dress pants = business casual only, worn with no-show socks and loafers — never sneakers.",
+  "White sneakers or tan/brown loafers pair better than black shoes with muted or sage green."
+];
+
+const SIZES = [
+  ["Tops","M"],["Outerwear","M"],
+  ["Bottoms","M"],["Denim","M"],
+  ["Shoes","8"],["Ring","8*"]
+];
+
+const CAPSULE = [
+  {id:"tee-hgrey", title:"Crew tee — heather grey", state:"owned", cat:"Tops"},
+  {id:"tee-plum", title:"Crew tee — plum", state:"owned", cat:"Tops"},
+  {id:"tee-black", title:"Crew tee — black", state:"owned", cat:"Tops"},
+  {id:"polo-graphic", title:"Graphic polo", state:"owned", cat:"Tops"},
+  {id:"jeans-dark", title:"Dark-wash slim jeans", sub:"M", state:"owned", cat:"Bottoms"},
+  {id:"shorts-khaki", title:"Khaki shorts", state:"owned", cat:"Bottoms"},
+  {id:"shorts-bermuda", title:"Bermuda shorts", state:"owned", cat:"Bottoms"},
+  {id:"tank-white", title:"Basic tank — white", state:"owned", cat:"Tops"},
+  {id:"tank-black", title:"Basic tank — black", state:"owned", cat:"Tops"},
+  {id:"tank-stripe", title:"Basic tank — stripe", state:"owned", cat:"Tops"},
+  {id:"top-capsleeve", title:"Collared cap-sleeve top", state:"owned", cat:"Tops"},
+  {id:"pants-khaki", title:"Slim pants — khaki", sub:"Size M", state:"pending", cat:"Bottoms"},
+  {id:"pants-black", title:"Slim pants — black", sub:"Size M", state:"pending", cat:"Bottoms"},
+  {id:"button-white", title:"Classic Button-Down — white", sub:"Size M", state:"owned", cat:"Tops"},
+  {id:"chambray", title:"Chambray denim shirt", state:"owned", cat:"Tops"},
+  {id:"shoe-vans-loafer", title:"Black slip-on loafers", state:"owned", cat:"Shoes"},
+  {id:"shoe-dressloafer", title:"Dress-up loafers", state:"owned", cat:"Shoes"},
+  {id:"shoe-timbs", title:"Work boots — black/tan", state:"owned", cat:"Shoes"},
+  {id:"shoe-chelsea", title:"Black Chelsea boots", state:"owned", cat:"Shoes"},
+  {id:"shoe-vans", title:"Black sneakers", state:"owned", cat:"Shoes"},
+  {id:"shoe-nike", title:"Low-top sneakers — black/white", state:"owned", cat:"Shoes"},
+  {id:"shoe-airmax", title:"Running sneakers — black/white", state:"owned", cat:"Shoes"},
+  {id:"shoe-adidas", title:"Sneakers — white", state:"owned", cat:"Shoes"},
+  {id:"acc-chain", title:"Chain necklace", state:"owned", cat:"Accessories"},
+  {id:"acc-watch", title:"Smartwatch", state:"owned", cat:"Accessories"},
+  {id:"acc-bag", title:"Black crossbody bag", state:"owned", cat:"Accessories"},
+  {id:"acc-belt", title:"Black belt", state:"owned", cat:"Accessories"},
+  {id:"need-oxford", title:"Light blue oxford", sub:"Size M", state:"needed", cat:"Tops"},
+  {id:"need-blazer", title:"Structured blazer", sub:"Sample Store", state:"needed", cat:"Outerwear"},
+  {id:"need-belt-brown", title:"Brown/cognac belt", sub:"~$20", state:"needed", cat:"Accessories"},
+  {id:"need-coach", title:"Coach jacket — black", sub:"Olive secondary", state:"needed", cat:"Outerwear"},
+  {id:"need-chinos", title:"Charcoal slim chinos", sub:"Sample Store", state:"needed", cat:"Bottoms"},
+  {id:"need-chino-shorts", title:"Slim chino shorts — navy/olive/charcoal/white", sub:"Nice to have", state:"needed", cat:"Bottoms"}
+];
+
+const FITNESS = [
+  {
+    id:"sunday", title:"Sunday AM — Pull", sub:"Crunch · machine-dependent",
+    exercises:[
+      ["Lat pulldown","4 × 10–12"],
+      ["Cable row","4 × 10–12"],
+      ["Bicep curl (machine)","3 × 12"],
+      ["Forearm curl","3 × 15"],
+      ["Incline treadmill walk","20–30 min post-lift"]
+    ]
+  },
+  {
+    id:"weekday", title:"Weekday — Push", sub:"Busy gym · free weights only",
+    exercises:[
+      ["Dumbbell shoulder press","4 × 10"],
+      ["Lateral raises","3 × 12–15"],
+      ["EZ-bar skull crushers","3 × 12"],
+      ["Front raises","3 × 12"]
+    ]
+  },
+  {
+    id:"friday", title:"Friday — Home", sub:"10lb + 25lb dumbbells + ab roller",
+    exercises:[
+      ["Goblet squat (25lb)","4 × 12"],
+      ["Dumbbell curls (10lb)","3 × 15"],
+      ["Forearm wrist curls (10lb)","3 × 15"],
+      ["Ab roller","3 × 10–12"],
+      ["Dumbbell lunges (25lb)","3 × 10/leg"]
+    ]
+  }
+];
+
+const WANTS = [
+  {id:"pouch", name:"Trailco Paddle Pouch", meta:"Size medium", price:19.45,
+   link:"https://example.com/pouch"},
+  {id: "cooker", name:"Sample Cooker", meta:"", price:49.45,
+   link:"https://example.com/cooker"},
+  {id: "jacket", name:"Sample Rain Jacket", meta:"Gray, size S · Sample Store", price:130.00,
+   link:"https://example.com/jacket"},
+  {id: "boot", name:"Sample Lace-Up Boot", meta:"Black, size 8 · Sample Store", price:119.45,
+   link:"https://example.com/boot"},
+  {id: "band", name:"Sample Fitness Band", meta:"Size M", price:399.45,
+   link:"https://www.amazon.com/Sample Band-Ring-Smallest-Activity-Compatible/dp/B0GRJZX1D8"},
+  {id:"belt-brown", name:"Brown leather belt, square buckle", meta:"Pending: merge with style capsule belt? Price/link not locked in", price:20.00, link:null, estimated:true}
+];
+
+// ---------- RENDER: SKIN/HAIR ----------
+function renderSkin(){
+  const el = document.getElementById("panel-skin");
+  let html = `<div class="card pinned" id="rules-skin">
+    <div class="coll-head" onclick="toggleRules('rules-skin')">
+      <div style="display:flex;align-items:center;gap:8px;"><h3>Key rules</h3><span class="insight">${SKINHAIR_RULES.length} rules</span></div>
+      <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="coll-body"><div class="coll-inner">`;
+  SKINHAIR_RULES.forEach(r => html += `<p class="rule">${r}</p>`);
+  html += `</div></div></div>`;
+  const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
+  DAYS.forEach((d,i) => {
+    const isToday = d.day === todayName;
+    html += `<div class="day ${isToday?'today open':''}" data-idx="${i}">
+      <div class="day-head" onclick="toggleDay(${i})">
+        <span class="name">${d.day}${isToday?'<span class="badge today">Today</span>':''}<span class="day-insight">AM ${d.am.length} · PM ${d.pm.length}</span></span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="day-body">
+        <div class="band am"><div class="label">AM</div>
+          ${d.am.map((s,n)=>stepHtml(s,n)).join("")}
+        </div>
+        <div class="band pm"><div class="label">PM</div>
+          ${d.pm.map((s,n)=>stepHtml(s,n)).join("")}
+        </div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+function stepHtml(s,n){
+  return `<div class="step"><span class="n">${n+1}.</span><div><b>${s[0]}</b> — ${s[1]}${s[2]?`<span class="note">${s[2]}</span>`:""}</div></div>`;
+}
+function toggleDay(i){
+  document.querySelector(`.day[data-idx="${i}"]`).classList.toggle("open");
+}
+function toggleRules(id){
+  document.getElementById(id).classList.toggle("open");
+}
+
+// ---------- RENDER: STYLE ----------
+function renderStyle(){
+  const el = document.getElementById("panel-style");
+  let html = `<div class="card pinned" id="rules-style">
+    <div class="coll-head" onclick="toggleRules('rules-style')">
+      <div style="display:flex;align-items:center;gap:8px;"><h3>Fit rules</h3><span class="insight">${FIT_RULES.length} rules</span></div>
+      <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="coll-body"><div class="coll-inner">`;
+  FIT_RULES.forEach(r => html += `<p class="rule">${r}</p>`);
+  html += `</div></div></div>`;
+
+  html += `<div class="card"><h3>Sizing</h3><div class="sizegrid">`;
+  SIZES.forEach(([k,v]) => html += `<div><span>${k}</span>${v}</div>`);
+  html += `</div><p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div>`;
+
+  html += `<div class="card"><div class="progress-wrap">
+      <div class="progress-label"><span>Capsule built</span><b id="cap-progress-label"></b></div>
+      <div class="progress-bar"><div class="progress-fill" id="cap-progress-fill"></div></div>
+    </div></div>`;
+
+  html += `<div class="card pinned open" id="cap-needed-card">
+    <div class="coll-head" onclick="toggleRules('cap-needed-card')">
+      <h3>Still need</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="insight" id="cap-needed-insight"></span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+    <div class="coll-body"><div class="coll-inner" id="cap-needed"></div></div>
+  </div>`;
+  html += `<div class="card pinned" id="cap-owned-card">
+    <div class="coll-head" onclick="toggleRules('cap-owned-card')">
+      <h3>In closet</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="insight" id="cap-owned-insight"></span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+    <div class="coll-body"><div class="coll-inner" id="cap-owned"></div></div>
+  </div>`;
+  el.innerHTML = html;
+  renderCapsuleLists();
+}
+function currentCapState(item){
+  if (styleState[item.id] !== undefined) return styleState[item.id];
+  return item.state === "owned" || item.state === "pending" ? "owned" : "needed";
+}
+function renderCapsuleLists(){
+  const ownedEl = document.getElementById("cap-owned");
+  const neededEl = document.getElementById("cap-needed");
+  const CAT_ORDER = ["Tops","Bottoms","Shoes","Outerwear","Accessories"];
+  const ownedByCat = {};
+  const neededByCat = {};
+
+  CAPSULE.forEach(item => {
+    const checked = currentCapState(item) === "owned";
+    const pendingBadge = item.state === "pending" ? `<span class="badge pending">fit pending</span>` : "";
+    const row = `<div class="item ${checked?'checked':''}" onclick="toggleCapsule('${item.id}')">
+        <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+        <div class="body"><div class="title">${item.title}${pendingBadge}</div>${item.sub?`<div class="sub">${item.sub}</div>`:""}</div>
+      </div>`;
+    const cat = item.cat || "Other";
+    const bucket = checked ? ownedByCat : neededByCat;
+    if (!bucket[cat]) bucket[cat] = "";
+    bucket[cat] += row;
+  });
+
+  function buildGrouped(byCat){
+    let out = "";
+    CAT_ORDER.forEach(cat => { if (byCat[cat]) out += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
+    Object.keys(byCat).forEach(cat => { if (!CAT_ORDER.includes(cat)) out += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
+    return out;
+  }
+
+  ownedEl.innerHTML = buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`;
+  neededEl.innerHTML = buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`;
+
+  const ownedCount = CAPSULE.filter(i => currentCapState(i) === "owned").length;
+  const neededCount = CAPSULE.length - ownedCount;
+  document.getElementById("cap-owned-insight").textContent = `${ownedCount} items`;
+  document.getElementById("cap-needed-insight").textContent = `${neededCount} items`;
+  const pct = Math.round((ownedCount / CAPSULE.length) * 100);
+  document.getElementById("cap-progress-label").textContent = `${ownedCount}/${CAPSULE.length} · ${pct}%`;
+  document.getElementById("cap-progress-fill").style.width = `${pct}%`;
+}
+async function toggleCapsule(id){
+  const cur = currentCapState(CAPSULE.find(i=>i.id===id));
+  styleState[id] = cur === "owned" ? "needed" : "owned";
+  renderCapsuleLists();
+  await saveState("style-state", styleState);
+}
+
+// ---------- RENDER: FITNESS ----------
+function renderFitness(){
+  const el = document.getElementById("panel-fitness");
+  let html = "";
+  FITNESS.forEach(day => {
+    const doneCount = day.exercises.filter((ex,i) => !!fitnessState[`${day.id}:${i}`]).length;
+    html += `<details class="card exday" open><summary>
+        <div><div class="exday-title">${day.title}</div><div class="exday-sub">${day.sub}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="insight">${doneCount}/${day.exercises.length} done</span>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </summary>`;
+    day.exercises.forEach((ex, i) => {
+      const key = `${day.id}:${i}`;
+      const done = !!fitnessState[key];
+      html += `<div class="ex-row" onclick="toggleEx('${key}')">
+          <div class="box ${done?'checkedbox':''}" style="${done?'background:var(--olive);border-color:var(--olive)':''}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:${done?1:0}"><path d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div class="meta"><div class="name" style="${done?'color:var(--text-dim);text-decoration:line-through':''}">${ex[0]}</div><div class="setsreps">${ex[1]}</div></div>
+        </div>`;
+    });
+    html += `</details>`;
+  });
+  html += `<button class="reset-btn" onclick="resetFitness()">Reset week</button>`;
+  el.innerHTML = html;
+}
+async function toggleEx(key){
+  fitnessState[key] = !fitnessState[key];
+  renderFitness();
+  await saveState("fitness-state", fitnessState);
+}
+async function resetFitness(){
+  if (!confirm("Reset all checked exercises for the week? This can't be undone.")) return;
+  fitnessState = {};
+  renderFitness();
+  await saveState("fitness-state", fitnessState);
+}
+
+// ---------- RENDER: WANTS ----------
+function renderWants(){
+  const el = document.getElementById("panel-wants");
+  let pending = "", done = "";
+  let pendingTotal = 0, doneTotal = 0;
+  WANTS.forEach(w => {
+    const isDone = !!wantsState[w.id];
+    const priceStr = w.price != null ? `${w.estimated?'~':''}$${w.price.toFixed(2)}${w.estimated?' (est.)':''}` : "—";
+    const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
+    const row = `<div class="want-card">
+        <div class="body">
+          <div class="name">${w.name}</div>
+          ${w.meta?`<div class="meta">${w.meta}</div>`:""}
+          <div class="price">${priceStr}</div>
+          ${linkHtml}
+        </div>
+        <button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
+      </div>`;
+    if (isDone){ done += row; doneTotal += (w.price||0); }
+    else { pending += row; pendingTotal += (w.price||0); }
+  });
+  let html = `<div class="card"><div class="section-title">Pending</div>${pending||'<div class="empty">All caught up.</div>'}
+      <div class="total-row">Pending total <span>$${pendingTotal.toFixed(2)}</span></div></div>`;
+  html += `<div class="card"><div class="section-title">Purchased</div>${done||'<div class="empty">Nothing marked yet.</div>'}
+      <div class="total-row">Spent so far <span>$${doneTotal.toFixed(2)}</span></div></div>`;
+  html += `<div class="card"><div class="total-row grand">List total <span>$${(pendingTotal+doneTotal).toFixed(2)}</span></div></div>`;
+  el.innerHTML = html;
+}
+async function toggleWant(id){
+  wantsState[id] = !wantsState[id];
+  renderWants();
+  await saveState("wants-state", wantsState);
+}
+
+// ---------- TAB SWITCHING ----------
+const TAB_ORDER = ["skin","style","fitness","wants"];
+let currentTab = "skin";
+
+function activateTab(tab){
+  currentTab = tab;
+  document.querySelectorAll("nav.tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
+  document.getElementById("headline").textContent = HEADLINES[tab];
+  document.querySelector("main").scrollTop = 0;
+}
+
+document.querySelectorAll("nav.tabbar button").forEach(btn => {
+  btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+});
+
+// Swipe left/right between tabs (ignored if the gesture looks like a vertical scroll)
+(function(){
+  const mainEl = document.querySelector("main");
+  let startX = 0, startY = 0, tracking = false;
+  mainEl.addEventListener("touchstart", e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+  }, {passive:true});
+  mainEl.addEventListener("touchend", e => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    const idx = TAB_ORDER.indexOf(currentTab);
+    if (dx < 0 && idx < TAB_ORDER.length - 1) activateTab(TAB_ORDER[idx + 1]);
+    if (dx > 0 && idx > 0) activateTab(TAB_ORDER[idx - 1]);
+  }, {passive:true});
+})();
+
+// ---------- INIT ----------
+(async function init(){
+  renderSkin();
+  const [s, f, w] = await Promise.all([
+    loadState("style-state"),
+    loadState("fitness-state"),
+    loadState("wants-state")
+  ]);
+  styleState = s; fitnessState = f; wantsState = w;
+  renderStyle();
+  renderFitness();
+  renderWants();
+})();
+
+// ---------- PWA: service worker registration (only works when hosted on a real http(s) origin) ----------
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(err => console.log("SW registration skipped:", err));
+  });
+}
+</script>
+</body>
+</html>
