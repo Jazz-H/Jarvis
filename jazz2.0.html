@@ -1127,6 +1127,9 @@ function addExercise(dayId){
 }
 
 // ---------- RENDER: WANTS ----------
+function fmtMoney(n){
+  return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
@@ -1135,7 +1138,7 @@ function renderWants(){
   const pendingItems = wantsList.filter(w => !wantsState[w.id]).sort(byPriceAsc);
   const doneItems = wantsList.filter(w => !!wantsState[w.id]).sort(byPriceAsc);
   const wantRow = (w, isDone) => {
-    const priceStr = w.price != null ? `${w.estimated?'~':''}$${w.price.toFixed(2)}${w.estimated?' (est.)':''}` : "—";
+    const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
     const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
     const editBtn = editMode ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
@@ -1154,12 +1157,12 @@ function renderWants(){
   pendingItems.forEach(w => { pending += wantRow(w, false); pendingTotal += (w.price||0); });
   doneItems.forEach(w => { done += wantRow(w, true); doneTotal += (w.price||0); });
   let html = `<div class="card"><div class="section-title">Pending</div>${pending||'<div class="empty">All caught up.</div>'}
-      <div class="total-row">Pending total <span>$${pendingTotal.toFixed(2)}</span></div>
+      <div class="total-row">Pending total <span>$${fmtMoney(pendingTotal)}</span></div>
       ${editMode?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
       </div>`;
   html += `<div class="card"><div class="section-title">Purchased</div>${done||'<div class="empty">Nothing marked yet.</div>'}
-      <div class="total-row">Spent so far <span>$${doneTotal.toFixed(2)}</span></div></div>`;
-  html += `<div class="card"><div class="total-row grand">List total <span>$${(pendingTotal+doneTotal).toFixed(2)}</span></div></div>`;
+      <div class="total-row">Spent so far <span>$${fmtMoney(doneTotal)}</span></div></div>`;
+  html += `<div class="card"><div class="total-row grand">List total <span>$${fmtMoney(pendingTotal+doneTotal)}</span></div></div>`;
   el.innerHTML = html;
 }
 async function toggleWant(id){
