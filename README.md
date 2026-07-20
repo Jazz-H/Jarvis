@@ -112,25 +112,34 @@ strikethrough. A header badge shows "N open" (or "All done") counting across all
 groups, and a "Clear completed" button appears once anything anywhere is checked. No
 default/seed items — it's empty until you add your own.
 
-*Glance cards* — three tappable cards summarizing the other tabs and jumping straight
-to them on tap: **Today** (today's AM/PM steps from Skin/Hair, listed by a short
-display name — a middle ground between the vague step category ("Eye area") and the
-full product name with its concentration ("Caffeine Solution 5% + EGCG"): "Cleanser,
+*Glance cards* — tappable cards summarizing the other tabs and jumping straight to them
+on tap, each with a colored icon badge for quick visual identity: **Today** (cyan
+leaf/droplet badge — today's AM/PM steps from Skin/Hair, listed by a short display
+name — a middle ground between the vague step category ("Eye area") and the full
+product name with its concentration ("Caffeine Solution 5% + EGCG"): "Cleanser,
 Ascorbyl Glucoside, Niacinamide, Moisturizer, Hair mist, Sunscreen" — each list under a
 small colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used
 for the actual AM/PM bands on the Skin/Hair tab — plus a wash-day badge on wash
 Thursdays, or otherwise a highlighted "Next wash day: [date] — in N days" callout (a
 magenta-tinted pill with a droplet icon, matching the PM accent color, so it stands out
-from the rest of the card instead of reading as another dim detail line)),
-**Wardrobe** (owned/total + progress bar, mirrors the Style tab, plus a "Still need: …"
-teaser naming the *cheapest* still-needed item by price when any needed items have a
-price set, otherwise just the first one — with its own inline "Mark owned" button and,
-when that item has a link saved, a small link-shortcut button next to it, both usable
-straight from Home), and **Wants** (pending count + total, the cheapest pending item as
-a "Next:" teaser with its own inline "Mark bought" button and, when that item has a
-link saved, a link-shortcut button — buyable/checkable straight from Home, no need to
-open the Wants or Style tab). The glance cards re-render every time you land on Home,
-so they never show stale numbers from something you changed on another tab.
+from the rest of the card instead of reading as another dim detail line)), full-width
+as before.
+
+Below that, **Wardrobe** (lime shirt badge) and **Wants** (magenta bag badge) sit side
+by side in a compact two-column stat-tile grid rather than stacking full-width — this
+fills what used to be dead space at the bottom of Home and gives each card a distinct
+accent color at a glance. Wardrobe shows owned% as the headline stat (with the
+owned/total count as a caption) over a cyan→lime gradient progress bar, plus a "still
+need" teaser naming the *cheapest* still-needed item by price when any needed items
+have a price set, otherwise just the first one. Wants shows the pending dollar total as
+the headline stat (with the pending count as a caption), plus a "next" teaser naming
+the cheapest pending item. Both teasers truncate the item name to one line so the price
+never gets crowded out, and both carry the same pair of inline icon-only actions: a
+mark-owned/mark-bought checkmark button (olive), and — only when that item has a link
+saved — a link-shortcut button in cyan, so it reads as a distinctly different action
+from the checkmark rather than a second, easy-to-miss duplicate. All tiles re-render
+every time you land on Home, so they never show stale numbers from something you
+changed on another tab.
 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it, and auto-scrolls the tab straight to

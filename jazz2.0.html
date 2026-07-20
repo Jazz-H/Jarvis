@@ -162,6 +162,36 @@
   .glance-tag.am{background:rgba(0,229,255,.16); color:var(--gold);}
   .glance-tag.pm{background:rgba(255,46,154,.16); color:var(--navy);}
   .glance-detail-text{font-size:12px; color:var(--text-dim); line-height:1.5;}
+  .glance-icon{
+    width:30px; height:30px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .glance-icon svg{width:15px; height:15px;}
+  .glance-title-row{display:flex; align-items:center; gap:10px;}
+
+  /* home stat tiles (wardrobe / wants) */
+  .home-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
+  .home-grid .card{margin-bottom:0; padding:14px; min-width:0;}
+  .tile-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .tile-label{font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;}
+  .tile-stat{font-size:23px; font-weight:800; line-height:1; margin-bottom:4px;}
+  .tile-caption{font-size:11px; color:var(--text-dim); margin-bottom:10px;}
+  .tile-next-wrap{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:8px;
+    margin-top:10px; padding-top:10px; border-top:1px solid var(--line); min-width:0;
+  }
+  .tile-next{font-size:11.5px; color:var(--text); line-height:1.4; min-width:0; flex:1 1 0;}
+  .tile-next .name{
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; min-width:0;
+  }
+  .tile-next .price{display:block; color:var(--gold); font-weight:700; margin-top:3px;}
+  .tile-actions{display:flex; gap:6px; flex-shrink:0;}
+  .icon-btn{
+    flex-shrink:0; width:28px; height:28px; border-radius:50%; border:1.5px solid var(--olive-dim);
+    background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn.link{border-color:rgba(0,229,255,.4); color:var(--gold);}
+  .icon-btn:active{background:var(--surface-2);}
 
   /* wants */
   .quick-add{display:flex; gap:8px; margin-bottom:16px;}
@@ -211,7 +241,7 @@
   .progress-label{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;}
   .progress-label b{color:var(--text); font-weight:700;}
   .progress-bar{height:8px; border-radius:5px; background:var(--surface-2); overflow:hidden;}
-  .progress-fill{height:100%; background:var(--olive); border-radius:5px; transition:width .3s ease;}
+  .progress-fill{height:100%; background:linear-gradient(90deg, var(--gold), var(--olive)); border-radius:5px; transition:width .3s ease;}
 
   .skeleton{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px;}
   .skel-line{height:12px; border-radius:6px; background:var(--surface-2); margin-bottom:10px;
@@ -380,6 +410,10 @@ const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wan
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const LINK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
+const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
+const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
+const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>';
+const CHECK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 // Short display names for Home's Today card, keyed by step label — a middle ground
 // between the vague step category ("Eye area") and the full product name with its
 // concentration ("Caffeine Solution 5% + EGCG"). Falls back to the step's own label
@@ -794,7 +828,10 @@ function renderHome(){
     const washNote = isWashDay ? "" : `<div class="wash-note">${DROPLET_ICON}Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
-          <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashDay?'<span class="badge wash">Wash day</span>':''}</div>
+          <div class="glance-title-row">
+            <div class="glance-icon" style="background:rgba(0,229,255,.15); color:var(--gold);">${SKIN_ICON}</div>
+            <h3 style="margin:0;">Today — ${today.day}</h3>${isWashDay?'<span class="badge wash">Wash day</span>':''}
+          </div>
           <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="glance-stat">${today.am.length} AM · ${pmSteps.length} PM</div>
@@ -807,32 +844,44 @@ function renderHome(){
   const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
   const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
   const cheapestNeeded = capsule.filter(i => currentCapState(i) !== "owned").sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
-  html += `<div class="card glance" onclick="activateTab('style')">
-      <div class="glance-head"><h3>Wardrobe</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
-      <div class="glance-stat">${ownedCount}/${capsule.length} · ${capPct}%</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
-      ${cheapestNeeded?`<div class="glance-detail" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
-          <span>Still need: ${cheapestNeeded.title}${cheapestNeeded.price!=null?` — ${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:''}</span>
-          <div style="display:flex;gap:8px;flex-shrink:0;">
-            ${cheapestNeeded.link?`<a href="${cheapestNeeded.link}" target="_blank" rel="noopener" class="glance-link-btn" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
-            <button class="toggle" onclick="event.stopPropagation(); toggleCapsule('${cheapestNeeded.id}').then(renderHome);">Mark owned</button>
-          </div>
-        </div>`:''}
-    </div>`;
-
   const pendingItems = wantsList.filter(w => !wantsState[w.id]);
   const pendingTotal = pendingItems.reduce((sum,w) => sum + (w.price||0), 0);
   const cheapest = pendingItems.slice().sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
-  html += `<div class="card glance" onclick="activateTab('wants')">
-      <div class="glance-head"><h3>Wants</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
-      <div class="glance-stat">${pendingItems.length} pending · $${fmtMoney(pendingTotal)}</div>
-      ${cheapest?`<div class="glance-detail" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <span>Next: ${cheapest.name}${cheapest.price!=null?` — $${fmtMoney(cheapest.price)}`:''}</span>
-          <div style="display:flex;gap:8px;flex-shrink:0;">
-            ${cheapest.link?`<a href="${cheapest.link}" target="_blank" rel="noopener" class="glance-link-btn" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
-            <button class="toggle" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);">Mark bought</button>
-          </div>
-        </div>`:''}
+
+  html += `<div class="home-grid">
+      <div class="card glance" onclick="activateTab('style')">
+        <div class="tile-head">
+          <div class="glance-icon" style="background:rgba(198,255,61,.15); color:var(--olive);">${SHIRT_ICON}</div>
+          <svg class="glance-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="tile-label">Wardrobe</div>
+        <div class="tile-stat" style="color:var(--olive);">${capPct}%</div>
+        <div class="tile-caption">${ownedCount}/${capsule.length} owned</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
+        ${cheapestNeeded?`<div class="tile-next-wrap">
+            <div class="tile-next"><span class="name">${cheapestNeeded.title}</span>${cheapestNeeded.price!=null?`<span class="price">${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}</span>`:''}</div>
+            <div class="tile-actions">
+              ${cheapestNeeded.link?`<a href="${cheapestNeeded.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+              <button class="icon-btn" onclick="event.stopPropagation(); toggleCapsule('${cheapestNeeded.id}').then(renderHome);" aria-label="Mark owned">${CHECK_ICON}</button>
+            </div>
+          </div>`:''}
+      </div>
+      <div class="card glance" onclick="activateTab('wants')">
+        <div class="tile-head">
+          <div class="glance-icon" style="background:rgba(255,46,154,.15); color:var(--navy);">${BAG_ICON}</div>
+          <svg class="glance-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="tile-label">Wants</div>
+        <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}</div>
+        <div class="tile-caption">${pendingItems.length} pending</div>
+        ${cheapest?`<div class="tile-next-wrap" style="border-top:none; margin-top:0; padding-top:0;">
+            <div class="tile-next"><span class="name">${cheapest.name}</span>${cheapest.price!=null?`<span class="price">$${fmtMoney(cheapest.price)}</span>`:''}</div>
+            <div class="tile-actions">
+              ${cheapest.link?`<a href="${cheapest.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+              <button class="icon-btn" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);" aria-label="Mark bought">${CHECK_ICON}</button>
+            </div>
+          </div>`:''}
+      </div>
     </div>`;
 
   el.innerHTML = html;
