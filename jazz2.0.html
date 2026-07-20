@@ -1042,6 +1042,7 @@ function renderStyle(){
     </div>
     <div class="coll-body"><div class="coll-inner" id="cap-owned"></div></div>
   </div>`;
+  html += `<div class="card"><div class="total-row grand" id="cap-grand-total"></div></div>`;
   el.innerHTML = html;
   renderCapsuleLists();
 }
@@ -1080,16 +1081,24 @@ function renderCapsuleLists(){
     return out;
   }
 
-  ownedEl.innerHTML = (buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`) + (editMode?`<button class="add-row" onclick="addCapsuleItem('owned')">+ Add item</button>`:"");
-  neededEl.innerHTML = (buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`) + (editMode?`<button class="add-row" onclick="addCapsuleItem('needed')">+ Add item</button>`:"");
-
   const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
   const neededCount = capsule.length - ownedCount;
-  document.getElementById("cap-owned-insight").textContent = `${ownedCount} items`;
-  document.getElementById("cap-needed-insight").textContent = `${neededCount} items`;
+  const ownedTotal = capsule.filter(i => currentCapState(i) === "owned").reduce((s,i) => s + (i.price||0), 0);
+  const neededTotal = capsule.filter(i => currentCapState(i) !== "owned").reduce((s,i) => s + (i.price||0), 0);
+
+  ownedEl.innerHTML = (buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`)
+    + `<div class="total-row">Owned value <span>$${fmtMoney(ownedTotal)}</span></div>`
+    + (editMode?`<button class="add-row" onclick="addCapsuleItem('owned')">+ Add item</button>`:"");
+  neededEl.innerHTML = (buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`)
+    + `<div class="total-row">Still need total <span>$${fmtMoney(neededTotal)}</span></div>`
+    + (editMode?`<button class="add-row" onclick="addCapsuleItem('needed')">+ Add item</button>`:"");
+
+  document.getElementById("cap-owned-insight").textContent = `${ownedCount} items · $${fmtMoney(ownedTotal)}`;
+  document.getElementById("cap-needed-insight").textContent = `${neededCount} items · $${fmtMoney(neededTotal)}`;
   const pct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
   document.getElementById("cap-progress-label").textContent = `${ownedCount}/${capsule.length} · ${pct}%`;
   document.getElementById("cap-progress-fill").style.width = `${pct}%`;
+  document.getElementById("cap-grand-total").innerHTML = `Wardrobe total <span>$${fmtMoney(ownedTotal+neededTotal)}</span>`;
 }
 async function toggleCapsule(id){
   const cur = currentCapState(capsule.find(i=>i.id===id));

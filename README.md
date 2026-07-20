@@ -137,7 +137,10 @@ Wants uses; tapping it stops the tap from also toggling the item owned/needed). 
 price mainly exists so Home's "Still need" teaser can surface the cheapest still-needed
 item instead of whichever one happens to be first in the list. Only the brown/cognac
 belt has a price by default (~$20 est.); everything else is unpriced/unlinked until you
-add one.
+add one. Totals now mirror Wants: each collapsible's header shows item count · $ total
+(unpriced items count as $0), a total row sits at the bottom of each list ("Still need
+total" / "Owned value"), and a "Wardrobe total" card sits below both, summing everything
+with a price across the whole wardrobe.
 
 **Wants:** A quick-add bar sits at the top of the tab, always available regardless of
 edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
