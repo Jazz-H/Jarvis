@@ -93,11 +93,14 @@ groups, and a "Clear completed" button appears once anything anywhere is checked
 default/seed items — it's empty until you add your own.
 
 *Glance cards* — three tappable cards summarizing the other tabs and jumping straight
-to them on tap: **Today** (today's AM/PM steps from Skin/Hair, listed by *product
-name* rather than step category, each list under a small colored AM/PM tag — cyan for
-AM, magenta for PM, matching the accent colors used for the actual AM/PM bands on the
-Skin/Hair tab — plus a wash-day badge on wash Thursdays, or otherwise a "Next wash day:
-[date] — in N days" line showing both the actual upcoming date and the countdown),
+to them on tap: **Today** (today's AM/PM steps from Skin/Hair, listed by a short
+display name — a middle ground between the vague step category ("Eye area") and the
+full product name with its concentration ("Caffeine Solution 5% + EGCG"): "Cleanser,
+Ascorbyl Glucoside, Niacinamide, Moisturizer, Hair mist, Sunscreen" — each list under a
+small colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used
+for the actual AM/PM bands on the Skin/Hair tab — plus a wash-day badge on wash
+Thursdays, or otherwise a "Next wash day: [date] — in N days" line showing both the
+actual upcoming date and the countdown),
 **Wardrobe** (owned/total + progress bar, mirrors the Style tab, plus a "Still need: …"
 teaser naming the *cheapest* still-needed item by price when any needed items have a
 price set, otherwise just the first one — with its own inline "Mark owned" button and,
@@ -174,6 +177,10 @@ its price is a rough estimate pending the merge decision below.
 4. To-dos have no due dates/times/notifications (unlike the Android Reminders app they
    were modeled after) — deliberately kept to plain text + checkbox; revisit if that
    turns out to be missed
+5. Home's Today card short names (`STEP_SHORT_NAMES` — "Cleanser", "Ascorbyl
+   Glucoside," etc.) are a code-side lookup keyed by step label, not editable in-app;
+   a step label with no match in the table just falls back to showing the label
+   itself, which still requires a code change to add new mappings
 
 ## Working style
 Make judgment calls and show finished output; expect targeted corrections rather than full rewrites.
