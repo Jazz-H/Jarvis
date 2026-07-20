@@ -512,6 +512,14 @@ const DEFAULT_SKIN_DAYS = [
       ["Hair mist","Daily Hair Spray"],
       ["SPF — last step","Daily Sunscreen SPF 30"]
     ],
+    pmWash:[
+      ["Wash day","Clarifying Shampoo"],
+      ["Mask","Strengthening Hair Mask"],
+      ["Cleanse","Glucoside Foaming Cleanser"],
+      ["Niacinamide","10% + Zinc"],
+      ["Moisturize","Natural Moisturizing Factors + HA"],
+      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+    ],
     pm:[
       ["Cleanse","Glucoside Foaming Cleanser"],
       ["Niacinamide","10% + Zinc"],
@@ -550,14 +558,6 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Hair mist","Daily Hair Spray"],
       ["SPF — last step","Daily Sunscreen SPF 30"]
-    ],
-    pmWash:[
-      ["Wash day","Clarifying Shampoo"],
-      ["Mask","Strengthening Hair Mask"],
-      ["Cleanse","Glucoside Foaming Cleanser"],
-      ["Niacinamide","10% + Zinc"],
-      ["Moisturize","Natural Moisturizing Factors + HA"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
     ],
     pm:[
       ["Cleanse","Glucoside Foaming Cleanser"],
@@ -763,18 +763,18 @@ function renderHome(){
   const today = skinDays.find(d => d.day === todayName);
   if (today){
     const washWeek = isWashWeek();
-    const isWashSat = today.day === "Saturday" && !!today.pmWash && washWeek;
-    const pmBand = (today.day === "Saturday" && today.pmWash) ? (washWeek ? "pmWash" : "pm") : "pm";
+    const isWashDay = !!today.pmWash && washWeek;
+    const pmBand = today.pmWash ? (washWeek ? "pmWash" : "pm") : "pm";
     const pmSteps = today[pmBand];
     const productName = (s) => s[1];
     const amNames = today.am.map(productName).join(", ");
     const pmNames = pmSteps.map(productName).join(", ");
     const washDays = daysUntilWashDay();
     const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
-    const washNote = isWashSat ? "" : `<div class="glance-detail" style="margin-top:6px;">Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
+    const washNote = isWashDay ? "" : `<div class="glance-detail" style="margin-top:6px;">Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
-          <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashSat?'<span class="badge wash">Wash day</span>':''}</div>
+          <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashDay?'<span class="badge wash">Wash day</span>':''}</div>
           <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="glance-stat">${today.am.length} AM · ${pmSteps.length} PM</div>
@@ -884,12 +884,12 @@ function renderSkin(){
   skinDays.forEach((d,i) => {
     const isToday = d.day === todayName;
     const isOpen = openDays.has(i);
-    const isWashSat = d.day === "Saturday" && !!d.pmWash && washWeek;
-    const pmBand = (d.day === "Saturday" && d.pmWash) ? (washWeek ? "pmWash" : "pm") : "pm";
+    const isWashDay = !!d.pmWash && washWeek;
+    const pmBand = d.pmWash ? (washWeek ? "pmWash" : "pm") : "pm";
     const pmSteps = d[pmBand];
     html += `<div class="day ${isOpen?'open':''} ${isToday?'today':''}" data-idx="${i}">
       <div class="day-head" onclick="toggleDay(${i})">
-        <span class="name">${d.day}${isToday?'<span class="badge today">Today</span>':''}${isWashSat?'<span class="badge wash">Wash day</span>':''}</span>
+        <span class="name">${d.day}${isToday?'<span class="badge today">Today</span>':''}${isWashDay?'<span class="badge wash">Wash day</span>':''}</span>
         <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div class="day-body">
@@ -906,23 +906,23 @@ function renderSkin(){
   });
   el.innerHTML = html;
 }
-// Wash day falls on Saturday every 2 weeks; last wash was Sat Jul 18, 2026 (the week of the 16th).
-const WASH_DAY_ANCHOR = new Date(2026, 6, 18);
+// Wash day falls on Thursday every 2 weeks; last wash was Thu Jul 16, 2026.
+const WASH_DAY_ANCHOR = new Date(2026, 6, 16);
 function isWashWeek(){
   const today = new Date();
-  const thisSaturday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
-  const diffWeeks = Math.round((thisSaturday - WASH_DAY_ANCHOR) / (7 * 86400000));
+  const thisThursday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((4 - today.getDay() + 7) % 7));
+  const diffWeeks = Math.round((thisThursday - WASH_DAY_ANCHOR) / (7 * 86400000));
   return ((diffWeeks % 2) + 2) % 2 === 0;
 }
-function isWashSaturday(satDate){
-  const diffWeeks = Math.round((satDate - WASH_DAY_ANCHOR) / (7 * 86400000));
+function isWashThursday(thuDate){
+  const diffWeeks = Math.round((thuDate - WASH_DAY_ANCHOR) / (7 * 86400000));
   return ((diffWeeks % 2) + 2) % 2 === 0;
 }
 function nextWashDate(){
   const today = new Date();
   today.setHours(0,0,0,0);
-  let cand = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
-  while (!isWashSaturday(cand)) cand = new Date(cand.getFullYear(), cand.getMonth(), cand.getDate() + 7);
+  let cand = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((4 - today.getDay() + 7) % 7));
+  while (!isWashThursday(cand)) cand = new Date(cand.getFullYear(), cand.getMonth(), cand.getDate() + 7);
   return cand;
 }
 function daysUntilWashDay(){

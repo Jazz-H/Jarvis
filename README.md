@@ -96,7 +96,7 @@ default/seed items — it's empty until you add your own.
 to them on tap: **Today** (today's AM/PM steps from Skin/Hair, listed by *product
 name* rather than step category, each list under a small colored AM/PM tag — cyan for
 AM, magenta for PM, matching the accent colors used for the actual AM/PM bands on the
-Skin/Hair tab — plus a wash-day badge on wash Saturdays, or otherwise a "Next wash day:
+Skin/Hair tab — plus a wash-day badge on wash Thursdays, or otherwise a "Next wash day:
 [date] — in N days" line showing both the actual upcoming date and the countdown),
 **Wardrobe** (owned/total + progress bar, mirrors the Style tab, plus a "Still need: …"
 teaser naming the *cheapest* still-needed item by price when any needed items have a
@@ -114,10 +114,13 @@ same-day-different-session rule, SPF always last AM step, lash serum always last
 step). Hair mist (Daily Hair Spray, standardized from the old
 Hair oil seal-and-oil / Lion Locs / rice water rotation) runs twice daily — once in
 AM (before SPF, which stays the final AM step) and once in PM — every day of the week.
-Wash day (Clarifying shampoo + Hair mask) runs biweekly on Saturday, not every
-week — last wash was the week of Jul 16, 2026, badged "Wash day" on the Saturdays it
-lands on; off-weeks get the regular AM/PM routine instead (wash-day PM swaps in the
-shampoo + mask in place of the mist, since that already covers hair care for the day).
+Wash day (Clarifying shampoo + Hair mask) runs biweekly on Thursday (moved from
+Saturday), not every week — last wash was Thu Jul 16, 2026, next Thu Jul 30, badged
+"Wash day" on the Thursdays it lands on; off-weeks get the regular AM/PM routine
+instead (wash-day PM swaps in the shampoo + mask in place of the mist, since that
+already covers hair care for the day). The anchor date and weekday are both plain
+constants in the code (`WASH_DAY_ANCHOR`, and the day-of-week math around it) — still
+requires a code change if either shifts again, same as before.
 
 **Style:** Tab bar button still says "Style"; the in-tab header now reads "Wardrobe"
 (renamed from "Style Capsule" — the tab bar already says Style, so the header just
