@@ -40,8 +40,11 @@ a terminal-window card (rounded square, three status dots, gradient ring border
 cycling cyan → magenta → lime) with a "J2.0" wordmark in a monospace font — the "J" in
 a cyan→magenta gradient fill, "2.0" smaller and raised like an exponent with its own
 white→soft-gray gradient for a bit of depth, plus a solid cyan cursor block after it.
-Went through several rounds (flat "J2" → glowing lime "J2.0" → this) — see chat history
-if revisiting.
+The card sits at 17% margin from the canvas edge (not the ~9% of earlier drafts) —
+Android's maskable-icon safe zone is roughly the center 66%-diameter circle, and the
+tighter margin was getting its corners cropped and looking "zoomed in" next to other
+home-screen icons once actually installed on a phone. Went through several rounds
+(flat "J2" → glowing lime "J2.0" → this) — see chat history if revisiting.
 - Bottom tab bar (app-style), swipe left/right between tabs supported
 - Pull-to-refresh (swipe down from the top of a tab) triggers a hard refresh — clears
   the service worker's cache and unregisters it before reloading, so it can't serve
