@@ -142,6 +142,11 @@
   .glance-stat{font-size:18px; font-weight:800; color:var(--olive); margin-bottom:6px;}
   .glance-detail{font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:2px;}
   .glance-detail:last-child{margin-bottom:0;}
+  .glance-link-btn{
+    flex-shrink:0; width:30px; height:30px; border-radius:50%; border:1.5px solid var(--olive-dim);
+    background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
+  }
+  .glance-link-btn:active{background:var(--surface-2);}
   .glance-routine-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:5px;}
   .glance-routine-row:last-of-type{margin-bottom:0;}
   .glance-tag{
@@ -170,7 +175,7 @@
   .want-card .body{flex:1;}
   .want-card .name{font-size:13.5px; font-weight:700; line-height:1.35;}
   .want-card .meta{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
-  .want-card .link{font-size:12px; color:var(--olive); text-decoration:none; font-weight:600; display:inline-block; margin-top:4px;}
+  .link{font-size:12px; color:var(--olive); text-decoration:none; font-weight:600; display:inline-block; margin-top:4px;}
   .want-card .price{font-size:14px; font-weight:700; color:var(--gold); margin-top:5px;}
   .total-row{
     display:flex; justify-content:space-between; align-items:center;
@@ -365,8 +370,9 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Style Capsule", wants:"Wants List"};
+const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants List"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const LINK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 
 // ---------- storage helpers (one JSON blob per key, plain localStorage) ----------
 async function loadState(key){
@@ -630,7 +636,7 @@ const DEFAULT_CAPSULE = [
   {id:"acc-belt", title:"Black belt", state:"owned", cat:"Accessories"},
   {id:"need-oxford", title:"Light blue oxford", sub:"Size M", state:"needed", cat:"Tops"},
   {id:"need-blazer", title:"Structured blazer", sub:"Sample Store", state:"needed", cat:"Outerwear"},
-  {id:"need-belt-brown", title:"Brown/cognac belt", sub:"~$20", price:20, estimated:true, state:"needed", cat:"Accessories"},
+  {id:"need-belt-brown", title:"Brown/cognac belt", price:20, estimated:true, state:"needed", cat:"Accessories"},
   {id:"need-coach", title:"Coach jacket — black", sub:"Olive secondary", state:"needed", cat:"Outerwear"},
   {id:"need-chinos", title:"Charcoal slim chinos", sub:"Sample Store", state:"needed", cat:"Bottoms"},
   {id:"need-chino-shorts", title:"Slim chino shorts — navy/olive/charcoal/white", sub:"Nice to have", state:"needed", cat:"Bottoms"}
@@ -647,7 +653,7 @@ const DEFAULT_WANTS = [
    link:"https://example.com/boot"},
   {id: "band", name:"Sample Fitness Band", meta:"Size M", price:399.45,
    link:"https://www.amazon.com/Sample Band-Ring-Smallest-Activity-Compatible/dp/B0GRJZX1D8"},
-  {id:"belt-brown", name:"Brown leather belt, square buckle", meta:"Pending: merge with style capsule belt? Price/link not locked in", price:20.00,
+  {id:"belt-brown", name:"Brown leather belt, square buckle", meta:"Pending: merge with wardrobe belt? Price/link not locked in", price:20.00,
    link:"https://us.amazon.com/Leather-1-Pack-Classic-Square-Buckle/dp/B0GV2BGNC3", estimated:true}
 ];
 
@@ -760,11 +766,12 @@ function renderHome(){
     const isWashSat = today.day === "Saturday" && !!today.pmWash && washWeek;
     const pmBand = (today.day === "Saturday" && today.pmWash) ? (washWeek ? "pmWash" : "pm") : "pm";
     const pmSteps = today[pmBand];
-    const shortLabel = (s) => s[0].replace(/\s*—\s*last step$/i, "");
-    const amNames = today.am.map(shortLabel).join(", ");
-    const pmNames = pmSteps.map(shortLabel).join(", ");
+    const productName = (s) => s[1];
+    const amNames = today.am.map(productName).join(", ");
+    const pmNames = pmSteps.map(productName).join(", ");
     const washDays = daysUntilWashDay();
-    const washNote = isWashSat ? "" : `<div class="glance-detail" style="margin-top:6px;">Next wash day: ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
+    const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    const washNote = isWashSat ? "" : `<div class="glance-detail" style="margin-top:6px;">Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
           <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashSat?'<span class="badge wash">Wash day</span>':''}</div>
@@ -781,10 +788,16 @@ function renderHome(){
   const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
   const cheapestNeeded = capsule.filter(i => currentCapState(i) !== "owned").sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
   html += `<div class="card glance" onclick="activateTab('style')">
-      <div class="glance-head"><h3>Capsule</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="glance-head"><h3>Wardrobe</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="glance-stat">${ownedCount}/${capsule.length} · ${capPct}%</div>
       <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
-      ${cheapestNeeded?`<div class="glance-detail" style="margin-top:8px;">Still need: ${cheapestNeeded.title}${cheapestNeeded.price!=null?` — ${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:''}</div>`:''}
+      ${cheapestNeeded?`<div class="glance-detail" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
+          <span>Still need: ${cheapestNeeded.title}${cheapestNeeded.price!=null?` — ${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:''}</span>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            ${cheapestNeeded.link?`<a href="${cheapestNeeded.link}" target="_blank" rel="noopener" class="glance-link-btn" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+            <button class="toggle" onclick="event.stopPropagation(); toggleCapsule('${cheapestNeeded.id}').then(renderHome);">Mark owned</button>
+          </div>
+        </div>`:''}
     </div>`;
 
   const pendingItems = wantsList.filter(w => !wantsState[w.id]);
@@ -795,7 +808,10 @@ function renderHome(){
       <div class="glance-stat">${pendingItems.length} pending · $${fmtMoney(pendingTotal)}</div>
       ${cheapest?`<div class="glance-detail" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <span>Next: ${cheapest.name}${cheapest.price!=null?` — $${fmtMoney(cheapest.price)}`:''}</span>
-          <button class="toggle" style="flex-shrink:0;" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);">Mark bought</button>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            ${cheapest.link?`<a href="${cheapest.link}" target="_blank" rel="noopener" class="glance-link-btn" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+            <button class="toggle" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);">Mark bought</button>
+          </div>
         </div>`:''}
     </div>`;
 
@@ -902,12 +918,17 @@ function isWashSaturday(satDate){
   const diffWeeks = Math.round((satDate - WASH_DAY_ANCHOR) / (7 * 86400000));
   return ((diffWeeks % 2) + 2) % 2 === 0;
 }
-function daysUntilWashDay(){
+function nextWashDate(){
   const today = new Date();
   today.setHours(0,0,0,0);
   let cand = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
   while (!isWashSaturday(cand)) cand = new Date(cand.getFullYear(), cand.getMonth(), cand.getDate() + 7);
-  return Math.round((cand - today) / 86400000);
+  return cand;
+}
+function daysUntilWashDay(){
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return Math.round((nextWashDate() - today) / 86400000);
 }
 function stepHtml(s,n,dayIdx,band){
   const body = `<b>${s[0]}</b> — ${s[1]}${s[2]?`<span class="note">${s[2]}</span>`:""}`;
@@ -997,7 +1018,7 @@ function renderStyle(){
   html += `<p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div>`;
 
   html += `<div class="card"><div class="progress-wrap">
-      <div class="progress-label"><span>Capsule built</span><b id="cap-progress-label"></b></div>
+      <div class="progress-label"><span>Wardrobe built</span><b id="cap-progress-label"></b></div>
       <div class="progress-bar"><div class="progress-fill" id="cap-progress-fill"></div></div>
     </div></div>`;
 
@@ -1040,9 +1061,10 @@ function renderCapsuleLists(){
     const pendingBadge = item.state === "pending" ? `<span class="badge pending">fit pending</span>` : "";
     const editBtn = editMode ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editCapsuleItem('${item.id}')">${PENCIL_ICON}</button>` : "";
     const priceLine = item.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${item.estimated?'~':''}$${fmtMoney(item.price)}${item.estimated?' (est.)':''}</div>` : "";
+    const linkLine = item.link ? `<a class="link" href="${item.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View product →</a>` : "";
     const row = `<div class="item ${checked?'checked':''}" onclick="toggleCapsule('${item.id}')">
         <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-        <div class="body"><div class="title">${item.title}${pendingBadge}</div>${item.sub?`<div class="sub">${item.sub}</div>`:""}${priceLine}</div>
+        <div class="body"><div class="title">${item.title}${pendingBadge}</div>${item.sub?`<div class="sub">${item.sub}</div>`:""}${priceLine}${linkLine}</div>
         ${editBtn}
       </div>`;
     const cat = item.cat || "Other";
@@ -1105,11 +1127,12 @@ function editCapsuleItem(id){
     {key:"sub",label:"Notes (optional)",type:"text"},
     {key:"cat",label:"Category",type:"select",options:CAP_CATS},
     {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
+    {key:"link",label:"Link (optional)",type:"url"},
     {key:"pending",label:"Fit pending",type:"checkbox"}
-  ], {title:item.title, sub:item.sub||"", cat:item.cat||CAP_CATS[0], price:item.price, pending:item.state==="pending"},
+  ], {title:item.title, sub:item.sub||"", cat:item.cat||CAP_CATS[0], price:item.price, link:item.link||"", pending:item.state==="pending"},
     (v) => {
       if(!v.title) return;
-      item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat; item.price=v.price;
+      item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat; item.price=v.price; item.link=v.link||null;
       if (v.pending) item.state = "pending";
       else if (item.state === "pending") item.state = currentCapState(item);
       saveContent("capsule-content", capsule); renderStyle();
@@ -1128,11 +1151,12 @@ function addCapsuleItem(bucket){
     {key:"sub",label:"Notes (optional)",type:"text"},
     {key:"cat",label:"Category",type:"select",options:CAP_CATS},
     {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
+    {key:"link",label:"Link (optional)",type:"url"},
     {key:"pending",label:"Fit pending",type:"checkbox"}
   ], {cat:CAP_CATS[0]},
     (v) => {
       if(!v.title) return;
-      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, price:v.price, state: v.pending ? "pending" : bucket});
+      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, price:v.price, link:v.link||null, state: v.pending ? "pending" : bucket});
       saveContent("capsule-content", capsule); renderStyle();
     }
   );
