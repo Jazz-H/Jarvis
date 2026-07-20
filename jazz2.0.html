@@ -45,6 +45,12 @@
     color:var(--text-dim); font-weight:600; margin-bottom:2px;
   }
   header h1{margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em; padding-right:44px;}
+  .header-row{display:flex; align-items:center; gap:12px;}
+  .header-icon{
+    width:34px; height:34px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .header-icon svg{width:17px; height:17px;}
 
   main{flex:1; overflow-y:auto; padding:16px 16px 100px;}
 
@@ -140,13 +146,6 @@
   .glance-head h3{margin:0;}
   .glance-arrow{color:var(--text-dim); flex-shrink:0;}
   .glance-stat{font-size:18px; font-weight:800; color:var(--olive); margin-bottom:6px;}
-  .glance-detail{font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:2px;}
-  .glance-detail:last-child{margin-bottom:0;}
-  .glance-link-btn{
-    flex-shrink:0; width:30px; height:30px; border-radius:50%; border:1.5px solid var(--olive-dim);
-    background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
-  }
-  .glance-link-btn:active{background:var(--surface-2);}
   .wash-note{
     display:flex; align-items:center; gap:8px; margin-top:10px; padding:9px 12px;
     background:rgba(255,46,154,.12); border:1px solid rgba(255,46,154,.35); border-radius:10px;
@@ -177,21 +176,21 @@
   .tile-stat{font-size:23px; font-weight:800; line-height:1; margin-bottom:4px;}
   .tile-caption{font-size:11px; color:var(--text-dim); margin-bottom:10px;}
   .tile-next-wrap{
-    display:flex; align-items:flex-end; justify-content:space-between; gap:8px;
     margin-top:10px; padding-top:10px; border-top:1px solid var(--line); min-width:0;
   }
-  .tile-next{font-size:11.5px; color:var(--text); line-height:1.4; min-width:0; flex:1 1 0;}
+  .tile-next{font-size:11.5px; color:var(--text); line-height:1.4; min-width:0;}
   .tile-next .name{
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; min-width:0;
   }
-  .tile-next .price{display:block; color:var(--gold); font-weight:700; margin-top:3px;}
+  .tile-next-footer{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:5px;}
+  .tile-next-footer .price{color:var(--gold); font-weight:700; font-size:12.5px; flex-shrink:0;}
   .tile-actions{display:flex; gap:6px; flex-shrink:0;}
   .icon-btn{
-    flex-shrink:0; width:28px; height:28px; border-radius:50%; border:1.5px solid var(--olive-dim);
+    flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--olive-dim);
     background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
   }
   .icon-btn.link{border-color:rgba(0,229,255,.4); color:var(--gold);}
-  .icon-btn.link svg{transform:translate(6px, 6.8px);}
+  .icon-btn.link svg{transform:translate(9.07px, 9.8px);}
   .icon-btn:active{background:var(--surface-2);}
 
   /* wants */
@@ -312,6 +311,50 @@
     background:none; color:var(--olive); font-size:12.5px; font-weight:700; font-family:inherit;
   }
   .add-row:active{background:rgba(198,255,61,.12);}
+  .reset-btn{
+    width:100%; margin-top:10px; padding:10px; border-radius:10px; border:1.5px solid rgba(255,59,92,.35);
+    background:none; color:var(--danger); font-size:12.5px; font-weight:700; font-family:inherit;
+  }
+  .reset-btn:active{background:rgba(255,59,92,.12);}
+
+  /* to-do: star / sub-checklist / completed archive */
+  .todo-wrap{border-bottom:1px solid var(--line);}
+  .todo-wrap:last-child{border-bottom:none;}
+  .todo-wrap .item{border-bottom:none;}
+  .todo-icon-btn{
+    flex-shrink:0; width:26px; height:26px; border-radius:8px; border:none; background:none;
+    color:var(--text-dim); display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .todo-icon-btn.starred{color:var(--gold);}
+  .todo-icon-btn.active{color:var(--olive);}
+  .todo-sub-badge{
+    position:absolute; bottom:-3px; right:-4px; font-size:8px; font-weight:800; line-height:1;
+    background:var(--surface-2); color:var(--text-dim); padding:2px 3px; border-radius:5px;
+  }
+  .subitem-list{padding:0 0 10px 32px;}
+  .subitem-row{display:flex; align-items:center; gap:8px; padding:5px 0;}
+  .subitem-box{
+    width:16px; height:16px; border-radius:5px; border:1.5px solid var(--text-dim); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s;
+  }
+  .subitem-box svg{width:10px; height:10px; opacity:0; transition:opacity .15s;}
+  .subitem-box.checked{background:var(--olive); border-color:var(--olive);}
+  .subitem-box.checked svg{opacity:1;}
+  .subitem-text{flex:1; font-size:12.5px; color:var(--text);}
+  .subitem-text.checked{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--line);}
+  .subitem-del{flex-shrink:0; width:22px; height:22px; border:none; background:none; color:var(--text-dim); display:flex; align-items:center; justify-content:center;}
+  .subitem-add{display:flex; gap:6px; margin-top:2px;}
+  .subitem-add input{
+    flex:1; min-width:0; background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    color:var(--text); font-size:12px; font-family:inherit; padding:0 10px; height:32px;
+  }
+  .subitem-add input::placeholder{color:var(--text-dim);}
+  .subitem-add button{
+    flex-shrink:0; width:32px; height:32px; border-radius:8px; border:none;
+    background:var(--surface-2); color:var(--olive); display:flex; align-items:center; justify-content:center;
+  }
+  .completed-actions{flex-shrink:0; width:26px; height:26px; border-radius:8px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--text-dim); display:flex; align-items:center; justify-content:center;}
 
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.55);
@@ -348,8 +391,13 @@
 <body>
 
 <header>
-  <div class="eyebrow" id="eyebrow">Jazz 2.0</div>
-  <h1 id="headline">Home</h1>
+  <div class="header-row">
+    <div class="header-icon" id="header-icon" style="display:none;"></div>
+    <div>
+      <div class="eyebrow" id="eyebrow">Jazz 2.0</div>
+      <h1 id="headline">Home</h1>
+    </div>
+  </div>
   <button class="edit-toggle-btn" id="edit-toggle" onclick="toggleEditMode()" aria-label="Toggle edit mode" title="Edit">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
   </button>
@@ -409,12 +457,25 @@
 <script>
 const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants List"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-const LINK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
+const LINK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>';
-const CHECK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+const HEADER_ICONS = {
+  skin: {icon:SKIN_ICON, bg:"rgba(0,229,255,.15)", color:"var(--gold)"},
+  style: {icon:SHIRT_ICON, bg:"rgba(198,255,61,.15)", color:"var(--olive)"},
+  wants: {icon:BAG_ICON, bg:"rgba(255,46,154,.15)", color:"var(--navy)"}
+};
+const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+const STAR_PATH = "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
+const STAR_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${STAR_PATH}"/></svg>`;
+const STAR_FILLED_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${STAR_PATH}"/></svg>`;
+const SUBLIST_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"/></svg>';
+const SMALL_PLUS_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+const X_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const DUPLICATE_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const TRASH_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14ZM10 11v6M14 11v6"/></svg>';
 // Short display names for Home's Today card, keyed by step label — a middle ground
 // between the vague step category ("Eye area") and the full product name with its
 // concentration ("Caffeine Solution 5% + EGCG"). Falls back to the step's own label
@@ -488,6 +549,7 @@ let editMode = localStorage.getItem("edit-mode") === "1";
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
 let openPinned = new Set(["cap-needed-card", "wants-pending-card"]);
+let expandedTodos = new Set();
 let openDays = null; // lazily seeded with today's index on first renderSkin()
 
 // ---------- DEFAULT DATA (seeds localStorage on first run; everything below is editable in-app after) ----------
@@ -782,38 +844,86 @@ function renderHome(){
   let html = "";
 
   const totalOpen = todoList.filter(t => !t.done).length;
-  const anyComplete = todoList.some(t => t.done);
+  const completedItems = todoList.filter(t => t.done).sort((a,b) => (b.completedAt||0)-(a.completedAt||0));
   html += `<div class="quick-add">
       <input type="text" id="todo-quick-add-input" placeholder="Add a to-do" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddTodo();">
       <button onclick="quickAddTodo()" aria-label="Add to-do">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>`;
-  const todoRow = (t) => `<div class="item ${t.done?'checked':''}" onclick="toggleTodo('${t.id}')">
-      <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-      <div class="body"><div class="title">${t.text}</div></div>
-      <button class="row-edit-btn" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
-    </div>`;
+  const renderSubitems = (t) => {
+    const subs = t.subitems || [];
+    const rows = subs.map(s => `<div class="subitem-row">
+        <div class="subitem-box ${s.done?'checked':''}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="subitem-text ${s.done?'checked':''}">${escapeHtml(s.text)}</div>
+        <button class="subitem-del" onclick="event.stopPropagation(); deleteSubitem('${t.id}','${s.id}')" aria-label="Delete sub-item">${X_ICON}</button>
+      </div>`).join("");
+    return `<div class="subitem-list" onclick="event.stopPropagation()">
+        ${rows}
+        <div class="subitem-add">
+          <input type="text" id="subitem-input-${t.id}" placeholder="Add sub-item" autocomplete="off" onkeydown="if(event.key==='Enter') addSubitem('${t.id}');">
+          <button onclick="addSubitem('${t.id}')" aria-label="Add sub-item">${SMALL_PLUS_ICON}</button>
+        </div>
+      </div>`;
+  };
+  const todoRow = (t) => {
+    const subs = t.subitems || [];
+    const subDone = subs.filter(s => s.done).length;
+    const expanded = expandedTodos.has(t.id);
+    return `<div class="todo-wrap">
+        <div class="item ${t.done?'checked':''}" onclick="toggleTodo('${t.id}')">
+          <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+          <div class="body"><div class="title">${escapeHtml(t.text)}</div></div>
+          <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
+          <button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="Sub-items">${SUBLIST_ICON}${subs.length?`<span class="todo-sub-badge">${subDone}/${subs.length}</span>`:''}</button>
+          <button class="row-edit-btn" style="order:5;" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
+        </div>
+        ${expanded ? renderSubitems(t) : ""}
+      </div>`;
+  };
   html += `<div class="card">`;
   if (todoList.length > 0){
     html += `<div class="glance-head"><h3>To-Do</h3><span class="insight">${totalOpen ? totalOpen+' open' : 'All done'}</span></div>`;
   }
   if (todoList.length === 0){
     html += `<div class="empty">Nothing on your list — add one above.</div>`;
+  } else if (totalOpen === 0){
+    html += `<div class="empty">All done for now.</div>`;
   } else {
     const groupKeys = ["", ...TODO_DAYS.slice(1)]; // "" = This week (no day set), then Mon..Sun
     groupKeys.forEach((day, gi) => {
-      const groupItems = todoList.filter(t => (t.day || "") === day);
+      const groupItems = todoList.filter(t => (t.day || "") === day && !t.done);
       if (groupItems.length === 0) return;
-      const groupIncomplete = groupItems.filter(t => !t.done);
-      const groupComplete = groupItems.filter(t => t.done);
+      const sorted = groupItems.slice().sort((a,b) => (b.starred?1:0)-(a.starred?1:0));
       html += `<div class="cat-title"${gi===0?' style="margin-top:0;"':''}>${day || "This week"}</div>`;
-      groupIncomplete.forEach(t => html += todoRow(t));
-      groupComplete.forEach(t => html += todoRow(t));
+      sorted.forEach(t => html += todoRow(t));
     });
   }
-  if (anyComplete) html += `<button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>`;
   html += `</div>`;
+
+  if (completedItems.length){
+    const completedRows = completedItems.map(t => {
+      const dateLabel = t.completedAt ? new Date(t.completedAt).toLocaleDateString('en-US',{month:'short', day:'numeric'}) : "";
+      return `<div class="item checked" onclick="toggleTodo('${t.id}')">
+          <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+          <div class="body"><div class="title">${escapeHtml(t.text)}</div>${dateLabel?`<div class="sub">Completed ${dateLabel}</div>`:""}</div>
+          <button class="completed-actions" style="order:3;" onclick="event.stopPropagation(); duplicateTodo('${t.id}')" aria-label="Duplicate to-do">${DUPLICATE_ICON}</button>
+          <button class="completed-actions" style="order:4;" onclick="event.stopPropagation(); deleteTodoPermanently('${t.id}')" aria-label="Delete to-do">${TRASH_ICON}</button>
+        </div>`;
+    }).join("");
+    html += `<div class="card pinned ${openPinned.has('todo-completed')?'open':''}" id="todo-completed">
+        <div class="coll-head" onclick="toggleRules('todo-completed')">
+          <div style="display:flex;align-items:center;gap:8px;"><h3>Completed</h3><span class="insight">${completedItems.length}</span></div>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="coll-body"><div class="coll-inner">
+          ${completedRows}
+          <button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>
+        </div></div>
+      </div>`;
+  }
 
   const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
   const today = skinDays.find(d => d.day === todayName);
@@ -860,10 +970,13 @@ function renderHome(){
         <div class="tile-caption">${ownedCount}/${capsule.length} owned</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
         ${cheapestNeeded?`<div class="tile-next-wrap">
-            <div class="tile-next"><span class="name">${cheapestNeeded.title}</span>${cheapestNeeded.price!=null?`<span class="price">${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}</span>`:''}</div>
-            <div class="tile-actions">
-              ${cheapestNeeded.link?`<a href="${cheapestNeeded.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
-              <button class="icon-btn" onclick="event.stopPropagation(); toggleCapsule('${cheapestNeeded.id}').then(renderHome);" aria-label="Mark owned">${CHECK_ICON}</button>
+            <div class="tile-next"><span class="name">${cheapestNeeded.title}</span></div>
+            <div class="tile-next-footer">
+              <span class="price">${cheapestNeeded.price!=null?`${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:''}</span>
+              <div class="tile-actions">
+                ${cheapestNeeded.link?`<a href="${cheapestNeeded.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+                <button class="icon-btn" onclick="event.stopPropagation(); toggleCapsule('${cheapestNeeded.id}').then(renderHome);" aria-label="Mark owned">${CHECK_ICON}</button>
+              </div>
             </div>
           </div>`:''}
       </div>
@@ -876,10 +989,13 @@ function renderHome(){
         <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}</div>
         <div class="tile-caption">${pendingItems.length} pending</div>
         ${cheapest?`<div class="tile-next-wrap" style="border-top:none; margin-top:0; padding-top:0;">
-            <div class="tile-next"><span class="name">${cheapest.name}</span>${cheapest.price!=null?`<span class="price">$${fmtMoney(cheapest.price)}</span>`:''}</div>
-            <div class="tile-actions">
-              ${cheapest.link?`<a href="${cheapest.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
-              <button class="icon-btn" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);" aria-label="Mark bought">${CHECK_ICON}</button>
+            <div class="tile-next"><span class="name">${cheapest.name}</span></div>
+            <div class="tile-next-footer">
+              <span class="price">${cheapest.price!=null?`$${fmtMoney(cheapest.price)}`:''}</span>
+              <div class="tile-actions">
+                ${cheapest.link?`<a href="${cheapest.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+                <button class="icon-btn" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);" aria-label="Mark bought">${CHECK_ICON}</button>
+              </div>
             </div>
           </div>`:''}
       </div>
@@ -891,7 +1007,7 @@ function quickAddTodo(){
   const input = document.getElementById("todo-quick-add-input");
   const text = input.value.trim();
   if (!text) return;
-  todoList.push({id:genId("todo"), text, done:false, day:null});
+  todoList.push({id:genId("todo"), text, done:false, day:null, starred:false, subitems:[], completedAt:null});
   saveContent("todo-content", todoList);
   renderHome();
   const fresh = document.getElementById("todo-quick-add-input");
@@ -900,6 +1016,61 @@ function quickAddTodo(){
 function toggleTodo(id){
   const t = todoList.find(x=>x.id===id);
   t.done = !t.done;
+  t.completedAt = t.done ? Date.now() : null;
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function toggleTodoStar(id){
+  const t = todoList.find(x=>x.id===id);
+  t.starred = !t.starred;
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function toggleTodoExpand(id){
+  if (expandedTodos.has(id)) expandedTodos.delete(id); else expandedTodos.add(id);
+  renderHome();
+  const input = document.getElementById(`subitem-input-${id}`);
+  if (input) input.focus();
+}
+function addSubitem(todoId){
+  const input = document.getElementById(`subitem-input-${todoId}`);
+  const text = input.value.trim();
+  if (!text) return;
+  const t = todoList.find(x=>x.id===todoId);
+  if (!t.subitems) t.subitems = [];
+  t.subitems.push({id:genId("sub"), text, done:false});
+  saveContent("todo-content", todoList);
+  renderHome();
+  const fresh = document.getElementById(`subitem-input-${todoId}`);
+  if (fresh) fresh.focus();
+}
+function toggleSubitem(todoId, subId){
+  const t = todoList.find(x=>x.id===todoId);
+  const s = t.subitems.find(x=>x.id===subId);
+  s.done = !s.done;
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function deleteSubitem(todoId, subId){
+  const t = todoList.find(x=>x.id===todoId);
+  t.subitems = t.subitems.filter(x=>x.id!==subId);
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function duplicateTodo(id){
+  const t = todoList.find(x=>x.id===id);
+  const copy = {
+    id:genId("todo"), text:t.text, done:false, day:t.day||null, starred:false, completedAt:null,
+    subitems:(t.subitems||[]).map(s => ({id:genId("sub"), text:s.text, done:false}))
+  };
+  todoList.push(copy);
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function deleteTodoPermanently(id){
+  if (!confirm("Delete this to-do? This can't be undone.")) return;
+  const idx = todoList.findIndex(x=>x.id===id);
+  todoList.splice(idx,1);
   saveContent("todo-content", todoList);
   renderHome();
 }
@@ -1364,6 +1535,16 @@ function activateTab(tab){
   document.querySelectorAll("nav.tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
   document.getElementById("headline").textContent = HEADLINES[tab];
+  const headerIcon = document.getElementById("header-icon");
+  const iconInfo = HEADER_ICONS[tab];
+  if (iconInfo){
+    headerIcon.style.display = "flex";
+    headerIcon.style.background = iconInfo.bg;
+    headerIcon.style.color = iconInfo.color;
+    headerIcon.innerHTML = iconInfo.icon;
+  } else {
+    headerIcon.style.display = "none";
+  }
   document.querySelector("main").scrollTop = 0;
   if (tab === "skin"){
     const todayEl = document.querySelector("#panel-skin .day.today");

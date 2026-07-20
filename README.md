@@ -105,12 +105,33 @@ anymore), not actively cleaned up.
 pattern and the gist of the Android Reminders "type a new line" flow), tap the circle
 to check off. Items are grouped under day headers — "This week" (the default bucket
 for anything quick-added, no day assigned) plus Monday–Sunday, only showing groups
-that have items. Tap the pencil on any item to rename it and/or assign it to a day
-(or back to "This week") via a small modal, which doubles as the delete flow. Within
-each day-group, unchecked items stay on top and checked ones sink to the bottom with a
-strikethrough. A header badge shows "N open" (or "All done") counting across all
-groups, and a "Clear completed" button appears once anything anywhere is checked. No
-default/seed items — it's empty until you add your own.
+that have items; within a group, starred items float to the top. Tap the pencil on any
+item to rename it and/or assign it to a day (or back to "This week") via a small modal,
+which doubles as the delete flow. A header badge shows "N open" (or "All done" / "All
+done for now" once every item in the active list is checked off) counting across all
+groups. No default/seed items — it's empty until you add your own.
+
+Each to-do also carries a couple of Android-Reminders-style extras, scoped down from
+the full Reminders feature set to what's realistic in an installable web app with no
+push-notification backend (see the "What this app can't do" note below): a **star**
+toggle (cyan when active) that pins the item to the top of its day-group, and a
+**sub-checklist** toggle (the small list icon, with a live "done/total" badge once it
+has items) that expands an inline mini checklist under the row — its own add-input,
+per-item checkboxes, and a × to delete a sub-item, all independent of the parent
+to-do's own completion state. Checking a to-do off no longer deletes it or just sinks
+it in place — it moves into a collapsible **Completed** card below the active list,
+showing the completion date; unchecking it there moves it right back (that's the
+"Restore"), and each row also has **Duplicate** (clones it as a fresh open item,
+including a fresh copy of its sub-items) and **Delete** (permanent, confirms first)
+icon buttons. A red-outlined "Clear completed" button at the bottom of that card
+bulk-deletes everything in it.
+
+*What this app can't do:* a real Reminders app can alert you at a specific time or when
+you arrive somewhere, because it's a native app with OS-level background access. This
+is a static installable web page with no server — there's no reliable way for it to
+wake up and fire a notification while it isn't open (iOS Safari blocks this almost
+entirely even when "installed" to the home screen), so due-time alerts and
+location-based reminders were deliberately left out rather than half-built.
 
 *Glance cards* — tappable cards summarizing the other tabs and jumping straight to them
 on tap, each with a colored icon badge for quick visual identity: **Today** (cyan
@@ -134,12 +155,18 @@ need" teaser naming the *cheapest* still-needed item by price when any needed it
 have a price set, otherwise just the first one. Wants shows the pending dollar total as
 the headline stat (with the pending count as a caption), plus a "next" teaser naming
 the cheapest pending item. Both teasers truncate the item name to one line so the price
-never gets crowded out, and both carry the same pair of inline icon-only actions: a
-mark-owned/mark-bought checkmark button (olive), and — only when that item has a link
-saved — a link-shortcut button in cyan, so it reads as a distinctly different action
-from the checkmark rather than a second, easy-to-miss duplicate. All tiles re-render
-every time you land on Home, so they never show stale numbers from something you
-changed on another tab.
+never gets crowded out, and both carry the same pair of inline icon-only actions at a
+36px tap target (bumped up from an initial 28px, which measured under the ~44px
+minimum touch-target guideline): a mark-owned/mark-bought checkmark button (olive), and
+— only when that item has a link saved — a link-shortcut button in cyan, so it reads as
+a distinctly different action from the checkmark rather than a second, easy-to-miss
+duplicate; both glyphs share the same stroke width so they read as a matched pair. All
+tiles re-render every time you land on Home, so they never show stale numbers from
+something you changed on another tab.
+
+The Skin/Hair, Wardrobe, and Wants tabs each carry a small colored icon badge next to
+their header title (cyan droplet, lime shirt, magenta bag) matching the accent used for
+their Home glance card, for visual continuity across the app.
 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it, and auto-scrolls the tab straight to
