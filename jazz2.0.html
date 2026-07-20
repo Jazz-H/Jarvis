@@ -1430,7 +1430,23 @@ async function hardRefresh(){
   renderStyle();
   renderWants();
   renderHome();
+  applyLaunchParams();
 })();
+
+// Handles ?tab=&action= launch params from the home-screen icon shortcuts
+// (manifest.json "shortcuts") so long-pressing the app icon can jump straight
+// to a tab or into the to-do quick-add field.
+function applyLaunchParams(){
+  const params = new URLSearchParams(location.search);
+  const tab = params.get("tab");
+  const action = params.get("action");
+  if (!tab && !action) return;
+  if (tab && TAB_ORDER.includes(tab) && tab !== "home") activateTab(tab);
+  if (action === "addtodo"){
+    setTimeout(() => document.getElementById("todo-quick-add-input")?.focus(), 150);
+  }
+  history.replaceState(null, "", location.pathname);
+}
 
 // ---------- PWA: service worker registration (only works when hosted on a real http(s) origin) ----------
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){

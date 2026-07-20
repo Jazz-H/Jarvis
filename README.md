@@ -17,6 +17,16 @@ root). The manifest + service worker only register on a real http(s) origin, so 
 didn't work from a local file or sandboxed preview — now that it's hosted, "Add to
 Home Screen" on mobile should work from the URL above.
 
+Home screen icon shortcuts (long-press the installed app icon): **Add a to-do**
+(jumps to Home and focuses the quick-add field), **Today's routine** (Skin/Hair, which
+then auto-scrolls to today), **Wardrobe** (Style), **Wants**. A true live-data Android
+home screen widget isn't possible from a web app — that needs a native app wrapper,
+out of scope for this project — so these shortcuts are the PWA equivalent. Implemented
+via manifest.json's `shortcuts` array (each pointing at `jazz2.0.html?tab=...`) plus an
+`applyLaunchParams()` function in the app that reads `?tab=`/`?action=` on load,
+switches tabs accordingly, and strips the query string afterward via
+`history.replaceState`.
+
 ## Design system
 "Neon Nights" theme: true-black ground, bg `#08080b`, surface `#131316`, surface-2
 `#1a1a1f`, line `#2c2c34`. Text: `#f4f4f8` primary, `#8d8d9c` dim. Accents: electric
