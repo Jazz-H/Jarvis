@@ -1,7 +1,7 @@
 {
   "name": "Jazz 2.0",
   "short_name": "Jazz 2.0",
-  "description": "Skin/Hair, Style, Fitness, and Wants — Jazz 2.0 personal dashboard",
+  "description": "Home, Skin/Hair, Style, and Wants — Jazz 2.0 personal dashboard",
   "start_url": "./jazz2.0.html",
   "scope": "./",
   "display": "standalone",
@@ -11,5 +11,35 @@
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add a to-do",
+      "short_name": "Add to-do",
+      "description": "Quickly add a to-do item",
+      "url": "./jazz2.0.html?tab=home&action=addtodo",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Today's routine",
+      "short_name": "Today",
+      "description": "Jump to today's Skin/Hair routine",
+      "url": "./jazz2.0.html?tab=skin",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Wardrobe",
+      "short_name": "Wardrobe",
+      "description": "Jump to the wardrobe tab",
+      "url": "./jazz2.0.html?tab=style",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Wants",
+      "short_name": "Wants",
+      "description": "Jump to the wants list",
+      "url": "./jazz2.0.html?tab=wants",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }
