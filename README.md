@@ -9,7 +9,8 @@ Word docs) into one tabbed, installable PWA: **Home, Skin/Hair, Style, Wants.**
 - `jazz2.0.html` — the entire app (HTML/CSS/JS, no build step, no framework)
 - `manifest.json` — PWA manifest (name, icons, standalone display)
 - `sw.js` — service worker, caches all 6 files for offline use
-- `icon-192.png` / `icon-512.png` — generated app icons (true-black bg, lime "J2" monogram)
+- `icon-192.png` / `icon-512.png` — generated app icons (true-black bg, glowing lime
+  "J2.0" monogram, cyan/magenta/lime gradient ring border)
 
 ## Status / how to deploy
 Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main` /
@@ -32,9 +33,13 @@ switches tabs accordingly, and strips the query string afterward via
 `#1a1a1f`, line `#2c2c34`. Text: `#f4f4f8` primary, `#8d8d9c` dim. Accents: electric
 cyan `#00e5ff` (AM / skincare), neon magenta `#ff2e9a` (PM), acid-lime `#c6ff3d`
 (primary interactive accent — checkboxes, active tab, progress bar, edit-mode toggle),
-danger `#ff3b5c`. App icons match (true-black tile, lime "J2" monogram). Picked from
-five options mocked up side-by-side against the real components before committing —
-see chat history if revisiting the palette.
+danger `#ff3b5c`. Picked from five options mocked up side-by-side against the real
+components before committing — see chat history if revisiting the palette. App icons:
+true-black tile, glowing lime "J2.0" monogram (canvas `shadowBlur` neon-glow pass),
+rounded-square card with a gradient ring border cycling through the app's three accent
+colors (cyan → magenta → lime) — updated from the original flat "J2" wordmark to
+actually read as "neon" rather than just using the theme's flat colors, and to spell
+out the app's real name.
 - Bottom tab bar (app-style), swipe left/right between tabs supported
 - Pull-to-refresh (swipe down from the top of a tab) triggers a hard refresh — clears
   the service worker's cache and unregisters it before reloading, so it can't serve
