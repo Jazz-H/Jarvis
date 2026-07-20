@@ -142,6 +142,15 @@
   .glance-stat{font-size:18px; font-weight:800; color:var(--olive); margin-bottom:6px;}
   .glance-detail{font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:2px;}
   .glance-detail:last-child{margin-bottom:0;}
+  .glance-routine-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:5px;}
+  .glance-routine-row:last-of-type{margin-bottom:0;}
+  .glance-tag{
+    flex-shrink:0; font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+    padding:2px 6px; border-radius:5px; margin-top:1px;
+  }
+  .glance-tag.am{background:rgba(0,229,255,.16); color:var(--gold);}
+  .glance-tag.pm{background:rgba(255,46,154,.16); color:var(--navy);}
+  .glance-detail-text{font-size:12px; color:var(--text-dim); line-height:1.5;}
 
   /* wants */
   .quick-add{display:flex; gap:8px; margin-bottom:16px;}
@@ -621,7 +630,7 @@ const DEFAULT_CAPSULE = [
   {id:"acc-belt", title:"Black belt", state:"owned", cat:"Accessories"},
   {id:"need-oxford", title:"Light blue oxford", sub:"Size M", state:"needed", cat:"Tops"},
   {id:"need-blazer", title:"Structured blazer", sub:"Sample Store", state:"needed", cat:"Outerwear"},
-  {id:"need-belt-brown", title:"Brown/cognac belt", sub:"~$20", state:"needed", cat:"Accessories"},
+  {id:"need-belt-brown", title:"Brown/cognac belt", sub:"~$20", price:20, estimated:true, state:"needed", cat:"Accessories"},
   {id:"need-coach", title:"Coach jacket — black", sub:"Olive secondary", state:"needed", cat:"Outerwear"},
   {id:"need-chinos", title:"Charcoal slim chinos", sub:"Sample Store", state:"needed", cat:"Bottoms"},
   {id:"need-chino-shorts", title:"Slim chino shorts — navy/olive/charcoal/white", sub:"Nice to have", state:"needed", cat:"Bottoms"}
@@ -705,12 +714,13 @@ function toggleEditMode(){
 }
 
 // ---------- RENDER: HOME ----------
+const TODO_DAYS = ["This week","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 function renderHome(){
   const el = document.getElementById("panel-home");
   let html = "";
 
-  const incomplete = todoList.filter(t => !t.done);
-  const complete = todoList.filter(t => t.done);
+  const totalOpen = todoList.filter(t => !t.done).length;
+  const anyComplete = todoList.some(t => t.done);
   html += `<div class="quick-add">
       <input type="text" id="todo-quick-add-input" placeholder="Add a to-do" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddTodo();">
       <button onclick="quickAddTodo()" aria-label="Add to-do">
@@ -720,21 +730,27 @@ function renderHome(){
   const todoRow = (t) => `<div class="item ${t.done?'checked':''}" onclick="toggleTodo('${t.id}')">
       <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
       <div class="body"><div class="title">${t.text}</div></div>
-      <button class="row-edit-btn" onclick="event.stopPropagation(); deleteTodo('${t.id}')" aria-label="Delete to-do">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
+      <button class="row-edit-btn" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
     </div>`;
   html += `<div class="card">`;
   if (todoList.length > 0){
-    html += `<div class="glance-head"><h3>To-Do</h3><span class="insight">${incomplete.length ? incomplete.length+' open' : 'All done'}</span></div>`;
+    html += `<div class="glance-head"><h3>To-Do</h3><span class="insight">${totalOpen ? totalOpen+' open' : 'All done'}</span></div>`;
   }
   if (todoList.length === 0){
     html += `<div class="empty">Nothing on your list — add one above.</div>`;
   } else {
-    incomplete.forEach(t => html += todoRow(t));
-    complete.forEach(t => html += todoRow(t));
+    const groupKeys = ["", ...TODO_DAYS.slice(1)]; // "" = This week (no day set), then Mon..Sun
+    groupKeys.forEach((day, gi) => {
+      const groupItems = todoList.filter(t => (t.day || "") === day);
+      if (groupItems.length === 0) return;
+      const groupIncomplete = groupItems.filter(t => !t.done);
+      const groupComplete = groupItems.filter(t => t.done);
+      html += `<div class="cat-title"${gi===0?' style="margin-top:0;"':''}>${day || "This week"}</div>`;
+      groupIncomplete.forEach(t => html += todoRow(t));
+      groupComplete.forEach(t => html += todoRow(t));
+    });
   }
-  if (complete.length > 0) html += `<button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>`;
+  if (anyComplete) html += `<button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>`;
   html += `</div>`;
 
   const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
@@ -748,27 +764,27 @@ function renderHome(){
     const amNames = today.am.map(shortLabel).join(", ");
     const pmNames = pmSteps.map(shortLabel).join(", ");
     const washDays = daysUntilWashDay();
-    const washNote = isWashSat ? "" : `<div class="glance-detail">Next wash day: ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
+    const washNote = isWashSat ? "" : `<div class="glance-detail" style="margin-top:6px;">Next wash day: ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
           <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashSat?'<span class="badge wash">Wash day</span>':''}</div>
           <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="glance-stat">${today.am.length} AM · ${pmSteps.length} PM</div>
-        <div class="glance-detail">${amNames}</div>
-        <div class="glance-detail">${pmNames}</div>
+        <div class="glance-routine-row"><span class="glance-tag am">AM</span><span class="glance-detail-text">${amNames}</span></div>
+        <div class="glance-routine-row"><span class="glance-tag pm">PM</span><span class="glance-detail-text">${pmNames}</span></div>
         ${washNote}
       </div>`;
   }
 
   const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
   const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
-  const nextNeeded = capsule.find(i => currentCapState(i) !== "owned");
+  const cheapestNeeded = capsule.filter(i => currentCapState(i) !== "owned").sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
   html += `<div class="card glance" onclick="activateTab('style')">
       <div class="glance-head"><h3>Capsule</h3><svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
       <div class="glance-stat">${ownedCount}/${capsule.length} · ${capPct}%</div>
       <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
-      ${nextNeeded?`<div class="glance-detail" style="margin-top:8px;">Still need: ${nextNeeded.title}</div>`:''}
+      ${cheapestNeeded?`<div class="glance-detail" style="margin-top:8px;">Still need: ${cheapestNeeded.title}${cheapestNeeded.price!=null?` — ${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:''}</div>`:''}
     </div>`;
 
   const pendingItems = wantsList.filter(w => !wantsState[w.id]);
@@ -789,7 +805,7 @@ function quickAddTodo(){
   const input = document.getElementById("todo-quick-add-input");
   const text = input.value.trim();
   if (!text) return;
-  todoList.push({id:genId("todo"), text, done:false});
+  todoList.push({id:genId("todo"), text, done:false, day:null});
   saveContent("todo-content", todoList);
   renderHome();
   const fresh = document.getElementById("todo-quick-add-input");
@@ -801,11 +817,23 @@ function toggleTodo(id){
   saveContent("todo-content", todoList);
   renderHome();
 }
-function deleteTodo(id){
-  const idx = todoList.findIndex(x=>x.id===id);
-  todoList.splice(idx,1);
-  saveContent("todo-content", todoList);
-  renderHome();
+function editTodo(id){
+  const t = todoList.find(x=>x.id===id);
+  openModal("Edit to-do", [
+    {key:"text",label:"To-do",type:"text"},
+    {key:"day",label:"Day",type:"select",options:TODO_DAYS}
+  ], {text:t.text, day:t.day||"This week"},
+    (v) => {
+      if(!v.text) return;
+      t.text=v.text; t.day = v.day==="This week" ? null : v.day;
+      saveContent("todo-content", todoList); renderHome();
+    },
+    () => {
+      const idx = todoList.findIndex(x=>x.id===id);
+      todoList.splice(idx,1);
+      saveContent("todo-content", todoList); renderHome();
+    }
+  );
 }
 function clearCompletedTodos(){
   if (!confirm("Clear all completed to-dos? This can't be undone.")) return;
@@ -1011,9 +1039,10 @@ function renderCapsuleLists(){
     const checked = currentCapState(item) === "owned";
     const pendingBadge = item.state === "pending" ? `<span class="badge pending">fit pending</span>` : "";
     const editBtn = editMode ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editCapsuleItem('${item.id}')">${PENCIL_ICON}</button>` : "";
+    const priceLine = item.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${item.estimated?'~':''}$${fmtMoney(item.price)}${item.estimated?' (est.)':''}</div>` : "";
     const row = `<div class="item ${checked?'checked':''}" onclick="toggleCapsule('${item.id}')">
         <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-        <div class="body"><div class="title">${item.title}${pendingBadge}</div>${item.sub?`<div class="sub">${item.sub}</div>`:""}</div>
+        <div class="body"><div class="title">${item.title}${pendingBadge}</div>${item.sub?`<div class="sub">${item.sub}</div>`:""}${priceLine}</div>
         ${editBtn}
       </div>`;
     const cat = item.cat || "Other";
@@ -1075,11 +1104,12 @@ function editCapsuleItem(id){
     {key:"title",label:"Title",type:"text"},
     {key:"sub",label:"Notes (optional)",type:"text"},
     {key:"cat",label:"Category",type:"select",options:CAP_CATS},
+    {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
     {key:"pending",label:"Fit pending",type:"checkbox"}
-  ], {title:item.title, sub:item.sub||"", cat:item.cat||CAP_CATS[0], pending:item.state==="pending"},
+  ], {title:item.title, sub:item.sub||"", cat:item.cat||CAP_CATS[0], price:item.price, pending:item.state==="pending"},
     (v) => {
       if(!v.title) return;
-      item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat;
+      item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat; item.price=v.price;
       if (v.pending) item.state = "pending";
       else if (item.state === "pending") item.state = currentCapState(item);
       saveContent("capsule-content", capsule); renderStyle();
@@ -1097,11 +1127,12 @@ function addCapsuleItem(bucket){
     {key:"title",label:"Title",type:"text"},
     {key:"sub",label:"Notes (optional)",type:"text"},
     {key:"cat",label:"Category",type:"select",options:CAP_CATS},
+    {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
     {key:"pending",label:"Fit pending",type:"checkbox"}
   ], {cat:CAP_CATS[0]},
     (v) => {
       if(!v.title) return;
-      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, state: v.pending ? "pending" : bucket});
+      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, price:v.price, state: v.pending ? "pending" : bucket});
       saveContent("capsule-content", capsule); renderStyle();
     }
   );

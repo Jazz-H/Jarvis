@@ -79,20 +79,30 @@ keys in any browser that had already loaded the app — harmless (nothing reads 
 anymore), not actively cleaned up.
 
 ## Tab-by-tab content
-**Home:** The default landing tab. A to-do list up top — plain-text quick-add (type +
-Enter, no modal, mirrors the Wants quick-add pattern and the gist of the Android
-Reminders "type a new line" flow), tap the circle to check off, unchecked items stay
-on top and checked ones sink to the bottom with a strikethrough, a header badge shows
-"N open" (or "All done"), a "Clear completed" button appears once anything's checked.
-No default/seed items — it's empty until you add your own. Below that, three tappable
-glance cards summarizing the other tabs and jumping straight to them: **Today**
-(today's AM/PM step names from Skin/Hair, wash-day badge on wash Saturdays, otherwise
-a "Next wash day: in N days" countdown), **Capsule** (owned/total + progress bar,
-mirrors Style, plus a "Still need: …" teaser naming the next unowned item), and
-**Wants** (pending count + total, the cheapest pending item as a "Next:" teaser with
-its own inline "Mark bought" button — buyable straight from Home, no need to open the
-Wants tab). The glance cards re-render every time you land on Home, so they never show
-stale numbers from something you changed on another tab.
+**Home:** The default landing tab.
+
+*To-Do* — plain-text quick-add (type + Enter, no modal, mirrors the Wants quick-add
+pattern and the gist of the Android Reminders "type a new line" flow), tap the circle
+to check off. Items are grouped under day headers — "This week" (the default bucket
+for anything quick-added, no day assigned) plus Monday–Sunday, only showing groups
+that have items. Tap the pencil on any item to rename it and/or assign it to a day
+(or back to "This week") via a small modal, which doubles as the delete flow. Within
+each day-group, unchecked items stay on top and checked ones sink to the bottom with a
+strikethrough. A header badge shows "N open" (or "All done") counting across all
+groups, and a "Clear completed" button appears once anything anywhere is checked. No
+default/seed items — it's empty until you add your own.
+
+*Glance cards* — three tappable cards summarizing the other tabs and jumping straight
+to them on tap: **Today** (today's AM/PM steps from Skin/Hair, each list under a small
+colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used for
+the actual AM/PM bands on the Skin/Hair tab — plus a wash-day badge on wash Saturdays
+or a "Next wash day: in N days" countdown otherwise), **Capsule** (owned/total +
+progress bar, mirrors Style, plus a "Still need: …" teaser naming the *cheapest*
+still-needed item by price when any needed items have a price set, otherwise just the
+first one), and **Wants** (pending count + total, the cheapest pending item as a
+"Next:" teaser with its own inline "Mark bought" button — buyable straight from Home,
+no need to open the Wants tab). The glance cards re-render every time you land on
+Home, so they never show stale numbers from something you changed on another tab.
 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid
@@ -111,7 +121,12 @@ never sneakers). Sizing reference grid (Tops M, Outerwear M, Bottoms M,
 Denim M, Shoes 8, Ring 8). Capsule
 wardrobe: "Still need" and "In closet" as separate collapsible cards, both grouped by
 category (Tops/Bottoms/Shoes/Outerwear/Accessories), tappable to move between them,
-persisted. Progress bar showing % of capsule owned.
+persisted. Progress bar showing % of capsule owned. Capsule items now support an
+optional price (edit-mode modal, shown on the item row when set) — mainly so Home's
+"Still need" teaser can surface the cheapest still-needed item instead of just
+whichever one happens to be first in the list; only the brown/cognac belt has one by
+default (~$20 est., matching its existing note), everything else is unpriced until
+you add one.
 
 **Wants:** A quick-add bar sits at the top of the tab, always available regardless of
 edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
