@@ -99,8 +99,9 @@ full product name with its concentration ("Caffeine Solution 5% + EGCG"): "Clean
 Ascorbyl Glucoside, Niacinamide, Moisturizer, Hair mist, Sunscreen" — each list under a
 small colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used
 for the actual AM/PM bands on the Skin/Hair tab — plus a wash-day badge on wash
-Thursdays, or otherwise a "Next wash day: [date] — in N days" line showing both the
-actual upcoming date and the countdown),
+Thursdays, or otherwise a highlighted "Next wash day: [date] — in N days" callout (a
+magenta-tinted pill with a droplet icon, matching the PM accent color, so it stands out
+from the rest of the card instead of reading as another dim detail line)),
 **Wardrobe** (owned/total + progress bar, mirrors the Style tab, plus a "Still need: …"
 teaser naming the *cheapest* still-needed item by price when any needed items have a
 price set, otherwise just the first one — with its own inline "Mark owned" button and,

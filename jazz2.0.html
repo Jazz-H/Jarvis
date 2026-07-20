@@ -147,6 +147,12 @@
     background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
   }
   .glance-link-btn:active{background:var(--surface-2);}
+  .wash-note{
+    display:flex; align-items:center; gap:8px; margin-top:10px; padding:9px 12px;
+    background:rgba(255,46,154,.12); border:1px solid rgba(255,46,154,.35); border-radius:10px;
+    color:var(--navy); font-size:12.5px; font-weight:700;
+  }
+  .wash-note svg{flex-shrink:0;}
   .glance-routine-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:5px;}
   .glance-routine-row:last-of-type{margin-bottom:0;}
   .glance-tag{
@@ -373,6 +379,7 @@
 const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants List"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const LINK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
+const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 // Short display names for Home's Today card, keyed by step label — a middle ground
 // between the vague step category ("Eye area") and the full product name with its
 // concentration ("Caffeine Solution 5% + EGCG"). Falls back to the step's own label
@@ -784,7 +791,7 @@ function renderHome(){
     const pmNames = pmSteps.map(shortStepLabel).join(", ");
     const washDays = daysUntilWashDay();
     const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
-    const washNote = isWashDay ? "" : `<div class="glance-detail" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line);">Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
+    const washNote = isWashDay ? "" : `<div class="wash-note">${DROPLET_ICON}Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
           <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashDay?'<span class="badge wash">Wash day</span>':''}</div>
