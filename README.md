@@ -93,16 +93,20 @@ groups, and a "Clear completed" button appears once anything anywhere is checked
 default/seed items — it's empty until you add your own.
 
 *Glance cards* — three tappable cards summarizing the other tabs and jumping straight
-to them on tap: **Today** (today's AM/PM steps from Skin/Hair, each list under a small
-colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used for
-the actual AM/PM bands on the Skin/Hair tab — plus a wash-day badge on wash Saturdays
-or a "Next wash day: in N days" countdown otherwise), **Capsule** (owned/total +
-progress bar, mirrors Style, plus a "Still need: …" teaser naming the *cheapest*
-still-needed item by price when any needed items have a price set, otherwise just the
-first one), and **Wants** (pending count + total, the cheapest pending item as a
-"Next:" teaser with its own inline "Mark bought" button — buyable straight from Home,
-no need to open the Wants tab). The glance cards re-render every time you land on
-Home, so they never show stale numbers from something you changed on another tab.
+to them on tap: **Today** (today's AM/PM steps from Skin/Hair, listed by *product
+name* rather than step category, each list under a small colored AM/PM tag — cyan for
+AM, magenta for PM, matching the accent colors used for the actual AM/PM bands on the
+Skin/Hair tab — plus a wash-day badge on wash Saturdays, or otherwise a "Next wash day:
+[date] — in N days" line showing both the actual upcoming date and the countdown),
+**Wardrobe** (owned/total + progress bar, mirrors the Style tab, plus a "Still need: …"
+teaser naming the *cheapest* still-needed item by price when any needed items have a
+price set, otherwise just the first one — with its own inline "Mark owned" button and,
+when that item has a link saved, a small link-shortcut button next to it, both usable
+straight from Home), and **Wants** (pending count + total, the cheapest pending item as
+a "Next:" teaser with its own inline "Mark bought" button and, when that item has a
+link saved, a link-shortcut button — buyable/checkable straight from Home, no need to
+open the Wants or Style tab). The glance cards re-render every time you land on Home,
+so they never show stale numbers from something you changed on another tab.
 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid
@@ -115,18 +119,22 @@ week — last wash was the week of Jul 16, 2026, badged "Wash day" on the Saturd
 lands on; off-weeks get the regular AM/PM routine instead (wash-day PM swaps in the
 shampoo + mask in place of the mist, since that already covers hair care for the day).
 
-**Style:** Fit rules card (front-tuck, regular inseam, size-to-hips, no oversized/
-drop-shoulder, ankle dress pants = business casual only w/ no-show socks + loafers
-never sneakers). Sizing reference grid (Tops M, Outerwear M, Bottoms M,
-Denim M, Shoes 8, Ring 8). Capsule
-wardrobe: "Still need" and "In closet" as separate collapsible cards, both grouped by
-category (Tops/Bottoms/Shoes/Outerwear/Accessories), tappable to move between them,
-persisted. Progress bar showing % of capsule owned. Capsule items now support an
-optional price (edit-mode modal, shown on the item row when set) — mainly so Home's
-"Still need" teaser can surface the cheapest still-needed item instead of just
-whichever one happens to be first in the list; only the brown/cognac belt has one by
-default (~$20 est., matching its existing note), everything else is unpriced until
-you add one.
+**Style:** Tab bar button still says "Style"; the in-tab header now reads "Wardrobe"
+(renamed from "Style Capsule" — the tab bar already says Style, so the header just
+names what's actually in the tab instead of repeating it). Fit rules card (front-tuck,
+regular inseam, size-to-hips, no oversized/drop-shoulder, ankle dress pants = business
+casual only w/ no-show socks + loafers never sneakers). Sizing reference grid (Tops
+M, Outerwear M, Bottoms M, Denim M, Shoes 8, Ring 8 w/
+footnote: Sample Band confirmed at 7). Wardrobe: "Still need" and "In closet" as separate
+collapsible cards, both grouped by category (Tops/Bottoms/Shoes/Outerwear/Accessories),
+tappable to move between them, persisted. Progress bar ("Wardrobe built") showing % of
+items owned. Items support an optional price and link, same shape as Wants (edit-mode
+modal, both shown on the item row when set — link as a "View product →" the same style
+Wants uses; tapping it stops the tap from also toggling the item owned/needed). The
+price mainly exists so Home's "Still need" teaser can surface the cheapest still-needed
+item instead of whichever one happens to be first in the list. Only the brown/cognac
+belt has a price by default (~$20 est.); everything else is unpriced/unlinked until you
+add one.
 
 **Wants:** A quick-add bar sits at the top of the tab, always available regardless of
 edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
