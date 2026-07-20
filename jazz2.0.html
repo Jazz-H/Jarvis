@@ -771,7 +771,7 @@ function renderHome(){
     const pmNames = pmSteps.map(productName).join(", ");
     const washDays = daysUntilWashDay();
     const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
-    const washNote = isWashDay ? "" : `<div class="glance-detail" style="margin-top:6px;">Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
+    const washNote = isWashDay ? "" : `<div class="glance-detail" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line);">Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
     html += `<div class="card glance" onclick="activateTab('skin')">
         <div class="glance-head">
           <div style="display:flex;align-items:center;gap:8px;"><h3>Today — ${today.day}</h3>${isWashDay?'<span class="badge wash">Wash day</span>':''}</div>
