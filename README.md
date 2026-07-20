@@ -109,7 +109,9 @@ open the Wants or Style tab). The glance cards re-render every time you land on 
 so they never show stale numbers from something you changed on another tab.
 
 **Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
-auto-detects and opens "today," badges it. Key rules card (Vitamin C/Glycolic Acid
+auto-detects and opens "today," badges it, and auto-scrolls the tab straight to
+today's card on open — no hunting for it further down the week. Key rules card
+(Vitamin C/Glycolic Acid
 same-day-different-session rule, SPF always last AM step, lash serum always last PM
 step). Hair mist (Daily Hair Spray, standardized from the old
 Hair oil seal-and-oil / Lion Locs / rice water rotation) runs twice daily — once in

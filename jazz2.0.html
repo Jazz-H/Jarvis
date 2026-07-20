@@ -1295,6 +1295,10 @@ function activateTab(tab){
   document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
   document.getElementById("headline").textContent = HEADLINES[tab];
   document.querySelector("main").scrollTop = 0;
+  if (tab === "skin"){
+    const todayEl = document.querySelector("#panel-skin .day.today");
+    if (todayEl) todayEl.scrollIntoView({block:"start"});
+  }
 }
 
 document.querySelectorAll("nav.tabbar button").forEach(btn => {
