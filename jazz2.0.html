@@ -170,21 +170,25 @@
 
   /* home stat tiles (wardrobe / wants) */
   .home-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
-  .home-grid .card{margin-bottom:0; padding:14px; min-width:0;}
+  .home-grid .card{margin-bottom:0; padding:14px; min-width:0; display:flex; flex-direction:column;}
   .tile-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
   .tile-label{font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;}
-  .tile-stat{font-size:23px; font-weight:800; line-height:1; margin-bottom:4px;}
-  .tile-caption{font-size:11px; color:var(--text-dim); margin-bottom:10px;}
-  .tile-next-wrap{
-    margin-top:10px; padding-top:10px; border-top:1px solid var(--line); min-width:0;
-  }
-  .tile-next{font-size:11.5px; color:var(--text); line-height:1.4; min-width:0;}
-  .tile-next .name{
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; min-width:0;
-  }
-  .tile-next-footer{display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-top:5px;}
-  .tile-next-footer .price{color:var(--gold); font-weight:700; font-size:12.5px; flex-shrink:0;}
+  .tile-stat{font-size:23px; font-weight:800; line-height:1; margin:3px 0 5px;}
+  .tile-caption{font-size:11px; color:var(--text-dim); margin-bottom:12px;}
+  .home-grid .progress-bar{margin-top:auto;}
+  .progress-fill.wants{background:linear-gradient(90deg, #ff7ac0, var(--navy));}
   .tile-actions{display:flex; gap:6px; flex-shrink:0;}
+
+  /* home "Up next" rows (full-width so product names have room to breathe) */
+  .next-row{display:flex; align-items:center; gap:12px; padding:11px 0; cursor:pointer;}
+  .next-row + .next-row{border-top:1px solid var(--line);}
+  .next-info{flex:1; min-width:0;}
+  .next-name{
+    font-size:13.5px; font-weight:600; line-height:1.35;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .next-meta{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+  .next-meta b{color:var(--gold); font-weight:700;}
   .icon-btn{
     flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--olive-dim);
     background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
@@ -356,6 +360,19 @@
   .completed-actions{flex-shrink:0; width:26px; height:26px; border-radius:8px; border:1px solid var(--line);
     background:var(--surface-2); color:var(--text-dim); display:flex; align-items:center; justify-content:center;}
 
+  /* to-do drag-to-reorder */
+  .drag-handle{
+    flex-shrink:0; width:24px; height:28px; margin-left:-6px; padding:0; border:none; background:none;
+    color:var(--text-dim); display:flex; align-items:center; justify-content:center;
+    touch-action:none; cursor:grab; order:0; opacity:.65; align-self:center;
+  }
+  .todo-wrap.drag-active{position:relative; z-index:15;}
+  .todo-wrap.drag-active .item{
+    background:var(--surface-2); border-radius:12px; outline:1.5px solid var(--olive);
+    box-shadow:0 10px 26px rgba(0,0,0,.55);
+  }
+  body.todo-dragging, body.todo-dragging *{user-select:none; -webkit-user-select:none;}
+
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.55);
     display:flex; align-items:flex-end; justify-content:center;
@@ -474,6 +491,7 @@ const STAR_FILLED_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="
 const SUBLIST_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"/></svg>';
 const SMALL_PLUS_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
 const X_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const GRIP_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none"><circle cx="9" cy="5.5" r="1.7"/><circle cx="15" cy="5.5" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18.5" r="1.7"/><circle cx="15" cy="18.5" r="1.7"/></svg>';
 const DUPLICATE_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14ZM10 11v6M14 11v6"/></svg>';
 // Short display names for Home's Today card, keyed by step label — a middle ground
@@ -872,8 +890,9 @@ function renderHome(){
     const subs = t.subitems || [];
     const subDone = subs.filter(s => s.done).length;
     const expanded = expandedTodos.has(t.id);
-    return `<div class="todo-wrap">
+    return `<div class="todo-wrap" data-todo-id="${t.id}">
         <div class="item ${t.done?'checked':''}" onclick="toggleTodo('${t.id}')">
+          <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
           <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
           <div class="body"><div class="title">${escapeHtml(t.text)}</div></div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
@@ -892,14 +911,19 @@ function renderHome(){
   } else if (totalOpen === 0){
     html += `<div class="empty">All done for now.</div>`;
   } else {
+    // Array order IS the display order (drag-to-reorder writes it back); starring
+    // floats an item to the top once instead of pinning it there permanently.
+    html += `<div id="todo-list">`;
     const groupKeys = ["", ...TODO_DAYS.slice(1)]; // "" = This week (no day set), then Mon..Sun
-    groupKeys.forEach((day, gi) => {
+    let firstGroup = true;
+    groupKeys.forEach(day => {
       const groupItems = todoList.filter(t => (t.day || "") === day && !t.done);
       if (groupItems.length === 0) return;
-      const sorted = groupItems.slice().sort((a,b) => (b.starred?1:0)-(a.starred?1:0));
-      html += `<div class="cat-title"${gi===0?' style="margin-top:0;"':''}>${day || "This week"}</div>`;
-      sorted.forEach(t => html += todoRow(t));
+      html += `<div class="cat-title" data-day="${day}"${firstGroup?' style="margin-top:0;"':''}>${day || "This week"}</div>`;
+      firstGroup = false;
+      groupItems.forEach(t => html += todoRow(t));
     });
+    html += `</div>`;
   }
   html += `</div>`;
 
@@ -959,6 +983,9 @@ function renderHome(){
   const pendingTotal = pendingItems.reduce((sum,w) => sum + (w.price||0), 0);
   const cheapest = pendingItems.slice().sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
 
+  const boughtCount = wantsList.length - pendingItems.length;
+  const boughtPct = wantsList.length ? Math.round((boughtCount / wantsList.length) * 100) : 0;
+
   html += `<div class="home-grid">
       <div class="card glance" onclick="activateTab('style')">
         <div class="tile-head">
@@ -969,16 +996,6 @@ function renderHome(){
         <div class="tile-stat" style="color:var(--olive);">${capPct}%</div>
         <div class="tile-caption">${ownedCount}/${capsule.length} owned</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
-        ${cheapestNeeded?`<div class="tile-next-wrap">
-            <div class="tile-next"><span class="name">${cheapestNeeded.title}</span></div>
-            <div class="tile-next-footer">
-              <span class="price">${cheapestNeeded.price!=null?`${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:''}</span>
-              <div class="tile-actions">
-                ${cheapestNeeded.link?`<a href="${cheapestNeeded.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
-                <button class="icon-btn" onclick="event.stopPropagation(); toggleCapsule('${cheapestNeeded.id}').then(renderHome);" aria-label="Mark owned">${CHECK_ICON}</button>
-              </div>
-            </div>
-          </div>`:''}
       </div>
       <div class="card glance" onclick="activateTab('wants')">
         <div class="tile-head">
@@ -988,18 +1005,35 @@ function renderHome(){
         <div class="tile-label">Wants</div>
         <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}</div>
         <div class="tile-caption">${pendingItems.length} pending</div>
-        ${cheapest?`<div class="tile-next-wrap" style="border-top:none; margin-top:0; padding-top:0;">
-            <div class="tile-next"><span class="name">${cheapest.name}</span></div>
-            <div class="tile-next-footer">
-              <span class="price">${cheapest.price!=null?`$${fmtMoney(cheapest.price)}`:''}</span>
-              <div class="tile-actions">
-                ${cheapest.link?`<a href="${cheapest.link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
-                <button class="icon-btn" onclick="event.stopPropagation(); toggleWant('${cheapest.id}').then(renderHome);" aria-label="Mark bought">${CHECK_ICON}</button>
-              </div>
-            </div>
-          </div>`:''}
+        <div class="progress-bar"><div class="progress-fill wants" style="width:${boughtPct}%"></div></div>
       </div>
     </div>`;
+
+  if (cheapestNeeded || cheapest){
+    const nextRow = (tab, iconBg, iconColor, icon, name, priceStr, context, link, checkCall, checkLabel) => `
+      <div class="next-row" onclick="activateTab('${tab}')">
+        <div class="glance-icon" style="background:${iconBg}; color:${iconColor};">${icon}</div>
+        <div class="next-info">
+          <div class="next-name">${escapeHtml(name)}</div>
+          <div class="next-meta">${priceStr?`<b>${priceStr}</b> · `:""}${context}</div>
+        </div>
+        <div class="tile-actions">
+          ${link?`<a href="${link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+          <button class="icon-btn" onclick="event.stopPropagation(); ${checkCall}" aria-label="${checkLabel}">${CHECK_ICON}</button>
+        </div>
+      </div>`;
+    html += `<div class="card">
+        <div class="glance-head"><h3>Up next</h3><span class="insight">cheapest first</span></div>
+        ${cheapestNeeded ? nextRow('style', 'rgba(198,255,61,.15)', 'var(--olive)', SHIRT_ICON, cheapestNeeded.title,
+            cheapestNeeded.price!=null?`${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:'',
+            'Wardrobe · still need', cheapestNeeded.link,
+            `toggleCapsule('${cheapestNeeded.id}').then(renderHome);`, 'Mark owned') : ''}
+        ${cheapest ? nextRow('wants', 'rgba(255,46,154,.15)', 'var(--navy)', BAG_ICON, cheapest.name,
+            cheapest.price!=null?`$${fmtMoney(cheapest.price)}`:'',
+            'Wants · pending', cheapest.link,
+            `toggleWant('${cheapest.id}').then(renderHome);`, 'Mark bought') : ''}
+      </div>`;
+  }
 
   el.innerHTML = html;
 }
@@ -1023,6 +1057,11 @@ function toggleTodo(id){
 function toggleTodoStar(id){
   const t = todoList.find(x=>x.id===id);
   t.starred = !t.starred;
+  if (t.starred){
+    // float to the top of the list once; drag order takes over from there
+    todoList.splice(todoList.indexOf(t), 1);
+    todoList.unshift(t);
+  }
   saveContent("todo-content", todoList);
   renderHome();
 }
@@ -1561,6 +1600,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   const mainEl = document.querySelector("main");
   let startX = 0, startY = 0, tracking = false;
   mainEl.addEventListener("touchstart", e => {
+    if (e.target.closest(".drag-handle")){ tracking = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;
@@ -1590,6 +1630,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   let startY = 0, pulling = false, dragging = false;
 
   mainEl.addEventListener("touchstart", e => {
+    if (e.target.closest(".drag-handle")){ pulling = false; dragging = false; return; }
     pulling = mainEl.scrollTop <= 0;
     dragging = false;
     startY = e.touches[0].clientY;
@@ -1624,6 +1665,95 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     }
     pulling = false;
   }, {passive:true});
+})();
+
+// Drag-to-reorder for to-do items: grab the grip handle and move a row up or
+// down the open list. The row follows the finger, rows shuffle live, holding
+// near the top/bottom edge of the list autoscrolls, and dropping under a
+// different day header reassigns the to-do's day.
+(function(){
+  const mainEl = document.querySelector("main");
+  const panel = document.getElementById("panel-home");
+  let drag = null;
+
+  panel.addEventListener("pointerdown", e => {
+    const handle = e.target.closest(".drag-handle");
+    if (!handle || drag) return;
+    const wrap = handle.closest(".todo-wrap");
+    const list = document.getElementById("todo-list");
+    if (!wrap || !list || !list.contains(wrap)) return;
+    e.preventDefault();
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    const rect = wrap.getBoundingClientRect();
+    drag = {wrap, list, clientY:e.clientY, grabOffset:e.clientY - rect.top, raf:0};
+    wrap.classList.add("drag-active");
+    document.body.classList.add("todo-dragging");
+    tick();
+  });
+
+  panel.addEventListener("pointermove", e => {
+    if (drag) drag.clientY = e.clientY;
+  });
+  panel.addEventListener("pointerup", () => endDrag(true));
+  panel.addEventListener("pointercancel", () => endDrag(false));
+
+  function tick(){
+    if (!drag) return;
+    const mr = mainEl.getBoundingClientRect();
+    if (drag.clientY < mr.top + 70) mainEl.scrollTop -= 9;
+    else if (drag.clientY > mr.bottom - 110) mainEl.scrollTop += 9;
+    reorder();
+    position();
+    drag.raf = requestAnimationFrame(tick);
+  }
+
+  function reorder(){
+    const siblings = [...drag.list.querySelectorAll(".todo-wrap:not(.drag-active)")];
+    const next = siblings.find(s => {
+      const r = s.getBoundingClientRect();
+      return drag.clientY <= r.top + r.height / 2;
+    });
+    if (next){
+      if (next.previousElementSibling !== drag.wrap) drag.list.insertBefore(drag.wrap, next);
+    } else if (drag.list.lastElementChild !== drag.wrap){
+      drag.list.appendChild(drag.wrap);
+    }
+  }
+
+  function position(){
+    // clear the transform first so the rect reflects the row's slot position
+    drag.wrap.style.transform = "";
+    const top = drag.wrap.getBoundingClientRect().top;
+    drag.wrap.style.transform = `translateY(${drag.clientY - drag.grabOffset - top}px)`;
+  }
+
+  function endDrag(commit){
+    if (!drag) return;
+    cancelAnimationFrame(drag.raf);
+    drag.wrap.style.transform = "";
+    drag.wrap.classList.remove("drag-active");
+    document.body.classList.remove("todo-dragging");
+    const list = drag.list;
+    drag = null;
+    if (commit) commitTodoOrder(list);
+    else renderHome(); // put rows back where the data says they belong
+  }
+
+  function commitTodoOrder(list){
+    const ordered = [];
+    [...list.querySelectorAll(".todo-wrap[data-todo-id]")].forEach(w => {
+      const t = todoList.find(x => x.id === w.dataset.todoId);
+      if (!t) return;
+      let el = w.previousElementSibling;
+      while (el && !el.classList.contains("cat-title")) el = el.previousElementSibling;
+      if (el) t.day = el.dataset.day || null;
+      ordered.push(t);
+    });
+    const ids = new Set(ordered.map(t => t.id));
+    todoList = [...ordered, ...todoList.filter(t => !ids.has(t.id))];
+    saveContent("todo-content", todoList);
+    renderHome();
+  }
 })();
 
 async function hardRefresh(){
