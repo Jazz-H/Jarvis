@@ -340,8 +340,20 @@
     position:absolute; bottom:-3px; right:-4px; font-size:8px; font-weight:800; line-height:1;
     background:var(--surface-2); color:var(--text-dim); padding:2px 3px; border-radius:5px;
   }
-  .subitem-list{padding:0 0 10px 32px;}
+  .subitem-list{padding:0 0 10px 26px;}
   .subitem-row{display:flex; align-items:center; gap:8px; padding:5px 0;}
+  .sub-drag-handle{
+    flex-shrink:0; width:18px; height:24px; margin-left:-4px; padding:0; border:none; background:none;
+    color:var(--text-dim); display:flex; align-items:center; justify-content:center;
+    touch-action:none; cursor:grab; opacity:.55;
+  }
+  .sub-drag-handle svg{width:12px; height:12px;}
+  .subitem-row.drag-active-sub{
+    position:relative; z-index:15; background:var(--surface-2); border-radius:10px;
+    outline:1.5px solid var(--olive); box-shadow:0 8px 20px rgba(0,0,0,.5);
+  }
+  /* dragging left past the threshold: dashed outline = will promote to a full to-do */
+  .subitem-row.drag-active-sub.promoting{outline-style:dashed; outline-color:var(--gold);}
   .subitem-box{
     width:16px; height:16px; border-radius:5px; border:1.5px solid var(--text-dim); flex-shrink:0;
     display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s;
@@ -352,7 +364,13 @@
   .subitem-text{flex:1; font-size:12.5px; color:var(--text);}
   .subitem-text.checked{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--line);}
   .subitem-del{flex-shrink:0; width:22px; height:22px; border:none; background:none; color:var(--text-dim); display:flex; align-items:center; justify-content:center;}
-  .subitem-add{display:flex; gap:6px; margin-top:2px;}
+  .subitem-add-toggle{
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:14px;
+    border:1.5px dashed var(--olive-dim); background:none; color:var(--olive);
+    font-size:11.5px; font-weight:700; font-family:inherit; margin:6px 0 2px;
+  }
+  .subitem-add-toggle:active{background:rgba(198,255,61,.12);}
+  .subitem-add{display:flex; gap:6px; margin:6px 0 2px;}
   .subitem-add input{
     flex:1; min-width:0; background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
     color:var(--text); font-size:12px; font-family:inherit; padding:0 10px; height:32px;
@@ -574,6 +592,7 @@ let editCards = new Set();
 // whatever the user had open.
 let openPinned = new Set(["todo-card", "cap-needed-card", "wants-pending-card"]);
 let expandedTodos = new Set();
+let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 let openDays = null; // lazily seeded with today's index on first renderSkin()
 
 // ---------- DEFAULT DATA (seeds localStorage on first run; everything below is editable in-app after) ----------
@@ -879,19 +898,23 @@ function renderHome(){
     </div>`;
   const renderSubitems = (t) => {
     const subs = t.subitems || [];
-    const rows = subs.map(s => `<div class="subitem-row">
+    const rows = subs.map(s => `<div class="subitem-row" data-sub-id="${s.id}">
+        <button class="sub-drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
         <div class="subitem-box ${s.done?'checked':''}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
         </div>
         <div class="subitem-text ${s.done?'checked':''}">${escapeHtml(s.text)}</div>
         <button class="subitem-del" onclick="event.stopPropagation(); deleteSubitem('${t.id}','${s.id}')" aria-label="Delete sub-item">${X_ICON}</button>
       </div>`).join("");
-    return `<div class="subitem-list" onclick="event.stopPropagation()">
-        ${rows}
-        <div class="subitem-add">
+    const addUi = subAddOpen.has(t.id)
+      ? `<div class="subitem-add">
           <input type="text" id="subitem-input-${t.id}" placeholder="Add sub-item" autocomplete="off" onkeydown="if(event.key==='Enter') addSubitem('${t.id}');">
           <button onclick="addSubitem('${t.id}')" aria-label="Add sub-item">${SMALL_PLUS_ICON}</button>
-        </div>
+        </div>`
+      : `<button class="subitem-add-toggle" onclick="openSubitemAdd('${t.id}')">${SMALL_PLUS_ICON} Add sub-item</button>`;
+    return `<div class="subitem-list" onclick="event.stopPropagation()">
+        ${rows}
+        ${addUi}
       </div>`;
   };
   const todoRow = (t) => {
@@ -1076,7 +1099,21 @@ function toggleTodoStar(id){
   renderHome();
 }
 function toggleTodoExpand(id){
-  if (expandedTodos.has(id)) expandedTodos.delete(id); else expandedTodos.add(id);
+  if (expandedTodos.has(id)){
+    expandedTodos.delete(id);
+    subAddOpen.delete(id); // reset to view-only next time it opens
+  } else {
+    expandedTodos.add(id);
+    // an empty sub-list has nothing to view, so jump straight to the input
+    const t = todoList.find(x=>x.id===id);
+    if (!(t.subitems||[]).length) subAddOpen.add(id);
+  }
+  renderHome();
+  const input = document.getElementById(`subitem-input-${id}`);
+  if (input) input.focus();
+}
+function openSubitemAdd(id){
+  subAddOpen.add(id);
   renderHome();
   const input = document.getElementById(`subitem-input-${id}`);
   if (input) input.focus();
@@ -1632,7 +1669,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   const mainEl = document.querySelector("main");
   let startX = 0, startY = 0, tracking = false;
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle")){ tracking = false; return; }
+    if (e.target.closest(".drag-handle, .sub-drag-handle")){ tracking = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;
@@ -1662,7 +1699,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   let startY = 0, pulling = false, dragging = false;
 
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle")){ pulling = false; dragging = false; return; }
+    if (e.target.closest(".drag-handle, .sub-drag-handle")){ pulling = false; dragging = false; return; }
     pulling = mainEl.scrollTop <= 0;
     dragging = false;
     startY = e.touches[0].clientY;
@@ -1697,6 +1734,108 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     }
     pulling = false;
   }, {passive:true});
+})();
+
+// Drag-to-reorder for sub-items: vertical drag reorders within the sub-list;
+// dragging LEFT past the threshold promotes the sub-item back to a full to-do
+// (the mirror of dragging a to-do right to nest it).
+(function(){
+  const mainEl = document.querySelector("main");
+  const panel = document.getElementById("panel-home");
+  let sd = null;
+
+  panel.addEventListener("pointerdown", e => {
+    const handle = e.target.closest(".sub-drag-handle");
+    if (!handle || sd) return;
+    const row = handle.closest(".subitem-row");
+    const list = handle.closest(".subitem-list");
+    const wrap = handle.closest(".todo-wrap");
+    if (!row || !list || !wrap) return;
+    e.preventDefault();
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    const r = row.getBoundingClientRect();
+    sd = {row, list, todoId:wrap.dataset.todoId, subId:row.dataset.subId,
+          clientY:e.clientY, clientX:e.clientX, startX:e.clientX,
+          grabOffset:e.clientY - r.top, promoting:false, raf:0,
+          clip:[wrap.closest(".coll-body"), wrap.closest(".pinned")].filter(Boolean)};
+    sd.clip.forEach(el => el.style.overflow = "visible");
+    row.classList.add("drag-active-sub");
+    document.body.classList.add("todo-dragging");
+    tick();
+  });
+
+  panel.addEventListener("pointermove", e => {
+    if (sd){ sd.clientY = e.clientY; sd.clientX = e.clientX; }
+  });
+  panel.addEventListener("pointerup", () => end(true));
+  panel.addEventListener("pointercancel", () => end(false));
+
+  function tick(){
+    if (!sd) return;
+    const mr = mainEl.getBoundingClientRect();
+    if (sd.clientY < mr.top + 70) mainEl.scrollTop -= 9;
+    else if (sd.clientY > mr.bottom - 110) mainEl.scrollTop += 9;
+    const promoting = (sd.startX - sd.clientX) > 48;
+    if (promoting !== sd.promoting){
+      sd.promoting = promoting;
+      sd.row.classList.toggle("promoting", promoting);
+    }
+    if (!promoting) reorder();
+    position();
+    sd.raf = requestAnimationFrame(tick);
+  }
+
+  function reorder(){
+    const siblings = [...sd.list.querySelectorAll(".subitem-row:not(.drag-active-sub)")];
+    const next = siblings.find(s => {
+      const r = s.getBoundingClientRect();
+      return sd.clientY <= r.top + r.height / 2;
+    });
+    if (next){
+      if (next.previousElementSibling !== sd.row) sd.list.insertBefore(sd.row, next);
+    } else {
+      // keep the row above the add pill/input, which stays last
+      const addUi = sd.list.querySelector(".subitem-add-toggle, .subitem-add");
+      if (addUi && sd.row.nextElementSibling !== addUi && addUi.previousElementSibling !== sd.row){
+        sd.list.insertBefore(sd.row, addUi);
+      }
+    }
+  }
+
+  function position(){
+    sd.row.style.transform = "";
+    const top = sd.row.getBoundingClientRect().top;
+    const dx = sd.promoting ? -28 : 0;
+    sd.row.style.transform = `translate(${dx}px, ${sd.clientY - sd.grabOffset - top}px)`;
+  }
+
+  function end(commit){
+    if (!sd) return;
+    cancelAnimationFrame(sd.raf);
+    sd.row.style.transform = "";
+    sd.row.classList.remove("drag-active-sub", "promoting");
+    sd.clip.forEach(el => el.style.overflow = "");
+    document.body.classList.remove("todo-dragging");
+    const ctx = sd;
+    sd = null;
+    if (!commit){ renderHome(); return; }
+    const t = todoList.find(x => x.id === ctx.todoId);
+    if (!t || !t.subitems){ renderHome(); return; }
+    if (ctx.promoting){
+      const idx = t.subitems.findIndex(s => s.id === ctx.subId);
+      if (idx < 0){ renderHome(); return; }
+      const [s] = t.subitems.splice(idx, 1);
+      todoList.splice(todoList.indexOf(t) + 1, 0, {
+        id:genId("todo"), text:s.text, done:!!s.done, day:t.day || null,
+        starred:false, subitems:[], completedAt:s.done ? Date.now() : null
+      });
+    } else {
+      const order = [...ctx.list.querySelectorAll(".subitem-row")].map(r => r.dataset.subId);
+      t.subitems.sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id));
+    }
+    saveContent("todo-content", todoList);
+    renderHome();
+  }
 })();
 
 // Drag-to-reorder for to-do items: grab the grip handle and move a row up or
