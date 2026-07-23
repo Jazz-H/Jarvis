@@ -1749,9 +1749,9 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     e.preventDefault();
     try{ handle.setPointerCapture(e.pointerId); }catch(err){}
     const r = row.getBoundingClientRect();
-    sd = {row, list, todoId:wrap.dataset.todoId, subId:row.dataset.subId,
+    sd = {row, list, wrap, todoId:wrap.dataset.todoId, subId:row.dataset.subId,
           clientY:e.clientY, clientX:e.clientX, startX:e.clientX,
-          grabOffset:e.clientY - r.top, promoting:false, raf:0,
+          grabOffset:e.clientY - r.top, promoting:false, moveTarget:null, raf:0,
           clip:[wrap.closest(".coll-body"), wrap.closest(".pinned")].filter(Boolean)};
     sd.clip.forEach(el => el.style.overflow = "visible");
     row.classList.add("drag-active-sub");
@@ -1775,9 +1775,28 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
       sd.promoting = promoting;
       sd.row.classList.toggle("promoting", promoting);
     }
-    if (!promoting) reorder();
+    // Hovering over a different to-do marks it as the re-parent target;
+    // dropping there moves the sub-item into that to-do's sub-list.
+    const target = promoting ? null : hoverWrap();
+    if (target !== sd.moveTarget){
+      if (sd.moveTarget) sd.moveTarget.classList.remove("indent-target");
+      sd.moveTarget = target;
+      if (target) target.classList.add("indent-target");
+    }
+    if (!promoting && !sd.moveTarget) reorder();
     position();
     sd.raf = requestAnimationFrame(tick);
+  }
+
+  function hoverWrap(){
+    const list = document.getElementById("todo-list");
+    if (!list) return null;
+    for (const w of list.querySelectorAll(".todo-wrap")){
+      if (w === sd.wrap) continue;
+      const r = w.getBoundingClientRect();
+      if (sd.clientY >= r.top && sd.clientY <= r.bottom) return w;
+    }
+    return null;
   }
 
   function reorder(){
@@ -1809,6 +1828,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     cancelAnimationFrame(sd.raf);
     sd.row.style.transform = "";
     sd.row.classList.remove("drag-active-sub", "promoting");
+    if (sd.moveTarget) sd.moveTarget.classList.remove("indent-target");
     sd.clip.forEach(el => el.style.overflow = "");
     document.body.classList.remove("todo-dragging");
     const ctx = sd;
@@ -1824,6 +1844,14 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
         id:genId("todo"), text:s.text, done:!!s.done, day:t.day || null,
         starred:false, subitems:[], completedAt:s.done ? Date.now() : null
       });
+    } else if (ctx.moveTarget){
+      const dest = todoList.find(x => x.id === ctx.moveTarget.dataset.todoId);
+      const idx = t.subitems.findIndex(s => s.id === ctx.subId);
+      if (!dest || dest === t || idx < 0){ renderHome(); return; }
+      const [s] = t.subitems.splice(idx, 1);
+      if (!dest.subitems) dest.subitems = [];
+      dest.subitems.push(s);
+      expandedTodos.add(dest.id); // show where it landed
     } else {
       const order = [...ctx.list.querySelectorAll(".subitem-row")].map(r => r.dataset.subId);
       t.subitems.sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id));
