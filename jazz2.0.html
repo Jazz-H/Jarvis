@@ -42,8 +42,9 @@
   }
   header .eyebrow{
     font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--text-dim); font-weight:600; margin-bottom:2px;
+    color:var(--text-dim); font-weight:600;
   }
+  .header-meta{margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px; flex-shrink:0;}
   header h1{margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em;}
   .header-row{display:flex; align-items:center; gap:12px;}
   .logo-tile{
@@ -414,9 +415,9 @@
 <header>
   <div class="header-row">
     <div class="logo-tile" aria-hidden="true">J2</div>
-    <div>
-      <div class="eyebrow" id="eyebrow">Jazz 2.0</div>
-      <h1 id="headline">Home</h1>
+    <h1 id="headline">Home</h1>
+    <div class="header-meta">
+      <div class="eyebrow" id="header-date"></div>
     </div>
   </div>
 </header>
@@ -1799,8 +1800,8 @@ async function hardRefresh(){
   todoList = loadContent("todo-content", DEFAULT_TODO);
 
   const now = new Date();
-  document.getElementById("eyebrow").textContent =
-    `Jazz 2.0 · ${now.toLocaleDateString('en-US',{weekday:'short'})} ${now.toLocaleDateString('en-US',{month:'short', day:'numeric'})}`;
+  document.getElementById("header-date").textContent =
+    `${now.toLocaleDateString('en-US',{weekday:'short'})} · ${now.toLocaleDateString('en-US',{month:'short', day:'numeric'})}`;
 
   renderSkin();
   const [s, w] = await Promise.all([
