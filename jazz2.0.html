@@ -1104,13 +1104,8 @@ function toggleTodoExpand(id){
     subAddOpen.delete(id); // reset to view-only next time it opens
   } else {
     expandedTodos.add(id);
-    // an empty sub-list has nothing to view, so jump straight to the input
-    const t = todoList.find(x=>x.id===id);
-    if (!(t.subitems||[]).length) subAddOpen.add(id);
   }
   renderHome();
-  const input = document.getElementById(`subitem-input-${id}`);
-  if (input) input.focus();
 }
 function openSubitemAdd(id){
   subAddOpen.add(id);
