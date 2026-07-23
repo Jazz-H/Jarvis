@@ -316,7 +316,7 @@
   .item .row-edit-btn{order:3;}
 
   .add-row{
-    width:100%; margin-top:8px; padding:10px; border-radius:10px; border:1.5px dashed var(--olive-dim);
+    width:100%; margin:0 0 10px; padding:10px; border-radius:10px; border:1.5px dashed var(--olive-dim);
     background:none; color:var(--olive); font-size:12.5px; font-weight:700; font-family:inherit;
   }
   .add-row:active{background:rgba(198,255,61,.12);}
@@ -375,6 +375,13 @@
   .todo-wrap.drag-active .item{
     background:var(--surface-2); border-radius:12px; outline:1.5px solid var(--olive);
     box-shadow:0 10px 26px rgba(0,0,0,.55);
+  }
+  /* dragging right past the threshold: dragged row shows cyan, the row above
+     (the future parent) gets a dashed cyan target outline */
+  .todo-wrap.drag-active.indenting .item{outline-color:var(--gold);}
+  .todo-wrap.indent-target .item{
+    background:rgba(0,229,255,.07); border-radius:12px;
+    outline:1.5px dashed rgba(0,229,255,.55);
   }
   body.todo-dragging, body.todo-dragging *{user-select:none; -webkit-user-select:none;}
 
@@ -1154,12 +1161,12 @@ function renderSkin(){
       </div>
     </div>
     <div class="coll-body"><div class="coll-inner">`;
+  if (rulesEdit) html += `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>`;
   skinRules.forEach((r,i) => {
     html += rulesEdit
       ? `<p class="rule editable" onclick="editSkinRule(${i})">${r}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
       : `<p class="rule">${r}</p>`;
   });
-  if (rulesEdit) html += `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>`;
   html += `</div></div></div>`;
   const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
   const washWeek = isWashWeek();
@@ -1185,12 +1192,12 @@ function renderSkin(){
       </div>
       <div class="day-body">
         <div class="band am"><div class="label">AM</div>
-          ${d.am.map((s,n)=>stepHtml(s,n,i,'am',dayEdit)).join("")}
           ${dayEdit?`<button class="add-row" onclick="addStep(${i},'am')">+ Add AM step</button>`:""}
+          ${d.am.map((s,n)=>stepHtml(s,n,i,'am',dayEdit)).join("")}
         </div>
         <div class="band pm"><div class="label">PM${pmBand==='pmWash'?' · wash day':''}</div>
-          ${pmSteps.map((s,n)=>stepHtml(s,n,i,pmBand,dayEdit)).join("")}
           ${dayEdit?`<button class="add-row" onclick="addStep(${i},'${pmBand}')">+ Add PM step</button>`:""}
+          ${pmSteps.map((s,n)=>stepHtml(s,n,i,pmBand,dayEdit)).join("")}
         </div>
       </div>
     </div>`;
@@ -1295,23 +1302,32 @@ function renderStyle(){
       </div>
     </div>
     <div class="coll-body"><div class="coll-inner">`;
+  if (rulesEdit) html += `<button class="add-row" onclick="addStyleRule()">+ Add rule</button>`;
   styleRules.forEach((r,i) => {
     html += rulesEdit
       ? `<p class="rule editable" onclick="editStyleRule(${i})">${r}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
       : `<p class="rule">${r}</p>`;
   });
-  if (rulesEdit) html += `<button class="add-row" onclick="addStyleRule()">+ Add rule</button>`;
   html += `</div></div></div>`;
 
-  html += `<div class="card"><div class="glance-head"><h3 style="margin:0;">Sizing</h3>${editChipHtml('sizes-card')}</div><div class="sizegrid">`;
+  html += `<div class="card pinned ${openPinned.has('sizes-card')?'open':''}" id="sizes-card">
+    <div class="coll-head" onclick="toggleRules('sizes-card')">
+      <div style="display:flex;align-items:center;gap:8px;"><h3>Sizing</h3><span class="insight">${sizes.length} sizes</span></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${editChipHtml('sizes-card')}
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+    <div class="coll-body"><div class="coll-inner">`;
+  if (sizesEdit) html += `<button class="add-row" onclick="addSize()">+ Add size</button>`;
+  html += `<div class="sizegrid">`;
   sizes.forEach(([k,v],i) => {
     html += sizesEdit
       ? `<div class="editable" onclick="editSize(${i})"><span>${k}</span>${v}<span class="inline-pencil">${PENCIL_ICON}</span></div>`
       : `<div><span>${k}</span>${v}</div>`;
   });
   html += `</div>`;
-  if (sizesEdit) html += `<button class="add-row" onclick="addSize()">+ Add size</button>`;
-  html += `<p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div>`;
+  html += `<p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div></div></div>`;
 
   html += `<div class="card"><div class="progress-wrap">
       <div class="progress-label"><span>Wardrobe built</span><b id="cap-progress-label"></b></div>
@@ -1385,12 +1401,12 @@ function renderCapsuleLists(){
   const ownedTotal = capsule.filter(i => currentCapState(i) === "owned").reduce((s,i) => s + (i.price||0), 0);
   const neededTotal = capsule.filter(i => currentCapState(i) !== "owned").reduce((s,i) => s + (i.price||0), 0);
 
-  ownedEl.innerHTML = (buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`)
-    + `<div class="total-row">Owned value <span>$${fmtMoney(ownedTotal)}</span></div>`
-    + (editCards.has('cap-owned-card')?`<button class="add-row" onclick="addCapsuleItem('owned')">+ Add item</button>`:"");
-  neededEl.innerHTML = (buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`)
-    + `<div class="total-row">Still need total <span>$${fmtMoney(neededTotal)}</span></div>`
-    + (editCards.has('cap-needed-card')?`<button class="add-row" onclick="addCapsuleItem('needed')">+ Add item</button>`:"");
+  ownedEl.innerHTML = (editCards.has('cap-owned-card')?`<button class="add-row" onclick="addCapsuleItem('owned')">+ Add item</button>`:"")
+    + (buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`)
+    + `<div class="total-row">Owned value <span>$${fmtMoney(ownedTotal)}</span></div>`;
+  neededEl.innerHTML = (editCards.has('cap-needed-card')?`<button class="add-row" onclick="addCapsuleItem('needed')">+ Add item</button>`:"")
+    + (buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`)
+    + `<div class="total-row">Still need total <span>$${fmtMoney(neededTotal)}</span></div>`;
 
   document.getElementById("cap-owned-insight").textContent = `${ownedCount} items · $${fmtMoney(ownedTotal)}`;
   document.getElementById("cap-needed-insight").textContent = `${neededCount} items · $${fmtMoney(neededTotal)}`;
@@ -1516,9 +1532,9 @@ function renderWants(){
         </div>
       </div>
       <div class="coll-body"><div class="coll-inner">
+        ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
         ${pending||'<div class="empty">All caught up.</div>'}
         <div class="total-row">Pending total <span>$${fmtMoney(pendingTotal)}</span></div>
-        ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
       </div></div>
     </div>`;
   html += `<div class="card pinned ${openPinned.has('wants-purchased-card')?'open':''}" id="wants-purchased-card">
@@ -1702,6 +1718,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     try{ handle.setPointerCapture(e.pointerId); }catch(err){}
     const rect = wrap.getBoundingClientRect();
     drag = {wrap, list, clientY:e.clientY, grabOffset:e.clientY - rect.top, raf:0,
+            startX:e.clientX, clientX:e.clientX, indentTarget:null,
             clip:[wrap.closest(".coll-body"), wrap.closest(".pinned")].filter(Boolean)};
     drag.clip.forEach(el => el.style.overflow = "visible"); // don't clip the lifted row
     wrap.classList.add("drag-active");
@@ -1710,7 +1727,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   });
 
   panel.addEventListener("pointermove", e => {
-    if (drag) drag.clientY = e.clientY;
+    if (drag){ drag.clientY = e.clientY; drag.clientX = e.clientX; }
   });
   panel.addEventListener("pointerup", () => endDrag(true));
   panel.addEventListener("pointercancel", () => endDrag(false));
@@ -1720,9 +1737,26 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     const mr = mainEl.getBoundingClientRect();
     if (drag.clientY < mr.top + 70) mainEl.scrollTop -= 9;
     else if (drag.clientY > mr.bottom - 110) mainEl.scrollTop += 9;
-    reorder();
+    // Dragging right past the threshold switches to indent mode: the row above
+    // becomes the nesting target and vertical reordering pauses.
+    const prev = prevTodoWrap(drag.wrap);
+    const wantIndent = (drag.clientX - drag.startX) > 48 && prev;
+    const target = wantIndent ? prev : null;
+    if (target !== drag.indentTarget){
+      if (drag.indentTarget) drag.indentTarget.classList.remove("indent-target");
+      drag.indentTarget = target;
+      if (target) target.classList.add("indent-target");
+      drag.wrap.classList.toggle("indenting", !!target);
+    }
+    if (!drag.indentTarget) reorder();
     position();
     drag.raf = requestAnimationFrame(tick);
+  }
+
+  function prevTodoWrap(w){
+    let el = w.previousElementSibling;
+    while (el && !el.classList.contains("todo-wrap")) el = el.previousElementSibling;
+    return el;
   }
 
   function reorder(){
@@ -1742,20 +1776,38 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     // clear the transform first so the rect reflects the row's slot position
     drag.wrap.style.transform = "";
     const top = drag.wrap.getBoundingClientRect().top;
-    drag.wrap.style.transform = `translateY(${drag.clientY - drag.grabOffset - top}px)`;
+    const dx = drag.indentTarget ? 28 : 0;
+    drag.wrap.style.transform = `translate(${dx}px, ${drag.clientY - drag.grabOffset - top}px)`;
   }
 
   function endDrag(commit){
     if (!drag) return;
     cancelAnimationFrame(drag.raf);
     drag.wrap.style.transform = "";
-    drag.wrap.classList.remove("drag-active");
+    drag.wrap.classList.remove("drag-active", "indenting");
+    if (drag.indentTarget) drag.indentTarget.classList.remove("indent-target");
     drag.clip.forEach(el => el.style.overflow = "");
     document.body.classList.remove("todo-dragging");
-    const list = drag.list;
+    const {list, wrap, indentTarget} = drag;
     drag = null;
-    if (commit) commitTodoOrder(list);
+    if (commit && indentTarget) commitNest(wrap, indentTarget);
+    else if (commit) commitTodoOrder(list);
     else renderHome(); // put rows back where the data says they belong
+  }
+
+  // Fold the dragged to-do into the row above as a sub-item; its own
+  // sub-items (if any) come along, flattened after it.
+  function commitNest(wrap, targetWrap){
+    const t = todoList.find(x => x.id === wrap.dataset.todoId);
+    const target = todoList.find(x => x.id === targetWrap.dataset.todoId);
+    if (!t || !target || t === target){ renderHome(); return; }
+    if (!target.subitems) target.subitems = [];
+    target.subitems.push({id:genId("sub"), text:t.text, done:false});
+    (t.subitems || []).forEach(s => target.subitems.push({id:genId("sub"), text:s.text, done:s.done}));
+    todoList = todoList.filter(x => x.id !== t.id);
+    expandedTodos.add(target.id);
+    saveContent("todo-content", todoList);
+    renderHome();
   }
 
   function commitTodoOrder(list){
