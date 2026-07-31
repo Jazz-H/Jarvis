@@ -1086,6 +1086,8 @@ function renderHome(){
         <div class="coll-body"><div class="coll-inner">
           ${completedRows}
           <button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>
+          <p class="footnote">Completed to-dos are archived automatically after 7 days${
+            (loadContent("todo-archive-content", []).length ? ` · ${loadContent("todo-archive-content", []).length} archived so far` : "")}.</p>
         </div></div>
       </div>`;
   }
@@ -1286,6 +1288,37 @@ function clearCompletedTodos(){
   todoList = todoList.filter(t => !t.done);
   saveContent("todo-content", todoList);
   renderHome();
+}
+
+// Completed to-dos auto-move to a hidden archive (todo-archive-content, synced,
+// capped) once they're 7+ days old, keeping the Completed card short-term only.
+// Runs on load, after a sync pull, and on return to foreground; saves silently
+// (no "Saved" toast) since the user didn't do anything. Returns true if it
+// changed anything so callers know to re-render.
+const TODO_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const TODO_ARCHIVE_MAX = 200;
+function archiveOldTodos(){
+  let changed = false;
+  // done items missing a stamp (older data): stamp now so their 7 days start today
+  todoList.forEach(t => { if (t.done && !t.completedAt){ t.completedAt = Date.now(); changed = true; } });
+  const cutoff = Date.now() - TODO_RETENTION_MS;
+  const old = todoList.filter(t => t.done && t.completedAt < cutoff);
+  if (old.length){
+    const archive = loadContent("todo-archive-content", []);
+    archive.push(...old.map(t => ({
+      text:t.text, completedAt:t.completedAt, day:t.day || null,
+      subitems:(t.subitems || []).map(s => ({text:s.text, done:!!s.done}))
+    })));
+    archive.sort((a,b) => (b.completedAt||0) - (a.completedAt||0));
+    if (archive.length > TODO_ARCHIVE_MAX) archive.length = TODO_ARCHIVE_MAX;
+    todoList = todoList.filter(t => !old.includes(t));
+    try{ localStorage.setItem("todo-archive-content", JSON.stringify(archive)); }catch(e){ console.error(e); }
+    changed = true;
+  }
+  if (changed){
+    try{ localStorage.setItem("todo-content", JSON.stringify(todoList)); markDataChanged(); }catch(e){ console.error(e); }
+  }
+  return changed;
 }
 
 // ---------- RENDER: SKIN/HAIR ----------
@@ -2127,7 +2160,8 @@ async function hardRefresh(){
 // via the cloud button in the header. Token + gist id live in localStorage and
 // are never synced themselves.
 const SYNC_KEYS = ["skin-rules-content","skin-days-content","style-rules-content","sizes-content",
-                   "capsule-content","wants-content","todo-content","style-state","wants-state"];
+                   "capsule-content","wants-content","todo-content","todo-archive-content",
+                   "style-state","wants-state"];
 const GIST_FILENAME = "jazz2-data.json";
 let syncPushTimer = null;
 let syncBusy = false;
@@ -2168,6 +2202,7 @@ function applyRemote(payload){
   loadAllContent();
   try{ styleState = JSON.parse(localStorage.getItem("style-state")) || {}; }catch(e){ styleState = {}; }
   try{ wantsState = JSON.parse(localStorage.getItem("wants-state")) || {}; }catch(e){ wantsState = {}; }
+  archiveOldTodos(); // the other device may have carried expired completed items
   renderSkin(); renderStyle(); renderWants(); renderHome();
 }
 async function findOrCreateGist(){
@@ -2278,8 +2313,11 @@ function initSync(){
     setSyncStatus("off");
   }
   // Re-pull when the app regains foreground — the phone-edits-then-desktop case.
+  // Also a natural moment to expire old completed to-dos in long-lived sessions.
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) pullSync().catch(() => {});
+    if (document.hidden) return;
+    if (archiveOldTodos()) renderHome();
+    pullSync().catch(() => {});
   });
 }
 
@@ -2295,6 +2333,7 @@ function loadAllContent(){
 }
 (async function init(){
   loadAllContent();
+  archiveOldTodos();
 
   const now = new Date();
   document.getElementById("header-date").textContent =
