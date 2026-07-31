@@ -898,7 +898,23 @@ function openModal(title, fields, values, onSave, onDelete){
   }).join("");
   document.getElementById("modal-delete-btn").style.display = modalOnDelete ? "block" : "none";
   document.getElementById("modal-backdrop").classList.add("open");
+  // Autofocus the first field — desktop only, so mobile doesn't pop the keyboard
+  // over the sheet the moment it opens.
+  if (window.matchMedia("(hover:hover) and (pointer:fine)").matches){
+    const first = body.querySelector("input, textarea, select");
+    if (first) setTimeout(() => first.focus(), 60);
+  }
 }
+document.addEventListener("keydown", e => {
+  if (!document.getElementById("modal-backdrop").classList.contains("open")) return;
+  if (e.key === "Escape"){
+    e.preventDefault();
+    closeModal();
+  } else if (e.key === "Enter" && e.target.matches(".modal-body input:not([type=checkbox])")){
+    e.preventDefault(); // Enter from a text field saves; textareas keep Enter for newlines
+    modalSave();
+  }
+});
 function closeModal(){
   document.getElementById("modal-backdrop").classList.remove("open");
 }
