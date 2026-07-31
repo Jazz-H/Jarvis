@@ -1,4 +1,4 @@
-const CACHE_NAME = "jazz2-cache-v33";
+const CACHE_NAME = "jazz2-cache-v34";
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -31,6 +31,10 @@ function isAppShellRequest(request){
 }
 
 self.addEventListener("fetch", (event) => {
+  // Never intercept cross-origin requests (e.g. the GitHub API used for gist
+  // sync) — the cache-first branch below would serve stale sync data forever.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
+  if (event.request.method !== "GET") return;
   if (isAppShellRequest(event.request)){
     // Network-first for the HTML shell so a normal reload always picks up the
     // latest deploy instead of getting stuck on whatever was cached at install.
