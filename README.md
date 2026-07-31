@@ -103,12 +103,18 @@ Removing the Fitness tab left `fitness-days-content` and `fitness-state` as orph
 keys in any browser that had already loaded the app — harmless (nothing reads them
 anymore), not actively cleaned up.
 
-**No cross-device sync.** `localStorage` is per-browser-per-device, so the phone PWA
-and the desktop site each keep their own independent copy of everything — opening the
-site on a new device starts from the built-in defaults, not your phone's data, and
-edits never propagate between devices. Known limitation, accepted for now (real sync
-needs a backend; a manual JSON export/import would be the lightweight stopgap if this
-ever becomes a pain point).
+**Cross-device sync (opt-in, via GitHub Gist).** `localStorage` is per-browser-per-
+device, so out of the box the phone PWA and the desktop site each keep independent
+copies. The cloud button in the header turns on sync: the app stores all content/state
+keys as one JSON file (`jazz2-data.json`, with an `updatedAt` stamp) in a private gist
+on your GitHub account, pushes ~1.5s after every save, and pulls on load and whenever
+the app returns to the foreground. Conflicts are last-write-wins on `updatedAt`.
+Setup is pasting a **classic** personal access token with only the `gist` scope into
+the sync modal on each device (fine-grained tokens can't use the Gist API). The token
+and gist id live in `sync-token` / `sync-gist-id` in localStorage and are never synced
+themselves; turning sync off deletes them but keeps all data. The service worker
+deliberately ignores cross-origin requests so it can never serve stale GitHub API
+responses from cache.
 
 ## Tab-by-tab content
 **Home:** The default landing tab.

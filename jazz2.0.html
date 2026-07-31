@@ -55,6 +55,17 @@
     background:none; color:var(--text-dim); align-items:center; justify-content:center; flex-shrink:0;
   }
   .hard-refresh-btn.spinning svg{animation:spin .8s linear infinite;}
+  /* Gist sync status button — shown on every size (phones need to connect too).
+     data-state: off (dim) / busy (pulsing) / ok (lime) / error (red). */
+  .sync-btn{
+    display:flex; width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
+    background:none; color:var(--text-dim); align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .sync-btn[data-state="ok"]{color:var(--olive); border-color:var(--olive-dim);}
+  .sync-btn[data-state="error"]{color:var(--danger); border-color:rgba(255,59,92,.45);}
+  .sync-btn[data-state="busy"] svg{animation:pulse 1.1s ease-in-out infinite;}
+  .modal-note{font-size:12.5px; color:var(--text-dim); line-height:1.55; margin:0 0 12px;}
+  .modal-note a{color:var(--olive);}
   header h1{margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em;}
   .header-row{display:flex; align-items:center; gap:12px;}
 
@@ -449,6 +460,7 @@
     .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
     .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
+    .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
     .icon-btn:hover{color:var(--olive);}
     .icon-btn.link:hover{color:var(--gold);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
@@ -509,6 +521,9 @@
     <div class="header-meta">
       <div class="eyebrow" id="header-date"></div>
     </div>
+    <button class="sync-btn" id="sync-btn" data-state="off" onclick="openSyncModal()" title="Sync across devices" aria-label="Sync settings">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+    </button>
     <button class="hard-refresh-btn" onclick="this.classList.add('spinning'); hardRefresh()" title="Clear cached app files and reload (your data is kept)" aria-label="Hard refresh">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
     </button>
@@ -609,6 +624,7 @@ async function loadState(key){
 async function saveState(key, obj){
   try{
     localStorage.setItem(key, JSON.stringify(obj));
+    markDataChanged();
     showToast("Saved");
   }catch(e){
     console.error("save failed", e);
@@ -625,6 +641,7 @@ function loadContent(key, defaults){
 function saveContent(key, data){
   try{
     localStorage.setItem(key, JSON.stringify(data));
+    markDataChanged();
     showToast("Saved");
   }catch(e){
     console.error("save failed", e);
@@ -894,15 +911,21 @@ let skinRules, skinDays, styleRules, sizes, capsule, wantsList, todoList;
 let modalFields = [];
 let modalOnSave = null;
 let modalOnDelete = null;
+let modalDeleteConfirm = "";
 
-function openModal(title, fields, values, onSave, onDelete){
+function openModal(title, fields, values, onSave, onDelete, deleteOpts){
   document.getElementById("modal-heading").textContent = title;
   modalFields = fields;
   modalOnSave = onSave;
   modalOnDelete = onDelete || null;
+  modalDeleteConfirm = (deleteOpts && deleteOpts.confirm) || "Delete this? This can't be undone.";
+  document.getElementById("modal-delete-btn").textContent = (deleteOpts && deleteOpts.label) || "Delete";
   const body = document.getElementById("modal-body");
   body.innerHTML = fields.map(f => {
     const val = (values && values[f.key] != null) ? values[f.key] : (f.type === "checkbox" ? false : "");
+    if (f.type === "note"){
+      return `<p class="modal-note">${f.label}</p>`; // f.label is trusted app-authored HTML
+    }
     if (f.type === "select"){
       const opts = f.options.map(o => `<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${o}</option>`).join("");
       return `<label class="modal-field"><span>${f.label}</span><select id="modal-${f.key}">${opts}</select></label>`;
@@ -941,6 +964,7 @@ function modalSave(){
   const values = {};
   modalFields.forEach(f => {
     const el = document.getElementById("modal-"+f.key);
+    if (!el) return; // note fields render no input
     let v = f.type === "checkbox" ? el.checked : el.value;
     if (f.type === "number") v = v === "" ? null : parseFloat(v);
     if (typeof v === "string") v = v.trim();
@@ -951,7 +975,7 @@ function modalSave(){
 }
 function modalDelete(){
   if (!modalOnDelete) return;
-  if (confirm("Delete this? This can't be undone.")){
+  if (confirm(modalDeleteConfirm)){
     modalOnDelete();
     closeModal();
   }
@@ -2095,8 +2119,172 @@ async function hardRefresh(){
   location.reload();
 }
 
+// ---------- GIST SYNC ----------
+// Optional cross-device sync through a private GitHub Gist. The gist holds one
+// JSON file with every content/state key plus an updatedAt stamp; conflicts are
+// last-write-wins on that stamp. Requires a classic PAT with only the `gist`
+// scope (fine-grained tokens can't use the Gist API), pasted once per device
+// via the cloud button in the header. Token + gist id live in localStorage and
+// are never synced themselves.
+const SYNC_KEYS = ["skin-rules-content","skin-days-content","style-rules-content","sizes-content",
+                   "capsule-content","wants-content","todo-content","style-state","wants-state"];
+const GIST_FILENAME = "jazz2-data.json";
+let syncPushTimer = null;
+let syncBusy = false;
+
+function markDataChanged(){
+  localStorage.setItem("data-updated-at", String(Date.now()));
+  scheduleSyncPush();
+}
+function setSyncStatus(state){
+  const btn = document.getElementById("sync-btn");
+  if (btn) btn.dataset.state = state;
+}
+async function gistApi(path, opts = {}){
+  const res = await fetch("https://api.github.com" + path, {
+    ...opts,
+    headers:{
+      "Authorization": "Bearer " + localStorage.getItem("sync-token"),
+      "Accept": "application/vnd.github+json",
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) throw new Error("GitHub API " + res.status + " on " + path);
+  return res.json();
+}
+function collectLocal(){
+  const data = {};
+  SYNC_KEYS.forEach(k => {
+    const raw = localStorage.getItem(k);
+    if (raw != null){ try{ data[k] = JSON.parse(raw); }catch(e){} }
+  });
+  return {updatedAt: Number(localStorage.getItem("data-updated-at")) || 0, data};
+}
+function applyRemote(payload){
+  SYNC_KEYS.forEach(k => {
+    if (payload.data && k in payload.data) localStorage.setItem(k, JSON.stringify(payload.data[k]));
+  });
+  localStorage.setItem("data-updated-at", String(payload.updatedAt || Date.now()));
+  loadAllContent();
+  try{ styleState = JSON.parse(localStorage.getItem("style-state")) || {}; }catch(e){ styleState = {}; }
+  try{ wantsState = JSON.parse(localStorage.getItem("wants-state")) || {}; }catch(e){ wantsState = {}; }
+  renderSkin(); renderStyle(); renderWants(); renderHome();
+}
+async function findOrCreateGist(){
+  const gists = await gistApi("/gists?per_page=100");
+  const hit = gists.find(g => g.files && g.files[GIST_FILENAME]);
+  let id = hit && hit.id;
+  if (!id){
+    const created = await gistApi("/gists", {method:"POST", body: JSON.stringify({
+      description:"Jazz 2.0 app data (auto-sync)", public:false,
+      files:{[GIST_FILENAME]:{content: JSON.stringify(collectLocal())}}
+    })});
+    id = created.id;
+  }
+  localStorage.setItem("sync-gist-id", id);
+  return id;
+}
+function scheduleSyncPush(){
+  if (!localStorage.getItem("sync-token")) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(() => pushSync().catch(() => {}), 1500);
+}
+async function pushSync(){
+  if (!localStorage.getItem("sync-token")) return;
+  if (syncBusy){ scheduleSyncPush(); return; }
+  syncBusy = true; setSyncStatus("busy");
+  try{
+    const gistId = localStorage.getItem("sync-gist-id") || await findOrCreateGist();
+    const payload = collectLocal();
+    if (!payload.updatedAt){
+      payload.updatedAt = Date.now();
+      localStorage.setItem("data-updated-at", String(payload.updatedAt));
+    }
+    await gistApi("/gists/" + gistId, {method:"PATCH", body: JSON.stringify({
+      files:{[GIST_FILENAME]:{content: JSON.stringify(payload)}}
+    })});
+    setSyncStatus("ok");
+  }catch(e){
+    console.error("sync push failed", e);
+    setSyncStatus("error");
+    showToast("Sync failed — will retry on next change", true);
+    throw e;
+  }finally{
+    syncBusy = false;
+  }
+}
+async function pullSync(){
+  if (!localStorage.getItem("sync-token") || syncBusy) return;
+  syncBusy = true; setSyncStatus("busy");
+  let remoteNewer = false, localNewer = false;
+  try{
+    const gistId = localStorage.getItem("sync-gist-id") || await findOrCreateGist();
+    const g = await gistApi("/gists/" + gistId);
+    const file = g.files && g.files[GIST_FILENAME];
+    let payload = null;
+    if (file){
+      const text = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;
+      try{ payload = JSON.parse(text); }catch(e){}
+    }
+    const localUpdated = Number(localStorage.getItem("data-updated-at")) || 0;
+    const remoteUpdated = (payload && payload.updatedAt) || 0;
+    remoteNewer = payload && remoteUpdated > localUpdated;
+    localNewer = localUpdated > remoteUpdated;
+    if (remoteNewer){
+      applyRemote(payload);
+      showToast("Synced from your other device");
+    }
+    setSyncStatus("ok");
+  }catch(e){
+    console.error("sync pull failed", e);
+    setSyncStatus("error");
+    throw e;
+  }finally{
+    syncBusy = false;
+  }
+  if (localNewer) await pushSync(); // this device is ahead — send it up
+}
+function openSyncModal(){
+  const connected = !!localStorage.getItem("sync-token");
+  openModal("Sync across devices", [
+    {type:"note", label:`Syncs everything (to-dos, routines, wardrobe, wants) through a private gist on
+      your GitHub account. Create a <b>classic</b> personal access token with only the
+      <b>gist</b> scope at github.com &rsaquo; Settings &rsaquo; Developer settings &rsaquo; Tokens (classic),
+      then paste the same token into the app on each device. Newest change wins when
+      two devices disagree.`},
+    {key:"token", label:"GitHub token", type:"password"}
+  ], {token: localStorage.getItem("sync-token") || ""},
+  (v) => {
+    if (!v.token){ showToast("No token entered", true); return; }
+    localStorage.setItem("sync-token", v.token);
+    localStorage.removeItem("sync-gist-id"); // re-resolve under the (possibly new) account
+    showToast("Connecting…");
+    pullSync()
+      .then(() => showToast("Sync is on"))
+      .catch(() => showToast("Couldn't connect — check the token", true));
+  },
+  connected ? () => {
+    localStorage.removeItem("sync-token");
+    localStorage.removeItem("sync-gist-id");
+    setSyncStatus("off");
+    showToast("Sync turned off");
+  } : null,
+  {label:"Turn off", confirm:"Turn off sync on this device? Your data stays on the device and in the gist."});
+}
+function initSync(){
+  if (localStorage.getItem("sync-token")){
+    pullSync().catch(() => {});
+  } else {
+    setSyncStatus("off");
+  }
+  // Re-pull when the app regains foreground — the phone-edits-then-desktop case.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) pullSync().catch(() => {});
+  });
+}
+
 // ---------- INIT ----------
-(async function init(){
+function loadAllContent(){
   skinRules = loadContent("skin-rules-content", DEFAULT_SKIN_RULES);
   skinDays = loadContent("skin-days-content", DEFAULT_SKIN_DAYS);
   styleRules = loadContent("style-rules-content", DEFAULT_STYLE_RULES);
@@ -2104,6 +2292,9 @@ async function hardRefresh(){
   capsule = loadContent("capsule-content", DEFAULT_CAPSULE);
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
   todoList = loadContent("todo-content", DEFAULT_TODO);
+}
+(async function init(){
+  loadAllContent();
 
   const now = new Date();
   document.getElementById("header-date").textContent =
@@ -2119,6 +2310,7 @@ async function hardRefresh(){
   renderWants();
   renderHome();
   applyLaunchParams();
+  initSync();
 })();
 
 // Handles ?tab=&action= launch params from the home-screen icon shortcuts
