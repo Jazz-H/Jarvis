@@ -529,8 +529,8 @@
   </div>
 </div>
 
-<nav class="tabbar">
-  <button data-tab="home" class="active">
+<nav class="tabbar" aria-label="Sections">
+  <button data-tab="home" class="active" aria-current="page">
     <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
     Home
   </button>
@@ -1714,7 +1714,12 @@ let currentTab = "home";
 function activateTab(tab){
   currentTab = tab;
   if (tab === "home") renderHome(); // refreshes glance cards with whatever changed on other tabs
-  document.querySelectorAll("nav.tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll("nav.tabbar button").forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
   document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
   document.getElementById("headline").textContent = HEADLINES[tab];
   document.querySelector("main").scrollTop = 0;
