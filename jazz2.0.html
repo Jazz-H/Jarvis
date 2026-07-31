@@ -30,6 +30,8 @@
     --danger:#ff3b5c;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  button{cursor:pointer;}
+  .box, .subitem-box{cursor:pointer;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     height:100%; overscroll-behavior-y:none;}
@@ -428,6 +430,30 @@
   .modal-btn{flex:1; padding:12px; border-radius:10px; border:none; font-size:13.5px; font-weight:700; font-family:inherit;}
   .modal-btn.primary{background:var(--olive); color:#161710;}
   .modal-btn.danger{background:none; border:1.5px solid var(--danger); color:#ffb3c0;}
+
+  /* ---------- hover feedback (mouse/trackpad only) ----------
+     Mirrors the existing :active touch styles so pointer users can see what's
+     interactive; gated on hover+fine-pointer so touch devices never get
+     sticky-hover artifacts. */
+  @media (hover:hover) and (pointer:fine){
+    .glance:hover, .coll-head:hover{background:var(--surface-2);}
+    .day-head:hover{background:#222229;}
+    .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
+    .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
+    .subitem-del:hover, .modal-x:hover{background:var(--surface-2); color:var(--text);}
+    .icon-btn:hover{color:var(--olive);}
+    .icon-btn.link:hover{color:var(--gold);}
+    .todo-icon-btn.starred:hover{color:var(--gold);}
+    .toggle:hover:not(.done){color:var(--olive);}
+    .toggle.done:hover, .edit-chip.on:hover, .quick-add button:hover,
+    .modal-btn.primary:hover, .subitem-add button:hover{opacity:.85;}
+    .add-row:hover, .subitem-add-toggle:hover{background:rgba(198,255,61,.12);}
+    .reset-btn:hover, .modal-btn.danger:hover{background:rgba(255,59,92,.12);}
+    .box:hover, .subitem-box:not(.checked):hover{border-color:var(--olive);}
+    .link:hover{text-decoration:underline;}
+    .drag-handle:hover, .sub-drag-handle:hover{opacity:1; color:var(--text);}
+  }
+  body.todo-dragging .drag-handle, body.todo-dragging .sub-drag-handle{cursor:grabbing;}
 
   /* ---------- desktop (≥768px): tab bar moves to the top, content centers ----------
      Body is a flex column and main scrolls internally, so the nav can leave its
