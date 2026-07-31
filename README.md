@@ -103,6 +103,13 @@ Removing the Fitness tab left `fitness-days-content` and `fitness-state` as orph
 keys in any browser that had already loaded the app — harmless (nothing reads them
 anymore), not actively cleaned up.
 
+**No cross-device sync.** `localStorage` is per-browser-per-device, so the phone PWA
+and the desktop site each keep their own independent copy of everything — opening the
+site on a new device starts from the built-in defaults, not your phone's data, and
+edits never propagate between devices. Known limitation, accepted for now (real sync
+needs a backend; a manual JSON export/import would be the lightweight stopgap if this
+ever becomes a pain point).
+
 ## Tab-by-tab content
 **Home:** The default landing tab.
 
