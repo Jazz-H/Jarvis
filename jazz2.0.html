@@ -48,6 +48,13 @@
     color:var(--text-dim); font-weight:600;
   }
   .header-meta{margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px; flex-shrink:0;}
+  /* Desktop stand-in for pull-to-refresh (a touch-only gesture): same
+     hardRefresh() escape hatch, hidden below the desktop breakpoint. */
+  .hard-refresh-btn{
+    display:none; width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
+    background:none; color:var(--text-dim); align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .hard-refresh-btn.spinning svg{animation:spin .8s linear infinite;}
   header h1{margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em;}
   .header-row{display:flex; align-items:center; gap:12px;}
 
@@ -441,7 +448,7 @@
     .day-head:hover{background:#222229;}
     .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
-    .subitem-del:hover, .modal-x:hover{background:var(--surface-2); color:var(--text);}
+    .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
     .icon-btn:hover{color:var(--olive);}
     .icon-btn.link:hover{color:var(--gold);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
@@ -480,6 +487,7 @@
       height:2px; background:var(--olive); border-radius:2px;
     }
     main{padding:24px max(24px, calc(50% - 380px)) 48px;}
+    .hard-refresh-btn{display:flex;}
     .toast{bottom:32px;}
     .modal-backdrop{align-items:center;}
     .modal-sheet{border-radius:18px; padding:18px;}
@@ -494,6 +502,9 @@
     <div class="header-meta">
       <div class="eyebrow" id="header-date"></div>
     </div>
+    <button class="hard-refresh-btn" onclick="this.classList.add('spinning'); hardRefresh()" title="Clear cached app files and reload (your data is kept)" aria-label="Hard refresh">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+    </button>
   </div>
 </header>
 
