@@ -63,6 +63,11 @@ ring-bordered terminal card → this, border removed) — see chat history if re
 - Every collapsible section shows an "insight" (count/progress) in its header,
   except the Skin/Hair day accordions — the AM/PM step-count insight was removed
   per user preference
+- Desktop layout (`@media (min-width: 768px)`, CSS-only): the tab bar moves from the
+  bottom to a horizontal bar under the header (icon + label side by side, lime
+  underline on the active tab), and header/tabs/content align on one centered 760px
+  column instead of stretching full-width; edit modals center on screen instead of
+  bottom-sheeting. Phone layout is untouched below the breakpoint
 
 ## Editing
 Every list in the app — Skin/Hair rules and AM/PM steps, Style fit rules/sizing/capsule

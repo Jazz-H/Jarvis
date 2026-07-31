@@ -428,6 +428,35 @@
   .modal-btn{flex:1; padding:12px; border-radius:10px; border:none; font-size:13.5px; font-weight:700; font-family:inherit;}
   .modal-btn.primary{background:var(--olive); color:#161710;}
   .modal-btn.danger{background:none; border:1.5px solid var(--danger); color:#ffb3c0;}
+
+  /* ---------- desktop (≥768px): tab bar moves to the top, content centers ----------
+     Body is a flex column and main scrolls internally, so the nav can leave its
+     fixed-bottom position and slot between header and main via flex `order`.
+     The shared max(24px, 50% - 380px) padding keeps header, tabs, and content
+     aligned on one centered 760px column. */
+  @media (min-width:768px){
+    header{order:-2; padding:18px max(24px, calc(50% - 380px)) 14px;}
+    nav.tabbar{
+      order:-1; position:static;
+      border-top:none; border-bottom:1px solid var(--line);
+      padding:0 max(24px, calc(50% - 380px)); gap:2px;
+    }
+    nav.tabbar button{
+      flex:0 0 auto; flex-direction:row; gap:8px;
+      font-size:13px; letter-spacing:.01em; padding:13px 16px;
+      border-radius:0; position:relative; cursor:pointer;
+    }
+    nav.tabbar button svg{width:18px; height:18px;}
+    nav.tabbar button:hover{color:var(--text);}
+    nav.tabbar button.active::after{
+      content:""; position:absolute; left:14px; right:14px; bottom:-1px;
+      height:2px; background:var(--olive); border-radius:2px;
+    }
+    main{padding:24px max(24px, calc(50% - 380px)) 48px;}
+    .toast{bottom:32px;}
+    .modal-backdrop{align-items:center;}
+    .modal-sheet{border-radius:18px; padding:18px;}
+  }
 </style>
 </head>
 <body>
