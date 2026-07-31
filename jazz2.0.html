@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Jazz 2.0</title>
 
 <link rel="manifest" href="manifest.json">
@@ -30,6 +30,9 @@
     --danger:#ff3b5c;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  button{cursor:pointer;}
+  .box, .subitem-box{cursor:pointer;}
+  html{color-scheme:dark;} /* dark native scrollbars, select dropdowns, etc. */
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     height:100%; overscroll-behavior-y:none;}
@@ -45,6 +48,13 @@
     color:var(--text-dim); font-weight:600;
   }
   .header-meta{margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px; flex-shrink:0;}
+  /* Desktop stand-in for pull-to-refresh (a touch-only gesture): same
+     hardRefresh() escape hatch, hidden below the desktop breakpoint. */
+  .hard-refresh-btn{
+    display:none; width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
+    background:none; color:var(--text-dim); align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .hard-refresh-btn.spinning svg{animation:spin .8s linear infinite;}
   header h1{margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em;}
   .header-row{display:flex; align-items:center; gap:12px;}
 
@@ -428,6 +438,67 @@
   .modal-btn{flex:1; padding:12px; border-radius:10px; border:none; font-size:13.5px; font-weight:700; font-family:inherit;}
   .modal-btn.primary{background:var(--olive); color:#161710;}
   .modal-btn.danger{background:none; border:1.5px solid var(--danger); color:#ffb3c0;}
+
+  /* ---------- hover feedback (mouse/trackpad only) ----------
+     Mirrors the existing :active touch styles so pointer users can see what's
+     interactive; gated on hover+fine-pointer so touch devices never get
+     sticky-hover artifacts. */
+  @media (hover:hover) and (pointer:fine){
+    .glance:hover, .coll-head:hover{background:var(--surface-2);}
+    .day-head:hover{background:#222229;}
+    .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
+    .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
+    .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
+    .icon-btn:hover{color:var(--olive);}
+    .icon-btn.link:hover{color:var(--gold);}
+    .todo-icon-btn.starred:hover{color:var(--gold);}
+    .toggle:hover:not(.done){color:var(--olive);}
+    .toggle.done:hover, .edit-chip.on:hover, .quick-add button:hover,
+    .modal-btn.primary:hover, .subitem-add button:hover{opacity:.85;}
+    .add-row:hover, .subitem-add-toggle:hover{background:rgba(198,255,61,.12);}
+    .reset-btn:hover, .modal-btn.danger:hover{background:rgba(255,59,92,.12);}
+    .box:hover, .subitem-box:not(.checked):hover{border-color:var(--olive);}
+    .link:hover{text-decoration:underline;}
+    .drag-handle:hover, .sub-drag-handle:hover{opacity:1; color:var(--text);}
+  }
+  body.todo-dragging .drag-handle, body.todo-dragging .sub-drag-handle{cursor:grabbing;}
+
+  /* ---------- desktop (≥768px): tab bar moves to the top, content centers ----------
+     Body is a flex column and main scrolls internally, so the nav can leave its
+     fixed-bottom position and slot between header and main via flex `order`.
+     The shared max(24px, 50% - 380px) padding keeps header, tabs, and content
+     aligned on one centered 760px column. */
+  @media (min-width:768px){
+    header{order:-2; padding:18px max(24px, calc(50% - 380px)) 14px;}
+    nav.tabbar{
+      order:-1; position:static;
+      border-top:none; border-bottom:1px solid var(--line);
+      padding:0 max(24px, calc(50% - 380px)); gap:2px;
+    }
+    nav.tabbar button{
+      flex:0 0 auto; flex-direction:row; gap:8px;
+      font-size:13px; letter-spacing:.01em; padding:13px 16px;
+      border-radius:0; position:relative; cursor:pointer;
+    }
+    nav.tabbar button svg{width:18px; height:18px;}
+    nav.tabbar button:hover{color:var(--text);}
+    nav.tabbar button.active::after{
+      content:""; position:absolute; left:14px; right:14px; bottom:-1px;
+      height:2px; background:var(--olive); border-radius:2px;
+    }
+    main{padding:24px max(24px, calc(50% - 380px)) 48px;}
+    .hard-refresh-btn{display:flex;}
+    .toast{bottom:32px;}
+    .modal-backdrop{align-items:center;}
+    .modal-sheet{border-radius:18px; padding:18px;}
+  }
+  /* Large screens: widen the column to 920px so 1440px+ displays aren't
+     mostly empty margin. Lists stay single-column on purpose. */
+  @media (min-width:1440px){
+    header{padding-left:max(24px, calc(50% - 460px)); padding-right:max(24px, calc(50% - 460px));}
+    nav.tabbar{padding-left:max(24px, calc(50% - 460px)); padding-right:max(24px, calc(50% - 460px));}
+    main{padding-left:max(24px, calc(50% - 460px)); padding-right:max(24px, calc(50% - 460px));}
+  }
 </style>
 </head>
 <body>
@@ -438,6 +509,9 @@
     <div class="header-meta">
       <div class="eyebrow" id="header-date"></div>
     </div>
+    <button class="hard-refresh-btn" onclick="this.classList.add('spinning'); hardRefresh()" title="Clear cached app files and reload (your data is kept)" aria-label="Hard refresh">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+    </button>
   </div>
 </header>
 
@@ -473,8 +547,8 @@
   </div>
 </div>
 
-<nav class="tabbar">
-  <button data-tab="home" class="active">
+<nav class="tabbar" aria-label="Sections">
+  <button data-tab="home" class="active" aria-current="page">
     <svg viewBox="0 0 24 24" fill="none" stroke="#95979d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
     Home
   </button>
@@ -843,7 +917,23 @@ function openModal(title, fields, values, onSave, onDelete){
   }).join("");
   document.getElementById("modal-delete-btn").style.display = modalOnDelete ? "block" : "none";
   document.getElementById("modal-backdrop").classList.add("open");
+  // Autofocus the first field — desktop only, so mobile doesn't pop the keyboard
+  // over the sheet the moment it opens.
+  if (window.matchMedia("(hover:hover) and (pointer:fine)").matches){
+    const first = body.querySelector("input, textarea, select");
+    if (first) setTimeout(() => first.focus(), 60);
+  }
 }
+document.addEventListener("keydown", e => {
+  if (!document.getElementById("modal-backdrop").classList.contains("open")) return;
+  if (e.key === "Escape"){
+    e.preventDefault();
+    closeModal();
+  } else if (e.key === "Enter" && e.target.matches(".modal-body input:not([type=checkbox])")){
+    e.preventDefault(); // Enter from a text field saves; textareas keep Enter for newlines
+    modalSave();
+  }
+});
 function closeModal(){
   document.getElementById("modal-backdrop").classList.remove("open");
 }
@@ -1642,7 +1732,12 @@ let currentTab = "home";
 function activateTab(tab){
   currentTab = tab;
   if (tab === "home") renderHome(); // refreshes glance cards with whatever changed on other tabs
-  document.querySelectorAll("nav.tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll("nav.tabbar button").forEach(b => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
   document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
   document.getElementById("headline").textContent = HEADLINES[tab];
   document.querySelector("main").scrollTop = 0;

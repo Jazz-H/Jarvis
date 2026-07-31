@@ -63,6 +63,11 @@ ring-bordered terminal card → this, border removed) — see chat history if re
 - Every collapsible section shows an "insight" (count/progress) in its header,
   except the Skin/Hair day accordions — the AM/PM step-count insight was removed
   per user preference
+- Desktop layout (`@media (min-width: 768px)`, CSS-only): the tab bar moves from the
+  bottom to a horizontal bar under the header (icon + label side by side, lime
+  underline on the active tab), and header/tabs/content align on one centered 760px
+  column instead of stretching full-width; edit modals center on screen instead of
+  bottom-sheeting. Phone layout is untouched below the breakpoint
 
 ## Editing
 Every list in the app — Skin/Hair rules and AM/PM steps, Style fit rules/sizing/capsule
@@ -97,6 +102,13 @@ only clears the service worker's cache, never localStorage):
 Removing the Fitness tab left `fitness-days-content` and `fitness-state` as orphaned
 keys in any browser that had already loaded the app — harmless (nothing reads them
 anymore), not actively cleaned up.
+
+**No cross-device sync.** `localStorage` is per-browser-per-device, so the phone PWA
+and the desktop site each keep their own independent copy of everything — opening the
+site on a new device starts from the built-in defaults, not your phone's data, and
+edits never propagate between devices. Known limitation, accepted for now (real sync
+needs a backend; a manual JSON export/import would be the lightweight stopgap if this
+ever becomes a pain point).
 
 ## Tab-by-tab content
 **Home:** The default landing tab.
