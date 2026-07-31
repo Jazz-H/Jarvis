@@ -492,6 +492,13 @@
     .modal-backdrop{align-items:center;}
     .modal-sheet{border-radius:18px; padding:18px;}
   }
+  /* Large screens: widen the column to 920px so 1440px+ displays aren't
+     mostly empty margin. Lists stay single-column on purpose. */
+  @media (min-width:1440px){
+    header{padding-left:max(24px, calc(50% - 460px)); padding-right:max(24px, calc(50% - 460px));}
+    nav.tabbar{padding-left:max(24px, calc(50% - 460px)); padding-right:max(24px, calc(50% - 460px));}
+    main{padding-left:max(24px, calc(50% - 460px)); padding-right:max(24px, calc(50% - 460px));}
+  }
 </style>
 </head>
 <body>
