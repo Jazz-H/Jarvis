@@ -358,10 +358,6 @@
   }
   .todo-icon-btn.starred{color:var(--gold);}
   .todo-icon-btn.active{color:var(--olive);}
-  .todo-sub-badge{
-    position:absolute; bottom:-3px; right:-4px; font-size:8px; font-weight:800; line-height:1;
-    background:var(--surface-2); color:var(--text-dim); padding:2px 3px; border-radius:5px;
-  }
   .subitem-list{padding:0 0 10px 26px;}
   .subitem-row{display:flex; align-items:center; gap:8px; padding:5px 0;}
   .sub-drag-handle{
@@ -441,7 +437,29 @@
   }
   .todo-check .box{margin-top:0;}
   .todo-icon-btn{width:36px; height:44px; border-radius:10px;}
-  .todo-sub-badge{bottom:5px; right:0;}
+  .todo-meta{font-size:11.5px; color:var(--text-dim); margin-top:3px;}
+  .overdue{color:var(--danger); font-weight:600;}
+  .cat-title.overdue{color:var(--danger);}
+  .todo-card-head{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .todo-card-head h3{margin:0;}
+  .show-more{
+    width:100%; margin-top:8px; min-height:44px; border-radius:10px; border:1px solid var(--line);
+    background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
+  }
+  /* quick-add date preview: collapses to the old 16px gap when empty */
+  .todo-quick-add{margin-bottom:0;}
+  .due-hint-row:empty{height:16px;}
+  .due-hint-row:not(:empty){margin:8px 0 12px;}
+  .due-hint{
+    display:inline-flex; align-items:center; gap:2px; padding-left:12px; border-radius:16px;
+    background:color-mix(in srgb, var(--gold) 16%, transparent); color:var(--gold);
+    font-size:12.5px; font-weight:700;
+  }
+  .due-hint button{
+    width:36px; height:32px; border:none; background:none; color:inherit;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal-field input[type=date]{min-height:44px; -webkit-appearance:none; appearance:none;}
   /* boxed buttons: the visible 26px box is drawn by ::before inside a 36×44 hit area */
   .todo-wrap .row-edit-btn, #todo-completed .completed-actions{
     width:36px; height:44px; border:none; background:none; position:relative; isolation:isolate;
@@ -515,7 +533,7 @@
     .day-head:hover{background:var(--surface-3);}
     .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
-    .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
+    .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover, .show-more:hover{background:var(--surface-2); color:var(--text);}
     .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
     .icon-btn:hover{color:var(--olive);}
     .icon-btn.link:hover{color:var(--gold);}
@@ -1004,7 +1022,8 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
       return `<label class="modal-field"><span>${f.label}</span><select id="modal-${f.key}">${opts}</select></label>`;
     }
     if (f.type === "textarea"){
-      return `<label class="modal-field"><span>${f.label}</span><textarea id="modal-${f.key}" rows="2">${escapeHtml(val)}</textarea></label>`;
+      // enterSaves: a wrapping single-value field (e.g. a long to-do title) — Enter saves instead of adding a newline
+      return `<label class="modal-field"><span>${f.label}</span><textarea id="modal-${f.key}" rows="2"${f.enterSaves?' data-enter-saves enterkeyhint="done"':''}>${escapeHtml(val)}</textarea></label>`;
     }
     if (f.type === "checkbox"){
       return `<label class="modal-field modal-checkbox"><input id="modal-${f.key}" type="checkbox" ${val?"checked":""}><span>${f.label}</span></label>`;
@@ -1025,8 +1044,8 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape"){
     e.preventDefault();
     closeModal();
-  } else if (e.key === "Enter" && e.target.matches(".modal-body input:not([type=checkbox])")){
-    e.preventDefault(); // Enter from a text field saves; textareas keep Enter for newlines
+  } else if (e.key === "Enter" && e.target.matches(".modal-body input:not([type=checkbox]), .modal-body textarea[data-enter-saves]")){
+    e.preventDefault(); // Enter from a text field saves; other textareas keep Enter for newlines
     modalSave();
   }
 });
@@ -1064,19 +1083,106 @@ function editChipHtml(id){
 }
 
 // ---------- RENDER: HOME ----------
-const TODO_DAYS = ["This week","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+// ---------- to-do dates ----------
+// A to-do's `due` is a local "YYYY-MM-DD" string, or null for Anytime. Older
+// data stored `day` (a bare weekday name with no real date); migrateTodoDays()
+// converts that to the next occurrence of the weekday, today included.
+// Date math runs at local noon so DST shifts can't push a day over a boundary.
+const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function isoDate(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function noonOf(iso){ const [y,m,d] = iso.split("-").map(Number); return new Date(y, m-1, d, 12); }
+function addDaysIso(n){ const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+n); return isoDate(d); }
+function daysFromToday(iso){
+  const now = new Date(); now.setHours(12,0,0,0);
+  return Math.round((noonOf(iso) - now) / 86400000);
+}
+function nextWeekdayIso(dayIdx){ return addDaysIso((dayIdx - new Date().getDay() + 7) % 7); }
+function dueLabel(iso){
+  const n = daysFromToday(iso);
+  if (n === 0) return "Today";
+  if (n === 1) return "Tomorrow";
+  if (n === -1) return "Yesterday";
+  if (n > 1 && n < 7) return WEEKDAYS[noonOf(iso).getDay()];
+  return noonOf(iso).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+}
+// Groups in display order. Overdue and Today sit above Anytime because they're
+// time-critical and usually short; Anytime stays near the top so quick-adds
+// (undated by default) land right under the input.
+function todoGroup(t){
+  if (!t.due) return "anytime";
+  const n = daysFromToday(t.due);
+  if (n < 0) return "overdue";
+  if (n === 0) return "today";
+  return n < 7 ? "d" + n : "later";
+}
+function todoGroups(){
+  const g = [
+    {key:"overdue", label:"Overdue", due:"keep"},
+    {key:"today", label:"Today", due:addDaysIso(0)},
+    {key:"anytime", label:"Anytime", due:""},
+    {key:"d1", label:"Tomorrow", due:addDaysIso(1)}
+  ];
+  for (let n = 2; n < 7; n++) g.push({key:"d"+n, label:WEEKDAYS[noonOf(addDaysIso(n)).getDay()], due:addDaysIso(n)});
+  g.push({key:"later", label:"Later", due:"keep"});
+  return g;
+}
+function migrateTodoDays(list){
+  let changed = false;
+  list.forEach(t => {
+    if ("day" in t){
+      if (t.due === undefined){
+        const i = WEEKDAYS.indexOf(t.day);
+        t.due = i >= 0 ? nextWeekdayIso(i) : null;
+      }
+      delete t.day;
+      changed = true;
+    }
+    if (t.due === undefined){ t.due = null; changed = true; }
+  });
+  return changed;
+}
+// Trailing date word in quick-add: "dentist fri", "call mom tomorrow",
+// "pay rent by today". Only the final word counts, and the input shows a
+// dismissible preview, so a title that legitimately ends in a day name can
+// be kept as plain text.
+const DAY_ALIASES = {sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6};
+function parseQuickAdd(raw){
+  const m = raw.match(/^(.*?)\s+(?:on\s+|by\s+)?(today|tonight|tomorrow|tmrw|tmr|sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:s|nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?)$/i);
+  if (!m || !m[1].trim()) return {text:raw, due:null};
+  const w = m[2].toLowerCase();
+  let due;
+  if (w === "today" || w === "tonight") due = addDaysIso(0);
+  else if (w.startsWith("tom") || w.startsWith("tm")) due = addDaysIso(1);
+  else due = nextWeekdayIso(DAY_ALIASES[w.slice(0,3)]);
+  return {text:m[1].trim(), due};
+}
+let quickAddIgnoreDate = false;
+function updateDueHint(){
+  const input = document.getElementById("todo-quick-add-input");
+  const hint = document.getElementById("todo-due-hint");
+  if (!input || !hint) return;
+  if (!input.value.trim()) quickAddIgnoreDate = false;
+  const p = parseQuickAdd(input.value.trim());
+  if (!p.due || quickAddIgnoreDate){ hint.innerHTML = ""; return; }
+  hint.innerHTML = `<span class="due-hint">Due ${escapeHtml(dueLabel(p.due))}<button type="button" onclick="quickAddIgnoreDate=true; updateDueHint(); document.getElementById('todo-quick-add-input').focus();" aria-label="Keep as text, no due date">${X_ICON}</button></span>`;
+}
+let showAllTodos = false;
+const TODO_PREVIEW_COUNT = 5;
 function renderHome(){
   const el = document.getElementById("panel-home");
   let html = "";
 
   const totalOpen = todoList.filter(t => !t.done).length;
   const completedItems = todoList.filter(t => t.done).sort((a,b) => (b.completedAt||0)-(a.completedAt||0));
-  html += `<div class="quick-add">
-      <input type="text" id="todo-quick-add-input" placeholder="Add a to-do" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddTodo();">
+  html += `<div class="quick-add todo-quick-add">
+      <input type="text" id="todo-quick-add-input" placeholder="New to-do, e.g. “dentist fri”" autocomplete="off" enterkeyhint="done" oninput="updateDueHint()" onkeydown="if(event.key==='Enter') quickAddTodo();">
       <button onclick="quickAddTodo()" aria-label="Add to-do">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-    </div>`;
+    </div>
+    <div id="todo-due-hint" class="due-hint-row"></div>`;
   const renderSubitems = (t) => {
     const subs = t.subitems || [];
     const rows = subs.map(s => `<div class="subitem-row" data-sub-id="${s.id}">
@@ -1102,44 +1208,55 @@ function renderHome(){
     const subs = t.subitems || [];
     const subDone = subs.filter(s => s.done).length;
     const expanded = expandedTodos.has(t.id);
+    const group = todoGroup(t);
+    const meta = [];
+    if (group === "overdue") meta.push(`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`);
+    else if (group === "later") meta.push(escapeHtml(dueLabel(t.due)));
+    if (subs.length) meta.push(`${subDone}/${subs.length} sub-items`);
     return `<div class="todo-wrap" data-todo-id="${t.id}">
         <div class="item ${t.done?'checked':''}">
           <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
           <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
-          <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div></div>
+          <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div>${meta.length?`<div class="todo-meta">${meta.join(" · ")}</div>`:""}</div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
-          <button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="Sub-items">${SUBLIST_ICON}${subs.length?`<span class="todo-sub-badge">${subDone}/${subs.length}</span>`:''}</button>
+          ${subs.length ? `<button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="${expanded?'Hide':'Show'} sub-items" aria-expanded="${expanded}">${SUBLIST_ICON}</button>` : ""}
           <button class="row-edit-btn" style="order:5;" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
         </div>
-        ${expanded ? renderSubitems(t) : ""}
+        ${expanded && subs.length ? renderSubitems(t) : ""}
       </div>`;
   };
-  html += `<div class="card pinned ${openPinned.has('todo-card')?'open':''}" id="todo-card">
-    <div class="coll-head" onclick="toggleRules('todo-card')">
-      <div style="display:flex;align-items:center;gap:8px;"><h3>To-Do</h3><span class="insight">${todoList.length===0 ? 'Empty' : (totalOpen ? totalOpen+' open' : 'All done')}</span></div>
-      <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-    </div>
-    <div class="coll-body"><div class="coll-inner">`;
+  const overdueCount = todoList.filter(t => !t.done && todoGroup(t) === "overdue").length;
+  const countLabel = todoList.length === 0 ? 'Empty'
+    : (totalOpen ? `${totalOpen} open${overdueCount ? ` · <span class="overdue">${overdueCount} overdue</span>` : ''}` : 'All done');
+  html += `<div class="card" id="todo-card">
+    <div class="todo-card-head"><h3>To-Do</h3><span class="insight">${countLabel}</span></div>`;
   if (todoList.length === 0){
     html += `<div class="empty">Nothing on your list — add one above.</div>`;
   } else if (totalOpen === 0){
     html += `<div class="empty">All done for now.</div>`;
   } else {
-    // Array order IS the display order (drag-to-reorder writes it back); starring
-    // floats an item to the top once instead of pinning it there permanently.
+    // Within a group, array order IS display order (drag-to-reorder writes it
+    // back); Overdue and Later sort by date instead. Only the first few rows
+    // show until "Show all" so the rest of Home stays in reach.
     html += `<div id="todo-list">`;
-    const groupKeys = ["", ...TODO_DAYS.slice(1)]; // "" = This week (no day set), then Mon..Sun
-    let firstGroup = true;
-    groupKeys.forEach(day => {
-      const groupItems = todoList.filter(t => (t.day || "") === day && !t.done);
-      if (groupItems.length === 0) return;
-      html += `<div class="cat-title" data-day="${day}"${firstGroup?' style="margin-top:0;"':''}>${day || "This week"}</div>`;
+    let shown = 0, hidden = 0, firstGroup = true;
+    todoGroups().forEach(g => {
+      let items = todoList.filter(t => !t.done && todoGroup(t) === g.key);
+      if (g.key === "overdue" || g.key === "later") items = items.slice().sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+      if (!items.length) return;
+      const room = showAllTodos ? items.length : Math.max(0, TODO_PREVIEW_COUNT - shown);
+      hidden += items.length - Math.min(room, items.length);
+      items = items.slice(0, room);
+      if (!items.length) return;
+      html += `<div class="cat-title${g.key==='overdue'?' overdue':''}" data-due="${g.due}"${firstGroup?' style="margin-top:0;"':''}>${g.label}</div>`;
       firstGroup = false;
-      groupItems.forEach(t => html += todoRow(t));
+      items.forEach(t => { html += todoRow(t); shown++; });
     });
     html += `</div>`;
+    if (hidden) html += `<button class="show-more" onclick="showAllTodos=true; renderHome();">Show ${hidden} more</button>`;
+    else if (showAllTodos && totalOpen > TODO_PREVIEW_COUNT) html += `<button class="show-more" onclick="showAllTodos=false; renderHome();">Show less</button>`;
   }
-  html += `</div></div></div>`;
+  html += `</div>`;
 
   if (completedItems.length){
     const completedRows = completedItems.map(t => {
@@ -1255,13 +1372,19 @@ function renderHome(){
 }
 function quickAddTodo(){
   const input = document.getElementById("todo-quick-add-input");
-  const text = input.value.trim();
-  if (!text) return;
-  todoList.push({id:genId("todo"), text, done:false, day:null, starred:false, subitems:[], completedAt:null});
+  const raw = input.value.trim();
+  if (!raw) return;
+  const parsed = quickAddIgnoreDate ? {text:raw, due:null} : parseQuickAdd(raw);
+  quickAddIgnoreDate = false;
+  const t = {id:genId("todo"), text:parsed.text, done:false, due:parsed.due, starred:false, subitems:[], completedAt:null};
+  // New items go to the top of their group so they land in view, not below the fold
+  const at = todoList.findIndex(x => !x.done && todoGroup(x) === todoGroup(t));
+  if (at >= 0) todoList.splice(at, 0, t); else todoList.push(t);
   saveContent("todo-content", todoList);
   renderHome();
-  const fresh = document.getElementById("todo-quick-add-input");
-  fresh.focus();
+  if (!document.querySelector(`#todo-list [data-todo-id="${t.id}"]`)){ showAllTodos = true; renderHome(); }
+  if (t.due) showToast(`Added for ${dueLabel(t.due)}`);
+  document.getElementById("todo-quick-add-input").focus();
 }
 function toggleTodo(id){
   const t = todoList.find(x=>x.id===id);
@@ -1274,6 +1397,7 @@ function toggleTodo(id){
 // so offer a short undo window. Array position never changes on toggle, so
 // undoing puts the item back exactly where it was.
 function completeTodo(id){
+  try{ navigator.vibrate && navigator.vibrate(12); }catch(e){} // Android only; iOS ignores it
   toggleTodo(id);
   showUndoToast("To-do completed", () => {
     const t = todoList.find(x=>x.id===id);
@@ -1338,7 +1462,7 @@ function deleteSubitem(todoId, subId){
 function duplicateTodo(id){
   const t = todoList.find(x=>x.id===id);
   const copy = {
-    id:genId("todo"), text:t.text, done:false, day:t.day||null, starred:false, completedAt:null,
+    id:genId("todo"), text:t.text, done:false, due:t.due||null, starred:false, completedAt:null,
     subitems:(t.subitems||[]).map(s => ({id:genId("sub"), text:s.text, done:false}))
   };
   todoList.push(copy);
@@ -1355,12 +1479,21 @@ function deleteTodoPermanently(id){
 function editTodo(id){
   const t = todoList.find(x=>x.id===id);
   openModal("Edit to-do", [
-    {key:"text",label:"To-do",type:"text"},
-    {key:"day",label:"Day",type:"select",options:TODO_DAYS}
-  ], {text:t.text, day:t.day||"This week"},
+    {key:"text",label:"To-do",type:"textarea",enterSaves:true},
+    {key:"due",label:"Due date — clear it for Anytime",type:"date"},
+    {key:"subs",label:"Add sub-items — one per line",type:"textarea"}
+  ], {text:t.text, due:t.due||""},
     (v) => {
-      if(!v.text) return;
-      t.text=v.text; t.day = v.day==="This week" ? null : v.day;
+      const text = (v.text || "").replace(/\s*\n\s*/g, " ").trim();
+      if(!text) return;
+      t.text = text;
+      t.due = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : null;
+      const newSubs = (v.subs || "").split("\n").map(s => s.trim()).filter(Boolean);
+      if (newSubs.length){
+        if (!t.subitems) t.subitems = [];
+        newSubs.forEach(s => t.subitems.push({id:genId("sub"), text:s, done:false}));
+        expandedTodos.add(t.id);
+      }
       saveContent("todo-content", todoList); renderHome();
     },
     () => {
@@ -1393,18 +1526,16 @@ function archiveOldTodos(){
   if (old.length){
     const archive = loadContent("todo-archive-content", []);
     archive.push(...old.map(t => ({
-      text:t.text, completedAt:t.completedAt, day:t.day || null,
+      text:t.text, completedAt:t.completedAt, due:t.due || null,
       subitems:(t.subitems || []).map(s => ({text:s.text, done:!!s.done}))
     })));
     archive.sort((a,b) => (b.completedAt||0) - (a.completedAt||0));
     if (archive.length > TODO_ARCHIVE_MAX) archive.length = TODO_ARCHIVE_MAX;
     todoList = todoList.filter(t => !old.includes(t));
-    try{ localStorage.setItem("todo-archive-content", JSON.stringify(archive)); }catch(e){ console.error(e); }
+    writeQuietly("todo-archive-content", archive);
     changed = true;
   }
-  if (changed){
-    try{ localStorage.setItem("todo-content", JSON.stringify(todoList)); markDataChanged(); }catch(e){ console.error(e); }
-  }
+  if (changed) writeQuietly("todo-content", todoList);
   return changed;
 }
 
@@ -2077,7 +2208,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
       if (idx < 0){ renderHome(); return; }
       const [s] = t.subitems.splice(idx, 1);
       todoList.splice(todoList.indexOf(t) + 1, 0, {
-        id:genId("todo"), text:s.text, done:!!s.done, day:t.day || null,
+        id:genId("todo"), text:s.text, done:!!s.done, due:t.due || null,
         starred:false, subitems:[], completedAt:s.done ? Date.now() : null
       });
     } else if (ctx.moveTarget){
@@ -2215,7 +2346,9 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
       if (!t) return;
       let el = w.previousElementSibling;
       while (el && !el.classList.contains("cat-title")) el = el.previousElementSibling;
-      if (el) t.day = el.dataset.day || null;
+      // Overdue/Later headers say "keep": dropping there reorders without
+      // inventing a date. Other headers carry their own date ("" = Anytime).
+      if (el && el.dataset.due !== "keep") t.due = el.dataset.due || null;
       ordered.push(t);
     });
     const ids = new Set(ordered.map(t => t.id));
@@ -2417,6 +2550,15 @@ function loadAllContent(){
   capsule = loadContent("capsule-content", DEFAULT_CAPSULE);
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
   todoList = loadContent("todo-content", DEFAULT_TODO);
+  if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
+}
+// Persists housekeeping (format migrations, auto-archive) WITHOUT bumping
+// data-updated-at. Bumping it would make a device holding stale data look
+// newest on its next sync and push that stale copy over the other device's
+// real edits. Every device applies the same housekeeping rules on its own,
+// so nothing is lost by not syncing these writes.
+function writeQuietly(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error("write failed", key, e); }
 }
 (async function init(){
   loadAllContent();

@@ -130,21 +130,39 @@ responses from cache.
 **Home:** The default landing tab.
 
 *To-Do* — plain-text quick-add (type + Enter, no modal, mirrors the Wants quick-add
-pattern and the gist of the Android Reminders "type a new line" flow), tap the circle
-to check off. Items are grouped under day headers — "This week" (the default bucket
-for anything quick-added, no day assigned) plus Monday–Sunday, only showing groups
-that have items; within a group, starred items float to the top. Tap the pencil on any
-item to rename it and/or assign it to a day (or back to "This week") via a small modal,
-which doubles as the delete flow. A header badge shows "N open" (or "All done" / "All
-done for now" once every item in the active list is checked off) counting across all
-groups. No default/seed items — it's empty until you add your own.
+pattern and the gist of the Android Reminders "type a new line" flow). A trailing day
+word sets a due date — "dentist fri", "call mom tomorrow", "pay rent by today" — with a
+"Due Friday ×" preview chip under the input while typing; tapping × keeps the words as
+plain text. New items go to the top of their group so they land in view.
+
+Each to-do has a real due date (`due`, local `YYYY-MM-DD`, or null). Groups, in order,
+only showing those with items: **Overdue** (red, sorted by date, each row shows its
+date), **Today**, **Anytime** (no date — the quick-add default), **Tomorrow**, the next
+five weekdays by name, and **Later** (beyond a week, sorted by date, rows show the date).
+Dragging a row under another group's header moves it to that date (dropping under
+Overdue/Later reorders without changing the date). Older data stored a bare weekday
+name in `day`; it's converted once on load to that weekday's next occurrence (today
+included). Only the first 5 open items show until "Show N more".
+
+The checkbox (left) is the only thing that completes a to-do, followed by a 5-second
+Undo toast (and a short vibration on Android); tapping the text opens the edit modal:
+a wrapping title field (Enter saves), a native date picker (clear it for Anytime), and
+an "Add sub-items — one per line" box. The card header shows "N open · M overdue" and
+isn't collapsible. Row controls have ~44px touch targets. No default/seed items — it's
+empty until you add your own.
+
+Startup housekeeping — this date conversion and the 7-day auto-archive — saves
+without bumping the sync timestamp (`writeQuietly`). Bumping it made a device that
+opened with stale data look newest, so its sync pushed the stale copy over the other
+device's real edits.
 
 Each to-do also carries a couple of Android-Reminders-style extras, scoped down from
 the full Reminders feature set to what's realistic in an installable web app with no
 push-notification backend (see the "What this app can't do" note below): a **star**
-toggle (cyan when active) that pins the item to the top of its day-group, and a
-**sub-checklist** toggle (the small list icon, with a live "done/total" badge once it
-has items) that expands an inline mini checklist under the row — its own add-input,
+toggle that floats the item to the top of its group, and a
+**sub-checklist** toggle (the small list icon, shown only once a to-do has sub-items,
+with a "done/total sub-items" line under the title; sub-items are first added from the
+edit modal) that expands an inline mini checklist under the row — its own add-input,
 per-item checkboxes, and a × to delete a sub-item, all independent of the parent
 to-do's own completion state. Checking a to-do off no longer deletes it or just sinks
 it in place — it moves into a collapsible **Completed** card below the active list,
