@@ -266,28 +266,36 @@ Wash day (Clarifying shampoo + Hair mask) runs biweekly on Thursday, anchored to
 Jul 16, 2026 (`WASH_DAY_ANCHOR`); on wash days the wash-day PM replaces the regular PM.
 The anchor is a code constant.
 
-**Wardrobe:** Tab bar button and in-tab header both read "Wardrobe" (the tab was
-once labeled "Style"; tab labels and headers now always match). Fit rules card (front-tuck,
-regular inseam, size-to-hips, no oversized/drop-shoulder, ankle dress pants = business
-casual only w/ no-show socks + loafers never sneakers). Sizing reference grid (Tops
-M, Outerwear M, Bottoms M, Denim M, Shoes 8, Ring 8 w/
-footnote: Sample Band confirmed at 7). Wardrobe: "Still need" and "In closet" as separate
-collapsible cards, both grouped by category (Tops/Bottoms/Shoes/Outerwear/Accessories),
-tappable to move between them, persisted. Progress bar ("Wardrobe built") showing % of
-items owned. Items support an optional price and link, same shape as Wants (edit-mode
-modal, both shown on the item row when set — link as a "View product →" the same style
-Wants uses; tapping it stops the tap from also toggling the item owned/needed). The
-price mainly exists so Home's "Still need" teaser can surface the cheapest still-needed
-item instead of whichever one happens to be first in the list. Only the brown/cognac
-belt has a price by default (~$20 est.); everything else is unpriced/unlinked until you
-add one. Totals follow one rule app-wide (`priceSummary()`), so each total appears
-once and a partial sum never reads as the full cost: when every item in a list has a
-price, the card header shows "N items · $total"; when only some do, the header shows
-just the count and a "Known prices · N unpriced" row sits at the bottom of the list;
-with no prices, no total is shown. A footnote under Still need explains that ticking
-an item moves it to In closet.
+**Wardrobe:** The closet plus reference info. Top card: "Wardrobe built" progress
+(closet items ÷ closet + wardrobe items still to buy) and a "6 wardrobe items to buy ·
+Shopping list →" link that opens Wants filtered to Wardrobe. **In closet** (open by
+default) lists everything you own, grouped by category (Tops/Bottoms/Shoes/Outerwear/
+Accessories), with "fit pending" badges, optional price/link, and an Edit chip for
+editing, adding, or deleting closet items. Then Fit rules (front-tuck, regular inseam,
+size-to-hips, no oversized/drop-shoulder, ankle dress pants = business casual only w/
+no-show socks + loafers never sneakers) and the Sizing grid (Tops M, Outerwear M,
+Bottoms M, Denim M, Shoes 8, Ring 8 w/ footnote: Sample Band confirmed
+at 7).
 
-**Wants:** A quick-add bar sits at the top of the tab, always available regardless of
+**One shopping list.** There's no separate wardrobe "Still need" list anymore: clothes to
+buy live on Wants with a wardrobe category (`wardrobeCat`, e.g. "Tops"). The closet is
+derived, not copied — `closetItems()` = owned capsule items + wardrobe wants marked
+bought — so marking a wardrobe want bought puts it in the closet ("Added to your
+closet") and un-marking takes it back out. Older data kept "needed" items inside the
+capsule (plus `style-state` toggles from the old tap-to-own UI); `migrateWardrobeNeeds()`
+moves them onto Wants with derived ids (`w-` + capsule id, so every device gets the same
+result), folds the original duplicate brown belt (wardrobe "Brown/cognac belt" + wants
+"Brown leather belt, square buckle") into the one Wants entry, and clears `style-state`.
+It saves quietly and also runs on synced/restored data from an older app version.
+
+**Wants:** The single shopping list for everything, clothes included. Filter chips under
+the quick-add — **All**, **Wardrobe**, **Other**, each with its count — narrow the list (the
+Wardrobe tab's shopping link opens it on Wardrobe; quick-adding while on Wardrobe tags the
+item "Wardrobe · Other"). Wardrobe items show a "Wardrobe · Tops"-style tag ("· in closet"
+once bought), and every want's add/edit form has a Category select (Not clothing, or a
+wardrobe category). Unpriced items show no price line. Home's Wants tile marks a
+partial total with "+" and an "N unpriced" note; Home's Up next shows the top two items by
+priority then price, wardrobe or not. A quick-add bar sits at the top of the tab, always available regardless of
 edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
 straight onto the list with no modal, no price/link required upfront; focus stays in
 the field so you can add several in a row. (Edit mode's "+ Add want" still exists for
