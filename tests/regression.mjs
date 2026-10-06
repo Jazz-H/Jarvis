@@ -423,14 +423,15 @@ await section("composer: shopping items (price, category, details, batches)", as
   const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
   await page.tap("#fab");
   check("+ opens the New item sheet", (await page.textContent("#composer-heading")) === "New item");
+  check("price and link fields show up front", (await page.isVisible("#cx-price")) && (await page.isVisible("#cx-link")));
   await page.fill("#composer-text", "Helmet $250");
   check("typed price lights a chip", ((await page.textContent("#composer-chips .filter-chip.on")) || "").includes("$250.00"));
   await page.click("#composer-chips .filter-chip >> text=Moto");
   await page.press("#composer-text", "Enter");
   await page.fill("#composer-text", "Gloves");                     // category sticks for the next add
-  await page.click("#composer-chips .filter-chip >> text=Details");
   await page.fill("#cx-price", "45");
   await page.fill("#cx-link", "https://example.com/gloves");
+  await page.click("#composer-chips .filter-chip >> text=Notes");
   await page.fill("#cx-meta", "Size S");
   await page.press("#cx-meta", "Enter");
   await page.fill("#composer-text", "Shirt $20");
@@ -445,6 +446,7 @@ await section("composer: shopping items (price, category, details, batches)", as
   check("category sticks between adds; details saved", gloves.moto === true && gloves.price === 45 && gloves.link === "https://example.com/gloves" && gloves.meta === "Size S", gloves);
   check("dismissed price, wardrobe category, high priority", shirt.name === "Shirt $20" && shirt.price === null && shirt.wardrobeCat === "Tops" && shirt.priority === "high" && shirt.effKind === "need", shirt);
   check("counter", (await page.textContent("#composer-count")) === "3 added", await page.textContent("#composer-count"));
+  check("price and link clear after each add", (await page.inputValue("#cx-price")) === "" && (await page.inputValue("#cx-link")) === "");
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -453,12 +455,16 @@ await section("composer: wardrobe items go to the closet or the shopping list", 
   const { ctx, page, errors } = await openApp({ query: "?tab=style" });
   await page.tap("#fab");
   check("+ opens Add to wardrobe", (await page.textContent("#composer-heading")) === "Add to wardrobe");
+  check("no price/link for closet items", !(await page.isVisible("#cx-price")));
   await page.fill("#composer-text", "Black crewneck");
   await page.click("#composer-chips .filter-chip >> text=Fit pending");
   await page.press("#composer-text", "Enter");
   await page.fill("#composer-text", "Chelsea boots");
   await page.click("#composer-chips .filter-chip >> text=To buy");
   await page.click("#composer-chips2 .filter-chip >> text=Shoes");
+  check("To buy shows price and link", (await page.isVisible("#cx-price")) && (await page.isVisible("#cx-link")));
+  await page.fill("#cx-price", "180");
+  await page.fill("#cx-link", "https://example.com/boots");
   await page.press("#composer-text", "Enter");
   const r = await page.evaluate(() => ({
     closet: capsule.find(i => i.title === "Black crewneck"),
@@ -467,6 +473,7 @@ await section("composer: wardrobe items go to the closet or the shopping list", 
   }));
   check("In closet adds an owned item (fit pending)", r.closet && r.closet.cat === "Tops" && r.closet.state === "pending" && r.shownInCloset, r.closet);
   check("To buy adds a wardrobe item to Shopping", r.want && r.want.wardrobeCat === "Shoes", r.want);
+  check("To buy saves price and link", r.want && r.want.price === 180 && r.want.link === "https://example.com/boots", r.want);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -489,36 +496,96 @@ await section("home: day agenda completes in place", async () => {
   await ctx.close();
 });
 
-await section("home: week strip picks a day", async () => {
+await section("home: calendar strip picks any day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "o", text: "Late thing", done: false, due: isoOffset(-2), starred: false, subitems: [], completedAt: null },
     { id: "t", text: "Today thing", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
     { id: "s", text: "Starred today", done: false, due: isoOffset(0), starred: true, subitems: [], completedAt: null },
-    { id: "f", text: "Friday-ish thing", done: false, due: isoOffset(3), starred: false, subitems: [], completedAt: null },
+    { id: "f", text: "Far thing", done: false, due: isoOffset(40), starred: false, subitems: [], completedAt: null },
     { id: "n", text: "Whenever", done: false, due: null, starred: false, subitems: [], completedAt: null },
   ]}});
   const titles = () => page.$$eval("#panel-home .todo-wrap .title", els => els.map(e => e.textContent.trim()));
   const today = await page.evaluate(() => ({
-    days: document.querySelectorAll(".home-day").length,
+    days: document.querySelectorAll(".home-week .home-day").length,
     secs: [...document.querySelectorAll(".home-sec")].map(e => e.textContent),
-    dots: document.querySelectorAll(".home-day")[0].querySelectorAll(".marks i").length,
+    dots: document.querySelector(".home-day.today").querySelectorAll(".marks i").length,
   }));
   check("seven days in the strip", today.days === 7, today.days);
   check("today shows Overdue, Today, Anytime", JSON.stringify(today.secs) === '["Overdue","Today","Anytime"]', today.secs);
   check("today's dots count overdue + due", today.dots === 3, today.dots);
   const t0 = await titles();
   check("starred floats to the top of Today", t0.indexOf("Starred today") < t0.indexOf("Today thing"), t0);
-  check("later items stay off today", !t0.includes("Friday-ish thing"), t0);
-  await page.click(".home-day >> nth=3");
-  const t3 = await titles();
-  check("picking a day shows its to-dos only", JSON.stringify(t3) === '["Friday-ish thing"]', t3);
+  check("later items stay off today", !t0.includes("Far thing"), t0);
+
+  // Swipes on the strip: down opens the month, sideways pages, up closes
+  const swipe = (dx, dy) => page.evaluate(([dx, dy]) => {
+    const el = document.querySelector(".home-cal"), r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + 40;
+    const t = (cx, cy) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: cy });
+    el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [t(x, y)], changedTouches: [t(x, y)] }));
+    el.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [t(x + dx, y + dy)], changedTouches: [t(x + dx, y + dy)] }));
+    el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], changedTouches: [t(x + dx, y + dy)] }));
+  }, [dx, dy]);
+  await swipe(0, 120);
+  const opened = await page.evaluate(() => ({
+    month: !!document.querySelector(".home-month"),
+    cells: document.querySelectorAll(".home-month .home-day:not(.blank)").length,
+    refreshing: document.getElementById("pull-indicator").classList.contains("refreshing"),
+  }));
+  check("swipe down opens the month", opened.month, opened);
+  check("month shows every day", opened.cells >= 28 && opened.cells <= 31, opened.cells);
+  check("swipe down on the calendar is not pull-to-refresh", !opened.refreshing);
+  const title0 = await page.textContent(".home-cal-title");
+  await swipe(-120, 0);
+  check("swipe left pages to the next month", (await page.textContent(".home-cal-title")) !== title0);
+  check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Home");
+  await swipe(0, -120);
+  check("swipe up closes back to the week", await page.evaluate(() => !document.querySelector(".home-month") && !!document.querySelector(".home-week")));
+
+  // Pick a date 40 days out from the month view
+  await page.click(".home-cal-grab");
+  const label = await page.evaluate(() => noonOf(addDaysIso(40)).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }));
+  for (let i = 0; i < 3 && !(await page.$(`.home-day[aria-label^="${label}:"]`)); i++) await page.click('.cal-nav[aria-label="Next month"]');
+  const cell = `.home-day[aria-label^="${label}:"]`;
+  check("far date has a dot", (await page.$$eval(`${cell} .marks i`, els => els.length)) === 1);
+  await page.click(cell);
+  check("picking a far date shows its to-dos", JSON.stringify(await titles()) === '["Far thing"]', await titles());
+  check("Today button appears away from today", !!(await page.$(".home-cal-today")));
   await page.click("#fab");
   const due = await page.evaluate(() => composerDue().due);
-  check("+ on a picked day presets that date", due === isoOffset(3), due);
+  check("+ on a picked day presets that date", due === isoOffset(40), due);
   await page.fill("#composer-text", "Planned add");
   await page.press("#composer-text", "Enter");
-  const added = await page.evaluate(() => todoList.find(t => t.text === "Planned add").due === addDaysIso(3));
+  const added = await page.evaluate(() => todoList.find(t => t.text === "Planned add").due === addDaysIso(40));
   check("added to-do lands on the picked day", added);
+  await page.evaluate(() => closeComposer());
+  await page.click(".home-cal-today");
+  check("Today button returns to today", (await titles()).includes("Today thing"));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("routine: AM/PM bands on Today collapse", async () => {
+  const { ctx, page, errors } = await openApp();
+  await page.evaluate(() => activateTab("skin"));
+  const state = () => page.evaluate(() => [...document.querySelectorAll(".routine-today .routine-band")].map(b => ({
+    open: b.querySelector(".routine-band-head").getAttribute("aria-expanded") === "true",
+    steps: b.querySelectorAll(".routine-step").length,
+  })));
+  let s = await state();
+  check("bands start open while unfinished", s.every(b => b.open && b.steps > 0), s);
+  await page.click(".routine-today .routine-band.am .routine-band-head");
+  s = await state();
+  check("tapping the AM header collapses it", !s[0].open && s[0].steps === 0 && s[1].open, s);
+  await page.click(".routine-today .routine-band.am .routine-band-head");
+  check("tapping again reopens it", (await state())[0].open);
+  // Finishing PM folds it away on its own
+  await page.evaluate(() => { const r = routineForDate(new Date()); r.pm.forEach(st => toggleRoutineStep("pm", st.id)); });
+  s = await state();
+  check("a finished band closes itself", !s[1].open && s[1].steps === 0, s);
+  check("finished band reads Done", (await page.textContent(".routine-today .routine-band.pm .routine-count")).includes("Done"));
+  await page.click(".routine-today .routine-band.pm .routine-band-head");
+  check("a finished band can be reopened", (await state())[1].open);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
