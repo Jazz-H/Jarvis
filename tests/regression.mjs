@@ -667,6 +667,51 @@ await section("wash day shows as a Wash hair to-do", async () => {
   await ctx.close();
 });
 
+await section("to-do: recurring to-dos", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "w", text: "Take out trash", done: false, due: isoOffset(-3), starred: false, subitems: [{ id: "s1", text: "Recycling too", done: true }], completedAt: null, repeat: "weekly" },
+    { id: "d", text: "Vitamins", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "daily" },
+    { id: "x", text: "Bad rule", done: false, due: null, starred: false, subitems: [], completedAt: null, repeat: "hourly<script>" },
+  ]}});
+  const r0 = await page.evaluate(() => ({
+    bad: "repeat" in todoList.find(t => t.id === "x"),
+    rows: [...document.querySelectorAll("#todo-recurring .recurring-row .title")].map(e => e.textContent),
+    meta: document.querySelector('[data-todo-id="w"] .repeat-meta').textContent,
+    next: [addDaysIso(1), addDaysIso(4), nextRepeatIso("2026-01-31", "monthly"), nextRepeatIso("2026-10-09", "weekdays")],
+  }));
+  check("unknown repeat rules are dropped", !r0.bad);
+  check("Recurring section lists repeating to-dos, soonest first", JSON.stringify(r0.rows) === '["Take out trash","Vitamins"]', r0.rows);
+  check("row shows its rule", r0.meta.startsWith("Weekly · "), r0.meta);
+  check("monthly clamps to the month's end; weekdays skip the weekend", r0.next[2] === "2026-02-28" && r0.next[3] === "2026-10-12", r0.next);
+  await page.click('[data-todo-id="w"] .todo-check');
+  const r1 = await page.evaluate(() => {
+    const w = todoList.find(t => t.id === "w");
+    const copy = todoList.find(t => t.id !== "w" && t.text === "Take out trash");
+    return { due: w.due, done: w.done, subReset: w.subitems.every(s => !s.done), copy: copy && { done: copy.done, due: copy.due, repeat: copy.repeat } };
+  });
+  check("ticking an overdue weekly moves it to the next date after today", r1.due === isoOffset(4) && !r1.done, r1);
+  check("its sub-items reset for next time", r1.subReset);
+  check("a done copy is kept for the record", r1.copy && r1.copy.done && r1.copy.due === isoOffset(-3) && r1.copy.repeat === undefined, r1.copy);
+  await page.click(".toast button");
+  const undone = await page.evaluate(() => ({ due: todoList.find(t => t.id === "w").due, n: todoList.filter(t => t.text === "Take out trash").length }));
+  check("undo puts it back", undone.due === isoOffset(-3) && undone.n === 1, undone);
+  // Home projects future repeats onto the calendar
+  await page.evaluate(() => { activateTab("home"); selectHomeDate(addDaysIso(2)); });
+  const ghosts = await page.$$eval("#panel-home .repeat-ghost .title", els => els.map(e => e.textContent));
+  check("future repeats show on Home's calendar", ghosts.includes("Vitamins"), ghosts);
+  // Composer: Repeat chip
+  await page.evaluate(() => selectHomeDate(addDaysIso(0)));
+  await page.click("#fab");
+  await page.fill("#composer-text", "Water plants");
+  await page.click("#composer-chips .filter-chip >> text=Repeat");
+  await page.click("#composer-chips2 .filter-chip >> text=Every 2 weeks");
+  await page.press("#composer-text", "Enter");
+  const added = await page.evaluate(() => { const t = todoList.find(x => x.text === "Water plants"); return { repeat: t.repeat, due: t.due }; });
+  check("composer Repeat chip makes a repeating to-do starting today", added.repeat === "biweekly" && added.due === isoOffset(0), added);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

@@ -195,6 +195,13 @@
   .home-list{padding-top:2px; padding-bottom:2px; margin-bottom:0;}
   .home-list .todo-wrap:last-of-type{border-bottom:none;}
   .home-list .empty{padding:14px 0;}
+  .row-icon{order:1; display:flex; align-items:center; justify-content:center; width:40px; height:44px; flex-shrink:0; color:var(--text-dim);}
+  .row-icon svg{width:17px; height:17px;}
+  .repeat-meta{display:inline-flex; align-items:center; gap:4px;}
+  .repeat-meta svg{width:11px; height:11px;}
+  .recurring-row{cursor:pointer; padding:0; gap:0; align-items:center;}
+  .recurring-row .body{order:2; flex:1; min-width:0; padding:12px 6px 12px 2px;}
+  .recurring-row .row-edit-btn{order:3;}
   .wash-row .wash-icon{order:1; display:flex; align-items:center; justify-content:center; width:40px; height:44px; flex-shrink:0; color:var(--navy);}
   #todo-list .wash-row .item{padding-left:20px;} /* lines up with rows that have a drag handle */
   .wash-row .wash-icon svg{width:18px; height:18px;}
@@ -824,6 +831,7 @@ const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
 const MOTO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a9 9 0 0 1 18 0v3H3z"/><path d="M12 11h9"/><path d="M8 18v2"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+const REPEAT_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
 const STAR_PATH = "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
 const STAR_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${STAR_PATH}"/></svg>`;
 const STAR_FILLED_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${STAR_PATH}"/></svg>`;
@@ -905,7 +913,7 @@ let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "cap-owned-card", "wants-pending-card"]);
+let openPinned = new Set(["todo-card", "todo-recurring", "cap-owned-card", "wants-pending-card"]);
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -1312,6 +1320,69 @@ function parseQuickAdd(raw){
   else due = nextWeekdayIso(DAY_ALIASES[w.slice(0,3)]);
   return {text:m[1].trim(), due};
 }
+// ---------- recurring to-dos ----------
+// A repeating to-do is one item with a `repeat` rule and a due date. Ticking it
+// records a done copy for that date (so Completed and Home's ring show it) and
+// moves the item on to its next date after today. Later dates are projected on
+// Home's calendar but not stored.
+const REPEATS = {
+  daily:    {label:"Every day", short:"Daily"},
+  weekdays: {label:"Weekdays", short:"Weekdays"},
+  weekly:   {label:"Every week", short:"Weekly"},
+  biweekly: {label:"Every 2 weeks", short:"Every 2 weeks"},
+  monthly:  {label:"Every month", short:"Monthly"},
+};
+const NO_REPEAT = "Doesn't repeat";
+function nextRepeatIso(iso, repeat){
+  const d = noonOf(iso);
+  if (repeat === "daily") d.setDate(d.getDate() + 1);
+  else if (repeat === "weekdays"){ do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6); }
+  else if (repeat === "weekly") d.setDate(d.getDate() + 7);
+  else if (repeat === "biweekly") d.setDate(d.getDate() + 14);
+  else { // monthly: same date, or the month's last day when it's shorter
+    const day = d.getDate();
+    d.setDate(1); d.setMonth(d.getMonth() + 1);
+    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  }
+  return isoDate(d);
+}
+function ordinal(n){ const s = ["th","st","nd","rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+function repeatLabel(t){
+  const r = REPEATS[t.repeat];
+  if (!r) return "";
+  if (!t.due || t.repeat === "daily" || t.repeat === "weekdays") return r.short;
+  const d = noonOf(t.due);
+  if (t.repeat === "monthly") return `Monthly on the ${ordinal(d.getDate())}`;
+  return `${r.short} · ${WEEKDAYS[d.getDay()]}s`;
+}
+// Does a repeating to-do land on `iso`, after its current (stored) date?
+function occursOn(t, iso){
+  if (!t.repeat || t.done || !t.due || iso <= t.due) return false;
+  let d = t.due;
+  for (let i = 0; i < 800 && d < iso; i++) d = nextRepeatIso(d, t.repeat);
+  return d === iso;
+}
+function completeRepeating(t){
+  const today = addDaysIso(0);
+  const occurrence = t.due || today;
+  const prev = {due:t.due, subitems:JSON.parse(JSON.stringify(t.subitems || []))};
+  const copy = {id:genId("todo"), text:t.text, done:true, due:occurrence, starred:false,
+    subitems:prev.subitems.map(s => ({...s, id:genId("sub")})), completedAt:Date.now()};
+  let next = nextRepeatIso(occurrence, t.repeat);
+  if (occurrence <= today) while (next <= today) next = nextRepeatIso(next, t.repeat);
+  t.due = next;
+  (t.subitems || []).forEach(s => { s.done = false; }); // fresh checklist each time
+  todoList.splice(todoList.indexOf(t) + 1, 0, copy);
+  saveContent("todo-content", todoList, {toast:false});
+  renderHome();
+  showUndoToast(`Done · next ${dueLabel(next)}`, () => {
+    todoList = todoList.filter(x => x.id !== copy.id);
+    t.due = prev.due; t.subitems = prev.subitems;
+    saveContent("todo-content", todoList);
+    renderHome();
+  });
+}
+
 // ---------- HOME: calendar strip + day agenda ----------
 // Home is a day planner. A Monday-first week strip picks the day; swiping it
 // sideways pages weeks, and swiping it down (or the chevron) opens the full
@@ -1351,7 +1422,8 @@ function homeDayItems(iso){
   const today = addDaysIso(0);
   const open = starredFirst(todoList.filter(t => !t.done && t.due === iso));
   const wash = isWashDay(noonOf(iso));
-  if (iso > today) return {wash, overdue:[], anytime:[], open, done:todoList.filter(t => t.done && t.due === iso)};
+  if (iso > today) return {wash, overdue:[], anytime:[], open, done:todoList.filter(t => t.done && t.due === iso),
+    repeats:todoList.filter(t => occursOn(t, iso))};
   // A past day shows what was due then (still open) and what got done that day
   if (iso < today) return {wash, overdue:[], anytime:[], open, done:todoList.filter(t => completedOn(t, iso))};
   // Today's done list: anything ticked off today that wasn't scheduled for later
@@ -1372,7 +1444,7 @@ function homeDueCounts(){
 }
 function homeCalDayHtml(d, counts, monthView){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
-  const count = iso >= today ? (counts[iso] || 0) : 0;
+  const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0) : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
   const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : ""].filter(Boolean).join(" ");
   const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
@@ -1449,9 +1521,18 @@ function washRowHtml(iso){
       <div class="body" onclick="activateTab('skin')"><div class="title">Wash hair</div><div class="todo-meta"><span class="wash-tag">Wash day</span>${products ? ` · ${escapeHtml(products)}` : ""}</div></div>
     </div></div>`;
 }
+// A future repeat of a recurring to-do: shown on its date, ticked off only once
+// the real item gets there
+function repeatGhostHtml(t){
+  return `<div class="todo-wrap repeat-ghost"><div class="item">
+      <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
+      <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))}</div></div>
+    </div></div>`;
+}
 function homeRowHtml(t, meta = []){
   const subs = t.subitems || [];
   if (subs.length && !t.done) meta = [...meta, `${subs.filter(s => s.done).length}/${subs.length} sub-items`];
+  if (t.repeat && !t.done) meta = [...meta, `<span class="repeat-meta">${REPEAT_ICON}${escapeHtml(repeatLabel(t))}</span>`];
   const check = t.done
     ? `aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"`
     : `aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"`;
@@ -1508,6 +1589,7 @@ function renderTodoPanel(){
     if (group === "overdue") meta.push(`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`);
     else if (group === "later") meta.push(escapeHtml(dueLabel(t.due)));
     if (subs.length) meta.push(`${subDone}/${subs.length} sub-items`);
+    if (t.repeat) meta.push(`<span class="repeat-meta">${REPEAT_ICON}${escapeHtml(repeatLabel(t))}</span>`);
     return `<div class="todo-wrap" data-todo-id="${t.id}">
         <div class="item ${t.done?'checked':''}">
           <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
@@ -1580,6 +1662,16 @@ function renderTodoPanel(){
     }
   }
   html += `</div>`;
+
+  // Recurring: every repeating to-do in one place, soonest first; tap to edit
+  const recurring = todoList.filter(t => t.repeat && !t.done).sort(byDue);
+  const recRows = recurring.map(t => `<div class="item recurring-row" onclick="editTodo('${t.id}')">
+      <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
+      <div class="body"><div class="title">${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))} · next ${escapeHtml(t.due ? dueLabel(t.due).replace(/^(Today|Tomorrow|Yesterday)$/, w => w.toLowerCase()) : "today")}</div></div>
+      <span class="row-edit-btn" aria-hidden="true">${PENCIL_ICON}</span>
+    </div>`).join("");
+  html += collapsibleCard({id:"todo-recurring", title:"Recurring", insight:recurring.length ? `${recurring.length}` : "None", editable:false,
+    body:recRows || `<div class="empty">Set <b>Repeat</b> on a to-do (tap it to edit, or use the Repeat chip when adding) and it shows up here.</div>`});
   el.innerHTML = html;
 }
 function renderHomePanel(){
@@ -1591,7 +1683,8 @@ function renderHomePanel(){
   homeCalAnim = false;
 
   const washDone = day.wash && washHairDone(iso);
-  const total = day.overdue.length + day.open.length + day.done.length + (day.wash ? 1 : 0);
+  const repeats = day.repeats || [];
+  const total = day.overdue.length + day.open.length + repeats.length + day.done.length + (day.wash ? 1 : 0);
   const done = day.done.length + (washDone ? 1 : 0);
   const left = total - done;
   let sub;
@@ -1614,6 +1707,7 @@ function renderHomePanel(){
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join(""), "overdue");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
   const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, pastOpen)).join("")
+    + repeats.map(repeatGhostHtml).join("")
     + (washDone ? washRowHtml(iso) : "") + day.done.map(t => homeRowHtml(t)).join("");
   const dayName = escapeHtml(dueLabel(iso));
   const emptyText = iso === today ? "Nothing due today — tap + to add one."
@@ -1675,7 +1769,7 @@ function composerFresh(mode, added, prev){
   if (mode === "todo"){
     // On Home with a later day picked in the calendar, new to-dos land on that day
     const preset = currentTab === "home" && homeSelected() > addDaysIso(0) ? homeSelected() : null;
-    return {...base, date:preset, manual:!!preset, star:false};
+    return {...base, date:preset, manual:!!preset, star:false, repeat:null};
   }
   if (mode === "shop"){
     if (prev) return {...base, kind:prev.kind, cat:prev.cat, wcat:prev.wcat, high:false}; // categories stick for batches
@@ -1722,6 +1816,8 @@ function renderComposerChips(){
     row1 += cchip(due && !presetHit ? escapeHtml(dueLabel(due)) : "Pick date", !!due && !presetHit,
       due && !presetHit ? `composerPickDate('${due}')` : "composerOpenPicker()", CALENDAR_ICON);
     row1 += cchip("Star", c.star, "composer.star = !composer.star; renderComposerChips()", c.star ? STAR_FILLED_ICON : STAR_ICON);
+    row1 += cchip(c.repeat ? REPEATS[c.repeat].short : "Repeat", !!c.repeat, "composer.repeat = composer.repeat ? null : 'weekly'; renderComposerChips()", REPEAT_ICON);
+    if (c.repeat) row2 = Object.entries(REPEATS).map(([k, r]) => cchip(r.label, c.repeat === k, `composer.repeat = '${k}'; renderComposerChips()`)).join("");
     row1 += cchip("Sub-items", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
   } else if (c.mode === "shop"){
     const price = c.ignoreParse ? null : parsePrice(composerText()).price;
@@ -1828,12 +1924,14 @@ function addTodoFromComposer(raw){
     ? composerField("composer-subs").split("\n").map(x => x.trim()).filter(Boolean).map(x => ({id:genId("sub"), text:x.slice(0, TODO_MAX_LEN), done:false}))
     : [];
   const t = {id:genId("todo"), text:auto ? parseQuickAdd(raw).text : raw, done:false, due, starred:composer.star, subitems:subs, completedAt:null};
+  if (composer.repeat){ t.repeat = composer.repeat; if (!t.due) t.due = addDaysIso(0); } // a repeat needs a start date
   // New items go to the top of their group so they land in view, not below the fold
   const at = todoList.findIndex(x => !x.done && todoGroup(x) === todoGroup(t));
   if (at >= 0) todoList.splice(at, 0, t); else todoList.push(t);
   if (subs.length) expandedTodos.add(t.id);
   saveContent("todo-content", todoList, {toast:false}); // the sheet header confirms it
   renderHome();
+  if (t.repeat) return `${REPEATS[t.repeat].short.toLowerCase()} from ${dueLabel(t.due)}`;
   return due ? `for ${dueLabel(due)}` : "";
 }
 function addWantFromComposer(raw){
@@ -1909,6 +2007,8 @@ function toggleTodo(id){
 // undoing puts the item back exactly where it was.
 function completeTodo(id){
   try{ navigator.vibrate && navigator.vibrate(12); }catch(e){} // Android only; iOS ignores it
+  const r = todoList.find(x => x.id === id);
+  if (r && r.repeat && !r.done){ completeRepeating(r); return; }
   toggleTodo(id);
   showUndoToast("To-do completed", () => {
     const t = todoList.find(x=>x.id===id);
@@ -1992,13 +2092,17 @@ function editTodo(id){
   openModal("Edit to-do", [
     {key:"text",label:"To-do",type:"textarea",enterSaves:true,maxlength:TODO_MAX_LEN},
     {key:"due",label:"Due date — clear it for Anytime",type:"date"},
+    {key:"repeat",label:"Repeat",type:"select",options:[NO_REPEAT, ...Object.values(REPEATS).map(r => r.label)]},
     {key:"subs",label:"Add sub-items — one per line",type:"textarea"}
-  ], {text:t.text, due:t.due||""},
+  ], {text:t.text, due:t.due||"", repeat:REPEATS[t.repeat] ? REPEATS[t.repeat].label : NO_REPEAT},
     (v) => {
       const text = (v.text || "").replace(/\s*\n\s*/g, " ").trim();
       if(!text) return;
       t.text = text;
       t.due = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : null;
+      const repeat = Object.keys(REPEATS).find(k => REPEATS[k].label === v.repeat);
+      if (repeat){ t.repeat = repeat; if (!t.due) t.due = addDaysIso(0); } // a repeat needs a start date
+      else delete t.repeat;
       const newSubs = (v.subs || "").split("\n").map(s => s.trim()).filter(Boolean);
       if (newSubs.length){
         if (!t.subitems) t.subitems = [];
@@ -2011,7 +2115,8 @@ function editTodo(id){
       const idx = todoList.findIndex(x=>x.id===id);
       todoList.splice(idx,1);
       saveContent("todo-content", todoList); renderHome();
-    }
+    },
+    t.repeat ? {confirm:"Delete this repeating to-do? Future repeats stop too."} : undefined
   );
 }
 function clearCompletedTodos(){
@@ -3375,6 +3480,7 @@ function normalizeLoadedData(){
   capsule.forEach(i => { i.id = safeId(i.id, "cap"); i.title = decodeEntities(i.title); if (i.sub) i.sub = decodeEntities(i.sub); });
   wantsList.forEach(w => { w.id = safeId(w.id, "want"); w.name = decodeEntities(w.name); if (w.meta) w.meta = decodeEntities(w.meta); });
   todoList.forEach(t => { t.id = safeId(t.id, "todo"); (t.subitems || []).forEach(st => { st.id = safeId(st.id, "sub"); }); });
+  todoList.forEach(t => { if ("repeat" in t && !REPEATS[t.repeat]) delete t.repeat; }); // unknown rules from sync/backup
   ["am", "pm", "washPm"].forEach(b => (skinRoutine[b] || []).forEach(st => { st.id = safeId(st.id, b); }));
 }
 // Persists housekeeping (format migrations, auto-archive) WITHOUT bumping
