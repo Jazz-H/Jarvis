@@ -59,8 +59,9 @@ clothes, moto gear, and everything else.
 - **Need or want.** Every item carries a **Need** or **Want** tag. Unless set in its form,
   wardrobe items count as needs and everything else as wants. Needs sort ahead of wants,
   after high-priority items.
-- **Filtering.** All / Needs / Wants / Wardrobe / Moto chips narrow the list. They keep
-  their natural size and wrap to a second line rather than scrolling or clipping. Quick-adding under
+- **Filtering.** All / Needs / Wants / Wardrobe / Moto chips narrow the list. They sit
+  in one row that scrolls sideways (no scrollbar; on phones it runs to the screen edges
+  with a fade on the right), and the selected chip stays in view. Quick-adding under
   a filter keeps the new item in it.
 - **Categories.** Each item's form has a Category select: General, **Moto** (motorcycle
   gear, `moto: true`, shown with a "Moto" tag), or a wardrobe category (`wardrobeCat`,

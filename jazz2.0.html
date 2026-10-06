@@ -501,12 +501,24 @@
     background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
   }
   .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
-  /* Shopping filters: always fit the screen — a scrolling row overflowed on
-     phones with larger system text and showed a scrollbar. Chips keep their
-     natural size, left-aligned, and wrap to another line instead of clipping. */
-  .filter-chips{display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 14px;}
+  /* Shopping filters: one row that scrolls sideways. The scrollbar is hidden (Android
+     drew a gray bar under it), and on phones the row bleeds to the screen edges with
+     a right-edge fade so a partly visible chip reads as "swipe for more". */
+  .filter-chips{
+    display:flex; gap:6px; margin:-4px 0 14px; overflow-x:auto; overscroll-behavior-x:contain;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  .filter-chips::-webkit-scrollbar{display:none;}
+  @media (max-width:767px){
+    .filter-chips{
+      margin-left:-16px; margin-right:-16px; padding:0 16px; scroll-padding:0 16px;
+      -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent);
+      mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    }
+    .filter-chips::after{content:""; flex:0 0 10px;} /* room to scroll the last chip clear of the fade */
+  }
   .filter-chips .filter-chip{
-    flex:0 1 auto; min-width:0; min-height:40px; padding:0 14px;
+    flex:0 0 auto; min-height:40px; padding:0 14px;
     display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
   }
   .fc-label{overflow:hidden; text-overflow:ellipsis;}
@@ -2300,7 +2312,17 @@ function renderWants(){
   html += collapsibleCard({id:"wants-purchased-card", title:"Purchased", insight:doneItems.length ? doneItems.length + doneSum.badge : "None yet", body:`
         ${done||'<div class="empty">Nothing marked yet.</div>'}
         ${doneSum.row}`});
+  const prevScroll = el.querySelector(".filter-chips")?.scrollLeft || 0;
   el.innerHTML = html;
+  const row = el.querySelector(".filter-chips"), active = row && row.querySelector(".filter-chip.on");
+  if (row){
+    row.scrollLeft = prevScroll;
+    if (active){
+      const r = row.getBoundingClientRect(), a = active.getBoundingClientRect();
+      if (a.left < r.left + 16) row.scrollLeft -= (r.left + 16) - a.left;
+      else if (a.right > r.right - 28) row.scrollLeft += a.right - (r.right - 28);
+    }
+  }
 }
 function quickAddWant(){
   const input = document.getElementById("quick-add-input");
