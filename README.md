@@ -30,12 +30,19 @@ switches tabs accordingly, and strips the query string afterward via
 `history.replaceState`.
 
 ## Design system
-"Neon Nights" theme: true-black ground, bg `#08080b`, surface `#131316`, surface-2
-`#1a1a1f`, line `#2c2c34`. Text: `#f4f4f8` primary, `#8d8d9c` dim. Accents: electric
-cyan `#00e5ff` (AM / skincare), neon magenta `#ff2e9a` (PM), acid-lime `#c6ff3d`
-(primary interactive accent — checkboxes, active tab, progress bar, edit-mode toggle),
-danger `#ff3b5c`. Picked from five options mocked up side-by-side against the real
-components before committing — see chat history if revisiting the palette. App icons:
+"Graphite" theme (replaced the original neon "Neon Nights" palette in Oct 2026): neutral
+charcoal ground, bg `#0c0c0d`, surface `#161618`, surface-2 `#1d1d20`, surface-3
+`#232327`, line `#2c2c31`. Text: `#f2f2f3` primary, `#8e8e96` dim. Accents: pastel blue
+`#93c5fd` (AM / skincare), pastel pink `#f9a8d4` (PM), soft white `#f2f2f3` (primary
+interactive accent — checkboxes, active tab, buttons, edit-mode toggle, with `#111113`
+glyphs on top), danger `#f87171`. Picked from four alternatives (Midnight, Ember,
+Graphite, Daylight) rendered side-by-side against the real app.
+
+Every color in the app derives from the `:root` tokens — tints use `color-mix()` on
+the accent tokens and checkmark glyphs inherit `currentColor` — so changing themes only
+means editing that one block (plus `theme-color` in the HTML and `manifest.json`). The
+token names are historical (`--gold` = AM, `--navy` = PM, `--olive` = primary accent).
+The app icons still use the old neon gradient. App icons:
 a plain terminal-window card (rounded square, no border, three status dots) with a
 "J2.0" wordmark in a monospace font — the "J" in a cyan→magenta gradient fill, "2.0"
 smaller and raised like an exponent with its own white→soft-gray gradient for a bit of
