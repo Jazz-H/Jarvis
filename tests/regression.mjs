@@ -52,6 +52,7 @@ async function openApp({ seed = {}, phone = true, query = "", route } = {}) {
   await page.waitForTimeout(600);
   return { ctx, page, errors };
 }
+function addMonthsLocal(k) { const [y, m] = k.split("-").map(Number); const d = new Date(y, m, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; }
 async function section(name, fn) {
   const before = failures.length;
   try { await fn(); } catch (e) { failures.push(`${name}: threw ${e.message.split("\n")[0]}`); }
@@ -1086,6 +1087,25 @@ await section("shopping + backup: review fixes", async () => {
     return bills.length;
   });
   check("restore clears lists the backup doesn't have", restored === 0, restored);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: import link adds data without replacing anything", async () => {
+  const k = isoOffset(0).slice(0, 7);
+  const payload = { app: "jazz2-budget", month: k, accounts: ["Bank A"],
+    bills: [{ name: "Rent", amount: 1000, day: 1, group: "joint", account: "Bank A", paid: true }, { name: "Gym", amount: 20, day: 28 }, { name: "Existing", amount: 5, day: 3 }],
+    income: [{ name: "Paycheck", amount: 2000, start: k + "-01", repeat: "biweekly", plans: [{ date: k + "-01", amount: 2100, lines: [{ name: "Card", amount: 300 }] }] }],
+    goals: [{ name: "House", target: 5000 }] };
+  const hash = "#import=" + Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const { ctx, page, errors } = await openApp({ query: hash, seed: { "bills-content": [{ id: "bill-e", name: "Existing", amount: 99, due: k + "-03", repeat: "monthly" }] } });
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(() => ({ bills: bills.map(b => [b.name, b.amount, b.group, b.account]), pays: billPayments.map(p => p.name),
+    rentDue: (bills.find(b => b.name === "Rent") || {}).due, pay1: incomeInMonth(budgetMonthKey())[0], goals: budget.goals.map(g => g.name), hash: location.hash, tab: currentTab }));
+  check("bills added; same-name bill left alone", r.bills.length === 3 && r.bills.find(b => b[0] === "Existing")[1] === 99 && r.bills.some(b => b[0] === "Rent" && b[2] === "joint" && b[3] === "Bank A"), r.bills);
+  check("bills marked paid are logged and moved to next month", r.pays.includes("Rent") && r.rentDue === addMonthsLocal(k), r.rentDue);
+  check("paycheck and its plan come in", r.pay1 && r.pay1.amount === 2100 && r.pay1.plan.lines[0].name === "Card", r.pay1);
+  check("goal added, link cleared, Budget opened", r.goals.includes("House") && r.hash === "" && r.tab === "budget", r);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
