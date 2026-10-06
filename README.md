@@ -1,7 +1,7 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 A single-file mobile web app consolidating the Jazz 2.0 series (previously separate
-Word docs) into one tabbed, installable PWA: **Home, Skin & Hair, Wardrobe, Wants.**
+Word docs) into one tabbed, installable PWA: **Home, To-Do, Skin & Hair, Wardrobe, Wants.**
 
 ## Files
 - `index.html` — redirects to `jazz2.0.html`, so the bare repo root URL works instead
@@ -20,7 +20,7 @@ didn't work from a local file or sandboxed preview — now that it's hosted, "Ad
 Home Screen" on mobile should work from the URL above.
 
 Home screen icon shortcuts (long-press the installed app icon): **Add a to-do**
-(jumps to Home and focuses the quick-add field), **Today's routine** (Skin & Hair, which
+(opens the To-Do tab and focuses the quick-add field; old installs whose shortcut still says `tab=home` land there too), **Today's routine** (Skin & Hair, which
 then auto-scrolls to today), **Wardrobe**, **Wants**. A true live-data Android
 home screen widget isn't possible from a web app — that needs a native app wrapper,
 out of scope for this project — so these shortcuts are the PWA equivalent. Implemented
@@ -135,7 +135,16 @@ PWAs handle plain downloads poorly), else a normal download. A restore confirms 
 and counts as a real edit, so with sync on it propagates to the other device.
 
 ## Tab-by-tab content
-**Home:** The default landing tab.
+**Home:** The default landing tab. Its first card is a **To-Do summary**: just what
+needs attention now — overdue and due-today items (up to 3, overdue first), each with
+its own checkbox so it can be completed (with Undo) without leaving Home — plus a
+footer like "2 more on your list". Tapping anywhere else on the card opens the To-Do
+tab. Below it: today's routine, the Wardrobe/Wants tiles, and Up next.
+
+**To-Do:** Its own tab (second in the bar) holding the full list described below —
+quick-add, date groups, drag-to-reorder, sub-items, and the Completed section. The full
+list moved off Home so Home stays a glanceable dashboard; `renderHome()` re-renders
+both pages, so any to-do change refreshes Home's summary too.
 
 *To-Do* — plain-text quick-add (type + Enter, no modal, mirrors the Wants quick-add
 pattern and the gist of the Android Reminders "type a new line" flow). A trailing day
@@ -150,7 +159,7 @@ five weekdays by name, and **Later** (beyond a week, sorted by date, rows show t
 Dragging a row under another group's header moves it to that date (dropping under
 Overdue/Later reorders without changing the date). Older data stored a bare weekday
 name in `day`; it's converted once on load to that weekday's next occurrence (today
-included). Only the first 5 open items show until "Show N more".
+included). The To-Do tab shows every open item (no preview cap).
 
 The checkbox (left) is the only thing that completes a to-do, followed by a 5-second
 Undo toast (and a short vibration on Android); tapping the text opens the edit modal:

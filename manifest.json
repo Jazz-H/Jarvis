@@ -17,7 +17,7 @@
       "name": "Add a to-do",
       "short_name": "Add to-do",
       "description": "Quickly add a to-do item",
-      "url": "./jazz2.0.html?tab=home&action=addtodo",
+      "url": "./jazz2.0.html?tab=todo&action=addtodo",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
