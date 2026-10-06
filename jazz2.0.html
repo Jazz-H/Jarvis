@@ -907,7 +907,9 @@ let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add inp
 
 // ---------- DEFAULT DATA (seeds localStorage on first run; everything below is editable in-app after) ----------
 
-const DEFAULT_SKIN_RULES = [
+const DEFAULT_SKIN_RULES = [];
+// The original three rules, removed from saved lists on load (see loadAllContent)
+const RETIRED_SKIN_RULES = [
   "Vitamin C (AM) and Glycolic Acid (PM) are fine same day — just never same session.",
   "SPF is the final AM step, no exceptions, even indoors.",
   "Multi-Peptide Lash & Brow Serum is always the very last PM step."
@@ -2204,7 +2206,8 @@ function renderSkin(){
   html += collapsibleCard({id:"routine-card", title:"Routine", insight:`${skinRoutine.am.length} AM · ${skinRoutine.pm.length} PM`,
     wrapBody:false, body:`${editorBand('am')}${editorBand('pm')}${skinRoutine.washPm.length || edit ? editorBand('washPm') : ''}`});
 
-  // 5. Key rules
+  // 5. Key rules (only shown once there are some)
+  if (!skinRules.length){ el.innerHTML = html; return; }
   const rulesEdit = editCards.has('rules-skin');
   let rules = rulesEdit ? `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>` : "";
   skinRules.forEach((r,i) => {
@@ -3278,6 +3281,8 @@ function loadAllContent(){
   if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
   normalizeLoadedData(); // last: needs every list loaded
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
+  const keptRules = skinRules.filter(r => !RETIRED_SKIN_RULES.includes(r));
+  if (keptRules.length !== skinRules.length){ skinRules = keptRules; writeQuietly("skin-rules-content", skinRules); }
 }
 // Steps added to an existing routine after it was set up. Each is applied once
 // per routine (tracked in `added`, which syncs with it), so deleting a step

@@ -614,6 +614,23 @@ await section("routine: pore strips + teeth whitening added once", async () => {
   await ctx.close();
 });
 
+await section("skin: the three original rules are removed", async () => {
+  const keep = "My own rule";
+  const { ctx, page, errors } = await openApp({ query: "?tab=skin", seed: { "skin-rules-content": [
+    "SPF is the final AM step, no exceptions, even indoors.", keep,
+  ]}});
+  const r = await page.evaluate(() => ({ rules: skinRules, stored: JSON.parse(localStorage.getItem("skin-rules-content")), card: !!document.getElementById("rules-skin") }));
+  check("old rules dropped, the user's own kept", JSON.stringify(r.rules) === JSON.stringify([keep]) && JSON.stringify(r.stored) === JSON.stringify([keep]), r);
+  check("card still shows with a rule left", r.card);
+  await page.evaluate(() => { skinRules.length = 0; renderSkin(); });
+  check("card hidden when empty", !(await page.$("#rules-skin")));
+  await ctx.close();
+  const fresh = await openApp({ query: "?tab=skin" });
+  check("fresh install has no rules card", !(await fresh.page.$("#rules-skin")));
+  check("no JS errors", errors.length === 0 && fresh.errors.length === 0, [...errors, ...fresh.errors]);
+  await fresh.ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
