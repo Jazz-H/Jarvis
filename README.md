@@ -99,7 +99,7 @@ Edit mode itself persists across reloads (`edit-mode` in localStorage).
 ## Data / storage
 Two layers, both plain `localStorage`, both survive a hard refresh (pull-to-refresh
 only clears the service worker's cache, never localStorage):
-- **Content** (the editable lists themselves): `skin-rules-content`, `skin-days-content`,
+- **Content** (the editable lists themselves): `skin-rules-content`, `skin-routine-content` (legacy: `skin-days-content`),
   `style-rules-content`, `sizes-content`, `capsule-content`, `wants-content`,
   `todo-content`. Each seeds from the built-in defaults on first run (`todo-content`
   seeds empty — no default to-dos), then persists whatever the user edits it to.
@@ -231,21 +231,40 @@ The Skin & Hair, Wardrobe, and Wants tabs each carry a small colored icon badge 
 their header title (cyan droplet, lime shirt, magenta bag) matching the accent used for
 their Home glance card, for visual continuity across the app.
 
-**Skin & Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
-auto-detects and opens "today," badges it, and auto-scrolls the tab straight to
-today's card on open — no hunting for it further down the week. Key rules card
-(Vitamin C/Glycolic Acid
-same-day-different-session rule, SPF always last AM step, lash serum always last PM
-step). Hair mist (Daily Hair Spray, standardized from the old
-Hair oil seal-and-oil / Lion Locs / rice water rotation) runs twice daily — once in
-AM (before SPF, which stays the final AM step) and once in PM — every day of the week.
-Wash day (Clarifying shampoo + Hair mask) runs biweekly on Thursday (moved from
-Saturday), not every week — last wash was Thu Jul 16, 2026, next Thu Jul 30, badged
-"Wash day" on the Thursdays it lands on; off-weeks get the regular AM/PM routine
-instead (wash-day PM swaps in the shampoo + mask in place of the mist, since that
-already covers hair care for the day). The anchor date and weekday are both plain
-constants in the code (`WASH_DAY_ANCHOR`, and the day-of-week math around it) — still
-requires a code change if either shifts again, same as before.
+**Skin & Hair:** Built around doing the routine, not just reading it. Cards, top to bottom:
+- **Today** — today's AM and PM steps as a checklist (44px rows; tap anywhere on a row),
+  each band with a "done/total" count, a "Wash day" badge when it applies, and a
+  "N-day streak" (consecutive days with both AM and PM finished; today counts once it's
+  done). Finishing a band shows "Morning/Evening routine done". Check-offs reset each
+  day, sync across devices (`routine-checks`, keyed by date, ~60 days kept), and record
+  `amDone`/`pmDone` at tick time so editing the routine later doesn't rewrite history.
+- **This week** — Mon–Sun rows showing only what differs from the base routine
+  ("Exfoliate", "Wash day", or "Base routine"), a check on fully finished days; tap a day
+  for its complete AM/PM list.
+- **Routine** — the single place to edit (Edit chip): AM, PM, and Wash-day PM steps.
+  A step can be limited to certain days via a Mon–Sun chip picker in its edit form (all
+  off = every day), shown as "Mon · Wed · Fri only". New steps go before a "… — last step"
+  entry so SPF and lash serum stay last.
+- **Key rules** — Vitamin C/Glycolic Acid different-session rule, SPF always last AM step,
+  lash serum always last PM step.
+
+Data model (`skin-routine-content`): `{washDay, am:[step], pm:[step], washPm:[step]}`, a
+step being `{id, label, product, note?, days?}` (`days` = weekday numbers, 0 = Sun).
+Wash-day PM replaces PM on wash days. This replaced seven full per-day copies
+(`skin-days-content`), where changing a product meant editing up to 14 lists. Until the
+routine is first edited it's derived on load from those legacy lists (or the built-in
+`DEFAULT_SKIN_DAYS`) by `routineFromDays()`, which merges the seven days into one ordered
+list and records which days each step appeared on; migrated step ids are hashes of their
+text, so every device derives identical ids and synced check-offs line up. HTML entities
+in the old data (`&amp;`) are decoded to plain text, and text is escaped on render.
+Synced or restored data from an older app version (per-day lists, no routine) rebuilds
+the routine from those lists. Verified equal to the old per-day output across 28
+consecutive dates, wash and non-wash Thursdays included.
+
+Hair mist (Daily Hair Spray) runs AM (before SPF) and PM every day.
+Wash day (Clarifying shampoo + Hair mask) runs biweekly on Thursday, anchored to Thu
+Jul 16, 2026 (`WASH_DAY_ANCHOR`); on wash days the wash-day PM replaces the regular PM.
+The anchor is a code constant.
 
 **Wardrobe:** Tab bar button and in-tab header both read "Wardrobe" (the tab was
 once labeled "Style"; tab labels and headers now always match). Fit rules card (front-tuck,

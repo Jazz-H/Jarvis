@@ -120,17 +120,6 @@
   .sizegrid{display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; font-size:13px;}
   .sizegrid div span{display:block; color:var(--text-dim); font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:1px;}
 
-  /* Day accordion (skin/hair) */
-  .day{border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; background:var(--surface);}
-  .day-head{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 16px; cursor:pointer; background:var(--surface-2);
-  }
-  .day-head .name{font-weight:700; font-size:14.5px;}
-  .day-head .chev{transition:transform .2s; color:var(--text-dim);}
-  .day.open .chev{transform:rotate(180deg);}
-  .day-body{max-height:0; overflow:hidden; transition:max-height .25s ease;}
-  .day.open .day-body{max-height:1400px;}
   .band{padding:12px 16px;}
   .band.am{border-left:3px solid var(--gold);}
   .band.pm{border-left:3px solid var(--navy); border-top:1px solid var(--line);}
@@ -264,9 +253,59 @@
   .insight{font-size:10.5px; font-weight:600; color:var(--text-dim); background:var(--surface-2);
     padding:2px 7px; border-radius:8px; white-space:nowrap;}
   .footnote{font-size:11px; color:var(--text-dim); margin:8px 0 0; font-style:italic;}
+  /* routine checklist (Skin & Hair "Today" card) */
+  .routine-band{padding-top:6px;}
+  .routine-band + .routine-band{border-top:1px solid var(--line); margin-top:8px; padding-top:12px;}
+  .routine-band-head{display:flex; justify-content:space-between; align-items:center;}
+  .routine-band .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; font-weight:700;}
+  .routine-band.am .label{color:var(--gold);}
+  .routine-band.pm .label{color:var(--navy);}
+  .routine-count{font-size:11.5px; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums;}
+  .routine-step{
+    display:flex; align-items:flex-start; gap:12px; width:100%; min-height:44px; padding:11px 0;
+    border:none; background:none; color:var(--text); font:inherit; font-size:13px; line-height:1.4; text-align:left;
+  }
+  .routine-step + .routine-step{border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
+  .routine-step .box{order:0; margin-top:-1px;} /* base .box is order:2 (checkbox-right lists) */
+  .routine-text{flex:1; min-width:0;}
+  .routine-step.done .box{background:var(--olive); border-color:var(--olive);}
+  .routine-step.done .box svg{opacity:1;}
+  .routine-step.done .routine-text{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--line);}
+  .routine-text b{font-weight:600;}
+  .routine-text .note, .step .note{display:block; color:var(--text-dim); font-size:12px;}
+  .glance-streak{margin-left:10px; font-size:12px; font-weight:700; color:var(--text-dim);}
+  .glance-detail-text s{text-decoration-color:var(--text-dim); opacity:.6;}
+  /* this week overview */
+  .week-day + .week-day{border-top:1px solid var(--line);}
+  .week-day-head{
+    display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:0;
+    border:none; background:none; color:var(--text); font:inherit; text-align:left;
+  }
+  .week-day-name{width:34px; flex-shrink:0; font-size:13px; font-weight:700; color:var(--text-dim);}
+  .week-day.today .week-day-name{color:var(--text);}
+  .week-day-extras{flex:1; min-width:0; font-size:12.5px; color:var(--text-dim);}
+  .week-day-extras .badge.today{margin:0 8px 0 0;}
+  .week-day-done{display:flex; color:var(--olive);}
+  .week-day-done svg{width:14px; height:14px;}
+  .week-day .chev{color:var(--text-dim); transition:transform .2s; flex-shrink:0;}
+  .week-day.open .chev{transform:rotate(180deg);}
+  .week-day-body{padding:0 0 12px 44px;}
+  .week-day-body .wl{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; margin:6px 0 4px;}
+  .week-day-body .wl.am{color:var(--gold);} .week-day-body .wl.pm{color:var(--navy);}
+  .routine-sub{margin-left:6px; text-transform:none; letter-spacing:0; font-weight:600; color:var(--text-dim);}
+  /* modal "days" field */
+  .day-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .day-chip{position:relative; cursor:pointer;}
+  .day-chip input{position:absolute; opacity:0; pointer-events:none;}
+  .modal-field .day-chip span{
+    display:inline-flex; align-items:center; justify-content:center; min-width:42px; min-height:40px; margin:0;
+    border-radius:10px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--text-dim); font-size:12.5px; font-weight:700; text-transform:none; letter-spacing:0;
+  }
+  .modal-field .day-chip input:checked + span{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
+  .modal-field .day-chip input:focus-visible + span{outline:2px solid var(--olive); outline-offset:2px;}
   .badge.today{background:color-mix(in srgb, var(--olive) 22%, transparent); color:var(--olive); margin-left:8px;}
   .badge.wash{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
-  .day.today .day-head{border-left:3px solid var(--olive);}
   .progress-wrap{margin-bottom:12px;}
   .progress-label{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;}
   .progress-label b{color:var(--text); font-weight:700;}
@@ -545,7 +584,8 @@
      sticky-hover artifacts. */
   @media (hover:hover) and (pointer:fine){
     .glance:hover, .coll-head:hover{background:var(--surface-2);}
-    .day-head:hover{background:var(--surface-3);}
+    .week-day-head:hover .week-day-name, .routine-step:hover .routine-text{color:var(--text);}
+    .routine-step:not(.done):hover .box{border-color:var(--olive);}
     .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
     .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
@@ -709,7 +749,7 @@ const STEP_SHORT_NAMES = {
   "Wash day":"Shampoo", "Mask":"Hair mask"
 };
 function shortStepLabel(s){
-  const key = s[0].replace(/\s*—\s*last step$/i, "").trim();
+  const key = s.label.replace(/\s*—\s*last step$/i, "").trim();
   return STEP_SHORT_NAMES[key] || key;
 }
 
@@ -791,7 +831,6 @@ let editCards = new Set();
 let openPinned = new Set(["todo-card", "cap-needed-card", "wants-pending-card"]);
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
-let openDays = null; // lazily seeded with today's index on first renderSkin()
 
 // ---------- DEFAULT DATA (seeds localStorage on first run; everything below is editable in-app after) ----------
 
@@ -1018,7 +1057,7 @@ const DEFAULT_WANTS = [
 
 const DEFAULT_TODO = [];
 
-let skinRules, skinDays, styleRules, sizes, capsule, wantsList, todoList;
+let skinRules, skinRoutine, routineChecks, styleRules, sizes, capsule, wantsList, todoList;
 
 // ---------- MODAL ENGINE (reused for every add/edit form) ----------
 let modalFields = [];
@@ -1038,6 +1077,11 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
     const val = (values && values[f.key] != null) ? values[f.key] : (f.type === "checkbox" ? false : "");
     if (f.type === "note"){
       return `<p class="modal-note">${f.label}</p>`; // f.label is trusted app-authored HTML
+    }
+    if (f.type === "days"){
+      const sel = Array.isArray(val) ? val : [];
+      const chips = [1,2,3,4,5,6,0].map(d => `<label class="day-chip"><input type="checkbox" value="${d}" ${sel.includes(d)?"checked":""}><span>${DAY_SHORT[d]}</span></label>`).join("");
+      return `<div class="modal-field"><span>${f.label}</span><div class="day-chips" id="modal-${f.key}">${chips}</div></div>`;
     }
     if (f.type === "select"){
       const opts = f.options.map(o => `<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${o}</option>`).join("");
@@ -1079,6 +1123,10 @@ function modalSave(){
   modalFields.forEach(f => {
     const el = document.getElementById("modal-"+f.key);
     if (!el) return; // note fields render no input
+    if (f.type === "days"){
+      values[f.key] = [...el.querySelectorAll("input:checked")].map(i => Number(i.value)).sort((a,b) => a - b);
+      return;
+    }
     let v = f.type === "checkbox" ? el.checked : el.value;
     if (f.type === "number") v = v === "" ? null : parseFloat(v);
     if (typeof v === "string") v = v.trim();
@@ -1342,32 +1390,31 @@ function renderHomePanel(){
   const el = document.getElementById("panel-home");
   let html = todoGlanceHtml();
 
-  const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
-  const today = skinDays.find(d => d.day === todayName);
-  if (today){
-    const washWeek = isWashWeek();
-    const isWashDay = !!today.pmWash && washWeek;
-    const pmBand = today.pmWash ? (washWeek ? "pmWash" : "pm") : "pm";
-    const pmSteps = today[pmBand];
-    const amNames = today.am.map(shortStepLabel).join(", ");
-    const pmNames = pmSteps.map(shortStepLabel).join(", ");
-    const washDays = daysUntilWashDay();
-    const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
-    const washNote = isWashDay ? "" : `<div class="wash-note">${DROPLET_ICON}Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
-    html += `<div class="card glance" onclick="activateTab('skin')">
-        <div class="glance-head">
-          <div class="glance-title-row">
-            <div class="glance-icon" style="background:color-mix(in srgb, var(--gold) 15%, transparent); color:var(--gold);">${SKIN_ICON}</div>
-            <h3 style="margin:0;">Today — ${today.day}</h3>${isWashDay?'<span class="badge wash">Wash day</span>':''}
-          </div>
-          <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+  const now = new Date();
+  const r = routineForDate(now);
+  const checks = todayChecks();
+  const doneCount = (key, steps) => steps.filter(st => checks[key].includes(st.id)).length;
+  const names = (key, steps) => steps.map(st => {
+    const n = escapeHtml(shortStepLabel(st));
+    return checks[key].includes(st.id) ? `<s>${n}</s>` : n;
+  }).join(", ");
+  const streak = routineStreak();
+  const washDays = daysUntilWashDay();
+  const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  const washNote = r.wash ? "" : `<div class="wash-note">${DROPLET_ICON}Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
+  html += `<div class="card glance" onclick="activateTab('skin')">
+      <div class="glance-head">
+        <div class="glance-title-row">
+          <div class="glance-icon" style="background:color-mix(in srgb, var(--gold) 15%, transparent); color:var(--gold);">${SKIN_ICON}</div>
+          <h3 style="margin:0;">Today — ${WEEKDAYS[now.getDay()]}</h3>${r.wash?'<span class="badge wash">Wash day</span>':''}
         </div>
-        <div class="glance-stat">${today.am.length} AM steps · ${pmSteps.length} PM steps</div>
-        <div class="glance-routine-row"><span class="glance-tag am">AM</span><span class="glance-detail-text">${amNames}</span></div>
-        <div class="glance-routine-row"><span class="glance-tag pm">PM</span><span class="glance-detail-text">${pmNames}</span></div>
-        ${washNote}
-      </div>`;
-  }
+        <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="glance-stat">AM ${doneCount("am", r.am)}/${r.am.length} · PM ${doneCount("pm", r.pm)}/${r.pm.length}${streak ? `<span class="glance-streak">${streak}-day streak</span>` : ""}</div>
+      <div class="glance-routine-row"><span class="glance-tag am">AM</span><span class="glance-detail-text">${names("am", r.am)}</span></div>
+      <div class="glance-routine-row"><span class="glance-tag pm">PM</span><span class="glance-detail-text">${names("pm", r.pm)}</span></div>
+      ${washNote}
+    </div>`;
 
   const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
   const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
@@ -1599,10 +1646,203 @@ function archiveOldTodos(){
 }
 
 // ---------- RENDER: SKIN/HAIR ----------
+// ---------- SKIN & HAIR ROUTINE ----------
+// One routine instead of seven per-day copies: AM steps, PM steps, and a
+// wash-day PM that replaces PM on wash days. A step with `days` (weekday
+// numbers, 0 = Sun) only happens on those days; no `days` means every day.
+// Older data stored seven full day lists (skin-days-content); routineFromDays()
+// folds them into this shape without losing which step happens on which day.
+// Migrated step ids are derived from the step's text, so every device computes
+// the same ids and synced check-offs keep pointing at the same steps.
+const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const ROUTINE_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+let openWeekDays = new Set();
+
+function decodeEntities(s){
+  return String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&");
+}
+function stableStepId(band, label, product){
+  const str = band + "|" + label + "|" + product;
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return band + "-" + (h >>> 0).toString(36);
+}
+function routineFromDays(days){
+  const toStep = (band, raw) => {
+    const label = decodeEntities(raw[0]), product = decodeEntities(raw[1]);
+    const step = {id:stableStepId(band, label, product), label, product};
+    if (raw[2]) step.note = decodeEntities(raw[2]);
+    return step;
+  };
+  // Ordered union of every day's list; each step remembers the days it was on
+  const merge = (band, lists) => {
+    const merged = [];
+    lists.forEach(({dow, steps}) => {
+      let at = 0;
+      steps.forEach(raw => {
+        const step = toStep(band, raw);
+        let i = merged.findIndex(m => m.step.id === step.id);
+        if (i < 0){ merged.splice(at, 0, {step, days:new Set()}); i = at; }
+        merged[i].days.add(dow);
+        at = i + 1;
+      });
+    });
+    return merged.map(({step, days}) => {
+      if (days.size < lists.length){
+        step.days = [...days].sort((a,b) => a - b);
+        // a note like "Mon / Wed / Fri only" now duplicates `days`
+        if (step.note && / only$/i.test(step.note)) delete step.note;
+      }
+      return step;
+    });
+  };
+  const week = days.map(d => ({...d, dow:WEEKDAYS.indexOf(d.day)})).filter(d => d.dow >= 0);
+  const washDay = week.find(d => d.pmWash && d.pmWash.length);
+  return {
+    washDay: washDay ? washDay.dow : 4,
+    am: merge("am", week.map(d => ({dow:d.dow, steps:d.am || []}))),
+    pm: merge("pm", week.map(d => ({dow:d.dow, steps:d.pm || []}))),
+    washPm: washDay ? merge("washPm", [{dow:washDay.dow, steps:washDay.pmWash}]) : []
+  };
+}
+function isWashDate(date){
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return d.getDay() === skinRoutine.washDay && isWashThursday(d);
+}
+function routineForDate(date){
+  const dow = date.getDay();
+  const on = s => !s.days || s.days.includes(dow);
+  const wash = isWashDate(date) && skinRoutine.washPm.length > 0;
+  return {am:skinRoutine.am.filter(on), pm:wash ? skinRoutine.washPm : skinRoutine.pm.filter(on), wash};
+}
+function todayChecks(){
+  const c = routineChecks[isoDate(new Date())];
+  return {am:(c && c.am) || [], pm:(c && c.pm) || [], amDone:!!(c && c.amDone), pmDone:!!(c && c.pmDone)};
+}
+function toggleRoutineStep(band, id){
+  const key = isoDate(new Date());
+  const day = routineChecks[key] || (routineChecks[key] = {am:[], pm:[]});
+  const i = day[band].indexOf(id);
+  if (i >= 0) day[band].splice(i, 1); else day[band].push(id);
+  const wasDone = !!day[band + "Done"];
+  // amDone/pmDone are recorded when ticking so the streak survives later routine edits
+  const r = routineForDate(new Date());
+  day.amDone = r.am.length > 0 && r.am.every(s => day.am.includes(s.id));
+  day.pmDone = r.pm.length > 0 && r.pm.every(s => day.pm.includes(s.id));
+  const cutoff = addDaysIso(-60);
+  Object.keys(routineChecks).forEach(k => { if (k < cutoff) delete routineChecks[k]; });
+  try{
+    localStorage.setItem("routine-checks", JSON.stringify(routineChecks));
+    markDataChanged();
+  }catch(e){ showToast("Save failed — storage may be full or disabled", true); }
+  if (!wasDone && day[band + "Done"]) showToast(band === "am" ? "Morning routine done" : "Evening routine done");
+  renderSkin();
+  renderHomePanel();
+}
+// Consecutive days with both AM and PM finished, counting today only once it's done
+function routineStreak(){
+  const d = new Date(); d.setHours(12, 0, 0, 0);
+  const full = k => { const c = routineChecks[k]; return !!(c && c.amDone && c.pmDone); };
+  if (!full(isoDate(d))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (full(isoDate(d))){ n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function daysText(days){
+  const k = days.join(",");
+  if (k === "1,2,3,4,5") return "Weekdays";
+  if (k === "0,6") return "Weekends";
+  return [...days].sort((a,b) => ((a + 6) % 7) - ((b + 6) % 7)).map(d => DAY_SHORT[d]).join(" · ");
+}
+function routineStepText(s){
+  return `<b>${escapeHtml(s.label)}</b> — ${escapeHtml(s.product)}${s.note ? `<span class="note">${escapeHtml(s.note)}</span>` : ""}`;
+}
+function toggleWeekDay(key){
+  if (openWeekDays.has(key)) openWeekDays.delete(key); else openWeekDays.add(key);
+  renderSkin();
+}
+
 function renderSkin(){
   const el = document.getElementById("panel-skin");
+  const now = new Date();
+  const todayKey = isoDate(now);
+  const r = routineForDate(now);
+  const checks = todayChecks();
+  const streak = routineStreak();
+
+  // 1. Today: tick-off checklist
+  const band = (key, label, steps) => {
+    const done = steps.filter(s => checks[key].includes(s.id)).length;
+    const rows = steps.map(s => {
+      const on = checks[key].includes(s.id);
+      return `<button class="routine-step ${on?'done':''}" role="checkbox" aria-checked="${on}" onclick="toggleRoutineStep('${key}','${s.id}')"><span class="box">${ROUTINE_CHECK_SVG}</span><span class="routine-text">${routineStepText(s)}</span></button>`;
+    }).join("");
+    return `<div class="routine-band ${key}">
+        <div class="routine-band-head"><span class="label">${label}</span><span class="routine-count">${done}/${steps.length}</span></div>
+        ${rows || '<div class="empty">No steps today.</div>'}
+      </div>`;
+  };
+  let html = `<div class="card routine-today">
+      <div class="glance-head"><h3 style="margin:0;">Today — ${WEEKDAYS[now.getDay()]}${r.wash ? '<span class="badge wash">Wash day</span>' : ''}</h3>${streak ? `<span class="insight">${streak}-day streak</span>` : ''}</div>
+      ${band("am", "AM", r.am)}
+      ${band("pm", r.wash ? "PM · wash day" : "PM", r.pm)}
+    </div>`;
+
+  // 2. This week, Mon–Sun: only what differs from the base routine; tap a day for its full list
+  const monday = new Date(now); monday.setHours(12, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  let week = "";
+  for (let i = 0; i < 7; i++){
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    const key = isoDate(d);
+    const rd = routineForDate(d);
+    const extras = [...rd.am, ...(rd.wash ? [] : rd.pm)].filter(s => s.days).map(s => escapeHtml(s.label));
+    if (rd.wash) extras.unshift("Wash day");
+    const log = routineChecks[key];
+    const finished = !!(log && log.amDone && log.pmDone);
+    const open = openWeekDays.has(key);
+    const list = steps => steps.map((s, n) => `<div class="step"><span class="n">${n+1}.</span><div>${routineStepText(s)}</div></div>`).join("");
+    week += `<div class="week-day ${key === todayKey ? 'today' : ''} ${open ? 'open' : ''}">
+        <button class="week-day-head" onclick="toggleWeekDay('${key}')" aria-expanded="${open}">
+          <span class="week-day-name">${DAY_SHORT[d.getDay()]}</span>
+          <span class="week-day-extras">${key === todayKey ? '<span class="badge today">Today</span>' : ''}${extras.join(" · ") || "Base routine"}</span>
+          ${finished ? `<span class="week-day-done" aria-label="Routine done">${ROUTINE_CHECK_SVG}</span>` : ''}
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        ${open ? `<div class="week-day-body"><div class="wl am">AM</div>${list(rd.am)}<div class="wl pm">${rd.wash ? 'PM · wash day' : 'PM'}</div>${list(rd.pm)}</div>` : ''}
+      </div>`;
+  }
+  html += `<div class="card"><div class="glance-head"><h3 style="margin:0;">This week</h3></div>${week}</div>`;
+
+  // 3. The routine itself, edited in one place
+  const edit = editCards.has('routine-card');
+  const editorBand = key => {
+    const steps = skinRoutine[key];
+    const head = key === "washPm"
+      ? `Wash-day PM<span class="routine-sub">replaces PM every other ${WEEKDAYS[skinRoutine.washDay]}</span>`
+      : key.toUpperCase();
+    const rows = steps.map((s, n) => `<div class="step ${edit ? 'editable' : ''}" ${edit ? `onclick="editRoutineStep('${key}','${s.id}')"` : ''}>
+        <span class="n">${n+1}.</span><div>${routineStepText(s)}${s.days ? `<span class="note">${daysText(s.days)} only</span>` : ''}${edit ? `<span class="inline-pencil">${PENCIL_ICON}</span>` : ''}</div>
+      </div>`).join("");
+    return `<div class="band ${key === 'am' ? 'am' : 'pm'}"><div class="label">${head}</div>
+        ${edit ? `<button class="add-row" onclick="addRoutineStep('${key}')">+ Add step</button>` : ''}
+        ${rows || '<div class="empty">No steps.</div>'}
+      </div>`;
+  };
+  html += `<div class="card pinned ${openPinned.has('routine-card') ? 'open' : ''}" id="routine-card">
+      <div class="coll-head" onclick="toggleRules('routine-card')">
+        <div style="display:flex;align-items:center;gap:8px;"><h3>Routine</h3><span class="insight">${skinRoutine.am.length} AM · ${skinRoutine.pm.length} PM</span></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${editChipHtml('routine-card')}
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="coll-body">${editorBand('am')}${editorBand('pm')}${skinRoutine.washPm.length || edit ? editorBand('washPm') : ''}</div>
+    </div>`;
+
+  // 4. Key rules
   const rulesEdit = editCards.has('rules-skin');
-  let html = `<div class="card pinned ${openPinned.has('rules-skin')?'open':''}" id="rules-skin">
+  html += `<div class="card pinned ${openPinned.has('rules-skin')?'open':''}" id="rules-skin">
     <div class="coll-head" onclick="toggleRules('rules-skin')">
       <div style="display:flex;align-items:center;gap:8px;"><h3>Key rules</h3><span class="insight">${skinRules.length} rules</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1618,50 +1858,51 @@ function renderSkin(){
       : `<p class="rule">${r}</p>`;
   });
   html += `</div></div></div>`;
-  const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
-  const washWeek = isWashWeek();
-  if (openDays === null){
-    openDays = new Set();
-    const todayIdx = skinDays.findIndex(d => d.day === todayName);
-    if (todayIdx >= 0) openDays.add(todayIdx);
-  }
-  skinDays.forEach((d,i) => {
-    const isToday = d.day === todayName;
-    const isOpen = openDays.has(i);
-    const isWashDay = !!d.pmWash && washWeek;
-    const pmBand = d.pmWash ? (washWeek ? "pmWash" : "pm") : "pm";
-    const pmSteps = d[pmBand];
-    const dayEdit = editCards.has('day-'+i);
-    html += `<div class="day ${isOpen?'open':''} ${isToday?'today':''}" data-idx="${i}">
-      <div class="day-head" onclick="toggleDay(${i})">
-        <span class="name">${d.day}${isToday?'<span class="badge today">Today</span>':''}${isWashDay?'<span class="badge wash">Wash day</span>':''}</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${editChipHtml('day-'+i)}
-          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-      </div>
-      <div class="day-body">
-        <div class="band am"><div class="label">AM</div>
-          ${dayEdit?`<button class="add-row" onclick="addStep(${i},'am')">+ Add AM step</button>`:""}
-          ${d.am.map((s,n)=>stepHtml(s,n,i,'am',dayEdit)).join("")}
-        </div>
-        <div class="band pm"><div class="label">PM${pmBand==='pmWash'?' · wash day':''}</div>
-          ${dayEdit?`<button class="add-row" onclick="addStep(${i},'${pmBand}')">+ Add PM step</button>`:""}
-          ${pmSteps.map((s,n)=>stepHtml(s,n,i,pmBand,dayEdit)).join("")}
-        </div>
-      </div>
-    </div>`;
-  });
   el.innerHTML = html;
 }
+function routineStepFields(band){
+  const fields = [
+    {key:"label", label:"Step name", type:"text"},
+    {key:"product", label:"Product / description", type:"text"},
+    {key:"note", label:"Note (optional)", type:"text"}
+  ];
+  if (band !== "washPm") fields.push({key:"days", label:"Only on these days — leave all off for every day", type:"days"});
+  return fields;
+}
+function applyStepValues(step, v){
+  step.label = v.label; step.product = v.product;
+  if (v.note) step.note = v.note; else delete step.note;
+  if (v.days && v.days.length && v.days.length < 7) step.days = v.days; else delete step.days;
+}
+function saveRoutine(){
+  saveContent("skin-routine-content", skinRoutine);
+  renderSkin();
+  renderHomePanel();
+}
+function editRoutineStep(band, id){
+  const s = skinRoutine[band].find(x => x.id === id);
+  if (!s) return;
+  openModal("Edit step", routineStepFields(band), {label:s.label, product:s.product, note:s.note || "", days:s.days || []},
+    v => { if (!v.label || !v.product) return; applyStepValues(s, v); saveRoutine(); },
+    () => { skinRoutine[band] = skinRoutine[band].filter(x => x.id !== id); saveRoutine(); }
+  );
+}
+function addRoutineStep(band){
+  openModal("Add step", routineStepFields(band), {days:[]},
+    v => {
+      if (!v.label || !v.product) return;
+      const step = {id:genId(band)};
+      applyStepValues(step, v);
+      // keep "… — last step" entries (SPF, lash serum) last
+      const list = skinRoutine[band], last = list[list.length - 1];
+      if (last && /last step/i.test(last.label)) list.splice(list.length - 1, 0, step); else list.push(step);
+      saveRoutine();
+    }
+  );
+}
+
 // Wash day falls on Thursday every 2 weeks; last wash was Thu Jul 16, 2026.
 const WASH_DAY_ANCHOR = new Date(2026, 6, 16);
-function isWashWeek(){
-  const today = new Date();
-  const thisThursday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((4 - today.getDay() + 7) % 7));
-  const diffWeeks = Math.round((thisThursday - WASH_DAY_ANCHOR) / (7 * 86400000));
-  return ((diffWeeks % 2) + 2) % 2 === 0;
-}
 function isWashThursday(thuDate){
   const diffWeeks = Math.round((thuDate - WASH_DAY_ANCHOR) / (7 * 86400000));
   return ((diffWeeks % 2) + 2) % 2 === 0;
@@ -1677,17 +1918,6 @@ function daysUntilWashDay(){
   const today = new Date();
   today.setHours(0,0,0,0);
   return Math.round((nextWashDate() - today) / 86400000);
-}
-function stepHtml(s,n,dayIdx,band,edit){
-  const body = `<b>${s[0]}</b> — ${s[1]}${s[2]?`<span class="note">${s[2]}</span>`:""}`;
-  if (edit){
-    return `<div class="step editable" onclick="editStep(${dayIdx},'${band}',${n})"><span class="n">${n+1}.</span><div>${body}<span class="inline-pencil">${PENCIL_ICON}</span></div></div>`;
-  }
-  return `<div class="step"><span class="n">${n+1}.</span><div>${body}</div></div>`;
-}
-function toggleDay(i){
-  if (openDays.has(i)) openDays.delete(i); else openDays.add(i);
-  document.querySelector(`.day[data-idx="${i}"]`).classList.toggle("open");
 }
 function toggleCompletedTodos(){
   if (openPinned.has('todo-completed')) openPinned.delete('todo-completed'); else openPinned.add('todo-completed');
@@ -1708,40 +1938,6 @@ function addSkinRule(){
     (v) => { if(!v.text) return; skinRules.push(v.text); saveContent("skin-rules-content", skinRules); renderSkin(); }
   );
 }
-function editStep(dayIdx, band, stepIdx){
-  const arr = skinDays[dayIdx][band];
-  const s = arr[stepIdx];
-  openModal("Edit step", [
-    {key:"label",label:"Step name",type:"text"},
-    {key:"desc",label:"Product / description",type:"text"},
-    {key:"note",label:"Note (optional)",type:"text"}
-  ], {label:s[0], desc:s[1], note:s[2]||""},
-    (v) => {
-      if(!v.label || !v.desc) return;
-      arr[stepIdx] = v.note ? [v.label,v.desc,v.note] : [v.label,v.desc];
-      saveContent("skin-days-content", skinDays); renderSkin();
-    },
-    () => { arr.splice(stepIdx,1); saveContent("skin-days-content", skinDays); renderSkin(); }
-  );
-}
-function addStep(dayIdx, band){
-  const arr = skinDays[dayIdx][band];
-  openModal("Add step", [
-    {key:"label",label:"Step name",type:"text"},
-    {key:"desc",label:"Product / description",type:"text"},
-    {key:"note",label:"Note (optional)",type:"text"}
-  ], {},
-    (v) => {
-      if(!v.label || !v.desc) return;
-      const step = v.note ? [v.label,v.desc,v.note] : [v.label,v.desc];
-      const last = arr[arr.length-1];
-      if (last && /last step/i.test(last[0])) arr.splice(arr.length-1, 0, step);
-      else arr.push(step);
-      saveContent("skin-days-content", skinDays); renderSkin();
-    }
-  );
-}
-
 // ---------- RENDER: STYLE ----------
 function renderStyle(){
   const el = document.getElementById("panel-style");
@@ -2098,10 +2294,6 @@ function activateTab(tab){
   document.querySelectorAll(".tabpanel").forEach(p => p.classList.toggle("active", p.id === "panel-"+tab));
   document.getElementById("headline").textContent = HEADLINES[tab];
   document.querySelector("main").scrollTop = 0;
-  if (tab === "skin"){
-    const todayEl = document.querySelector("#panel-skin .day.today");
-    if (todayEl) todayEl.scrollIntoView({block:"start"});
-  }
 }
 
 document.querySelectorAll("nav.tabbar button").forEach(btn => {
@@ -2461,7 +2653,7 @@ async function hardRefresh(){
 // scope (fine-grained tokens can't use the Gist API), pasted once per device
 // via the cloud button in the header. Token + gist id live in localStorage and
 // are never synced themselves.
-const SYNC_KEYS = ["skin-rules-content","skin-days-content","style-rules-content","sizes-content",
+const SYNC_KEYS = ["skin-rules-content","skin-routine-content","routine-checks","skin-days-content","style-rules-content","sizes-content",
                    "capsule-content","wants-content","todo-content","todo-archive-content",
                    "style-state","wants-state"];
 const GIST_FILENAME = "jazz2-data.json";
@@ -2500,6 +2692,11 @@ function applyRemote(payload){
   SYNC_KEYS.forEach(k => {
     if (payload.data && k in payload.data) localStorage.setItem(k, JSON.stringify(payload.data[k]));
   });
+  // Data from an older app version (or an old backup) has per-day skin lists but
+  // no merged routine: drop the local routine so it's rebuilt from those lists
+  if (payload.data && "skin-days-content" in payload.data && !("skin-routine-content" in payload.data)){
+    localStorage.removeItem("skin-routine-content");
+  }
   localStorage.setItem("data-updated-at", String(payload.updatedAt || Date.now()));
   loadAllContent();
   try{ styleState = JSON.parse(localStorage.getItem("style-state")) || {}; }catch(e){ styleState = {}; }
@@ -2589,7 +2786,8 @@ async function downloadBackup(){
   // defaults has no stored key, and a backup missing it wouldn't fully replace
   // a device where that list was customized.
   const data = {
-    "skin-rules-content":skinRules, "skin-days-content":skinDays, "style-rules-content":styleRules,
+    "skin-rules-content":skinRules, "skin-routine-content":skinRoutine, "routine-checks":routineChecks,
+    "style-rules-content":styleRules,
     "sizes-content":sizes, "capsule-content":capsule, "wants-content":wantsList, "todo-content":todoList,
     "todo-archive-content":loadContent("todo-archive-content", []),
     "style-state":styleState, "wants-state":wantsState
@@ -2681,7 +2879,11 @@ function initSync(){
 // ---------- INIT ----------
 function loadAllContent(){
   skinRules = loadContent("skin-rules-content", DEFAULT_SKIN_RULES);
-  skinDays = loadContent("skin-days-content", DEFAULT_SKIN_DAYS);
+  // skin-routine-content wins; before the first routine edit it's derived from the
+  // legacy per-day lists (or the defaults), deterministically, so nothing is written here
+  skinRoutine = loadContent("skin-routine-content", null)
+    || routineFromDays(loadContent("skin-days-content", DEFAULT_SKIN_DAYS));
+  routineChecks = loadContent("routine-checks", {});
   styleRules = loadContent("style-rules-content", DEFAULT_STYLE_RULES);
   sizes = loadContent("sizes-content", DEFAULT_SIZES);
   capsule = loadContent("capsule-content", DEFAULT_CAPSULE);
