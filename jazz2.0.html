@@ -324,7 +324,7 @@
     position:fixed; left:50%; bottom:calc(82px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(10px);
     background:var(--surface-2); border:1px solid var(--line); color:var(--text);
     font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:20px;
-    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:20;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:40; /* above the composer sheet */
     white-space:nowrap;
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
@@ -542,6 +542,40 @@
   .cal-day.blank{visibility:hidden;}
   .badge.kind-need{background:color-mix(in srgb, var(--gold) 20%, transparent); color:var(--gold); margin-left:8px;}
   .badge.kind-want{background:var(--surface-2); color:var(--text-dim); margin-left:8px;}
+  /* floating + button (Home and To-Do) and the new-to-do composer sheet */
+  .fab{
+    display:none; position:fixed; right:18px; bottom:calc(82px + env(safe-area-inset-bottom)); z-index:12;
+    width:58px; height:58px; border:none; border-radius:18px; align-items:center; justify-content:center;
+    background:var(--olive); color:var(--on-accent); box-shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+  .fab:active{transform:scale(.96);}
+  body[data-tab="home"] .fab, body[data-tab="todo"] .fab{display:flex;}
+  body[data-tab="home"] main, body[data-tab="todo"] main{padding-bottom:170px;} /* last row clears the button */
+  .composer-backdrop{
+    position:fixed; inset:0; z-index:30; display:flex; align-items:flex-end; justify-content:center;
+    background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .composer-backdrop.open{opacity:1; pointer-events:auto;}
+  .composer-sheet{
+    width:100%; max-width:480px; max-height:85vh; overflow-y:auto; background:var(--surface);
+    border:1px solid var(--line); border-radius:18px 18px 0 0;
+    padding:8px 18px calc(18px + env(safe-area-inset-bottom)); transition:transform .2s;
+  }
+  .composer-grab{width:40px; height:4px; border-radius:2px; background:var(--line); margin:2px auto 10px;}
+  .composer-sheet .modal-head h3{display:flex; align-items:center; gap:8px;}
+  #composer-text, #composer-subs{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:12px;
+    color:var(--text); font-family:inherit; font-size:16px; padding:12px; resize:none;
+  }
+  #composer-text:focus, #composer-subs:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  #composer-subs-wrap{margin-top:10px;}
+  .composer-chips{display:flex; gap:6px; margin:12px -18px 0; padding:0 18px; overflow-x:auto; scrollbar-width:none;}
+  .composer-chips::-webkit-scrollbar{display:none;}
+  .composer-chips .filter-chip{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; min-height:40px;}
+  .composer-chips .filter-chip svg{width:14px; height:14px;}
+  #composer-count:empty{display:none;}
+  .composer-date-input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;}
+  .composer-add{width:100%; margin-top:14px; min-height:48px;}
   .badge.high{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
   .modal-section{display:block; margin:6px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
   .backup-actions{display:flex; gap:8px; margin-top:10px;}
@@ -550,18 +584,6 @@
     color:var(--text); font:inherit; font-size:13px; font-weight:700;
   }
   /* quick-add date preview: collapses to the old 16px gap when empty */
-  .todo-quick-add{margin-bottom:0;}
-  .due-hint-row:empty{height:16px;}
-  .due-hint-row:not(:empty){margin:8px 0 12px;}
-  .due-hint{
-    display:inline-flex; align-items:center; gap:2px; padding-left:12px; border-radius:16px;
-    background:color-mix(in srgb, var(--gold) 16%, transparent); color:var(--gold);
-    font-size:12.5px; font-weight:700;
-  }
-  .due-hint button{
-    width:36px; height:32px; border:none; background:none; color:inherit;
-    display:flex; align-items:center; justify-content:center;
-  }
   .modal-field input[type=date]{min-height:44px; -webkit-appearance:none; appearance:none;}
   /* boxed buttons: the visible 26px box is drawn by ::before inside a 36×44 hit area */
   .todo-wrap .row-edit-btn, #todo-completed .completed-actions{
@@ -682,6 +704,12 @@
       height:2px; background:var(--olive); border-radius:2px;
     }
     main{padding:24px max(24px, calc(50% - 380px)) 48px;}
+    .fab{bottom:32px; right:32px;}
+    body[data-tab="home"] main, body[data-tab="todo"] main{padding-bottom:110px;}
+    .composer-backdrop{align-items:center;}
+    .composer-sheet{border-radius:18px; padding-bottom:18px;}
+    .composer-grab{display:none;}
+    .composer-chips{flex-wrap:wrap; overflow:visible; margin:12px 0 0; padding:0;}
     .hard-refresh-btn{display:flex;}
     .toast{bottom:32px;}
     .modal-backdrop{align-items:center;}
@@ -696,7 +724,7 @@
   }
 </style>
 </head>
-<body>
+<body data-tab="home">
 
 <header>
   <div class="header-row">
@@ -732,6 +760,29 @@
 </main>
 
 <div class="toast" id="toast" aria-live="polite"></div>
+
+<button class="fab" id="todo-fab" onclick="openComposer()" aria-label="Add a to-do">
+  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<div class="composer-backdrop" id="composer" aria-hidden="true" onclick="if(event.target===this) closeComposer()">
+  <div class="composer-sheet" id="composer-sheet" role="dialog" aria-modal="true" aria-labelledby="composer-title">
+    <div class="composer-grab" aria-hidden="true"></div>
+    <div class="modal-head">
+      <h3 id="composer-title">New to-do <span class="insight" id="composer-count"></span></h3>
+      <button class="modal-x" onclick="closeComposer()" aria-label="Close">&times;</button>
+    </div>
+    <textarea id="composer-text" rows="2" maxlength="200" enterkeyhint="send" autocomplete="off"
+      placeholder="What needs doing? Try “dentist fri”" oninput="if(composer){ if(!this.value.trim()) composer.ignoreParse = false; renderComposerChips(); }"></textarea>
+    <div class="composer-chips" id="composer-chips"></div>
+    <div id="composer-subs-wrap" hidden>
+      <textarea id="composer-subs" rows="3" maxlength="2000" placeholder="Sub-items — one per line"></textarea>
+    </div>
+    <input type="date" id="composer-date" class="composer-date-input" tabindex="-1" aria-hidden="true"
+      onchange="if(this.value){ composer.manual = true; composer.date = this.value; renderComposerChips(); }">
+    <button class="modal-btn primary composer-add" onclick="composerAdd()">Add to-do</button>
+  </div>
+</div>
 
 <div class="modal-backdrop" id="modal-backdrop" onclick="if(event.target===this) closeModal()">
   <div class="modal-sheet">
@@ -817,11 +868,11 @@ function loadContent(key, defaults){
   }catch(e){}
   return JSON.parse(JSON.stringify(defaults));
 }
-function saveContent(key, data){
+function saveContent(key, data, {toast = true} = {}){
   try{
     localStorage.setItem(key, JSON.stringify(data));
     markDataChanged();
-    showToast("Saved");
+    if (toast) showToast("Saved");
   }catch(e){
     console.error("save failed", e);
     showToast("Save failed — storage may be full or disabled", true);
@@ -1141,7 +1192,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
     }
     if (f.type === "textarea"){
       // enterSaves: a wrapping single-value field (e.g. a long to-do title) — Enter saves instead of adding a newline
-      return `<label class="modal-field"><span>${f.label}</span><textarea id="modal-${f.key}" rows="2"${f.enterSaves?' data-enter-saves enterkeyhint="done"':''}>${escapeHtml(val)}</textarea></label>`;
+      return `<label class="modal-field"><span>${f.label}</span><textarea id="modal-${f.key}" rows="2"${f.enterSaves?' data-enter-saves enterkeyhint="done"':''}${f.maxlength?` maxlength="${f.maxlength}"`:''}>${escapeHtml(val)}</textarea></label>`;
     }
     if (f.type === "checkbox"){
       return `<label class="modal-field modal-checkbox"><input id="modal-${f.key}" type="checkbox" ${val?"checked":""}><span>${f.label}</span></label>`;
@@ -1158,6 +1209,11 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
   }
 }
 document.addEventListener("keydown", e => {
+  if (document.getElementById("composer").classList.contains("open")){
+    if (e.key === "Escape"){ e.preventDefault(); closeComposer(); }
+    else if (e.key === "Enter" && !e.shiftKey && e.target.id === "composer-text"){ e.preventDefault(); composerAdd(); }
+    return;
+  }
   if (!document.getElementById("modal-backdrop").classList.contains("open")) return;
   if (e.key === "Escape"){
     e.preventDefault();
@@ -1280,16 +1336,6 @@ function parseQuickAdd(raw){
   else due = nextWeekdayIso(DAY_ALIASES[w.slice(0,3)]);
   return {text:m[1].trim(), due};
 }
-let quickAddIgnoreDate = false;
-function updateDueHint(){
-  const input = document.getElementById("todo-quick-add-input");
-  const hint = document.getElementById("todo-due-hint");
-  if (!input || !hint) return;
-  if (!input.value.trim()) quickAddIgnoreDate = false;
-  const p = parseQuickAdd(input.value.trim());
-  if (!p.due || quickAddIgnoreDate){ hint.innerHTML = ""; return; }
-  hint.innerHTML = `<span class="due-hint">Due ${escapeHtml(dueLabel(p.due))}<button type="button" onclick="quickAddIgnoreDate=true; updateDueHint(); document.getElementById('todo-quick-add-input').focus();" aria-label="Keep as text, no due date">${X_ICON}</button></span>`;
-}
 // Home's to-do summary: only what needs attention now (overdue + due today),
 // each completable in place; the full list lives on the To-Do page.
 const TODO_GLANCE_MAX = 3;
@@ -1335,13 +1381,6 @@ function renderTodoPanel(){
 
   const totalOpen = todoList.filter(t => !t.done).length;
   const completedItems = todoList.filter(t => t.done).sort((a,b) => (b.completedAt||0)-(a.completedAt||0));
-  html += `<div class="quick-add todo-quick-add">
-      <input type="text" id="todo-quick-add-input" placeholder="New to-do, e.g. “dentist fri”" autocomplete="off" enterkeyhint="done" oninput="updateDueHint()" onkeydown="if(event.key==='Enter') quickAddTodo();">
-      <button onclick="quickAddTodo()" aria-label="Add to-do">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-    </div>
-    <div id="todo-due-hint" class="due-hint-row"></div>`;
   const renderSubitems = (t) => {
     const subs = t.subitems || [];
     const rows = subs.map(s => `<div class="subitem-row" data-sub-id="${s.id}">
@@ -1388,7 +1427,7 @@ function renderTodoPanel(){
   html += `<div class="card" id="todo-card">
     <div class="todo-card-head"><span class="insight">${countLabel}</span></div>`;
   if (todoList.length === 0){
-    html += `<div class="empty">Nothing on your list — add one above.</div>`;
+    html += `<div class="empty">Nothing on your list — tap + to add one.</div>`;
   } else if (totalOpen === 0){
     html += `<div class="empty">All done for now.</div>`;
   } else {
@@ -1525,21 +1564,140 @@ function renderHomePanel(){
 
   el.innerHTML = html;
 }
-function quickAddTodo(){
-  const input = document.getElementById("todo-quick-add-input");
-  const raw = input.value.trim();
-  if (!raw) return;
-  const parsed = quickAddIgnoreDate ? {text:raw, due:null} : parseQuickAdd(raw);
-  quickAddIgnoreDate = false;
-  const t = {id:genId("todo"), text:parsed.text, done:false, due:parsed.due, starred:false, subitems:[], completedAt:null};
+// ---------- NEW TO-DO COMPOSER ----------
+// Opened by the floating + button (Home and To-Do) or the "Add a to-do" home-
+// screen shortcut. Built for adding several in a row: Enter (or Add) saves,
+// clears the form, and keeps the keyboard up; the sheet stays open until it's
+// dismissed. A date comes from a chip, the date picker, or — if neither was
+// touched — a trailing day word in the text ("dentist fri"), which lights up the
+// matching chip; tapping that chip again keeps the words as plain text.
+const TODO_MAX_LEN = 200;
+let composer = null; // {date, manual, ignoreParse, star, showSubs, added}
+function composerFresh(added){ return {date:null, manual:false, ignoreParse:false, star:false, showSubs:false, added}; }
+function weekendIso(){
+  const dow = new Date().getDay();
+  return dow === 6 || dow === 0 ? addDaysIso(0) : nextWeekdayIso(6);
+}
+function composerDue(){
+  if (composer.manual) return {due:composer.date, auto:false};
+  if (composer.ignoreParse) return {due:null, auto:false};
+  const p = parseQuickAdd(document.getElementById("composer-text").value.trim());
+  return {due:p.due, auto:!!p.due};
+}
+function renderComposerChips(){
+  const {due, auto} = composerDue();
+  const presets = [["Today", addDaysIso(0)], ["Tomorrow", addDaysIso(1)], ["This weekend", weekendIso()]];
+  const presetHit = presets.some(([, iso]) => iso === due);
+  const chip = (label, on, onclick, extra = "") =>
+    `<button type="button" class="filter-chip ${on ? "on" : ""}" aria-pressed="${on}" onclick="${onclick}">${extra}${label}</button>`;
+  let html = presets.map(([label, iso]) => chip(label, due === iso, `composerPickDate('${iso}')`)).join("");
+  html += chip(due && !presetHit ? escapeHtml(dueLabel(due)) : "Pick date", !!due && !presetHit,
+    due && !presetHit ? `composerPickDate('${due}')` : "composerOpenPicker()",
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`);
+  html += chip("Star", composer.star, "composer.star = !composer.star; renderComposerChips()", composer.star ? STAR_FILLED_ICON : STAR_ICON);
+  html += chip("Sub-items", composer.showSubs, "composerToggleSubs()", SMALL_PLUS_ICON);
+  document.getElementById("composer-chips").innerHTML = html;
+}
+// Tapping the selected date chip clears the date; any other chip selects its date
+function composerPickDate(iso){
+  const {due, auto} = composerDue();
+  if (due === iso){
+    if (auto) composer.ignoreParse = true;
+    else { composer.manual = true; composer.date = null; }
+  } else {
+    composer.manual = true; composer.date = iso;
+  }
+  renderComposerChips();
+}
+function composerOpenPicker(){
+  const input = document.getElementById("composer-date");
+  input.value = "";
+  try{ input.showPicker(); }catch(e){ input.focus(); input.click(); }
+}
+function composerToggleSubs(){
+  composer.showSubs = !composer.showSubs;
+  document.getElementById("composer-subs-wrap").hidden = !composer.showSubs;
+  renderComposerChips();
+  if (composer.showSubs) document.getElementById("composer-subs").focus();
+}
+function openComposer(){
+  composer = composerFresh(0);
+  const text = document.getElementById("composer-text");
+  text.value = "";
+  document.getElementById("composer-subs").value = "";
+  document.getElementById("composer-subs-wrap").hidden = true;
+  document.getElementById("composer-count").textContent = "";
+  renderComposerChips();
+  const el = document.getElementById("composer");
+  el.classList.add("open");
+  el.setAttribute("aria-hidden", "false");
+  text.focus(); // synchronous with the tap, so phones raise the keyboard
+  fitComposerToKeyboard();
+}
+function closeComposer(){
+  const el = document.getElementById("composer");
+  el.classList.remove("open");
+  el.setAttribute("aria-hidden", "true");
+  document.getElementById("composer-sheet").style.transform = "";
+  document.activeElement && document.activeElement.blur();
+}
+function composerAdd(){
+  const textEl = document.getElementById("composer-text");
+  const raw = textEl.value.trim().slice(0, TODO_MAX_LEN);
+  if (!raw){ textEl.focus(); return; }
+  const {due, auto} = composerDue();
+  const text = auto ? parseQuickAdd(raw).text : raw;
+  const subs = composer.showSubs
+    ? document.getElementById("composer-subs").value.split("\n").map(x => x.trim()).filter(Boolean).map(x => ({id:genId("sub"), text:x.slice(0, TODO_MAX_LEN), done:false}))
+    : [];
+  const t = {id:genId("todo"), text, done:false, due, starred:composer.star, subitems:subs, completedAt:null};
   // New items go to the top of their group so they land in view, not below the fold
   const at = todoList.findIndex(x => !x.done && todoGroup(x) === todoGroup(t));
   if (at >= 0) todoList.splice(at, 0, t); else todoList.push(t);
-  saveContent("todo-content", todoList);
+  if (subs.length) expandedTodos.add(t.id);
+  saveContent("todo-content", todoList, {toast:false}); // the sheet header confirms it
   renderHome();
-  if (t.due) showToast(`Added for ${dueLabel(t.due)}`);
-  document.getElementById("todo-quick-add-input").focus();
+  composer = composerFresh(composer.added + 1);
+  // Feedback stays in the sheet's header: a toast would sit on top of the sheet
+  document.getElementById("composer-count").textContent =
+    `${composer.added} added` + (due ? ` · last for ${dueLabel(due)}` : "");
+  textEl.value = "";
+  document.getElementById("composer-subs").value = "";
+  document.getElementById("composer-subs-wrap").hidden = true;
+  renderComposerChips();
+  textEl.focus();
 }
+// Keep the sheet above the on-screen keyboard where the browser shrinks only the
+// visual viewport (iOS Safari, newer Android Chrome).
+function fitComposerToKeyboard(){
+  const vv = window.visualViewport, el = document.getElementById("composer-sheet");
+  if (!vv || !el) return;
+  el.style.marginBottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + "px";
+}
+if (window.visualViewport){
+  window.visualViewport.addEventListener("resize", () => { if (composer && document.getElementById("composer").classList.contains("open")) fitComposerToKeyboard(); });
+}
+// Swipe the sheet down by its handle/header to dismiss
+(function(){
+  let startY = null;
+  document.addEventListener("touchstart", e => {
+    const sheet = document.getElementById("composer-sheet");
+    if (!sheet || !e.target.closest("#composer-sheet .composer-grab, #composer-sheet .modal-head")) return;
+    startY = e.touches[0].clientY;
+  }, {passive:true});
+  document.addEventListener("touchmove", e => {
+    if (startY === null) return;
+    const dy = Math.max(0, e.touches[0].clientY - startY);
+    document.getElementById("composer-sheet").style.transform = `translateY(${dy}px)`;
+  }, {passive:true});
+  document.addEventListener("touchend", e => {
+    if (startY === null) return;
+    const dy = e.changedTouches[0].clientY - startY;
+    startY = null;
+    if (dy > 80) closeComposer();
+    else document.getElementById("composer-sheet").style.transform = "";
+  }, {passive:true});
+})();
 function toggleTodo(id){
   const t = todoList.find(x=>x.id===id);
   t.done = !t.done;
@@ -1633,7 +1791,7 @@ function deleteTodoPermanently(id){
 function editTodo(id){
   const t = todoList.find(x=>x.id===id);
   openModal("Edit to-do", [
-    {key:"text",label:"To-do",type:"textarea",enterSaves:true},
+    {key:"text",label:"To-do",type:"textarea",enterSaves:true,maxlength:TODO_MAX_LEN},
     {key:"due",label:"Due date — clear it for Anytime",type:"date"},
     {key:"subs",label:"Add sub-items — one per line",type:"textarea"}
   ], {text:t.text, due:t.due||""},
@@ -2406,6 +2564,7 @@ let currentTab = "home";
 
 function activateTab(tab){
   currentTab = tab;
+  document.body.dataset.tab = tab; // shows/hides the floating + button
   if (tab === "home") renderHome(); // refreshes glance cards with whatever changed on other tabs
   document.querySelectorAll("nav.tabbar button").forEach(b => {
     const active = b.dataset.tab === tab;
@@ -3060,7 +3219,7 @@ function writeQuietly(key, value){
 
 // Handles ?tab=&action= launch params from the home-screen icon shortcuts
 // (manifest.json "shortcuts") so long-pressing the app icon can jump straight
-// to a tab or into the to-do quick-add field.
+// to a tab or straight into the new-to-do composer.
 function applyLaunchParams(){
   const params = new URLSearchParams(location.search);
   const tab = params.get("tab");
@@ -3068,9 +3227,7 @@ function applyLaunchParams(){
   if (!tab && !action) return;
   if (action === "addtodo") activateTab("todo");
   else if (tab && TAB_ORDER.includes(tab) && tab !== "home") activateTab(tab);
-  if (action === "addtodo"){
-    setTimeout(() => document.getElementById("todo-quick-add-input")?.focus(), 150);
-  }
+  if (action === "addtodo") openComposer();
   history.replaceState(null, "", location.pathname);
 }
 
