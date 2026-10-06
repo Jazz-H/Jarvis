@@ -542,14 +542,16 @@
   }
   .composer-grab{width:40px; height:4px; border-radius:2px; background:var(--line); margin:2px auto 10px;}
   .composer-sheet .modal-head h3{display:flex; align-items:center; gap:8px;}
-  #composer-text, #composer-subs, #composer-extra input{
+  #composer-text, #composer-subs, #composer-extra input, #composer-buy input{
     width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:12px;
     color:var(--text); font-family:inherit; font-size:16px; padding:12px; resize:none;
   }
-  #composer-text:focus, #composer-subs:focus, #composer-extra input:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  #composer-text:focus, #composer-subs:focus, #composer-extra input:focus, #composer-buy input:focus{outline:2px solid var(--olive); outline-offset:1px;}
   #composer-extra{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
   #composer-extra[hidden]{display:none;}
-  #composer-extra input{min-height:46px; padding:0 12px;}
+  #composer-extra input, #composer-buy input{min-height:46px; padding:0 12px;}
+  #composer-buy{margin-top:10px;}
+  #composer-buy[hidden]{display:none;}
   .composer-row{display:flex; gap:8px;}
   .composer-row input{flex:1; min-width:0;}
   #composer-chips2{margin-top:8px;}
@@ -626,7 +628,7 @@
   /* iOS Safari zooms the page when a focused field is under 16px. Must stay
      below the base input rules (incl. the modal's) so it wins the cascade. */
   @media (pointer:coarse){
-    .subitem-add input, #composer-extra input,
+    .subitem-add input, #composer-extra input, #composer-buy input,
     .modal-field input, .modal-field textarea, .modal-field select{font-size:16px;}
     .subitem-add input{height:38px;}
     .subitem-add button{width:38px; height:38px;}
@@ -758,6 +760,10 @@
     <textarea id="composer-text" rows="2" maxlength="200" enterkeyhint="send" autocomplete="off" oninput="composerTextChanged()"></textarea>
     <div class="composer-chips" id="composer-chips"></div>
     <div class="composer-chips" id="composer-chips2" hidden></div>
+    <div class="composer-row" id="composer-buy" hidden>
+      <input id="cx-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price">
+      <input id="cx-link" type="url" inputmode="url" placeholder="Link">
+    </div>
     <div id="composer-extra" hidden></div>
     <input type="date" id="composer-date" class="composer-date-input" tabindex="-1" aria-hidden="true"
       onchange="if(this.value){ composer.manual = true; composer.date = this.value; renderComposerChips(); }">
@@ -1175,7 +1181,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
 document.addEventListener("keydown", e => {
   if (document.getElementById("composer").classList.contains("open")){
     if (e.key === "Escape"){ e.preventDefault(); closeComposer(); }
-    else if (e.key === "Enter" && !e.shiftKey && (e.target.id === "composer-text" || e.target.matches("#composer-extra input"))){ e.preventDefault(); composerAdd(); }
+    else if (e.key === "Enter" && !e.shiftKey && (e.target.id === "composer-text" || e.target.matches("#composer-extra input, #composer-buy input"))){ e.preventDefault(); composerAdd(); }
     return;
   }
   if (!document.getElementById("modal-backdrop").classList.contains("open")) return;
@@ -1633,11 +1639,7 @@ function composerFresh(mode, added, prev){
 }
 function composerExtraHtml(mode){
   if (mode === "todo") return `<textarea id="composer-subs" rows="3" maxlength="2000" placeholder="Sub-items — one per line"></textarea>`;
-  if (mode === "shop") return `<input id="cx-meta" type="text" maxlength="200" placeholder="Notes — size, color, store">
-    <div class="composer-row">
-      <input id="cx-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price">
-      <input id="cx-link" type="url" inputmode="url" placeholder="Link">
-    </div>`;
+  if (mode === "shop") return `<input id="cx-meta" type="text" maxlength="200" placeholder="Notes — size, color, store">`;
   return `<input id="cx-sub" type="text" maxlength="200" placeholder="Notes — size, brand, fit">`;
 }
 function composerText(){ return document.getElementById("composer-text").value.trim(); }
@@ -1682,7 +1684,7 @@ function renderComposerChips(){
       + cchip("Moto", c.cat === "moto", "composer.cat = 'moto'; renderComposerChips()", MOTO_ICON)
       + cchip("Wardrobe", c.cat === "wardrobe", "composer.cat = 'wardrobe'; renderComposerChips()", SHIRT_ICON);
     row1 += cchip("High priority", c.high, "composer.high = !composer.high; renderComposerChips()", c.high ? STAR_FILLED_ICON : STAR_ICON);
-    row1 += cchip("Details", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
+    row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
     if (c.cat === "wardrobe") row2 = [...CAP_CATS, "Other"].map(w => cchip(w, c.wcat === w, `composer.wcat = '${w}'; renderComposerChips()`)).join("");
   } else {
     row1 = cchip("In closet", c.dest === "closet", "composer.dest = 'closet'; renderComposerChips()")
@@ -1691,6 +1693,8 @@ function renderComposerChips(){
     row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
     row2 = CAP_CATS.map(w => cchip(w, c.cat === w, `composer.cat = '${w}'; renderComposerChips()`)).join("");
   }
+  // Price and link stay in view whenever the item is headed for the shopping list
+  document.getElementById("composer-buy").hidden = !(c.mode === "shop" || (c.mode === "closet" && c.dest === "buy"));
   document.getElementById("composer-chips").innerHTML = row1;
   const r2 = document.getElementById("composer-chips2");
   r2.innerHTML = row2;
@@ -1729,6 +1733,8 @@ function composerResetFields(){
   const extra = document.getElementById("composer-extra");
   extra.innerHTML = composerExtraHtml(composer.mode);
   extra.hidden = true;
+  document.getElementById("cx-price").value = "";
+  document.getElementById("cx-link").value = "";
 }
 function openComposer(mode = "todo"){
   const cfg = COMPOSER_MODES[mode];
@@ -1783,10 +1789,10 @@ function addTodoFromComposer(raw){
 }
 function addWantFromComposer(raw){
   const parsed = composer.ignoreParse ? {text:raw, price:null} : parsePrice(raw);
-  const typed = composer.showMore && composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
+  const typed = composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
   const price = typed != null && !isNaN(typed) ? typed : parsed.price;
   const w = {id:genId("want"), name:parsed.text, meta:composer.showMore ? composerField("cx-meta") : "",
-    price:price ?? null, link:composer.showMore && composerField("cx-link") ? composerField("cx-link") : null};
+    price:price ?? null, link:composerField("cx-link") || null};
   if (composer.kind) w.kind = composer.kind;
   if (composer.high) w.priority = "high";
   setWantCategory(w, composer.cat === "moto" ? "Moto" : composer.cat === "wardrobe" ? "Wardrobe · " + composer.wcat : "General");
@@ -1803,7 +1809,9 @@ function addClosetFromComposer(raw){
     capsule.push(item);
     saveContent("capsule-content", capsule, {toast:false});
   } else {
-    wantsList.push({id:genId("want"), name:raw, meta:sub, price:null, link:null, wardrobeCat:composer.cat});
+    const typed = composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
+    wantsList.push({id:genId("want"), name:raw, meta:sub, price:typed != null && !isNaN(typed) ? typed : null,
+      link:composerField("cx-link") || null, wardrobeCat:composer.cat});
     saveContent("wants-content", wantsList, {toast:false});
   }
   renderStyle(); renderWants(); renderHomePanel();

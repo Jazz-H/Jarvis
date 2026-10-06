@@ -423,14 +423,15 @@ await section("composer: shopping items (price, category, details, batches)", as
   const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
   await page.tap("#fab");
   check("+ opens the New item sheet", (await page.textContent("#composer-heading")) === "New item");
+  check("price and link fields show up front", (await page.isVisible("#cx-price")) && (await page.isVisible("#cx-link")));
   await page.fill("#composer-text", "Helmet $250");
   check("typed price lights a chip", ((await page.textContent("#composer-chips .filter-chip.on")) || "").includes("$250.00"));
   await page.click("#composer-chips .filter-chip >> text=Moto");
   await page.press("#composer-text", "Enter");
   await page.fill("#composer-text", "Gloves");                     // category sticks for the next add
-  await page.click("#composer-chips .filter-chip >> text=Details");
   await page.fill("#cx-price", "45");
   await page.fill("#cx-link", "https://example.com/gloves");
+  await page.click("#composer-chips .filter-chip >> text=Notes");
   await page.fill("#cx-meta", "Size S");
   await page.press("#cx-meta", "Enter");
   await page.fill("#composer-text", "Shirt $20");
@@ -445,6 +446,7 @@ await section("composer: shopping items (price, category, details, batches)", as
   check("category sticks between adds; details saved", gloves.moto === true && gloves.price === 45 && gloves.link === "https://example.com/gloves" && gloves.meta === "Size S", gloves);
   check("dismissed price, wardrobe category, high priority", shirt.name === "Shirt $20" && shirt.price === null && shirt.wardrobeCat === "Tops" && shirt.priority === "high" && shirt.effKind === "need", shirt);
   check("counter", (await page.textContent("#composer-count")) === "3 added", await page.textContent("#composer-count"));
+  check("price and link clear after each add", (await page.inputValue("#cx-price")) === "" && (await page.inputValue("#cx-link")) === "");
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -453,12 +455,16 @@ await section("composer: wardrobe items go to the closet or the shopping list", 
   const { ctx, page, errors } = await openApp({ query: "?tab=style" });
   await page.tap("#fab");
   check("+ opens Add to wardrobe", (await page.textContent("#composer-heading")) === "Add to wardrobe");
+  check("no price/link for closet items", !(await page.isVisible("#cx-price")));
   await page.fill("#composer-text", "Black crewneck");
   await page.click("#composer-chips .filter-chip >> text=Fit pending");
   await page.press("#composer-text", "Enter");
   await page.fill("#composer-text", "Chelsea boots");
   await page.click("#composer-chips .filter-chip >> text=To buy");
   await page.click("#composer-chips2 .filter-chip >> text=Shoes");
+  check("To buy shows price and link", (await page.isVisible("#cx-price")) && (await page.isVisible("#cx-link")));
+  await page.fill("#cx-price", "180");
+  await page.fill("#cx-link", "https://example.com/boots");
   await page.press("#composer-text", "Enter");
   const r = await page.evaluate(() => ({
     closet: capsule.find(i => i.title === "Black crewneck"),
@@ -467,6 +473,7 @@ await section("composer: wardrobe items go to the closet or the shopping list", 
   }));
   check("In closet adds an owned item (fit pending)", r.closet && r.closet.cat === "Tops" && r.closet.state === "pending" && r.shownInCloset, r.closet);
   check("To buy adds a wardrobe item to Shopping", r.want && r.want.wardrobeCat === "Shoes", r.want);
+  check("To buy saves price and link", r.want && r.want.price === 180 && r.want.link === "https://example.com/boots", r.want);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
