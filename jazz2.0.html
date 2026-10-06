@@ -1636,13 +1636,12 @@ function toggleWashHair(){
 }
 function washRowHtml(iso){
   const done = washHairDone(iso);
-  const products = washHairSteps().map(s => s.product).filter(Boolean).join(" + ");
   const check = iso === addDaysIso(0)
     ? `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" onclick="event.stopPropagation(); toggleWashHair()"><span class="box">${BOX_CHECK_SVG}</span></button>`
     : `<span class="wash-icon" aria-hidden="true">${DROPLET_ICON}</span>`;
   return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
       ${check}
-      <div class="body" onclick="activateTab('skin')"><div class="title">Wash hair</div><div class="todo-meta"><span class="wash-tag">Wash day</span>${products ? ` · ${escapeHtml(products)}` : ""}</div></div>
+      <div class="body" onclick="activateTab('skin')"><div class="title">Wash hair</div><div class="todo-meta"><span class="wash-tag">Wash day</span></div></div>
     </div></div>`;
 }
 // A bill on Home's day list: payable when it's the bill's real due date,
