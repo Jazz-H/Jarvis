@@ -174,21 +174,8 @@
   .home-hero h2{margin:0; font-size:22px; font-weight:800; letter-spacing:-.01em; line-height:1.2;}
   .home-hero .sub{color:var(--text-dim); font-size:13px; margin-top:3px;}
   .home-ring{width:58px; height:58px; flex-shrink:0;}
-  .home-pills{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;}
-  .home-pill{
-    display:flex; align-items:center; gap:10px; min-width:0; padding:10px 12px; text-align:left;
-    background:var(--surface); border:1px solid var(--line); border-radius:14px; color:var(--text); font:inherit;
-  }
-  .home-pill:active{background:var(--surface-2);}
-  .home-pill > span:last-child{min-width:0;}
-  .home-pill .t{display:block; font-size:10.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .home-pill .v{display:block; font-size:13.5px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .glance-icon{
-    width:30px; height:30px; border-radius:9px; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .glance-icon svg{width:15px; height:15px;}
   .home-sec{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin:16px 2px 6px;}
+  .home-hero + .home-sec{margin-top:6px;}
   .home-sec.overdue{color:var(--danger);}
   .home-list{padding-top:2px; padding-bottom:2px; margin-bottom:0;}
   .home-list .todo-wrap:last-of-type{border-bottom:none;}
@@ -627,7 +614,7 @@
      interactive; gated on hover+fine-pointer so touch devices never get
      sticky-hover artifacts. */
   @media (hover:hover) and (pointer:fine){
-    .home-pill:hover, .home-day:not(.on):hover, .coll-head:hover{background:var(--surface-2);}
+    .home-day:not(.on):hover, .coll-head:hover{background:var(--surface-2);}
     .home-more:hover{text-decoration:underline;}
     .week-day-head:hover .week-day-name, .routine-step:hover .routine-text{color:var(--text);}
     .routine-step:not(.done):hover .box{border-color:var(--olive);}
@@ -1480,22 +1467,6 @@ function renderHomePanel(){
       <div><h2>${date.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}</h2><div class="sub">${sub}</div></div>
     </div>`;
 
-  // Today's routine and shopping at a glance; each opens its tab
-  const r = routineForDate(new Date());
-  const checks = todayChecks();
-  const ticked = (key, steps) => steps.filter(st => checks[key].includes(st.id)).length;
-  const toBuy = wantsList.filter(w => !wantsState[w.id]).length;
-  const pills = `<div class="home-pills">
-      <button class="home-pill" onclick="activateTab('skin')">
-        <span class="glance-icon" style="background:color-mix(in srgb, var(--gold) 15%, transparent); color:var(--gold);">${SKIN_ICON}</span>
-        <span><span class="t">Routine${r.wash ? " · Wash day" : ""}</span><span class="v">AM ${ticked("am", r.am)}/${r.am.length} · PM ${ticked("pm", r.pm)}/${r.pm.length}</span></span>
-      </button>
-      <button class="home-pill" onclick="activateTab('wants')">
-        <span class="glance-icon" style="background:color-mix(in srgb, var(--navy) 15%, transparent); color:var(--navy);">${BAG_ICON}</span>
-        <span><span class="t">Shopping</span><span class="v">${toBuy ? `${toBuy} to buy` : "All bought"}</span></span>
-      </button>
-    </div>`;
-
   const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join(""), "overdue");
   const dayRows = day.open.map(t => homeRowHtml(t)).join("") + day.done.map(t => homeRowHtml(t)).join("");
@@ -1510,7 +1481,7 @@ function renderHomePanel(){
   const openTotal = todoList.filter(t => !t.done).length;
   list += `<button class="home-more home-all" onclick="activateTab('todo')">All to-dos (${openTotal}) →</button>`;
 
-  el.innerHTML = strip + hero + pills + list;
+  el.innerHTML = strip + hero + list;
 }
 // ---------- COMPOSER (the floating + button's sheet) ----------
 // One bottom sheet for adding things, in a mode picked by the current tab:
