@@ -1,0 +1,12 @@
+{
+  "name": "jazz2",
+  "private": true,
+  "description": "Jazz 2.0 personal dashboard PWA. The app itself has no build step; this file only exists for the test suite.",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/regression.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

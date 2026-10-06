@@ -1,337 +1,230 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
-A single-file mobile web app consolidating the Jazz 2.0 series (previously separate
-Word docs) into one tabbed, installable PWA: **Home, To-Do, Skin & Hair, Wardrobe, Wants.**
+An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
+docs) into one place with five tabs: **Home, To-Do, Skin & Hair, Wardrobe, Wants.**
 
-## Files
-- `index.html` — redirects to `jazz2.0.html`, so the bare repo root URL works instead
-  of falling through to GitHub Pages' auto-rendered README
-- `jazz2.0.html` — the entire app (HTML/CSS/JS, no build step, no framework)
-- `manifest.json` — PWA manifest (name, icons, standalone display)
-- `sw.js` — service worker, caches all 6 files for offline use
-- `icon-192.png` / `icon-512.png` — generated app icons (true-black terminal-window
-  card, gradient "J", raised white-gradient "2.0", blinking cursor block, cyan/magenta/
-  lime gradient ring border)
+Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main`).
 
-## Status / how to deploy
-Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main` /
-root). The manifest + service worker only register on a real http(s) origin, so this
-didn't work from a local file or sandboxed preview — now that it's hosted, "Add to
-Home Screen" on mobile should work from the URL above.
+## Using the app
 
-Home screen icon shortcuts (long-press the installed app icon): **Add a to-do**
-(opens the To-Do tab and focuses the quick-add field; old installs whose shortcut still says `tab=home` land there too), **Today's routine** (Skin & Hair, which
-then auto-scrolls to today), **Wardrobe**, **Wants**. A true live-data Android
-home screen widget isn't possible from a web app — that needs a native app wrapper,
-out of scope for this project — so these shortcuts are the PWA equivalent. Implemented
-via manifest.json's `shortcuts` array (each pointing at `jazz2.0.html?tab=...`) plus an
-`applyLaunchParams()` function in the app that reads `?tab=`/`?action=` on load,
-switches tabs accordingly, and strips the query string afterward via
-`history.replaceState`.
+**Home** is a dashboard. It has:
+- a To-Do summary of overdue and due-today items (up to 3), which you can tick off in place;
+- today's skin routine progress ("AM 4/6 · PM 0/6"), the streak, and the next wash day;
+- Wardrobe and Wants stat tiles;
+- **Up next**: the top two items to buy, by priority then price.
+
+Tapping a card opens its tab.
+
+**To-Do** is the full list.
+- **Adding.** Use the quick-add box. A trailing day word sets the due date ("dentist fri",
+  "call mom tomorrow"), and a "Due Friday ×" chip previews it. Tap × to keep the words as
+  plain text instead.
+- **Groups.** Overdue (red), Today, Anytime (no date), Tomorrow, the next five weekdays, and
+  Later.
+- **Completing.** Only the left checkbox completes an item, and a 5-second Undo follows.
+  Tapping the text opens the edit form: title, a date picker, and "add sub-items, one per
+  line".
+- **Other actions.** Star an item to float it to the top of its group. Drag the grip to
+  reorder, or to move an item into another date group.
+- **Completed.** Finished items sit behind a "N completed" toggle with Restore, Duplicate,
+  Delete, and Clear completed. They're archived after 7 days.
+
+**Skin & Hair** is built around doing the routine, not just reading it. Cards, top to bottom:
+- **Today:** a checklist of AM and PM steps with done/total counts, the wash-day badge, and
+  an N-day streak (days with both AM and PM finished). Check-offs reset daily and sync
+  across devices.
+- **This week:** Mon–Sun rows showing only what differs from the base routine
+  ("Exfoliate", "Wash day"). Tap a day for its full list.
+- **Wash day:** pick a frequency (every week, 10 days, 2, 3, or 4 weeks) and tap any date
+  on the month calendar to make it a wash day. The schedule repeats from that date, and
+  wash days are highlighted. Each change shows an Undo.
+- **Routine:** the one place to edit the AM, PM, and wash-day PM steps. A step can be
+  limited to certain days with a Mon–Sun chip picker. New steps go before any
+  "… — last step" entry, so SPF and lash serum stay last.
+- **Key rules:** the routine's ground rules.
+
+On wash days, the wash-day PM routine replaces the regular PM routine. The schedule is
+stored on the routine as `wash: {anchor, everyDays}`. Routines saved before it was editable
+fall back to the original cadence: every 2 weeks from Thu Jul 16 2026.
+
+**Wardrobe** is the closet.
+- **Wardrobe built:** progress, counting closet items against wardrobe items still to buy.
+- **Shopping link:** "N wardrobe items to buy · Shopping list →" opens Wants filtered to
+  Wardrobe.
+- **In closet:** grouped by category, with "fit pending" badges.
+- **Reference cards:** Fit rules and the Sizing grid.
+
+**Wants** is the single shopping list, clothes included.
+- **Need or want.** Every item carries a **Need** or **Want** tag. Unless set in its form,
+  wardrobe items count as needs and everything else as wants. Needs sort ahead of wants,
+  after high-priority items.
+- **Filtering.** All / Needs / Wants / Wardrobe chips narrow the list. Quick-adding under
+  a filter keeps the new item in it.
+- **Categories.** Each item's form has a Category select: Not clothing, or a wardrobe
+  category. Clothing items show a "Wardrobe · Tops" tag.
+- **Buying.** Mark bought moves the item to Purchased. A bought wardrobe item also appears in
+  the closet; un-buying takes it back out.
+- **Priority.** High-priority items get a badge and sort first.
+
+**Editing.** Each editable card has its own **Edit** chip. With it on, rows become tappable
+to edit or delete, and "+ Add …" rows appear. Edit forms are a bottom sheet on phones and
+a centered dialog on desktop. Esc closes them, Enter saves, and Delete always confirms first.
+
+**Navigation.**
+- **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
+  column (760px, or 920px at ≥1440px).
+- **Swiping:** swipe left or right to switch tabs.
+- **Hard refresh:** pull down from the top of a tab (or use the refresh button on
+  desktop). It clears the service worker cache and reloads, but never touches your data.
+- **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Today's
+  routine, Wardrobe, and Wants. These come from `shortcuts` in `manifest.json`, handled
+  by `applyLaunchParams()`.
+
+## Project layout
+
+| File | Purpose |
+| --- | --- |
+| `jazz2.0.html` | The whole app: HTML, CSS, and JS in one file. No build step, no framework. |
+| `index.html` | Redirects the bare site URL to `jazz2.0.html`. |
+| `manifest.json` | PWA manifest: name, icons, standalone display, home-screen shortcuts. |
+| `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys. Icons and the manifest are cache-first. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
+| `icon-192.png`, `icon-512.png` | App icons. See *Design system*. |
+| `tests/regression.mjs` | Regression suite (see *Development*). |
+| `package.json` | Only holds the test dependency (Playwright). The app itself needs no install. |
+| `.github/workflows/test.yml` | Runs the suite on every PR and every push to `main`. |
+
+### How `jazz2.0.html` is organized
+1. **CSS:** `:root` theme tokens, base components, to-do and routine styles, hover styles
+   (mouse only), then the desktop media queries.
+2. **Markup:** header (title, date, Sync & backup button, desktop refresh button), five
+   empty `tabpanel` sections, the toast, the modal, and the tab bar.
+3. **Script**, roughly top to bottom:
+   - constants and icons;
+   - storage and escaping helpers;
+   - the default data;
+   - the modal engine;
+   - one `render*` function per tab (`renderHome` updates both Home and To-Do);
+   - feature logic (to-do dates, routine, wardrobe/wants, sync, backup);
+   - init.
+
+## Development
+
+**Run locally.** Serve the folder over HTTP, for example with `python3 -m http.server`, and
+open `/jazz2.0.html`. The service worker only registers on `https:` or `localhost`.
+
+**Test.** Run:
+
+```sh
+npm install
+npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
+npm test
+```
+
+The suite (69 checks) drives the real app in headless Chromium against a tiny built-in
+server. It covers:
+- every tab on phone and desktop;
+- to-do date parsing, migration, and undo;
+- drag between date groups;
+- quiet 7-day archiving;
+- routine equivalence with the legacy per-day data over 28 dates;
+- check-offs and streaks;
+- the wash-day calendar and frequency;
+- need/want tags;
+- the wardrobe → wants migration and buy-to-closet flow;
+- the totals rule;
+- backup and restore;
+- sync against a mocked Gist API;
+- XSS hardening.
+
+CI runs the suite on every PR.
+
+**Ship.** Merge to `main` and GitHub Pages deploys it. When cached assets change, bump
+`CACHE_NAME` in `sw.js` so installed copies refresh them. The HTML itself is network-first.
+
+**Conventions worth keeping:**
+- **Stored data is untrusted.** It can arrive from sync or a backup file. Render text with
+  `escapeHtml`/`escapeAttr`, and links with `linkHtml()`, which only allows `http(s)`.
+  `normalizeLoadedData()` gives a fresh id to any id that isn't a plain token, because ids
+  are interpolated into inline `onclick` handlers.
+- **User actions vs. housekeeping.**
+  - User actions save with `saveContent()`, which bumps the sync timestamp.
+  - Housekeeping (migrations, auto-archive) saves with `writeQuietly()`, which doesn't.
+  - Why: housekeeping that bumps the timestamp makes a stale device look newest, so its
+    sync overwrites real edits from the other device.
+- **Migrations are deterministic.** They derive ids from content, so every device converts
+  old data identically. They also run on synced and restored data, via `applyRemote()`.
+- **Collapsible cards** use `collapsibleCard()`; the icons are `BOX_CHECK_SVG`,
+  `CHEVRON_DOWN`, and `glanceArrow()`.
+
+## Data and storage
+
+Everything lives in `localStorage` on the device:
+
+| Key | Contents |
+| --- | --- |
+| `todo-content` | To-dos: `{id, text, done, due: "YYYY-MM-DD" \| null, starred, subitems, completedAt}` |
+| `todo-archive-content` | Completed to-dos older than 7 days (newest 200) |
+| `skin-routine-content` | `{am, pm, washPm, wash?: {anchor, everyDays}}`; steps are `{id, label, product, note?, days?}`, where `days` uses weekday numbers and 0 = Sun |
+| `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about 60 days kept |
+| `skin-rules-content`, `style-rules-content`, `sizes-content` | Reference lists |
+| `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
+| `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?}` |
+| `wants-state` | Bought flags, by want id |
+| `data-updated-at` | Last real edit, used for sync |
+| `sync-token`, `sync-gist-id` | Sync settings for this device (never synced) |
+
+Lists still on their built-in defaults have no key until first edited.
+
+**Legacy formats, converted automatically on load and on synced or restored data:**
+- **To-dos:** a weekday name in `day` → a real `due` date.
+- **Skin routine:** seven per-day copies (`skin-days-content`) → one routine, via
+  `routineFromDays()`.
+- **Wardrobe:** "needed" capsule items plus `style-state` toggles → Wants items with
+  `wardrobeCat`, via `migrateWardrobeNeeds()`.
+- **Escaped text:** HTML entities (`&amp;`) in stored text → plain text.
+
+**Sync (opt-in).** Tap the cloud button, paste a **classic** GitHub token with only the
+`gist` scope, and do this on each device. Fine-grained tokens can't use the Gist API.
+- **Storage:** all lists live as one JSON file in a private gist.
+- **Timing:** the app pushes about 1.5s after each edit, and pulls on load and whenever
+  it returns to the foreground.
+- **Conflicts:** the newest edit wins.
+
+**Backup.** The same dialog has **Download backup** and **Restore…**.
+- **Format:** one JSON file containing the full live value of every list.
+- **Sync not required:** works whether or not sync is on.
+- **Download:** uses the share sheet on mobile.
+- **Restore:** asks for confirmation, then counts as an edit, so it syncs.
 
 ## Design system
-"Graphite" theme (replaced the original neon "Neon Nights" palette in Oct 2026): neutral
-charcoal ground, bg `#0c0c0d`, surface `#161618`, surface-2 `#1d1d20`, surface-3
-`#232327`, line `#2c2c31`. Text: `#f2f2f3` primary, `#8e8e96` dim. Accents: pastel blue
-`#93c5fd` (AM / skincare), pastel pink `#f9a8d4` (PM), soft white `#f2f2f3` (primary
-interactive accent — checkboxes, active tab, buttons, edit-mode toggle, with `#111113`
-glyphs on top), danger `#f87171`. Picked from four alternatives (Midnight, Ember,
-Graphite, Daylight) rendered side-by-side against the real app.
 
-Every color in the app derives from the `:root` tokens — tints use `color-mix()` on
-the accent tokens and checkmark glyphs inherit `currentColor` — so changing themes only
-means editing that one block (plus `theme-color` in the HTML and `manifest.json`). The
-token names are historical (`--gold` = AM, `--navy` = PM, `--olive` = primary accent).
-Links use their own `--link` token (pastel blue) so they stay distinguishable from
-body text, which shares the soft-white primary accent. App icons (redrawn in Graphite
-colors in Oct 2026; earlier versions were neon):
-a plain terminal-window card (charcoal, rounded square, no border, three status dots in
-pink/gray/blue) with a "J2.0" wordmark in DejaVu Sans Mono Bold — the "J" in a pastel
-blue→pink gradient fill, "2.0" smaller and raised like an exponent with a white→soft-gray
-gradient for a bit of depth, plus a solid soft-white cursor block after it. Regenerated
-by a Pillow script (drawn at 2048px, downsampled to 512/192). The card sits at 17% margin from the
-canvas edge (not the ~9% of earlier drafts) — Android's maskable-icon safe zone is
-roughly the center 66%-diameter circle, and the tighter margin was getting its corners
-cropped and looking "zoomed in" next to other home-screen icons once actually installed
-on a phone. Went through several rounds (flat "J2" → glowing lime "J2.0" → gradient-
-ring-bordered terminal card → this, border removed) — see chat history if revisiting.
-- Bottom tab bar (app-style), swipe left/right between tabs supported
-- Pull-to-refresh (swipe down from the top of a tab) triggers a hard refresh — clears
-  the service worker's cache and unregisters it before reloading, so it can't serve
-  stale cached assets (native browser pull-to-refresh is disabled via
-  `overscroll-behavior-y:none` so this custom one doesn't fight with it)
-- Service worker uses network-first for the HTML shell (`jazz2.0.html`/`index.html`)
-  and cache-first for static assets (icons, manifest) — first ship of the service
-  worker was cache-first for everything, which meant a stale cached copy of the app
-  could keep serving itself indefinitely (including hiding fixes shipped after it,
-  like pull-to-refresh itself not working until this was fixed); registration also
-  passes `updateViaCache: "none"` so the browser always re-checks `sw.js` itself for
-  changes instead of caching it for up to 24h
-- Standardized chevron pattern for ALL collapsible sections (rules cards, day
-  accordions, capsule need/owned cards) — same SVG path, same 180° rotate-on-open
-  behavior
-- Every collapsible section shows an "insight" (count/progress) in its header,
-  except the Skin & Hair day accordions — the AM/PM step-count insight was removed
-  per user preference
-- Desktop layout (`@media (min-width: 768px)`, CSS-only): the tab bar moves from the
-  bottom to a horizontal bar under the header (icon + label side by side, lime
-  underline on the active tab), and header/tabs/content align on one centered 760px
-  column instead of stretching full-width; edit modals center on screen instead of
-  bottom-sheeting. Phone layout is untouched below the breakpoint
+**Theme.** "Graphite": a neutral charcoal ground with a soft-white primary accent, pastel
+blue for AM, and pastel pink for PM. Every color comes from the `:root` tokens, so a theme
+change only touches that block, plus `theme-color` in the HTML and `manifest.json`. The
+token names are historical:
+- `--gold`: AM;
+- `--navy`: PM;
+- `--olive`: the primary accent;
+- `--link`: links.
 
-## Editing
-Every list in the app — Skin & Hair rules and AM/PM steps, Style fit rules/sizing/capsule
-items, Wants items — is fully editable in-app: add, edit, and delete, no code changes
-needed. Tap the pencil icon top-right of the header to enter edit mode. While it's on:
-- Rows with no existing tap action (rules, skin/hair steps, sizing) become tappable —
-  tap anywhere on the row to edit or delete it.
-- Rows that already have a primary tap action (capsule owned/needed toggle, wants
-  mark-bought) get a small separate pencil button so editing doesn't collide with
-  that action.
-- "+ Add …" buttons appear at the bottom of every list (Skin & Hair's 7 weekdays are NOT
-  addable/removable, since "today" and wash-day detection depend on the fixed Mon–Sun
-  set matching real calendar weekdays).
-- New AM steps are inserted before the last step if that step's label contains "last
-  step" (so SPF/lash-serum ordering rules stay intact automatically).
-- Edits use a bottom-sheet modal with Save/Delete; deleting always confirms first.
-Edit mode itself persists across reloads (`edit-mode` in localStorage).
+**Icons.**
+- **Design:** a charcoal terminal-window card with a blue→pink "J", a raised "2.0", and a
+  white cursor block.
+- **Safe zone:** the card sits 17% in from the edge to stay inside Android's maskable-icon
+  safe zone.
+- **Source:** generated with Pillow at 2048px, then downsampled.
 
-## Data / storage
-Two layers, both plain `localStorage`, both survive a hard refresh (pull-to-refresh
-only clears the service worker's cache, never localStorage):
-- **Content** (the editable lists themselves): `skin-rules-content`, `skin-routine-content` (legacy: `skin-days-content`),
-  `style-rules-content`, `sizes-content`, `capsule-content`, `wants-content`,
-  `todo-content`. Each seeds from the built-in defaults on first run (`todo-content`
-  seeds empty — no default to-dos), then persists whatever the user edits it to.
-- **State** (checkbox/toggle state, keyed by item id): `style-state`, `wants-state`.
-  (Originally used `window.storage`, an artifact-only API from Claude's in-browser
-  preview environment; migrated to `localStorage` now that the app runs on its own
-  hosted origin — this also resolved the intermittent "Storage set failed" errors,
-  since saves no longer go through Anthropic's artifact storage bridge at all.)
+**Touch.** Rows and controls use ~44px touch targets. Text inputs are 16px on touch
+devices so iOS doesn't zoom.
 
-Removing the Fitness tab left `fitness-days-content` and `fitness-state` as orphaned
-keys in any browser that had already loaded the app — harmless (nothing reads them
-anymore), not actively cleaned up.
-
-**Cross-device sync (opt-in, via GitHub Gist).** `localStorage` is per-browser-per-
-device, so out of the box the phone PWA and the desktop site each keep independent
-copies. The cloud button in the header turns on sync: the app stores all content/state
-keys as one JSON file (`jazz2-data.json`, with an `updatedAt` stamp) in a private gist
-on your GitHub account, pushes ~1.5s after every save, and pulls on load and whenever
-the app returns to the foreground. Conflicts are last-write-wins on `updatedAt`.
-Setup is pasting a **classic** personal access token with only the `gist` scope into
-the sync modal on each device (fine-grained tokens can't use the Gist API). The token
-and gist id live in `sync-token` / `sync-gist-id` in localStorage and are never synced
-themselves; turning sync off deletes them but keeps all data. The service worker
-deliberately ignores cross-origin requests so it can never serve stale GitHub API
-responses from cache.
-
-**Backup.** The same cloud button opens "Sync & backup", which also has **Download
-backup** / **Restore…** — one JSON file (`{app:"jazz2", version, exportedAt, data}`)
-holding the full live value of every synced list, including ones still on their
-built-in defaults, so a restore truly replaces everything. Works with or without sync.
-Download uses the share sheet where the browser supports sharing files (installed iOS
-PWAs handle plain downloads poorly), else a normal download. A restore confirms first
-and counts as a real edit, so with sync on it propagates to the other device.
-
-## Tab-by-tab content
-**Home:** The default landing tab. Its first card is a **To-Do summary**: just what
-needs attention now — overdue and due-today items (up to 3, overdue first), each with
-its own checkbox so it can be completed (with Undo) without leaving Home — plus a
-footer like "2 more on your list". Tapping anywhere else on the card opens the To-Do
-tab. Below it: today's routine, the Wardrobe/Wants tiles, and Up next.
-
-**To-Do:** Its own tab (second in the bar) holding the full list described below —
-quick-add, date groups, drag-to-reorder, sub-items, and the Completed section. The full
-list moved off Home so Home stays a glanceable dashboard; `renderHome()` re-renders
-both pages, so any to-do change refreshes Home's summary too.
-
-*To-Do* — plain-text quick-add (type + Enter, no modal, mirrors the Wants quick-add
-pattern and the gist of the Android Reminders "type a new line" flow). A trailing day
-word sets a due date — "dentist fri", "call mom tomorrow", "pay rent by today" — with a
-"Due Friday ×" preview chip under the input while typing; tapping × keeps the words as
-plain text. New items go to the top of their group so they land in view.
-
-Each to-do has a real due date (`due`, local `YYYY-MM-DD`, or null). Groups, in order,
-only showing those with items: **Overdue** (red, sorted by date, each row shows its
-date), **Today**, **Anytime** (no date — the quick-add default), **Tomorrow**, the next
-five weekdays by name, and **Later** (beyond a week, sorted by date, rows show the date).
-Dragging a row under another group's header moves it to that date (dropping under
-Overdue/Later reorders without changing the date). Older data stored a bare weekday
-name in `day`; it's converted once on load to that weekday's next occurrence (today
-included). The To-Do tab shows every open item (no preview cap).
-
-The checkbox (left) is the only thing that completes a to-do, followed by a 5-second
-Undo toast (and a short vibration on Android); tapping the text opens the edit modal:
-a wrapping title field (Enter saves), a native date picker (clear it for Anytime), and
-an "Add sub-items — one per line" box. The card header shows "N open · M overdue" and
-isn't collapsible. Row controls have ~44px touch targets. No default/seed items — it's
-empty until you add your own.
-
-Startup housekeeping — this date conversion and the 7-day auto-archive — saves
-without bumping the sync timestamp (`writeQuietly`). Bumping it made a device that
-opened with stale data look newest, so its sync pushed the stale copy over the other
-device's real edits.
-
-Each to-do also carries a couple of Android-Reminders-style extras, scoped down from
-the full Reminders feature set to what's realistic in an installable web app with no
-push-notification backend (see the "What this app can't do" note below): a **star**
-toggle that floats the item to the top of its group, and a
-**sub-checklist** toggle (the small list icon, shown only once a to-do has sub-items,
-with a "done/total sub-items" line under the title; sub-items are first added from the
-edit modal) that expands an inline mini checklist under the row — its own add-input,
-per-item checkboxes, and a × to delete a sub-item, all independent of the parent
-to-do's own completion state. Checking a to-do off no longer deletes it or just sinks
-it in place — it moves into a collapsible **Completed** section (a "N completed" toggle at the foot of the to-do card),
-showing the completion date; unchecking it there moves it right back (that's the
-"Restore"), and each row also has **Duplicate** (clones it as a fresh open item,
-including a fresh copy of its sub-items) and **Delete** (permanent, confirms first)
-icon buttons. A red-outlined "Clear completed" button at the bottom of that card
-bulk-deletes everything in it.
-
-*What this app can't do:* a real Reminders app can alert you at a specific time or when
-you arrive somewhere, because it's a native app with OS-level background access. This
-is a static installable web page with no server — there's no reliable way for it to
-wake up and fire a notification while it isn't open (iOS Safari blocks this almost
-entirely even when "installed" to the home screen), so due-time alerts and
-location-based reminders were deliberately left out rather than half-built.
-
-*Glance cards* — tappable cards summarizing the other tabs and jumping straight to them
-on tap, each with a colored icon badge for quick visual identity: **Today** (cyan
-leaf/droplet badge — today's AM/PM steps from Skin & Hair, listed by a short display
-name — a middle ground between the vague step category ("Eye area") and the full
-product name with its concentration ("Caffeine Solution 5% + EGCG"): "Cleanser,
-Ascorbyl Glucoside, Niacinamide, Moisturizer, Hair mist, Sunscreen" — each list under a
-small colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used
-for the actual AM/PM bands on the Skin & Hair tab — plus a wash-day badge on wash
-Thursdays, or otherwise a highlighted "Next wash day: [date] — in N days" callout (a
-magenta-tinted pill with a droplet icon, matching the PM accent color, so it stands out
-from the rest of the card instead of reading as another dim detail line)), full-width
-as before.
-
-Below that, **Wardrobe** (lime shirt badge) and **Wants** (magenta bag badge) sit side
-by side in a compact two-column stat-tile grid rather than stacking full-width — this
-fills what used to be dead space at the bottom of Home and gives each card a distinct
-accent color at a glance. Wardrobe shows owned% as the headline stat (with the
-owned/total count as a caption) over a cyan→lime gradient progress bar, plus a "still
-need" teaser naming the *cheapest* still-needed item by price when any needed items
-have a price set, otherwise just the first one. Wants shows the pending dollar total as
-the headline stat (with the pending count as a caption), plus a "next" teaser naming
-the cheapest pending item. Both teasers truncate the item name to one line so the price
-never gets crowded out, and both carry the same pair of inline icon-only actions at a
-36px tap target (bumped up from an initial 28px, which measured under the ~44px
-minimum touch-target guideline): a mark-owned/mark-bought checkmark button (olive), and
-— only when that item has a link saved — a link-shortcut button in cyan, so it reads as
-a distinctly different action from the checkmark rather than a second, easy-to-miss
-duplicate; both glyphs share the same stroke width so they read as a matched pair. All
-tiles re-render every time you land on Home, so they never show stale numbers from
-something you changed on another tab.
-
-The Skin & Hair, Wardrobe, and Wants tabs each carry a small colored icon badge next to
-their header title (cyan droplet, lime shirt, magenta bag) matching the accent used for
-their Home glance card, for visual continuity across the app.
-
-**Skin & Hair:** Built around doing the routine, not just reading it. Cards, top to bottom:
-- **Today** — today's AM and PM steps as a checklist (44px rows; tap anywhere on a row),
-  each band with a "done/total" count, a "Wash day" badge when it applies, and a
-  "N-day streak" (consecutive days with both AM and PM finished; today counts once it's
-  done). Finishing a band shows "Morning/Evening routine done". Check-offs reset each
-  day, sync across devices (`routine-checks`, keyed by date, ~60 days kept), and record
-  `amDone`/`pmDone` at tick time so editing the routine later doesn't rewrite history.
-- **This week** — Mon–Sun rows showing only what differs from the base routine
-  ("Exfoliate", "Wash day", or "Base routine"), a check on fully finished days; tap a day
-  for its complete AM/PM list.
-- **Routine** — the single place to edit (Edit chip): AM, PM, and Wash-day PM steps.
-  A step can be limited to certain days via a Mon–Sun chip picker in its edit form (all
-  off = every day), shown as "Mon · Wed · Fri only". New steps go before a "… — last step"
-  entry so SPF and lash serum stay last.
-- **Key rules** — Vitamin C/Glycolic Acid different-session rule, SPF always last AM step,
-  lash serum always last PM step.
-
-Data model (`skin-routine-content`): `{washDay, am:[step], pm:[step], washPm:[step]}`, a
-step being `{id, label, product, note?, days?}` (`days` = weekday numbers, 0 = Sun).
-Wash-day PM replaces PM on wash days. This replaced seven full per-day copies
-(`skin-days-content`), where changing a product meant editing up to 14 lists. Until the
-routine is first edited it's derived on load from those legacy lists (or the built-in
-`DEFAULT_SKIN_DAYS`) by `routineFromDays()`, which merges the seven days into one ordered
-list and records which days each step appeared on; migrated step ids are hashes of their
-text, so every device derives identical ids and synced check-offs line up. HTML entities
-in the old data (`&amp;`) are decoded to plain text, and text is escaped on render.
-Synced or restored data from an older app version (per-day lists, no routine) rebuilds
-the routine from those lists. Verified equal to the old per-day output across 28
-consecutive dates, wash and non-wash Thursdays included.
-
-Hair mist (Daily Hair Spray) runs AM (before SPF) and PM every day.
-Wash day (Clarifying shampoo + Hair mask) runs biweekly on Thursday, anchored to Thu
-Jul 16, 2026 (`WASH_DAY_ANCHOR`); on wash days the wash-day PM replaces the regular PM.
-The anchor is a code constant.
-
-**Wardrobe:** The closet plus reference info. Top card: "Wardrobe built" progress
-(closet items ÷ closet + wardrobe items still to buy) and a "6 wardrobe items to buy ·
-Shopping list →" link that opens Wants filtered to Wardrobe. **In closet** (open by
-default) lists everything you own, grouped by category (Tops/Bottoms/Shoes/Outerwear/
-Accessories), with "fit pending" badges, optional price/link, and an Edit chip for
-editing, adding, or deleting closet items. Then Fit rules (front-tuck, regular inseam,
-size-to-hips, no oversized/drop-shoulder, ankle dress pants = business casual only w/
-no-show socks + loafers never sneakers) and the Sizing grid (Tops M, Outerwear M,
-Bottoms M, Denim M, Shoes 8, Ring 8 w/ footnote: Sample Band confirmed
-at 7).
-
-**One shopping list.** There's no separate wardrobe "Still need" list anymore: clothes to
-buy live on Wants with a wardrobe category (`wardrobeCat`, e.g. "Tops"). The closet is
-derived, not copied — `closetItems()` = owned capsule items + wardrobe wants marked
-bought — so marking a wardrobe want bought puts it in the closet ("Added to your
-closet") and un-marking takes it back out. Older data kept "needed" items inside the
-capsule (plus `style-state` toggles from the old tap-to-own UI); `migrateWardrobeNeeds()`
-moves them onto Wants with derived ids (`w-` + capsule id, so every device gets the same
-result), folds the original duplicate brown belt (wardrobe "Brown/cognac belt" + wants
-"Brown leather belt, square buckle") into the one Wants entry, and clears `style-state`.
-It saves quietly and also runs on synced/restored data from an older app version.
-
-**Wants:** The single shopping list for everything, clothes included. Filter chips under
-the quick-add — **All**, **Wardrobe**, **Other**, each with its count — narrow the list (the
-Wardrobe tab's shopping link opens it on Wardrobe; quick-adding while on Wardrobe tags the
-item "Wardrobe · Other"). Wardrobe items show a "Wardrobe · Tops"-style tag ("· in closet"
-once bought), and every want's add/edit form has a Category select (Not clothing, or a
-wardrobe category). Unpriced items show no price line. Home's Wants tile marks a
-partial total with "+" and an "N unpriced" note; Home's Up next shows the top two items by
-priority then price, wardrobe or not. A quick-add bar sits at the top of the tab, always available regardless of
-edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
-straight onto the list with no modal, no price/link required upfront; focus stays in
-the field so you can add several in a row. (Edit mode's "+ Add want" still exists for
-filling in price/link/notes upfront in one form.) Trailco pouch ($19.45), Sample Cooker
-Duo 3qt ($49.45), Sample Rain Jacket
-jacket gray size S ($130, Sample Store), Sample boot black size 8 ($119.45,
-Sample Store), Sample Fitness Band ($399.45), brown leather belt square buckle
-(~$20 est., unconfirmed, pending decision on whether to merge with the style capsule's
-separate brown/cognac belt line item). Pending and Purchased are collapsible cards
-(matching the pattern used elsewhere — Key Rules, Still Need/In Closet), each showing
-item count and running total in the header even when collapsed; Pending starts open,
-Purchased starts closed (Purchased reads "None yet" when empty), using the same
-`priceSummary()` totals rule as the Wardrobe. Any want can be marked **High priority**
-in its edit form: high-priority items get a "High" badge and sort first (then cheapest,
-unpriced last), and Home's "Up next" picks by the same order. Links now point to direct
-product pages (Amazon,
-Sample Store, Sample Store, Sample Cooker's own site) picked to match the noted spec
-(color/size) as closely as possible from search results — retailer sites block
-automated fetch/scrape verification (403s across the board, the same issue the
-original build hit trying to capture a Sample Store cart-share link), so double-check size,
-color, and current price at checkout before buying. The brown belt still has no link;
-its price is a rough estimate pending the merge decision below.
-
-## Known open items / suggested next steps
-1. Search/filter for the capsule list (explicitly deferred, not built)
-2. The brown belt merge question (Wants list vs. style capsule "still need") is now
-   trivially self-serve — delete whichever entry is redundant in edit mode
-3. Wash day's biweekly cadence/anchor date isn't exposed in edit mode (it's a computed
-   rule, not a list item) — still requires a code change if the schedule shifts
-4. To-dos have no due dates/times/notifications (unlike the Android Reminders app they
-   were modeled after) — deliberately kept to plain text + checkbox; revisit if that
-   turns out to be missed
-5. Home's Today card short names (`STEP_SHORT_NAMES` — "Cleanser", "Ascorbyl
-   Glucoside," etc.) are a code-side lookup keyed by step label, not editable in-app;
-   a step label with no match in the table just falls back to showing the label
-   itself, which still requires a code change to add new mappings
+## Known limitations and ideas
+- **No notifications.** A static web page can't wake itself up to alert you, and iOS
+  blocks this even for installed PWAs. The planned workaround is "Add to calendar" on
+  dated to-dos (an `.ics` file with an alarm).
+- **Home's short step names** (`STEP_SHORT_NAMES`) are a code lookup. Unmapped labels fall
+  back to the full label.
+- **Sync push replaces the gist file.** A device on an outdated app version can drop keys
+  it doesn't know about until it updates.
 
 ## Working style
 Make judgment calls and show finished output; expect targeted corrections rather than full rewrites.

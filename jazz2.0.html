@@ -238,16 +238,12 @@
     font-size:12.5px; font-weight:600; color:var(--text-dim);
   }
   .total-row span{font-size:14px; font-weight:700; color:var(--text);}
-  .total-row.grand{border-top:none; padding-top:2px;}
-  .total-row.grand span{color:var(--olive); font-size:16px;}
   .toggle{
     flex-shrink:0; padding:7px 12px; border-radius:20px; border:1.5px solid var(--olive-dim);
     background:none; color:var(--olive); font-size:11px; font-weight:700; font-family:inherit;
     letter-spacing:.03em; white-space:nowrap;
   }
   .toggle.done{background:var(--olive); color:var(--on-accent); border-color:var(--olive);}
-  .section-title{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); font-weight:700; margin:18px 0 8px;}
-  .section-title:first-child{margin-top:0;}
   .cat-title{font-size:11.5px; font-weight:700; color:var(--olive); margin:12px 0 2px;}
   .cat-title:first-child{margin-top:0;}
   .insight{font-size:10.5px; font-weight:600; color:var(--text-dim); background:var(--surface-2);
@@ -509,6 +505,22 @@
   .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
   .want-tag{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--olive); margin-top:2px;}
   .want-tag svg{width:12px; height:12px;}
+  /* wash-day calendar */
+  .wash-freq{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
+  .cal-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700;}
+  .cal-nav{width:44px; height:44px; border:none; background:none; color:var(--text); font:inherit; font-size:20px; border-radius:10px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; text-align:center;}
+  .cal-dow{font-size:10.5px; font-weight:700; color:var(--text-dim); padding:4px 0;}
+  .cal-day{
+    min-height:42px; border:none; border-radius:10px; background:none; padding:0;
+    color:var(--text); font:inherit; font-size:13px; font-variant-numeric:tabular-nums;
+  }
+  .cal-day.past{color:var(--text-dim); opacity:.55;}
+  .cal-day.today{box-shadow:inset 0 0 0 1px var(--line); font-weight:800;}
+  .cal-day.wash{background:color-mix(in srgb, var(--navy) 24%, transparent); color:var(--navy); font-weight:800; opacity:1;}
+  .cal-day.blank{visibility:hidden;}
+  .badge.kind-need{background:color-mix(in srgb, var(--gold) 20%, transparent); color:var(--gold); margin-left:8px;}
+  .badge.kind-want{background:var(--surface-2); color:var(--text-dim); margin-left:8px;}
   .badge.high{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
   .modal-section{display:block; margin:6px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
   .backup-actions{display:flex; gap:8px; margin-top:10px;}
@@ -606,6 +618,8 @@
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
     .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
     .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
+    .cal-day:not(.blank):hover, .cal-nav:hover{background:var(--surface-2);}
+    .cal-day.wash:hover{background:color-mix(in srgb, var(--navy) 32%, transparent);}
     .icon-btn:hover{color:var(--olive);}
     .icon-btn.link:hover{color:var(--gold);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
@@ -744,6 +758,10 @@ const TODO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>';
+// Checkmark drawn inside the square .box / .subitem-box checkboxes
+const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+const glanceArrow = size => `<svg class="glance-arrow" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>`;
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const STAR_PATH = "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
 const STAR_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${STAR_PATH}"/></svg>`;
@@ -770,22 +788,6 @@ function shortStepLabel(s){
 }
 
 // ---------- storage helpers (one JSON blob per key, plain localStorage) ----------
-async function loadState(key){
-  try{
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : {};
-  }catch(e){ return {}; }
-}
-async function saveState(key, obj){
-  try{
-    localStorage.setItem(key, JSON.stringify(obj));
-    markDataChanged();
-    showToast("Saved");
-  }catch(e){
-    console.error("save failed", e);
-    showToast("Save failed — storage may be full or disabled", true);
-  }
-}
 function loadContent(key, defaults){
   try{
     const raw = localStorage.getItem(key);
@@ -835,6 +837,18 @@ function escapeHtml(s){
 function escapeAttr(s){
   return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 }
+// Only http(s) links are rendered; anything else (javascript:, data:, junk) is dropped.
+function safeUrl(u){
+  if (!u) return "";
+  try{
+    const url = new URL(String(u), location.href);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  }catch(e){ return ""; }
+}
+function linkHtml(u, attrs, inner){
+  const href = safeUrl(u);
+  return href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener" ${attrs}>${inner}</a>` : "";
+}
 
 let styleState = {};
 let wantsState = {};
@@ -853,7 +867,7 @@ let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add inp
 const DEFAULT_SKIN_RULES = [
   "Vitamin C (AM) and Glycolic Acid (PM) are fine same day — just never same session.",
   "SPF is the final AM step, no exceptions, even indoors.",
-  "Multi-Peptide Lash &amp; Brow Serum is always the very last PM step."
+  "Multi-Peptide Lash & Brow Serum is always the very last PM step."
 ];
 
 const DEFAULT_SKIN_DAYS = [
@@ -874,7 +888,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -893,7 +907,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -913,7 +927,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -932,7 +946,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Cleanse","Glucoside Foaming Cleanser"],
       ["Niacinamide","10% + Zinc"],
       ["Moisturize","Natural Moisturizing Factors + HA"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ],
     pm:[
       ["Cleanse","Glucoside Foaming Cleanser"],
@@ -940,7 +954,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -960,7 +974,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -979,7 +993,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -998,7 +1012,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   }
 ];
@@ -1100,7 +1114,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
       return `<div class="modal-field"><span>${f.label}</span><div class="day-chips" id="modal-${f.key}">${chips}</div></div>`;
     }
     if (f.type === "select"){
-      const opts = f.options.map(o => `<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${o}</option>`).join("");
+      const opts = f.options.map(o => `<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${escapeHtml(o)}</option>`).join("");
       return `<label class="modal-field"><span>${f.label}</span><select id="modal-${f.key}">${opts}</select></label>`;
     }
     if (f.type === "textarea"){
@@ -1263,7 +1277,7 @@ function todoGlanceHtml(){
     .sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
   const overdue = urgent.filter(t => todoGroup(t) === "overdue").length;
   const rows = urgent.slice(0, TODO_GLANCE_MAX).map(t => `<div class="todo-wrap"><div class="item">
-      <button class="todo-check" role="checkbox" aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="event.stopPropagation(); completeTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
+      <button class="todo-check" role="checkbox" aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="event.stopPropagation(); completeTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
       <div class="body"><div class="title">${escapeHtml(t.text)}</div>${todoGroup(t) === "overdue" ? `<div class="todo-meta"><span class="overdue">${escapeHtml(dueLabel(t.due))}</span></div>` : ""}</div>
     </div></div>`).join("");
   const more = urgent.length - Math.min(urgent.length, TODO_GLANCE_MAX);
@@ -1281,7 +1295,7 @@ function todoGlanceHtml(){
           <div class="glance-icon" style="background:color-mix(in srgb, var(--olive) 15%, transparent); color:var(--olive);">${TODO_ICON}</div>
           <h3 style="margin:0;">To-Do</h3><span class="insight">${insight}</span>
         </div>
-        <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        ${glanceArrow(16)}
       </div>
       ${rows}
       ${footer ? `<div class="todo-glance-footer">${footer}</div>` : ""}
@@ -1310,9 +1324,7 @@ function renderTodoPanel(){
     const subs = t.subitems || [];
     const rows = subs.map(s => `<div class="subitem-row" data-sub-id="${s.id}">
         <button class="sub-drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
-        <button class="subitem-check" role="checkbox" aria-checked="${!!s.done}" aria-label="Complete: ${escapeAttr(s.text)}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')"><span class="subitem-box ${s.done?'checked':''}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-        </span></button>
+        <button class="subitem-check" role="checkbox" aria-checked="${!!s.done}" aria-label="Complete: ${escapeAttr(s.text)}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')"><span class="subitem-box ${s.done?'checked':''}">${BOX_CHECK_SVG}</span></button>
         <div class="subitem-text ${s.done?'checked':''}">${escapeHtml(s.text)}</div>
         <button class="subitem-del" onclick="event.stopPropagation(); deleteSubitem('${t.id}','${s.id}')" aria-label="Delete sub-item">${X_ICON}</button>
       </div>`).join("");
@@ -1339,7 +1351,7 @@ function renderTodoPanel(){
     return `<div class="todo-wrap" data-todo-id="${t.id}">
         <div class="item ${t.done?'checked':''}">
           <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
-          <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
+          <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
           <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div>${meta.length?`<div class="todo-meta">${meta.join(" · ")}</div>`:""}</div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
           ${subs.length ? `<button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="${expanded?'Hide':'Show'} sub-items" aria-expanded="${expanded}">${SUBLIST_ICON}</button>` : ""}
@@ -1380,7 +1392,7 @@ function renderTodoPanel(){
     const completedRows = completedItems.map(t => {
       const dateLabel = t.completedAt ? new Date(t.completedAt).toLocaleDateString('en-US',{month:'short', day:'numeric'}) : "";
       return `<div class="item checked">
-          <button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
+          <button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
           <div class="body"><div class="title">${escapeHtml(t.text)}</div>${dateLabel?`<div class="sub">Completed ${dateLabel}</div>`:""}</div>
           <button class="completed-actions" style="order:3;" onclick="event.stopPropagation(); duplicateTodo('${t.id}')" aria-label="Duplicate to-do">${DUPLICATE_ICON}</button>
           <button class="completed-actions" style="order:4;" onclick="event.stopPropagation(); deleteTodoPermanently('${t.id}')" aria-label="Delete to-do">${TRASH_ICON}</button>
@@ -1389,7 +1401,7 @@ function renderTodoPanel(){
     const archivedCount = loadContent("todo-archive-content", []).length;
     html += `<button class="completed-toggle ${completedOpen?'open':''}" onclick="toggleCompletedTodos()" aria-expanded="${completedOpen}">
         ${CHECK_ICON}<span>${completedItems.length} completed</span>
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        ${CHEVRON_DOWN}
       </button>`;
     if (completedOpen){
       html += `<div id="todo-completed">
@@ -1424,7 +1436,7 @@ function renderHomePanel(){
           <div class="glance-icon" style="background:color-mix(in srgb, var(--gold) 15%, transparent); color:var(--gold);">${SKIN_ICON}</div>
           <h3 style="margin:0;">Today — ${WEEKDAYS[now.getDay()]}</h3>${r.wash?'<span class="badge wash">Wash day</span>':''}
         </div>
-        <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        ${glanceArrow(16)}
       </div>
       <div class="glance-stat">AM ${doneCount("am", r.am)}/${r.am.length} · PM ${doneCount("pm", r.pm)}/${r.pm.length}${streak ? `<span class="glance-streak">${streak}-day streak</span>` : ""}</div>
       <div class="glance-routine-row"><span class="glance-tag am">AM</span><span class="glance-detail-text">${names("am", r.am)}</span></div>
@@ -1446,7 +1458,7 @@ function renderHomePanel(){
       <div class="card glance" onclick="activateTab('style')">
         <div class="tile-head">
           <div class="glance-icon" style="background:color-mix(in srgb, var(--olive) 15%, transparent); color:var(--olive);">${SHIRT_ICON}</div>
-          <svg class="glance-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          ${glanceArrow(15)}
         </div>
         <div class="tile-label">Wardrobe</div>
         <div class="tile-stat" style="color:var(--olive);">${capPct}%</div>
@@ -1456,7 +1468,7 @@ function renderHomePanel(){
       <div class="card glance" onclick="activateTab('wants')">
         <div class="tile-head">
           <div class="glance-icon" style="background:color-mix(in srgb, var(--navy) 15%, transparent); color:var(--navy);">${BAG_ICON}</div>
-          <svg class="glance-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          ${glanceArrow(15)}
         </div>
         <div class="tile-label">Wants</div>
         <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}${unpriced ? "+" : ""}</div>
@@ -1471,10 +1483,10 @@ function renderHomePanel(){
         <div class="glance-icon" style="background:${iconBg}; color:${iconColor};">${icon}</div>
         <div class="next-info">
           <div class="next-name">${escapeHtml(name)}</div>
-          <div class="next-meta">${priceStr?`<b>${priceStr}</b> · `:""}${context}</div>
+          <div class="next-meta">${priceStr?`<b>${priceStr}</b> · `:""}${escapeHtml(context)}</div>
         </div>
         <div class="tile-actions">
-          ${link?`<a href="${link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+          ${linkHtml(link, 'class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product"', LINK_ICON)}
           <button class="icon-btn" onclick="event.stopPropagation(); ${checkCall}" aria-label="${checkLabel}">${CHECK_ICON}</button>
         </div>
       </div>`;
@@ -1484,7 +1496,7 @@ function renderHomePanel(){
             w.wardrobeCat ? 'color-mix(in srgb, var(--olive) 15%, transparent)' : 'color-mix(in srgb, var(--navy) 15%, transparent)',
             w.wardrobeCat ? 'var(--olive)' : 'var(--navy)', w.wardrobeCat ? SHIRT_ICON : BAG_ICON, w.name,
             w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}` : '',
-            (w.wardrobeCat ? `Wardrobe · ${w.wardrobeCat}` : 'Wants') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
+            (wantKind(w) === 'need' ? 'Need' : 'Want') + (w.wardrobeCat ? ` · Wardrobe · ${w.wardrobeCat}` : '') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
             `toggleWant('${w.id}').then(renderHome);`, 'Mark bought')).join("")}
       </div>`;
   }
@@ -1669,7 +1681,6 @@ function archiveOldTodos(){
 // Migrated step ids are derived from the step's text, so every device computes
 // the same ids and synced check-offs keep pointing at the same steps.
 const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const ROUTINE_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 let openWeekDays = new Set();
 
 function decodeEntities(s){
@@ -1713,15 +1724,10 @@ function routineFromDays(days){
   const week = days.map(d => ({...d, dow:WEEKDAYS.indexOf(d.day)})).filter(d => d.dow >= 0);
   const washDay = week.find(d => d.pmWash && d.pmWash.length);
   return {
-    washDay: washDay ? washDay.dow : 4,
     am: merge("am", week.map(d => ({dow:d.dow, steps:d.am || []}))),
     pm: merge("pm", week.map(d => ({dow:d.dow, steps:d.pm || []}))),
     washPm: washDay ? merge("washPm", [{dow:washDay.dow, steps:washDay.pmWash}]) : []
   };
-}
-function isWashDate(date){
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return d.getDay() === skinRoutine.washDay && isWashThursday(d);
 }
 function routineForDate(date){
   const dow = date.getDay();
@@ -1789,7 +1795,7 @@ function renderSkin(){
     const done = steps.filter(s => checks[key].includes(s.id)).length;
     const rows = steps.map(s => {
       const on = checks[key].includes(s.id);
-      return `<button class="routine-step ${on?'done':''}" role="checkbox" aria-checked="${on}" onclick="toggleRoutineStep('${key}','${s.id}')"><span class="box">${ROUTINE_CHECK_SVG}</span><span class="routine-text">${routineStepText(s)}</span></button>`;
+      return `<button class="routine-step ${on?'done':''}" role="checkbox" aria-checked="${on}" onclick="toggleRoutineStep('${key}','${s.id}')"><span class="box">${BOX_CHECK_SVG}</span><span class="routine-text">${routineStepText(s)}</span></button>`;
     }).join("");
     return `<div class="routine-band ${key}">
         <div class="routine-band-head"><span class="label">${label}</span><span class="routine-count">${done}/${steps.length}</span></div>
@@ -1820,20 +1826,27 @@ function renderSkin(){
         <button class="week-day-head" onclick="toggleWeekDay('${key}')" aria-expanded="${open}">
           <span class="week-day-name">${DAY_SHORT[d.getDay()]}</span>
           <span class="week-day-extras">${key === todayKey ? '<span class="badge today">Today</span>' : ''}${extras.join(" · ") || "Base routine"}</span>
-          ${finished ? `<span class="week-day-done" aria-label="Routine done">${ROUTINE_CHECK_SVG}</span>` : ''}
-          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          ${finished ? `<span class="week-day-done" aria-label="Routine done">${BOX_CHECK_SVG}</span>` : ''}
+          ${CHEVRON_DOWN}
         </button>
         ${open ? `<div class="week-day-body"><div class="wl am">AM</div>${list(rd.am)}<div class="wl pm">${rd.wash ? 'PM · wash day' : 'PM'}</div>${list(rd.pm)}</div>` : ''}
       </div>`;
   }
   html += `<div class="card"><div class="glance-head"><h3 style="margin:0;">This week</h3></div>${week}</div>`;
 
-  // 3. The routine itself, edited in one place
+  // 3. Wash-day schedule: frequency + a calendar to pick the date
+  const nextWash = nextWashDate();
+  const nextLabel = daysUntilWashDay() === 0 ? "today"
+    : nextWash.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  html += collapsibleCard({id:"wash-card", title:"Wash day", editable:false,
+    insight:`${washFrequencyLabel()} · next ${nextLabel}`, body:washCalendarHtml()});
+
+  // 4. The routine itself, edited in one place
   const edit = editCards.has('routine-card');
   const editorBand = key => {
     const steps = skinRoutine[key];
     const head = key === "washPm"
-      ? `Wash-day PM<span class="routine-sub">replaces PM every other ${WEEKDAYS[skinRoutine.washDay]}</span>`
+      ? `Wash-day PM<span class="routine-sub">replaces PM on wash days</span>`
       : key.toUpperCase();
     const rows = steps.map((s, n) => `<div class="step ${edit ? 'editable' : ''}" ${edit ? `onclick="editRoutineStep('${key}','${s.id}')"` : ''}>
         <span class="n">${n+1}.</span><div>${routineStepText(s)}${s.days ? `<span class="note">${daysText(s.days)} only</span>` : ''}${edit ? `<span class="inline-pencil">${PENCIL_ICON}</span>` : ''}</div>
@@ -1843,35 +1856,18 @@ function renderSkin(){
         ${rows || '<div class="empty">No steps.</div>'}
       </div>`;
   };
-  html += `<div class="card pinned ${openPinned.has('routine-card') ? 'open' : ''}" id="routine-card">
-      <div class="coll-head" onclick="toggleRules('routine-card')">
-        <div style="display:flex;align-items:center;gap:8px;"><h3>Routine</h3><span class="insight">${skinRoutine.am.length} AM · ${skinRoutine.pm.length} PM</span></div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${editChipHtml('routine-card')}
-          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-      </div>
-      <div class="coll-body">${editorBand('am')}${editorBand('pm')}${skinRoutine.washPm.length || edit ? editorBand('washPm') : ''}</div>
-    </div>`;
+  html += collapsibleCard({id:"routine-card", title:"Routine", insight:`${skinRoutine.am.length} AM · ${skinRoutine.pm.length} PM`,
+    wrapBody:false, body:`${editorBand('am')}${editorBand('pm')}${skinRoutine.washPm.length || edit ? editorBand('washPm') : ''}`});
 
-  // 4. Key rules
+  // 5. Key rules
   const rulesEdit = editCards.has('rules-skin');
-  html += `<div class="card pinned ${openPinned.has('rules-skin')?'open':''}" id="rules-skin">
-    <div class="coll-head" onclick="toggleRules('rules-skin')">
-      <div style="display:flex;align-items:center;gap:8px;"><h3>Key rules</h3><span class="insight">${skinRules.length} rules</span></div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        ${editChipHtml('rules-skin')}
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-    </div>
-    <div class="coll-body"><div class="coll-inner">`;
-  if (rulesEdit) html += `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>`;
+  let rules = rulesEdit ? `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>` : "";
   skinRules.forEach((r,i) => {
-    html += rulesEdit
-      ? `<p class="rule editable" onclick="editSkinRule(${i})">${r}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
-      : `<p class="rule">${r}</p>`;
+    rules += rulesEdit
+      ? `<p class="rule editable" onclick="editSkinRule(${i})">${escapeHtml(r)}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
+      : `<p class="rule">${escapeHtml(r)}</p>`;
   });
-  html += `</div></div></div>`;
+  html += collapsibleCard({id:"rules-skin", title:"Key rules", insight:`${skinRules.length} rules`, body:rules});
   el.innerHTML = html;
 }
 function routineStepFields(band){
@@ -1915,23 +1911,91 @@ function addRoutineStep(band){
   );
 }
 
-// Wash day falls on Thursday every 2 weeks; last wash was Thu Jul 16, 2026.
-const WASH_DAY_ANCHOR = new Date(2026, 6, 16);
-function isWashThursday(thuDate){
-  const diffWeeks = Math.round((thuDate - WASH_DAY_ANCHOR) / (7 * 86400000));
-  return ((diffWeeks % 2) + 2) % 2 === 0;
+// ---------- wash-day schedule ----------
+// Wash day repeats every `everyDays` days counting from `anchor` (a YYYY-MM-DD
+// wash day). It's stored on the routine (skinRoutine.wash) so it syncs and backs
+// up with it. Routines saved before the schedule was editable fall back to the
+// original cadence: every 2 weeks from Thu Jul 16, 2026.
+const DEFAULT_WASH = {anchor:"2026-07-16", everyDays:14};
+const WASH_FREQUENCIES = [[7, "Every week"], [10, "Every 10 days"], [14, "Every 2 weeks"], [21, "Every 3 weeks"], [28, "Every 4 weeks"]];
+let washCalOffset = 0; // months from the current one shown in the wash-day calendar
+function washSchedule(){
+  const w = skinRoutine && skinRoutine.wash;
+  return w && /^\d{4}-\d{2}-\d{2}$/.test(w.anchor) && w.everyDays > 0 ? w : DEFAULT_WASH;
+}
+function washFrequencyLabel(){
+  const n = washSchedule().everyDays;
+  const hit = WASH_FREQUENCIES.find(([d]) => d === n);
+  return hit ? hit[1] : `Every ${n} days`;
+}
+function isWashDate(date){
+  const {anchor, everyDays} = washSchedule();
+  const diff = Math.round((noonOf(isoDate(date)) - noonOf(anchor)) / 86400000);
+  return ((diff % everyDays) + everyDays) % everyDays === 0;
 }
 function nextWashDate(){
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  let cand = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((4 - today.getDay() + 7) % 7));
-  while (!isWashThursday(cand)) cand = new Date(cand.getFullYear(), cand.getMonth(), cand.getDate() + 7);
-  return cand;
+  const d = new Date(); d.setHours(12, 0, 0, 0);
+  for (let i = 0; i < washSchedule().everyDays && !isWashDate(d); i++) d.setDate(d.getDate() + 1);
+  return d;
 }
-function daysUntilWashDay(){
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  return Math.round((nextWashDate() - today) / 86400000);
+function daysUntilWashDay(){ return daysFromToday(isoDate(nextWashDate())); }
+function setWashSchedule(next, message){
+  const prev = skinRoutine.wash ? {...skinRoutine.wash} : null;
+  skinRoutine.wash = next;
+  saveRoutine();
+  showUndoToast(message, () => {
+    if (prev) skinRoutine.wash = prev; else delete skinRoutine.wash;
+    saveRoutine();
+  });
+}
+function setWashDate(iso){
+  const label = noonOf(iso).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  setWashSchedule({anchor:iso, everyDays:washSchedule().everyDays}, `Wash day set to ${label}`);
+}
+function setWashFrequency(n){
+  // keep the series lined up with the next upcoming wash day
+  setWashSchedule({anchor:isoDate(nextWashDate()), everyDays:n}, `Wash day: ${WASH_FREQUENCIES.find(([d]) => d === n)[1].toLowerCase()}`);
+}
+function shiftWashMonth(delta){ washCalOffset += delta; renderSkin(); }
+function washCalendarHtml(){
+  const first = new Date(); first.setHours(12, 0, 0, 0); first.setDate(1); first.setMonth(first.getMonth() + washCalOffset);
+  const month = first.getMonth(), todayKey = isoDate(new Date());
+  const lead = (first.getDay() + 6) % 7; // Monday-first grid
+  const daysInMonth = new Date(first.getFullYear(), month + 1, 0).getDate();
+  let cells = ["M","T","W","T","F","S","S"].map(d => `<div class="cal-dow">${d}</div>`).join("");
+  for (let i = 0; i < lead; i++) cells += `<div class="cal-day blank"></div>`;
+  for (let n = 1; n <= daysInMonth; n++){
+    const d = new Date(first.getFullYear(), month, n, 12);
+    const key = isoDate(d), wash = isWashDate(d);
+    const cls = ["cal-day", wash ? "wash" : "", key === todayKey ? "today" : "", key < todayKey ? "past" : ""].filter(Boolean).join(" ");
+    const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (wash ? ", wash day" : "");
+    cells += `<button class="${cls}" onclick="setWashDate('${key}')" aria-label="${label}"${wash ? ' aria-pressed="true"' : ''}>${n}</button>`;
+  }
+  const freq = washSchedule().everyDays;
+  const chips = WASH_FREQUENCIES.map(([n, text]) =>
+    `<button class="filter-chip ${n === freq ? "on" : ""}" aria-pressed="${n === freq}" onclick="setWashFrequency(${n})">${text}</button>`).join("");
+  return `<div class="wash-freq">${chips}</div>
+    <div class="cal-head">
+      <button class="cal-nav" onclick="shiftWashMonth(-1)" aria-label="Previous month">‹</button>
+      <span>${first.toLocaleDateString('en-US', {month:'long', year:'numeric'})}</span>
+      <button class="cal-nav" onclick="shiftWashMonth(1)" aria-label="Next month">›</button>
+    </div>
+    <div class="cal-grid">${cells}</div>
+    <p class="footnote">Tap a date to make it a wash day — the schedule repeats from there.</p>`;
+}
+// Collapsible card used across tabs: the header (title, insight badge, optional
+// Edit chip, chevron) toggles the body; open state lives in openPinned.
+function collapsibleCard({id, title, insight = "", insightId = "", editable = true, body = "", wrapBody = true, innerId = ""}){
+  return `<div class="card pinned ${openPinned.has(id) ? 'open' : ''}" id="${id}">
+    <div class="coll-head" onclick="toggleRules('${id}')">
+      <div style="display:flex;align-items:center;gap:8px;"><h3>${title}</h3><span class="insight"${insightId ? ` id="${insightId}"` : ""}>${insight}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${editable ? editChipHtml(id) : ""}
+        ${CHEVRON_DOWN}
+      </div>
+    </div>
+    <div class="coll-body">${wrapBody ? `<div class="coll-inner"${innerId ? ` id="${innerId}"` : ""}>${body}</div>` : body}</div>
+  </div>`;
 }
 function toggleCompletedTodos(){
   if (openPinned.has('todo-completed')) openPinned.delete('todo-completed'); else openPinned.add('todo-completed');
@@ -1958,42 +2022,23 @@ function renderStyle(){
   const rulesEdit = editCards.has('rules-style');
   const sizesEdit = editCards.has('sizes-card');
   // Fit rules and Sizing are reference material, so they render below the
-  // working cards (progress, still need, in closet) at the bottom of the tab.
-  let refCards = `<div class="card pinned ${openPinned.has('rules-style')?'open':''}" id="rules-style">
-    <div class="coll-head" onclick="toggleRules('rules-style')">
-      <div style="display:flex;align-items:center;gap:8px;"><h3>Fit rules</h3><span class="insight">${styleRules.length} rules</span></div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        ${editChipHtml('rules-style')}
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-    </div>
-    <div class="coll-body"><div class="coll-inner">`;
-  if (rulesEdit) refCards += `<button class="add-row" onclick="addStyleRule()">+ Add rule</button>`;
+  // working cards (progress and the closet) at the bottom of the tab.
+  let rules = rulesEdit ? `<button class="add-row" onclick="addStyleRule()">+ Add rule</button>` : "";
   styleRules.forEach((r,i) => {
-    refCards += rulesEdit
-      ? `<p class="rule editable" onclick="editStyleRule(${i})">${r}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
-      : `<p class="rule">${r}</p>`;
+    rules += rulesEdit
+      ? `<p class="rule editable" onclick="editStyleRule(${i})">${escapeHtml(r)}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
+      : `<p class="rule">${escapeHtml(r)}</p>`;
   });
-  refCards += `</div></div></div>`;
-
-  refCards += `<div class="card pinned ${openPinned.has('sizes-card')?'open':''}" id="sizes-card">
-    <div class="coll-head" onclick="toggleRules('sizes-card')">
-      <div style="display:flex;align-items:center;gap:8px;"><h3>Sizing</h3><span class="insight">${sizes.length} sizes</span></div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        ${editChipHtml('sizes-card')}
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-    </div>
-    <div class="coll-body"><div class="coll-inner">`;
-  if (sizesEdit) refCards += `<button class="add-row" onclick="addSize()">+ Add size</button>`;
-  refCards += `<div class="sizegrid">`;
+  let sizeGrid = sizesEdit ? `<button class="add-row" onclick="addSize()">+ Add size</button>` : "";
+  sizeGrid += `<div class="sizegrid">`;
   sizes.forEach(([k,v],i) => {
-    refCards += sizesEdit
-      ? `<div class="editable" onclick="editSize(${i})"><span>${k}</span>${v}<span class="inline-pencil">${PENCIL_ICON}</span></div>`
-      : `<div><span>${k}</span>${v}</div>`;
+    sizeGrid += sizesEdit
+      ? `<div class="editable" onclick="editSize(${i})"><span>${escapeHtml(k)}</span>${escapeHtml(v)}<span class="inline-pencil">${PENCIL_ICON}</span></div>`
+      : `<div><span>${escapeHtml(k)}</span>${escapeHtml(v)}</div>`;
   });
-  refCards += `</div>`;
-  refCards += `<p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div></div></div>`;
+  sizeGrid += `</div><p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p>`;
+  const refCards = collapsibleCard({id:"rules-style", title:"Fit rules", insight:`${styleRules.length} rules`, body:rules})
+    + collapsibleCard({id:"sizes-card", title:"Sizing", insight:`${sizes.length} sizes`, body:sizeGrid});
 
   const toBuy = wardrobeShopping(), closetCount = closetItems().length;
   const total = closetCount + toBuy.length;
@@ -2006,17 +2051,7 @@ function renderStyle(){
       <span>${toBuy.length ? `${toBuy.length} wardrobe item${toBuy.length === 1 ? "" : "s"} to buy` : "Nothing left to buy"}</span>
       <span class="shop-link-go">Shopping list →</span>
     </button></div>`;
-  html += `<div class="card pinned ${openPinned.has('cap-owned-card')?'open':''}" id="cap-owned-card">
-    <div class="coll-head" onclick="toggleRules('cap-owned-card')">
-      <h3>In closet</h3>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="insight" id="cap-owned-insight"></span>
-        ${editChipHtml('cap-owned-card')}
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-    </div>
-    <div class="coll-body"><div class="coll-inner" id="cap-owned"></div></div>
-  </div>`;
+  html += collapsibleCard({id:"cap-owned-card", title:"In closet", insightId:"cap-owned-insight", innerId:"cap-owned"});
   html += refCards;
   el.innerHTML = html;
   renderCapsuleLists();
@@ -2087,15 +2122,15 @@ function renderCapsuleLists(){
     const pendingBadge = c.pending ? `<span class="badge pending">fit pending</span>` : "";
     const editBtn = edit ? `<button class="row-edit-btn" onclick="${c.kind === 'want' ? `editWant('${c.item.id}')` : `editCapsuleItem('${c.item.id}')`}" aria-label="Edit item">${PENCIL_ICON}</button>` : "";
     const priceLine = c.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${c.estimated?'~':''}$${fmtMoney(c.price)}${c.estimated?' (est.)':''}</div>` : "";
-    const linkLine = c.link ? `<a class="link" href="${c.link}" target="_blank" rel="noopener">View product →</a>` : "";
+    const linkLine = linkHtml(c.link, 'class="link"', "View product →");
     byCat[c.cat] = (byCat[c.cat] || "") + `<div class="item closet-item">
-        <div class="body"><div class="title">${c.title}${pendingBadge}</div>${c.sub?`<div class="sub">${c.sub}</div>`:""}${priceLine}${linkLine}</div>
+        <div class="body"><div class="title">${escapeHtml(c.title)}${pendingBadge}</div>${c.sub?`<div class="sub">${escapeHtml(c.sub)}</div>`:""}${priceLine}${linkLine}</div>
         ${editBtn}
       </div>`;
   });
   let grouped = "";
-  CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
-  Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
+  CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
+  Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
   const sum = priceSummary(items);
   el.innerHTML = (edit ? `<button class="add-row" onclick="addCapsuleItem()">+ Add item</button>` : "")
     + (grouped || `<div class="empty">Nothing here yet.</div>`)
@@ -2188,30 +2223,35 @@ function setWantCategory(w, choice){
   if (choice && choice.startsWith("Wardrobe · ")) w.wardrobeCat = choice.slice("Wardrobe · ".length);
   else delete w.wardrobeCat;
 }
-// High-priority wants first, then cheapest; unpriced items sort last.
+// Every item is a "need" or a "want". Unless set explicitly, wardrobe items
+// (which came from the old "still need" list) count as needs, everything else as wants.
+function wantKind(w){ return w.kind === "need" || w.kind === "want" ? w.kind : (w.wardrobeCat ? "need" : "want"); }
+// High priority first, then needs before wants, then cheapest; unpriced last.
 function wantsOrder(a, b){
-  return ((b.priority === "high") - (a.priority === "high")) || ((a.price ?? Infinity) - (b.price ?? Infinity));
+  return ((b.priority === "high") - (a.priority === "high"))
+    || ((wantKind(a) === "need" ? 0 : 1) - (wantKind(b) === "need" ? 0 : 1))
+    || ((a.price ?? Infinity) - (b.price ?? Infinity));
 }
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
-  const inFilter = w => wantsFilter === "all" || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : !w.wardrobeCat);
+  const inFilter = w => wantsFilter === "all" || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : wantKind(w) === wantsFilter);
   const allPending = wantsList.filter(w => !wantsState[w.id]);
   const pendingItems = allPending.filter(inFilter).sort(wantsOrder);
   const doneItems = wantsList.filter(w => !!wantsState[w.id] && inFilter(w)).sort(wantsOrder);
   const pendingSum = priceSummary(pendingItems), doneSum = priceSummary(doneItems);
   const wantRow = (w, isDone) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
-    const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
+    const linkLine = linkHtml(w.link, 'class="link"', "View product →");
     const editBtn = editCards.has(isDone ? 'wants-purchased-card' : 'wants-pending-card')
       ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
         <div class="body">
-          <div class="name">${w.name}${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
-          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${w.wardrobeCat}${isDone ? " · in closet" : ""}</div>` : ""}
-          ${w.meta?`<div class="meta">${w.meta}</div>`:""}
+          <div class="name">${escapeHtml(w.name)}<span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
+          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}${isDone ? " · in closet" : ""}</div>` : ""}
+          ${w.meta?`<div class="meta">${escapeHtml(w.meta)}</div>`:""}
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
-          ${linkHtml}
+          ${linkLine}
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
           <button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
@@ -2222,7 +2262,7 @@ function renderWants(){
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
   let html = `<div class="quick-add">
-      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
+      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : wantsFilter === "need" ? "Add something you need" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
       <button onclick="quickAddWant()" aria-label="Add want">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -2230,36 +2270,17 @@ function renderWants(){
   const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();">${label} <span>${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
+      ${chip("need", "Needs", allPending.filter(w => wantKind(w) === "need").length)}
+      ${chip("want", "Wants", allPending.filter(w => wantKind(w) === "want").length)}
       ${chip("wardrobe", "Wardrobe", allPending.filter(w => w.wardrobeCat).length)}
-      ${chip("other", "Other", allPending.filter(w => !w.wardrobeCat).length)}
     </div>`;
-  html += `<div class="card pinned ${openPinned.has('wants-pending-card')?'open':''}" id="wants-pending-card">
-      <div class="coll-head" onclick="toggleRules('wants-pending-card')">
-        <div style="display:flex;align-items:center;gap:8px;"><h3>Still need</h3><span class="insight">${pendingItems.length}${pendingSum.badge}</span></div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${editChipHtml('wants-pending-card')}
-          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-      </div>
-      <div class="coll-body"><div class="coll-inner">
+  html += collapsibleCard({id:"wants-pending-card", title:"To buy", insight:`${pendingItems.length}${pendingSum.badge}`, body:`
         ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
         ${pending||'<div class="empty">All caught up.</div>'}
-        ${pendingSum.row}
-      </div></div>
-    </div>`;
-  html += `<div class="card pinned ${openPinned.has('wants-purchased-card')?'open':''}" id="wants-purchased-card">
-      <div class="coll-head" onclick="toggleRules('wants-purchased-card')">
-        <div style="display:flex;align-items:center;gap:8px;"><h3>Purchased</h3><span class="insight">${doneItems.length ? doneItems.length + doneSum.badge : "None yet"}</span></div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${editChipHtml('wants-purchased-card')}
-          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-      </div>
-      <div class="coll-body"><div class="coll-inner">
+        ${pendingSum.row}`});
+  html += collapsibleCard({id:"wants-purchased-card", title:"Purchased", insight:doneItems.length ? doneItems.length + doneSum.badge : "None yet", body:`
         ${done||'<div class="empty">Nothing marked yet.</div>'}
-        ${doneSum.row}
-      </div></div>
-    </div>`;
+        ${doneSum.row}`});
   el.innerHTML = html;
 }
 function quickAddWant(){
@@ -2267,7 +2288,9 @@ function quickAddWant(){
   const name = input.value.trim();
   if (!name) return;
   const w = {id:genId("want"), name, meta:"", price:null, link:null};
-  if (wantsFilter === "wardrobe") w.wardrobeCat = "Other"; // stay visible under the active filter
+  // stay visible under the active filter
+  if (wantsFilter === "wardrobe") w.wardrobeCat = "Other";
+  if (wantsFilter === "need" || wantsFilter === "want") w.kind = wantsFilter;
   wantsList.push(w);
   saveContent("wants-content", wantsList);
   renderWants();
@@ -2279,7 +2302,7 @@ async function toggleWant(id){
   const w = wantsList.find(x => x.id === id);
   renderWants();
   renderStyle(); // a bought wardrobe item shows up in the closet
-  await saveState("wants-state", wantsState);
+  saveContent("wants-state", wantsState);
   if (w && w.wardrobeCat) showToast(wantsState[id] ? "Added to your closet" : "Back on your shopping list");
 }
 function editWant(id){
@@ -2290,22 +2313,24 @@ function editWant(id){
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"estimated",label:"Estimated price",type:"checkbox"},
+    {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
     {key:"high",label:"High priority",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
   ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high",
-      cat: w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : "Not clothing"},
+      kind: wantKind(w) === "need" ? "Need" : "Want", cat: w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : "Not clothing"},
     (v) => {
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
       if (v.high) w.priority = "high"; else delete w.priority;
       setWantCategory(w, v.cat);
+      w.kind = v.kind === "Need" ? "need" : "want";
       saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
     },
     () => {
       const idx = wantsList.findIndex(x=>x.id===id);
       wantsList.splice(idx,1);
       delete wantsState[id];
-      saveContent("wants-content", wantsList); saveState("wants-state", wantsState); renderWants(); renderStyle(); renderHomePanel();
+      saveContent("wants-content", wantsList); saveContent("wants-state", wantsState); renderWants(); renderStyle(); renderHomePanel();
     }
   );
 }
@@ -2316,14 +2341,17 @@ function addWant(){
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"estimated",label:"Estimated price",type:"checkbox"},
+    {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
     {key:"high",label:"High priority",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
-  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : "Not clothing"},
+  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : "Not clothing",
+      kind: wantsFilter === "need" || wantsFilter === "wardrobe" ? "Need" : "Want"},
     (v) => {
       if(!v.name) return;
       const w = {id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated,
         ...(v.high ? {priority:"high"} : {})};
       setWantCategory(w, v.cat);
+      w.kind = v.kind === "Need" ? "need" : "want";
       wantsList.push(w);
       saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
     }
@@ -2943,6 +2971,23 @@ function loadAllContent(){
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
   todoList = loadContent("todo-content", DEFAULT_TODO);
   if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
+  normalizeLoadedData(); // last: needs every list loaded
+}
+// Stored data can arrive from sync or a backup file, so it's treated as untrusted:
+// text is escaped wherever it's rendered, and ids — which are interpolated into
+// inline onclick handlers — must be plain tokens or they're replaced. Older builds
+// also stored a few strings as HTML ("&amp;"); those are decoded so all text is
+// plain. Runs on every load (idempotent), so nothing is written here.
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+function safeId(id, prefix){ return SAFE_ID.test(String(id)) ? id : genId(prefix); }
+function normalizeLoadedData(){
+  skinRules = skinRules.map(decodeEntities);
+  styleRules = styleRules.map(decodeEntities);
+  sizes = sizes.map(([k, v]) => [decodeEntities(k), decodeEntities(v)]);
+  capsule.forEach(i => { i.id = safeId(i.id, "cap"); i.title = decodeEntities(i.title); if (i.sub) i.sub = decodeEntities(i.sub); });
+  wantsList.forEach(w => { w.id = safeId(w.id, "want"); w.name = decodeEntities(w.name); if (w.meta) w.meta = decodeEntities(w.meta); });
+  todoList.forEach(t => { t.id = safeId(t.id, "todo"); (t.subitems || []).forEach(st => { st.id = safeId(st.id, "sub"); }); });
+  ["am", "pm", "washPm"].forEach(b => (skinRoutine[b] || []).forEach(st => { st.id = safeId(st.id, b); }));
 }
 // Persists housekeeping (format migrations, auto-archive) WITHOUT bumping
 // data-updated-at. Bumping it would make a device holding stale data look
@@ -2961,11 +3006,8 @@ function writeQuietly(key, value){
     `${now.toLocaleDateString('en-US',{weekday:'short'})} · ${now.toLocaleDateString('en-US',{month:'short', day:'numeric'})}`;
 
   renderSkin();
-  const [s, w] = await Promise.all([
-    loadState("style-state"),
-    loadState("wants-state")
-  ]);
-  styleState = s; wantsState = w;
+  styleState = loadContent("style-state", {});
+  wantsState = loadContent("wants-state", {});
   migrateWardrobeNeeds();
   renderStyle();
   renderWants();
