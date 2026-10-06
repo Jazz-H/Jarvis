@@ -1,7 +1,7 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
-docs) into one place with five tabs: **Home, To-Do, Skin & Hair, Wardrobe, Wants.**
+docs) into one place with five tabs: **Home, To-Do, Wants, Wardrobe, Skin & Hair.**
 
 Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main`).
 
@@ -73,11 +73,11 @@ a centered dialog on desktop. Esc closes them, Enter saves, and Delete always co
 **Navigation.**
 - **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
   column (760px, or 920px at ≥1440px).
-- **Swiping:** swipe left or right to switch tabs.
+- **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`).
 - **Hard refresh:** pull down from the top of a tab (or use the refresh button on
   desktop). It clears the service worker cache and reloads, but never touches your data.
-- **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Today's
-  routine, Wardrobe, and Wants. These come from `shortcuts` in `manifest.json`, handled
+- **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Wants,
+  Wardrobe, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.
 
 ## Project layout

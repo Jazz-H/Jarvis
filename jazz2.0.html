@@ -496,13 +496,22 @@
   }
   .shop-link-go{color:var(--link); font-size:12.5px; font-weight:700;}
   .closet-item{cursor:default;}
-  .filter-chips{display:flex; gap:8px; margin:-4px 0 14px; overflow-x:auto;}
   .filter-chip{
     flex-shrink:0; min-height:36px; padding:0 14px; border-radius:18px; border:1px solid var(--line);
     background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
   }
-  .filter-chip span{opacity:.7; margin-left:2px;}
   .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
+  /* Wants filters: always fit the screen — the old scrolling row overflowed on
+     phones with larger system text and showed a scrollbar. Chips size to their
+     content and share the spare width; when they can't all fit on one line
+     (narrow screen or large text) they wrap to a second line instead of clipping. */
+  .filter-chips{display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 14px;}
+  .filter-chips .filter-chip{
+    flex:1 1 auto; min-width:0; min-height:40px; padding:0 10px;
+    display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
+  }
+  .fc-label{overflow:hidden; text-overflow:ellipsis;}
+  .fc-count{flex-shrink:0; opacity:.7; font-variant-numeric:tabular-nums;}
   .want-tag{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--olive); margin-top:2px;}
   .want-tag svg{width:12px; height:12px;}
   /* wash-day calendar */
@@ -735,17 +744,17 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     To-Do
   </button>
-  <button data-tab="skin">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
-    Skin &amp; Hair
+  <button data-tab="wants">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
+    Wants
   </button>
   <button data-tab="style">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>
     Wardrobe
   </button>
-  <button data-tab="wants">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
-    Wants
+  <button data-tab="skin">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
+    Skin &amp; Hair
   </button>
 </nav>
 
@@ -2267,7 +2276,7 @@ function renderWants(){
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>`;
-  const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();">${label} <span>${n}</span></button>`;
+  const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();"><span class="fc-label">${label}</span><span class="fc-count">${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
       ${chip("need", "Needs", allPending.filter(w => wantKind(w) === "need").length)}
@@ -2359,7 +2368,7 @@ function addWant(){
 }
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home","todo","skin","style","wants"];
+const TAB_ORDER = ["home","todo","wants","style","skin"]; // nav bar and swipe order
 let currentTab = "home";
 
 function activateTab(tab){

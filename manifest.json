@@ -21,10 +21,10 @@
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Today's routine",
-      "short_name": "Today",
-      "description": "Jump to today's Skin & Hair routine",
-      "url": "./jazz2.0.html?tab=skin",
+      "name": "Wants",
+      "short_name": "Wants",
+      "description": "Jump to the wants list",
+      "url": "./jazz2.0.html?tab=wants",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
@@ -35,10 +35,10 @@
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Wants",
-      "short_name": "Wants",
-      "description": "Jump to the wants list",
-      "url": "./jazz2.0.html?tab=wants",
+      "name": "Today's routine",
+      "short_name": "Today",
+      "description": "Jump to today's Skin & Hair routine",
+      "url": "./jazz2.0.html?tab=skin",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
