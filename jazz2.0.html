@@ -496,13 +496,22 @@
   }
   .shop-link-go{color:var(--link); font-size:12.5px; font-weight:700;}
   .closet-item{cursor:default;}
-  .filter-chips{display:flex; gap:8px; margin:-4px 0 14px; overflow-x:auto;}
   .filter-chip{
     flex-shrink:0; min-height:36px; padding:0 14px; border-radius:18px; border:1px solid var(--line);
     background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
   }
-  .filter-chip span{opacity:.7; margin-left:2px;}
   .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
+  /* Wants filters: always fit the screen — the old scrolling row overflowed on
+     phones with larger system text and showed a scrollbar. Chips size to their
+     content and share the spare width; when they can't all fit on one line
+     (narrow screen or large text) they wrap to a second line instead of clipping. */
+  .filter-chips{display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 14px;}
+  .filter-chips .filter-chip{
+    flex:1 1 auto; min-width:0; min-height:40px; padding:0 10px;
+    display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
+  }
+  .fc-label{overflow:hidden; text-overflow:ellipsis;}
+  .fc-count{flex-shrink:0; opacity:.7; font-variant-numeric:tabular-nums;}
   .want-tag{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--olive); margin-top:2px;}
   .want-tag svg{width:12px; height:12px;}
   /* wash-day calendar */
@@ -2267,7 +2276,7 @@ function renderWants(){
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>`;
-  const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();">${label} <span>${n}</span></button>`;
+  const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();"><span class="fc-label">${label}</span><span class="fc-count">${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
       ${chip("need", "Needs", allPending.filter(w => wantKind(w) === "need").length)}
