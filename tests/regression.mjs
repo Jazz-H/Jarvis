@@ -558,6 +558,31 @@ await section("home: calendar strip picks any day", async () => {
   await ctx.close();
 });
 
+await section("routine: AM/PM bands on Today collapse", async () => {
+  const { ctx, page, errors } = await openApp();
+  await page.evaluate(() => activateTab("skin"));
+  const state = () => page.evaluate(() => [...document.querySelectorAll(".routine-today .routine-band")].map(b => ({
+    open: b.querySelector(".routine-band-head").getAttribute("aria-expanded") === "true",
+    steps: b.querySelectorAll(".routine-step").length,
+  })));
+  let s = await state();
+  check("bands start open while unfinished", s.every(b => b.open && b.steps > 0), s);
+  await page.click(".routine-today .routine-band.am .routine-band-head");
+  s = await state();
+  check("tapping the AM header collapses it", !s[0].open && s[0].steps === 0 && s[1].open, s);
+  await page.click(".routine-today .routine-band.am .routine-band-head");
+  check("tapping again reopens it", (await state())[0].open);
+  // Finishing PM folds it away on its own
+  await page.evaluate(() => { const r = routineForDate(new Date()); r.pm.forEach(st => toggleRoutineStep("pm", st.id)); });
+  s = await state();
+  check("a finished band closes itself", !s[1].open && s[1].steps === 0, s);
+  check("finished band reads Done", (await page.textContent(".routine-today .routine-band.pm .routine-count")).includes("Done"));
+  await page.click(".routine-today .routine-band.pm .routine-band-head");
+  check("a finished band can be reopened", (await state())[1].open);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

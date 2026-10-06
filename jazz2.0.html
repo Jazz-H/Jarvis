@@ -228,7 +228,15 @@
   /* routine checklist (Skin & Hair "Today" card) */
   .routine-band{padding-top:6px;}
   .routine-band + .routine-band{border-top:1px solid var(--line); margin-top:8px; padding-top:12px;}
-  .routine-band-head{display:flex; justify-content:space-between; align-items:center;}
+  .routine-band-head{
+    display:flex; align-items:center; gap:8px; width:100%; min-height:40px; padding:0;
+    border:none; background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;
+  }
+  .routine-band-head .label{flex:1;}
+  .routine-band-head .chev{color:var(--text-dim); transition:transform .2s; flex-shrink:0;}
+  .routine-band.open .routine-band-head .chev{transform:rotate(180deg);}
+  .routine-count.complete{display:inline-flex; align-items:center; gap:4px; color:var(--olive);}
+  .routine-count.complete svg{width:12px; height:12px;}
   .routine-band .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; font-weight:700;}
   .routine-band.am .label{color:var(--gold);}
   .routine-band.pm .label{color:var(--navy);}
@@ -2096,6 +2104,19 @@ function toggleWeekDay(key){
   renderSkin();
 }
 
+// AM/PM bands on the Today card fold away: a finished band closes itself, an
+// unfinished one stays open, and a tap overrides either for the rest of the day.
+const routineBandChoice = {}; // "YYYY-MM-DD:am" -> open?
+function routineBandOpen(key, steps, done){
+  const k = `${isoDate(new Date())}:${key}`;
+  return k in routineBandChoice ? routineBandChoice[k] : !(steps.length && done === steps.length);
+}
+function toggleRoutineBand(key){
+  const r = routineForDate(new Date()), steps = r[key], checks = todayChecks();
+  const done = steps.filter(s => checks[key].includes(s.id)).length;
+  routineBandChoice[`${isoDate(new Date())}:${key}`] = !routineBandOpen(key, steps, done);
+  renderSkin();
+}
 function renderSkin(){
   const el = document.getElementById("panel-skin");
   const now = new Date();
@@ -2111,9 +2132,11 @@ function renderSkin(){
       const on = checks[key].includes(s.id);
       return `<button class="routine-step ${on?'done':''}" role="checkbox" aria-checked="${on}" onclick="toggleRoutineStep('${key}','${s.id}')"><span class="box">${BOX_CHECK_SVG}</span><span class="routine-text">${routineStepText(s)}</span></button>`;
     }).join("");
-    return `<div class="routine-band ${key}">
-        <div class="routine-band-head"><span class="label">${label}</span><span class="routine-count">${done}/${steps.length}</span></div>
-        ${rows || '<div class="empty">No steps today.</div>'}
+    const open = routineBandOpen(key, steps, done);
+    const complete = steps.length > 0 && done === steps.length;
+    return `<div class="routine-band ${key} ${open ? 'open' : ''}">
+        <button class="routine-band-head" onclick="toggleRoutineBand('${key}')" aria-expanded="${open}"><span class="label">${label}</span><span class="routine-count ${complete ? 'complete' : ''}">${complete ? `${BOX_CHECK_SVG}Done` : `${done}/${steps.length}`}</span>${CHEVRON_DOWN}</button>
+        ${open ? (rows || '<div class="empty">No steps today.</div>') : ''}
       </div>`;
   };
   let html = `<div class="card routine-today">
