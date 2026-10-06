@@ -16,9 +16,16 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 Tapping a card opens its tab.
 
 **To-Do** is the full list.
-- **Adding.** Use the quick-add box. A trailing day word sets the due date ("dentist fri",
-  "call mom tomorrow"), and a "Due Friday ×" chip previews it. Tap × to keep the words as
-  plain text instead.
+- **Adding.** Tap the floating **+** button (on Home and To-Do). The **New to-do** form
+  opens with the keyboard up:
+  - **Text box:** a trailing day word sets the date ("dentist fri"), lighting up its pill;
+    tap that pill to keep the words as plain text instead.
+  - **Pills:** Today, Tomorrow, This weekend, Pick date (native date picker), Star, and
+    Sub-items (one per line).
+  - **Many in a row:** Enter (or Add to-do) saves and clears the form; the header counts
+    "2 added · last for Friday". Close it with ×, a tap outside, a swipe down, or Esc.
+  - The "Add a to-do" home-screen shortcut opens the form directly. To-dos are capped at
+    200 characters.
 - **Groups.** Overdue (red), Today, Anytime (no date), Tomorrow, the next five weekdays, and
   Later.
 - **Completing.** Only the left checkbox completes an item, and a 5-second Undo follows.
@@ -124,9 +131,10 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (77 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (88 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
+- the new-to-do form (date pills, typed dates, star, sub-items, adding several in a row);
 - to-do date parsing, migration, and undo;
 - drag between date groups;
 - quiet 7-day archiving;

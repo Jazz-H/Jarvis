@@ -83,17 +83,34 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
   check("weekday migrates to today's date", stored[0].due === isoOffset(0) && !("day" in stored[0]), stored[0]);
   check("migration does not bump the sync timestamp", (await page.evaluate(() => localStorage.getItem("data-updated-at"))) === "111");
 
-  await page.fill("#todo-quick-add-input", "Call mom tomorrow");
-  await page.dispatchEvent("#todo-quick-add-input", "input");
-  check("date preview chip", ((await page.textContent(".due-hint")) || "").includes("Tomorrow"));
-  await page.press("#todo-quick-add-input", "Enter");
-  await page.fill("#todo-quick-add-input", "Plan for friday");
-  await page.dispatchEvent("#todo-quick-add-input", "input");
-  await page.tap(".due-hint button");
-  await page.press("#todo-quick-add-input", "Enter");
-  const added = await page.evaluate(() => todoList.map(t => [t.text, t.due]));
+  // composer: the floating + button opens it; it stays open for several adds
+  await page.tap("#todo-fab");
+  check("+ opens the composer with the text box focused",
+    await page.evaluate(() => document.getElementById("composer").classList.contains("open") && document.activeElement.id === "composer-text"));
+  await page.fill("#composer-text", "Call mom tomorrow");
+  check("typed day lights up its chip", ((await page.textContent("#composer-chips .filter-chip.on")) || "").includes("Tomorrow"));
+  await page.press("#composer-text", "Enter");
+  check("Enter adds and keeps the composer open for the next one",
+    await page.evaluate(() => document.getElementById("composer").classList.contains("open") && document.getElementById("composer-text").value === ""));
+  check("added counter names the date", (await page.textContent("#composer-count")) === "1 added · last for Tomorrow", await page.textContent("#composer-count"));
+  await page.fill("#composer-text", "Plan for friday");
+  await page.click("#composer-chips .filter-chip.on");          // tap the lit chip: keep the words, no date
+  await page.press("#composer-text", "Enter");
+  await page.fill("#composer-text", "Pay rent");
+  await page.click("#composer-chips .filter-chip >> text=Today");
+  await page.click("#composer-chips .filter-chip >> text=Star");
+  await page.click("#composer-chips .filter-chip >> text=Sub-items");
+  await page.fill("#composer-subs", "log in\ntransfer");
+  await page.click(".composer-add");
+  await page.click(".composer-add");                              // empty: no-op, refocuses
+  const added = await page.evaluate(() => todoList.map(t => [t.text, t.due, t.starred, (t.subitems || []).length]));
   check("trailing day word is parsed", added.some(([t, d]) => t === "Call mom" && d === isoOffset(1)), added);
   check("dismissed chip keeps text and no date", added.some(([t, d]) => t === "Plan for friday" && d === null), added);
+  check("chips set date, star, and sub-items", added.some(([t, d, st, n]) => t === "Pay rent" && d === isoOffset(0) && st && n === 2), added);
+  check("empty Add creates nothing", added.length === 5, added.length);
+  check("to-dos are capped at 200 characters", (await page.getAttribute("#composer-text", "maxlength")) === "200");
+  await page.keyboard.press("Escape");
+  check("Esc closes the composer", await page.evaluate(() => !document.getElementById("composer").classList.contains("open")));
 
   await page.tap('[data-todo-id="b"] .title');
   check("tapping text opens edit, does not complete", (await page.textContent("#modal-heading")) === "Edit to-do");
@@ -177,7 +194,7 @@ await section("routine: check-offs, toast, streak, editing days", async () => {
     return s.id;
   });
   for (const d of ["1", "3", "5", "2", "4"]) await page.locator(`#modal-days input[value="${d}"]`).evaluate(i => i.click());
-  await page.tap(".modal-btn.primary");
+  await page.tap("#modal-backdrop .modal-btn.primary");
   const days = await page.evaluate(id => JSON.parse(localStorage.getItem("skin-routine-content")).pm.find(s => s.id === id).days, ex);
   check("day chips edit is saved", JSON.stringify(days) === "[2,4]", days);
   check("no JS errors", errors.length === 0, errors);
@@ -227,7 +244,7 @@ await section("wants: need/want tags, sorting, filters, editing", async () => {
   check("quick-add under Needs is a need", await page.evaluate(() => wantKind(wantsList.find(w => w.name === "Phone charger")) === "need"));
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-kind", "Need");
-  await page.tap(".modal-btn.primary");
+  await page.tap("#modal-backdrop .modal-btn.primary");
   check("tag changed in the edit form is saved",
     await page.evaluate(() => JSON.parse(localStorage.getItem("wants-content")).find(w => w.id === "pouch").kind === "need"));
   check("no JS errors", errors.length === 0, errors);
@@ -240,7 +257,7 @@ await section("shopping: page name and Moto category", async () => {
   check("tab is labeled Shopping", (await page.textContent('nav.tabbar button[data-tab="wants"]')).trim() === "Shopping");
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-cat", "Moto");
-  await page.tap(".modal-btn.primary");
+  await page.tap("#modal-backdrop .modal-btn.primary");
   const h = await page.evaluate(() => JSON.parse(localStorage.getItem("wants-content")).find(w => w.id === "pouch"));
   check("Moto category saved", h.moto === true && !h.wardrobeCat, h);
   check("Moto tag shown", await page.locator('#wants-pending-card .want-card', { hasText: "Trailco" }).locator(".want-tag.moto").count() === 1);
@@ -252,7 +269,7 @@ await section("shopping: page name and Moto category", async () => {
   check("quick-add under Moto is moto gear", await page.evaluate(() => wantsList.find(w => w.name === "Riding gloves").moto === true));
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-cat", "Wardrobe · Outerwear");
-  await page.tap(".modal-btn.primary");
+  await page.tap("#modal-backdrop .modal-btn.primary");
   const h2 = await page.evaluate(() => wantsList.find(w => w.id === "pouch"));
   check("categories are exclusive", !h2.moto && h2.wardrobeCat === "Outerwear", h2);
   check("no JS errors", errors.length === 0, errors);
@@ -378,6 +395,22 @@ await section("security: a malicious backup cannot run script", async () => {
   check("no javascript: links", r.jsLinks === 0, r);
   check("markup shown as plain text", r.shownAsText, r);
   await ctx.close();
+});
+
+await section("composer: + on Home, hidden elsewhere, launch shortcut opens it", async () => {
+  const { ctx, page } = await openApp();
+  check("+ shows on Home", await page.isVisible("#todo-fab"));
+  await page.evaluate(() => activateTab("skin"));
+  check("+ hidden on other tabs", !(await page.isVisible("#todo-fab")));
+  await page.evaluate(() => activateTab("home"));
+  await page.tap("#todo-fab");
+  await page.fill("#composer-text", "From home");
+  await page.press("#composer-text", "Enter");
+  check("adding from Home works", await page.evaluate(() => todoList.some(t => t.text === "From home")));
+  await ctx.close();
+  const shortcut = await openApp({ query: "?tab=todo&action=addtodo" });
+  check("Add a to-do shortcut opens the composer", await shortcut.page.evaluate(() => document.getElementById("composer").classList.contains("open")));
+  await shortcut.ctx.close();
 });
 
 await section("home: to-do summary completes in place", async () => {
