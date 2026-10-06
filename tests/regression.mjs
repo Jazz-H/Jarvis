@@ -814,10 +814,82 @@ await section("budget: sheet import, joint bills, paychecks, savings", async () 
   await page.evaluate(() => editGoal());
   await page.fill("#modal-name", "House");
   await page.fill("#modal-target", "5000");
-  await page.fill("#modal-saved", "2000");
-  await page.fill("#modal-add", "500");
+  await page.fill("#modal-saved", "2500");
   await page.click("#modal-backdrop .modal-btn.primary");
-  check("savings goal tracks saved of target", (await page.textContent("#goals-card")).includes("$2,500 of $5,000 · 50%"));
+  check("savings goal tracks saved of target", (await page.textContent("#goals-card")).includes("$2,500 of $5,000") && (await page.textContent("#goals-card .goal-meta")).startsWith("50%"));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: paycheck plans import from a sheet", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const pays = await page.evaluate(() => {
+    budget.income.push({ id: "inc-1", name: "Paycheck", amount: 1000, start: budgetMonthKey() + "-01", repeat: "biweekly" });
+    saveBudgetData();
+    return incomeInMonth(budgetMonthKey()).length;
+  });
+  const sheet = ["Paycheck\t$1,050.00", "Rent share\t$400.00", "Card\t$100.00", "", "Remaining\t$550.00", "",
+    "Paycheck\t$1,000.00", "Groceries\t$150.25", "Contacts\t", "Remaining\t$849.75"].join("\n");
+  await page.click("#income-card >> text=Import from sheet");
+  await page.fill("#modal-rows", sheet);
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const r = await page.evaluate(() => incomeInMonth(budgetMonthKey()).map(p => ({ amount: p.amount, lines: p.plan.lines.map(l => [l.name, l.amount]), left: p.left })));
+  check("first block sets the payday amount and its lines", r[0].amount === 1050 && JSON.stringify(r[0].lines) === '[["Rent share",400],["Card",100]]' && r[0].left === 550, r[0]);
+  check("second block fills the next payday; blank amount = $0; Remaining rows skipped", r[1].amount === 1000 && JSON.stringify(r[1].lines) === '[["Groceries",150.25],["Contacts",0]]' && Math.abs(r[1].left - 849.75) < 0.001, r[1]);
+  check("paydays this month", pays >= 2);
+  // Pasted without tabs (e.g. copied from a chat) still parses
+  const loose = await page.evaluate(() => parsePlanBlocks("Paycheck $2,000\n1/2 of bills $700.10\nFun spending $300.90"));
+  check("space-separated rows parse too", loose.length === 1 && loose[0].amount === 2000 && loose[0].lines[0].name === "1/2 of bills" && loose[0].lines[1].amount === 300.9, loose);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: long-term goals", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  // quick-start idea chip prefills the name
+  await page.click("#goals-card >> text=+ Big purchase");
+  check("idea chip prefills the goal name", (await page.inputValue("#modal-name")) === "Big purchase");
+  await page.fill("#modal-target", "6000");
+  await page.evaluate(() => { document.getElementById("modal-date").value = addMonthsIso(addDaysIso(0), 12); });
+  await page.fill("#modal-saved", "1000");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const g0 = await page.evaluate(() => { const g = budget.goals[0]; return { s: goalStatus(g), date: g.date }; });
+  check("goal saved with a date; $/month needed computed", g0.s.saved === 1000 && Math.abs(g0.s.perMonth - 5000 / 12) < 15, g0);
+  check("card shows what's needed per month", (await page.textContent("#goals-card")).includes("/mo needed"));
+  // add money, then a withdrawal
+  await page.click("#goals-card .goal-add");
+  await page.fill("#modal-amount", "500");
+  await page.fill("#modal-note", "Bonus");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  await page.click("#goals-card .goal-add");
+  await page.fill("#modal-amount", "100");
+  await page.check("#modal-withdraw");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const g1 = await page.evaluate(() => goalStatus(budget.goals[0]));
+  check("add money and take money out", g1.saved === 1400, g1);
+  check("recent contributions give a pace", g1.pace != null && Math.abs(g1.pace - 400 / 3) < 0.01, g1.pace);
+  check("history lists entries", (await page.$$("#goals-card .goal-entry")).length >= 2);
+  // a paycheck line pointed at the goal counts once its payday has passed
+  const linked = await page.evaluate(() => {
+    const g = budget.goals[0];
+    budget.income.push({ id: "inc-1", name: "Paycheck", amount: 2000, start: addDaysIso(-14), repeat: "biweekly" });
+    planFor(`inc-1|${addDaysIso(-14)}`).lines.push({ id: "line-1", name: "Ring fund", amount: 300, goal: g.id });
+    planFor(`inc-1|${addDaysIso(14)}`).lines.push({ id: "line-2", name: "Ring fund", amount: 300, goal: g.id });
+    saveBudgetData();
+    return { saved: goalStatus(g).saved, tag: !!document.querySelector("#income-card .goal-tag") };
+  });
+  check("past paycheck line counts, future one doesn't yet", linked.saved === 1700, linked);
+  check("linked paycheck lines are tagged", linked.tag);
+  // composer: To a goal
+  await page.click("#fab");
+  await page.click("#composer-chips .filter-chip >> text=To a goal");
+  await page.fill("#composer-text", "Birthday money $200");
+  await page.press("#composer-text", "Enter");
+  check("composer adds to a goal", await page.evaluate(() => goalStatus(budget.goals[0]).saved === 1900));
+  await page.evaluate(() => closeComposer());
+  // reaching the target
+  await page.evaluate(() => { budget.goals[0].log.push({ id: "gl-big", date: addDaysIso(0), amount: 5000, note: "" }); saveBudgetData(); });
+  check("reached goals say so", (await page.textContent("#goals-card")).includes("Reached"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
