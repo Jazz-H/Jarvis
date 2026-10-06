@@ -1,7 +1,7 @@
 {
   "name": "Jazz 2.0",
   "short_name": "Jazz 2.0",
-  "description": "Home, Skin/Hair, Style, and Wants — Jazz 2.0 personal dashboard",
+  "description": "Home, Skin & Hair, Wardrobe, and Wants — Jazz 2.0 personal dashboard",
   "start_url": "./jazz2.0.html",
   "scope": "./",
   "display": "standalone",
@@ -23,7 +23,7 @@
     {
       "name": "Today's routine",
       "short_name": "Today",
-      "description": "Jump to today's Skin/Hair routine",
+      "description": "Jump to today's Skin & Hair routine",
       "url": "./jazz2.0.html?tab=skin",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },

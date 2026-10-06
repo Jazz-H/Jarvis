@@ -1,7 +1,7 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 A single-file mobile web app consolidating the Jazz 2.0 series (previously separate
-Word docs) into one tabbed, installable PWA: **Home, Skin/Hair, Style, Wants.**
+Word docs) into one tabbed, installable PWA: **Home, Skin & Hair, Wardrobe, Wants.**
 
 ## Files
 - `index.html` — redirects to `jazz2.0.html`, so the bare repo root URL works instead
@@ -20,8 +20,8 @@ didn't work from a local file or sandboxed preview — now that it's hosted, "Ad
 Home Screen" on mobile should work from the URL above.
 
 Home screen icon shortcuts (long-press the installed app icon): **Add a to-do**
-(jumps to Home and focuses the quick-add field), **Today's routine** (Skin/Hair, which
-then auto-scrolls to today), **Wardrobe** (Style), **Wants**. A true live-data Android
+(jumps to Home and focuses the quick-add field), **Today's routine** (Skin & Hair, which
+then auto-scrolls to today), **Wardrobe**, **Wants**. A true live-data Android
 home screen widget isn't possible from a web app — that needs a native app wrapper,
 out of scope for this project — so these shortcuts are the PWA equivalent. Implemented
 via manifest.json's `shortcuts` array (each pointing at `jazz2.0.html?tab=...`) plus an
@@ -71,7 +71,7 @@ ring-bordered terminal card → this, border removed) — see chat history if re
   accordions, capsule need/owned cards) — same SVG path, same 180° rotate-on-open
   behavior
 - Every collapsible section shows an "insight" (count/progress) in its header,
-  except the Skin/Hair day accordions — the AM/PM step-count insight was removed
+  except the Skin & Hair day accordions — the AM/PM step-count insight was removed
   per user preference
 - Desktop layout (`@media (min-width: 768px)`, CSS-only): the tab bar moves from the
   bottom to a horizontal bar under the header (icon + label side by side, lime
@@ -80,7 +80,7 @@ ring-bordered terminal card → this, border removed) — see chat history if re
   bottom-sheeting. Phone layout is untouched below the breakpoint
 
 ## Editing
-Every list in the app — Skin/Hair rules and AM/PM steps, Style fit rules/sizing/capsule
+Every list in the app — Skin & Hair rules and AM/PM steps, Style fit rules/sizing/capsule
 items, Wants items — is fully editable in-app: add, edit, and delete, no code changes
 needed. Tap the pencil icon top-right of the header to enter edit mode. While it's on:
 - Rows with no existing tap action (rules, skin/hair steps, sizing) become tappable —
@@ -88,7 +88,7 @@ needed. Tap the pencil icon top-right of the header to enter edit mode. While it
 - Rows that already have a primary tap action (capsule owned/needed toggle, wants
   mark-bought) get a small separate pencil button so editing doesn't collide with
   that action.
-- "+ Add …" buttons appear at the bottom of every list (Skin/Hair's 7 weekdays are NOT
+- "+ Add …" buttons appear at the bottom of every list (Skin & Hair's 7 weekdays are NOT
   addable/removable, since "today" and wash-day detection depend on the fixed Mon–Sun
   set matching real calendar weekdays).
 - New AM steps are inserted before the last step if that step's label contains "last
@@ -125,6 +125,14 @@ and gist id live in `sync-token` / `sync-gist-id` in localStorage and are never 
 themselves; turning sync off deletes them but keeps all data. The service worker
 deliberately ignores cross-origin requests so it can never serve stale GitHub API
 responses from cache.
+
+**Backup.** The same cloud button opens "Sync & backup", which also has **Download
+backup** / **Restore…** — one JSON file (`{app:"jazz2", version, exportedAt, data}`)
+holding the full live value of every synced list, including ones still on their
+built-in defaults, so a restore truly replaces everything. Works with or without sync.
+Download uses the share sheet where the browser supports sharing files (installed iOS
+PWAs handle plain downloads poorly), else a normal download. A restore confirms first
+and counts as a real edit, so with sync on it propagates to the other device.
 
 ## Tab-by-tab content
 **Home:** The default landing tab.
@@ -165,7 +173,7 @@ with a "done/total sub-items" line under the title; sub-items are first added fr
 edit modal) that expands an inline mini checklist under the row — its own add-input,
 per-item checkboxes, and a × to delete a sub-item, all independent of the parent
 to-do's own completion state. Checking a to-do off no longer deletes it or just sinks
-it in place — it moves into a collapsible **Completed** card below the active list,
+it in place — it moves into a collapsible **Completed** section (a "N completed" toggle at the foot of the to-do card),
 showing the completion date; unchecking it there moves it right back (that's the
 "Restore"), and each row also has **Duplicate** (clones it as a fresh open item,
 including a fresh copy of its sub-items) and **Delete** (permanent, confirms first)
@@ -181,12 +189,12 @@ location-based reminders were deliberately left out rather than half-built.
 
 *Glance cards* — tappable cards summarizing the other tabs and jumping straight to them
 on tap, each with a colored icon badge for quick visual identity: **Today** (cyan
-leaf/droplet badge — today's AM/PM steps from Skin/Hair, listed by a short display
+leaf/droplet badge — today's AM/PM steps from Skin & Hair, listed by a short display
 name — a middle ground between the vague step category ("Eye area") and the full
 product name with its concentration ("Caffeine Solution 5% + EGCG"): "Cleanser,
 Ascorbyl Glucoside, Niacinamide, Moisturizer, Hair mist, Sunscreen" — each list under a
 small colored AM/PM tag — cyan for AM, magenta for PM, matching the accent colors used
-for the actual AM/PM bands on the Skin/Hair tab — plus a wash-day badge on wash
+for the actual AM/PM bands on the Skin & Hair tab — plus a wash-day badge on wash
 Thursdays, or otherwise a highlighted "Next wash day: [date] — in N days" callout (a
 magenta-tinted pill with a droplet icon, matching the PM accent color, so it stands out
 from the rest of the card instead of reading as another dim detail line)), full-width
@@ -210,11 +218,11 @@ duplicate; both glyphs share the same stroke width so they read as a matched pai
 tiles re-render every time you land on Home, so they never show stale numbers from
 something you changed on another tab.
 
-The Skin/Hair, Wardrobe, and Wants tabs each carry a small colored icon badge next to
+The Skin & Hair, Wardrobe, and Wants tabs each carry a small colored icon badge next to
 their header title (cyan droplet, lime shirt, magenta bag) matching the accent used for
 their Home glance card, for visual continuity across the app.
 
-**Skin/Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
+**Skin & Hair:** Mon–Sun day-by-day accordion, gold AM band / navy PM band per day,
 auto-detects and opens "today," badges it, and auto-scrolls the tab straight to
 today's card on open — no hunting for it further down the week. Key rules card
 (Vitamin C/Glycolic Acid
@@ -230,9 +238,8 @@ already covers hair care for the day). The anchor date and weekday are both plai
 constants in the code (`WASH_DAY_ANCHOR`, and the day-of-week math around it) — still
 requires a code change if either shifts again, same as before.
 
-**Style:** Tab bar button still says "Style"; the in-tab header now reads "Wardrobe"
-(renamed from "Style Capsule" — the tab bar already says Style, so the header just
-names what's actually in the tab instead of repeating it). Fit rules card (front-tuck,
+**Wardrobe:** Tab bar button and in-tab header both read "Wardrobe" (the tab was
+once labeled "Style"; tab labels and headers now always match). Fit rules card (front-tuck,
 regular inseam, size-to-hips, no oversized/drop-shoulder, ankle dress pants = business
 casual only w/ no-show socks + loafers never sneakers). Sizing reference grid (Tops
 M, Outerwear M, Bottoms M, Denim M, Shoes 8, Ring 8 w/
@@ -245,10 +252,12 @@ Wants uses; tapping it stops the tap from also toggling the item owned/needed). 
 price mainly exists so Home's "Still need" teaser can surface the cheapest still-needed
 item instead of whichever one happens to be first in the list. Only the brown/cognac
 belt has a price by default (~$20 est.); everything else is unpriced/unlinked until you
-add one. Totals now mirror Wants: each collapsible's header shows item count · $ total
-(unpriced items count as $0), a total row sits at the bottom of each list ("Still need
-total" / "Owned value"), and a "Wardrobe total" card sits below both, summing everything
-with a price across the whole wardrobe.
+add one. Totals follow one rule app-wide (`priceSummary()`), so each total appears
+once and a partial sum never reads as the full cost: when every item in a list has a
+price, the card header shows "N items · $total"; when only some do, the header shows
+just the count and a "Known prices · N unpriced" row sits at the bottom of the list;
+with no prices, no total is shown. A footnote under Still need explains that ticking
+an item moves it to In closet.
 
 **Wants:** A quick-add bar sits at the top of the tab, always available regardless of
 edit mode — type a name and hit Enter (or tap the + button) to drop a new pending item
@@ -262,7 +271,10 @@ Sample Store), Sample Fitness Band ($399.45), brown leather belt square buckle
 separate brown/cognac belt line item). Pending and Purchased are collapsible cards
 (matching the pattern used elsewhere — Key Rules, Still Need/In Closet), each showing
 item count and running total in the header even when collapsed; Pending starts open,
-Purchased starts closed. A grand list total sits below both. Links now point to direct
+Purchased starts closed (Purchased reads "None yet" when empty), using the same
+`priceSummary()` totals rule as the Wardrobe. Any want can be marked **High priority**
+in its edit form: high-priority items get a "High" badge and sort first (then cheapest,
+unpriced last), and Home's "Up next" picks by the same order. Links now point to direct
 product pages (Amazon,
 Sample Store, Sample Store, Sample Cooker's own site) picked to match the noted spec
 (color/size) as closely as possible from search results — retailer sites block

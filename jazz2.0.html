@@ -446,6 +446,21 @@
     width:100%; margin-top:8px; min-height:44px; border-radius:10px; border:1px solid var(--line);
     background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
   }
+  .completed-toggle{
+    display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin-top:8px; padding:0 2px;
+    border:none; border-top:1px solid var(--line); background:none; color:var(--text-dim);
+    font:inherit; font-size:12.5px; font-weight:700; text-align:left;
+  }
+  .completed-toggle span{flex:1;}
+  .completed-toggle .chev{transition:transform .2s;}
+  .completed-toggle.open .chev{transform:rotate(180deg);}
+  .badge.high{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
+  .modal-section{display:block; margin:6px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
+  .backup-actions{display:flex; gap:8px; margin-top:10px;}
+  .backup-btn{
+    flex:1; min-height:44px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2);
+    color:var(--text); font:inherit; font-size:13px; font-weight:700;
+  }
   /* quick-add date preview: collapses to the old 16px gap when empty */
   .todo-quick-add{margin-bottom:0;}
   .due-hint-row:empty{height:16px;}
@@ -598,7 +613,7 @@
     <div class="header-meta">
       <div class="eyebrow" id="header-date"></div>
     </div>
-    <button class="sync-btn" id="sync-btn" data-state="off" onclick="openSyncModal()" title="Sync across devices" aria-label="Sync settings">
+    <button class="sync-btn" id="sync-btn" data-state="off" onclick="openSyncModal()" title="Sync &amp; backup" aria-label="Sync and backup">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
     </button>
     <button class="hard-refresh-btn" onclick="this.classList.add('spinning'); hardRefresh()" title="Clear cached app files and reload (your data is kept)" aria-label="Hard refresh">
@@ -646,11 +661,11 @@
   </button>
   <button data-tab="skin">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
-    Skin/Hair
+    Skin &amp; Hair
   </button>
   <button data-tab="style">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>
-    Style
+    Wardrobe
   </button>
   <button data-tab="wants">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
@@ -659,7 +674,7 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants List"};
+const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const LINK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
@@ -1256,9 +1271,11 @@ function renderHome(){
     if (hidden) html += `<button class="show-more" onclick="showAllTodos=true; renderHome();">Show ${hidden} more</button>`;
     else if (showAllTodos && totalOpen > TODO_PREVIEW_COUNT) html += `<button class="show-more" onclick="showAllTodos=false; renderHome();">Show less</button>`;
   }
-  html += `</div>`;
 
+  // Completed lives inside the to-do card behind a one-line toggle, so it
+  // doesn't take a whole card of Home's height while collapsed.
   if (completedItems.length){
+    const completedOpen = openPinned.has('todo-completed');
     const completedRows = completedItems.map(t => {
       const dateLabel = t.completedAt ? new Date(t.completedAt).toLocaleDateString('en-US',{month:'short', day:'numeric'}) : "";
       return `<div class="item checked">
@@ -1268,19 +1285,20 @@ function renderHome(){
           <button class="completed-actions" style="order:4;" onclick="event.stopPropagation(); deleteTodoPermanently('${t.id}')" aria-label="Delete to-do">${TRASH_ICON}</button>
         </div>`;
     }).join("");
-    html += `<div class="card pinned ${openPinned.has('todo-completed')?'open':''}" id="todo-completed">
-        <div class="coll-head" onclick="toggleRules('todo-completed')">
-          <div style="display:flex;align-items:center;gap:8px;"><h3>Completed</h3><span class="insight">${completedItems.length}</span></div>
-          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div class="coll-body"><div class="coll-inner">
+    const archivedCount = loadContent("todo-archive-content", []).length;
+    html += `<button class="completed-toggle ${completedOpen?'open':''}" onclick="toggleCompletedTodos()" aria-expanded="${completedOpen}">
+        ${CHECK_ICON}<span>${completedItems.length} completed</span>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>`;
+    if (completedOpen){
+      html += `<div id="todo-completed">
           ${completedRows}
           <button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>
-          <p class="footnote">Completed to-dos are archived automatically after 7 days${
-            (loadContent("todo-archive-content", []).length ? ` · ${loadContent("todo-archive-content", []).length} archived so far` : "")}.</p>
-        </div></div>
-      </div>`;
+          <p class="footnote">Completed to-dos are archived automatically after 7 days${archivedCount ? ` · ${archivedCount} archived so far` : ""}.</p>
+        </div>`;
+    }
   }
+  html += `</div>`;
 
   const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
   const today = skinDays.find(d => d.day === todayName);
@@ -1302,7 +1320,7 @@ function renderHome(){
           </div>
           <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>
-        <div class="glance-stat">${today.am.length} AM · ${pmSteps.length} PM</div>
+        <div class="glance-stat">${today.am.length} AM steps · ${pmSteps.length} PM steps</div>
         <div class="glance-routine-row"><span class="glance-tag am">AM</span><span class="glance-detail-text">${amNames}</span></div>
         <div class="glance-routine-row"><span class="glance-tag pm">PM</span><span class="glance-detail-text">${pmNames}</span></div>
         ${washNote}
@@ -1314,7 +1332,7 @@ function renderHome(){
   const cheapestNeeded = capsule.filter(i => currentCapState(i) !== "owned").sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
   const pendingItems = wantsList.filter(w => !wantsState[w.id]);
   const pendingTotal = pendingItems.reduce((sum,w) => sum + (w.price||0), 0);
-  const cheapest = pendingItems.slice().sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
+  const nextWant = pendingItems.slice().sort(wantsOrder)[0];
 
   const boughtCount = wantsList.length - pendingItems.length;
   const boughtPct = wantsList.length ? Math.round((boughtCount / wantsList.length) * 100) : 0;
@@ -1337,12 +1355,12 @@ function renderHome(){
         </div>
         <div class="tile-label">Wants</div>
         <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}</div>
-        <div class="tile-caption">${pendingItems.length} still needed</div>
-        <div class="progress-bar"><div class="progress-fill wants" style="width:${boughtPct}%"></div></div>
+        <div class="tile-caption">${pendingItems.length} still needed${boughtCount ? ` · ${boughtCount} bought` : ""}</div>
+        ${boughtCount ? `<div class="progress-bar"><div class="progress-fill wants" style="width:${boughtPct}%"></div></div>` : ""}
       </div>
     </div>`;
 
-  if (cheapestNeeded || cheapest){
+  if (cheapestNeeded || nextWant){
     const nextRow = (tab, iconBg, iconColor, icon, name, priceStr, context, link, checkCall, checkLabel) => `
       <div class="next-row" onclick="activateTab('${tab}')">
         <div class="glance-icon" style="background:${iconBg}; color:${iconColor};">${icon}</div>
@@ -1356,15 +1374,15 @@ function renderHome(){
         </div>
       </div>`;
     html += `<div class="card">
-        <div class="glance-head"><h3>Up next</h3><span class="insight">cheapest first</span></div>
+        <div class="glance-head"><h3>Up next</h3><span class="insight">priority, then price</span></div>
         ${cheapestNeeded ? nextRow('style', 'color-mix(in srgb, var(--olive) 15%, transparent)', 'var(--olive)', SHIRT_ICON, cheapestNeeded.title,
             cheapestNeeded.price!=null?`${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:'',
             'Wardrobe · still need', cheapestNeeded.link,
             `toggleCapsule('${cheapestNeeded.id}').then(renderHome);`, 'Mark owned') : ''}
-        ${cheapest ? nextRow('wants', 'color-mix(in srgb, var(--navy) 15%, transparent)', 'var(--navy)', BAG_ICON, cheapest.name,
-            cheapest.price!=null?`$${fmtMoney(cheapest.price)}`:'',
-            'Wants · still need', cheapest.link,
-            `toggleWant('${cheapest.id}').then(renderHome);`, 'Mark bought') : ''}
+        ${nextWant ? nextRow('wants', 'color-mix(in srgb, var(--navy) 15%, transparent)', 'var(--navy)', BAG_ICON, nextWant.name,
+            nextWant.price!=null?`${nextWant.estimated?'~':''}$${fmtMoney(nextWant.price)}`:'',
+            nextWant.priority === 'high' ? 'Wants · high priority' : 'Wants · still need', nextWant.link,
+            `toggleWant('${nextWant.id}').then(renderHome);`, 'Mark bought') : ''}
       </div>`;
   }
 
@@ -1630,6 +1648,10 @@ function toggleDay(i){
   if (openDays.has(i)) openDays.delete(i); else openDays.add(i);
   document.querySelector(`.day[data-idx="${i}"]`).classList.toggle("open");
 }
+function toggleCompletedTodos(){
+  if (openPinned.has('todo-completed')) openPinned.delete('todo-completed'); else openPinned.add('todo-completed');
+  renderHome();
+}
 function toggleRules(id){
   if (openPinned.has(id)) openPinned.delete(id); else openPinned.add(id);
   document.getElementById(id).classList.toggle("open");
@@ -1749,7 +1771,6 @@ function renderStyle(){
     </div>
     <div class="coll-body"><div class="coll-inner" id="cap-owned"></div></div>
   </div>`;
-  html += `<div class="card"><div class="total-row grand" id="cap-grand-total"></div></div>`;
   html += refCards;
   el.innerHTML = html;
   renderCapsuleLists();
@@ -1790,24 +1811,38 @@ function renderCapsuleLists(){
     return out;
   }
 
-  const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
-  const neededCount = capsule.length - ownedCount;
-  const ownedTotal = capsule.filter(i => currentCapState(i) === "owned").reduce((s,i) => s + (i.price||0), 0);
-  const neededTotal = capsule.filter(i => currentCapState(i) !== "owned").reduce((s,i) => s + (i.price||0), 0);
+  const ownedItems = capsule.filter(i => currentCapState(i) === "owned");
+  const neededItems = capsule.filter(i => currentCapState(i) !== "owned");
+  const owned = priceSummary(ownedItems), needed = priceSummary(neededItems);
 
   ownedEl.innerHTML = (editCards.has('cap-owned-card')?`<button class="add-row" onclick="addCapsuleItem('owned')">+ Add item</button>`:"")
     + (buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`)
-    + `<div class="total-row">Owned value <span>$${fmtMoney(ownedTotal)}</span></div>`;
+    + owned.row;
   neededEl.innerHTML = (editCards.has('cap-needed-card')?`<button class="add-row" onclick="addCapsuleItem('needed')">+ Add item</button>`:"")
     + (buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`)
-    + `<div class="total-row">Total <span>$${fmtMoney(neededTotal)}</span></div>`;
+    + needed.row
+    + (neededItems.length ? `<p class="footnote">Tick an item when you get it — it moves to In closet.</p>` : "");
 
-  document.getElementById("cap-owned-insight").textContent = `${ownedCount} items · $${fmtMoney(ownedTotal)}`;
-  document.getElementById("cap-needed-insight").textContent = `${neededCount} items · $${fmtMoney(neededTotal)}`;
-  const pct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
-  document.getElementById("cap-progress-label").textContent = `${ownedCount}/${capsule.length} · ${pct}%`;
+  document.getElementById("cap-owned-insight").textContent = `${ownedItems.length} items${owned.badge}`;
+  document.getElementById("cap-needed-insight").textContent = `${neededItems.length} items${needed.badge}`;
+  const pct = capsule.length ? Math.round((ownedItems.length / capsule.length) * 100) : 0;
+  document.getElementById("cap-progress-label").textContent = `${ownedItems.length}/${capsule.length} · ${pct}%`;
   document.getElementById("cap-progress-fill").style.width = `${pct}%`;
-  document.getElementById("cap-grand-total").innerHTML = `Wardrobe total <span>$${fmtMoney(ownedTotal+neededTotal)}</span>`;
+}
+// Money summary for a list where some items may have no price yet. Each total
+// appears once: a complete sum goes in the card-header badge (visible even when
+// the card is collapsed); a partial sum goes in an in-card row labeled as
+// partial so it never reads as the full cost; no prices at all shows nothing.
+function priceSummary(items){
+  const priced = items.filter(i => i.price != null);
+  const sum = priced.reduce((s,i) => s + i.price, 0);
+  const missing = items.length - priced.length;
+  const full = priced.length > 0 && missing === 0;
+  return {
+    badge: full ? ` · $${fmtMoney(sum)}` : "",
+    row: priced.length && !full
+      ? `<div class="total-row">Known prices · ${missing} unpriced <span>$${fmtMoney(sum)}</span></div>` : ""
+  };
 }
 async function toggleCapsule(id){
   const cur = currentCapState(capsule.find(i=>i.id===id));
@@ -1884,13 +1919,16 @@ function addCapsuleItem(bucket){
 function fmtMoney(n){
   return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
+// High-priority wants first, then cheapest; unpriced items sort last.
+function wantsOrder(a, b){
+  return ((b.priority === "high") - (a.priority === "high")) || ((a.price ?? Infinity) - (b.price ?? Infinity));
+}
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
-  let pendingTotal = 0, doneTotal = 0;
-  const byPriceAsc = (a,b) => (a.price ?? Infinity) - (b.price ?? Infinity);
-  const pendingItems = wantsList.filter(w => !wantsState[w.id]).sort(byPriceAsc);
-  const doneItems = wantsList.filter(w => !!wantsState[w.id]).sort(byPriceAsc);
+  const pendingItems = wantsList.filter(w => !wantsState[w.id]).sort(wantsOrder);
+  const doneItems = wantsList.filter(w => !!wantsState[w.id]).sort(wantsOrder);
+  const pendingSum = priceSummary(pendingItems), doneSum = priceSummary(doneItems);
   const wantRow = (w, isDone) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
     const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
@@ -1898,7 +1936,7 @@ function renderWants(){
       ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
         <div class="body">
-          <div class="name">${w.name}</div>
+          <div class="name">${w.name}${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
           ${w.meta?`<div class="meta">${w.meta}</div>`:""}
           <div class="price">${priceStr}</div>
           ${linkHtml}
@@ -1909,8 +1947,8 @@ function renderWants(){
         </div>
       </div>`;
   };
-  pendingItems.forEach(w => { pending += wantRow(w, false); pendingTotal += (w.price||0); });
-  doneItems.forEach(w => { done += wantRow(w, true); doneTotal += (w.price||0); });
+  pendingItems.forEach(w => { pending += wantRow(w, false); });
+  doneItems.forEach(w => { done += wantRow(w, true); });
   let html = `<div class="quick-add">
       <input type="text" id="quick-add-input" placeholder="What do you want?" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
       <button onclick="quickAddWant()" aria-label="Add want">
@@ -1919,7 +1957,7 @@ function renderWants(){
     </div>`;
   html += `<div class="card pinned ${openPinned.has('wants-pending-card')?'open':''}" id="wants-pending-card">
       <div class="coll-head" onclick="toggleRules('wants-pending-card')">
-        <div style="display:flex;align-items:center;gap:8px;"><h3>Still Need</h3><span class="insight">${pendingItems.length} · $${fmtMoney(pendingTotal)}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><h3>Still need</h3><span class="insight">${pendingItems.length}${pendingSum.badge}</span></div>
         <div style="display:flex;align-items:center;gap:8px;">
           ${editChipHtml('wants-pending-card')}
           <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -1928,12 +1966,12 @@ function renderWants(){
       <div class="coll-body"><div class="coll-inner">
         ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
         ${pending||'<div class="empty">All caught up.</div>'}
-        <div class="total-row">Total <span>$${fmtMoney(pendingTotal)}</span></div>
+        ${pendingSum.row}
       </div></div>
     </div>`;
   html += `<div class="card pinned ${openPinned.has('wants-purchased-card')?'open':''}" id="wants-purchased-card">
       <div class="coll-head" onclick="toggleRules('wants-purchased-card')">
-        <div style="display:flex;align-items:center;gap:8px;"><h3>Purchased</h3><span class="insight">${doneItems.length} · $${fmtMoney(doneTotal)}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><h3>Purchased</h3><span class="insight">${doneItems.length ? doneItems.length + doneSum.badge : "None yet"}</span></div>
         <div style="display:flex;align-items:center;gap:8px;">
           ${editChipHtml('wants-purchased-card')}
           <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -1941,10 +1979,9 @@ function renderWants(){
       </div>
       <div class="coll-body"><div class="coll-inner">
         ${done||'<div class="empty">Nothing marked yet.</div>'}
-        <div class="total-row">Spent so far <span>$${fmtMoney(doneTotal)}</span></div>
+        ${doneSum.row}
       </div></div>
     </div>`;
-  html += `<div class="card"><div class="total-row grand">List total <span>$${fmtMoney(pendingTotal+doneTotal)}</span></div></div>`;
   el.innerHTML = html;
 }
 function quickAddWant(){
@@ -1969,11 +2006,13 @@ function editWant(id){
     {key:"meta",label:"Notes (optional)",type:"text"},
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
-    {key:"estimated",label:"Estimated price",type:"checkbox"}
-  ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated},
+    {key:"estimated",label:"Estimated price",type:"checkbox"},
+    {key:"high",label:"High priority",type:"checkbox"}
+  ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high"},
     (v) => {
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
+      if (v.high) w.priority = "high"; else delete w.priority;
       saveContent("wants-content", wantsList); renderWants();
     },
     () => {
@@ -1990,11 +2029,13 @@ function addWant(){
     {key:"meta",label:"Notes (optional)",type:"text"},
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
-    {key:"estimated",label:"Estimated price",type:"checkbox"}
+    {key:"estimated",label:"Estimated price",type:"checkbox"},
+    {key:"high",label:"High priority",type:"checkbox"}
   ], {},
     (v) => {
       if(!v.name) return;
-      wantsList.push({id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated});
+      wantsList.push({id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated,
+        ...(v.high ? {priority:"high"} : {})});
       saveContent("wants-content", wantsList); renderWants();
     }
   );
@@ -2499,18 +2540,73 @@ async function pullSync(){
   }
   if (localNewer) await pushSync(); // this device is ahead — send it up
 }
+// ---------- BACKUP ----------
+// One JSON file holding every synced key. Works with or without gist sync, so
+// it doubles as a manual way to move data between devices.
+async function downloadBackup(){
+  // Live values, not just what's in localStorage: a list still on its built-in
+  // defaults has no stored key, and a backup missing it wouldn't fully replace
+  // a device where that list was customized.
+  const data = {
+    "skin-rules-content":skinRules, "skin-days-content":skinDays, "style-rules-content":styleRules,
+    "sizes-content":sizes, "capsule-content":capsule, "wants-content":wantsList, "todo-content":todoList,
+    "todo-archive-content":loadContent("todo-archive-content", []),
+    "style-state":styleState, "wants-state":wantsState
+  };
+  const payload = {app:"jazz2", version:1, exportedAt:new Date().toISOString(), data};
+  const name = `jazz2-backup-${isoDate(new Date())}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  // Installed iOS PWAs handle <a download> poorly; the share sheet offers "Save to Files"
+  const file = new File([blob], name, {type:"application/json"});
+  if (navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:"Jazz 2.0 backup"}); return; }
+    catch(e){ if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function restoreBackup(){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
+  input.onchange = async () => {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    let payload;
+    try{ payload = JSON.parse(await f.text()); }catch(e){ showToast("That file isn't a valid backup", true); return; }
+    const data = payload && payload.app === "jazz2" && payload.data;
+    if (!data || !Object.keys(data).some(k => SYNC_KEYS.includes(k))){ showToast("That file isn't a Jazz 2.0 backup", true); return; }
+    const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : "an unknown date";
+    if (!confirm(`Replace everything on this device with the backup from ${when}? If sync is on, your other device will get it too.`)) return;
+    closeModal();
+    // A restore is a deliberate edit: stamp it now so sync pushes it out
+    applyRemote({updatedAt:Date.now(), data});
+    scheduleSyncPush();
+    showToast("Backup restored");
+  };
+  input.click();
+}
 function openSyncModal(){
   const connected = !!localStorage.getItem("sync-token");
-  openModal("Sync across devices", [
+  openModal("Sync & backup", [
     {type:"note", label:`Syncs everything (to-dos, routines, wardrobe, wants) through a private gist on
       your GitHub account. Create a <b>classic</b> personal access token with only the
       <b>gist</b> scope at github.com &rsaquo; Settings &rsaquo; Developer settings &rsaquo; Tokens (classic),
       then paste the same token into the app on each device. Newest change wins when
       two devices disagree.`},
-    {key:"token", label:"GitHub token", type:"password"}
+    {key:"token", label:"GitHub token", type:"password"},
+    {type:"note", label:`<span class="modal-section">Backup</span>
+      Save everything to one file, or restore from one. Works with or without sync.
+      <span class="backup-actions">
+        <button type="button" class="backup-btn" onclick="downloadBackup()">Download backup</button>
+        <button type="button" class="backup-btn" onclick="restoreBackup()">Restore…</button>
+      </span>`}
   ], {token: localStorage.getItem("sync-token") || ""},
   (v) => {
-    if (!v.token){ showToast("No token entered", true); return; }
+    if (!v.token) return; // closing without a token (e.g. after a backup) is fine
     localStorage.setItem("sync-token", v.token);
     localStorage.removeItem("sync-gist-id"); // re-resolve under the (possibly new) account
     showToast("Connecting…");
