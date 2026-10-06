@@ -754,8 +754,8 @@ await section("budget: tab, closet inside Shopping, spending, bills", async () =
   await page.evaluate(() => closeComposer());
   const bill = await page.evaluate(() => bills[0]);
   check("bill saved: monthly, due today, autopay", bill.name === "Rent" && bill.amount === 1200 && bill.repeat === "monthly" && bill.due === isoOffset(0) && bill.autopay, bill);
-  const sum = await page.textContent(".budget-stats");
-  check("summary shows spent and bills due", sum.includes("$54.25") && sum.includes("$1,200"), sum);
+  const sum = await page.textContent(".budget-kpis");
+  check("summary shows spent and bills left", sum.includes("$54.25") && sum.includes("$1,200"), sum);
 
   // Pay it from Home
   await page.evaluate(() => activateTab("home"));
@@ -790,7 +790,7 @@ await section("budget: sheet import, joint bills, paychecks, savings", async () 
     bills: bills.map(b => [b.name, b.amount, b.account, b.group, Number(b.due.slice(8))]),
     accts: budget.accounts,
     total: billsInMonth(budgetMonthKey()).reduce((s, x) => s + x.amount, 0),
-    subs: [...document.querySelectorAll("#bills-card .budget-sub")].map(e => e.textContent),
+    subs: [...document.querySelectorAll("#bills-card .budget-sub")].map(e => e.textContent).filter(t => /^(Monthly|Joint)/.test(t)),
   }));
   check("rows import with account, amount ('-' = 0) and day; header and Total skipped", r.bills.length === 4
     && JSON.stringify(r.bills[0].slice(0, 4)) === '["Phone",70,"Bank A","personal"]' && r.bills[1][1] === 0 && r.bills[2][1] === 1200.5, r.bills);
@@ -804,7 +804,7 @@ await section("budget: sheet import, joint bills, paychecks, savings", async () 
     const pays = incomeInMonth(budgetMonthKey());
     quickPlanLine(pays[0].key, "Card payment", 500);
     const after = incomeInMonth(budgetMonthKey());
-    return { n: pays.length, left: after[0].left, hint: !!document.querySelector("#income-card .plan-hint"), head: document.querySelector(".budget-label").textContent };
+    return { n: pays.length, left: after[0].left, hint: !!document.querySelector("#pay-periods .plan-hint"), head: document.querySelector(".budget-kpi span").textContent };
   });
   check("a biweekly paycheck lands 2–3 times a month", p.n >= 2 && p.n <= 3, p.n);
   check("paycheck remaining = amount minus its lines", p.left === 1500, p.left);
@@ -830,7 +830,7 @@ await section("budget: paycheck plans import from a sheet", async () => {
   });
   const sheet = ["Paycheck\t$1,050.00", "Rent share\t$400.00", "Card\t$100.00", "", "Remaining\t$550.00", "",
     "Paycheck\t$1,000.00", "Groceries\t$150.25", "Contacts\t", "Remaining\t$849.75"].join("\n");
-  await page.click("#income-card >> text=Import from sheet");
+  await page.click("#income-card >> text=Import plans from sheet");
   await page.fill("#modal-rows", sheet);
   await page.click("#modal-backdrop .modal-btn.primary");
   const r = await page.evaluate(() => incomeInMonth(budgetMonthKey()).map(p => ({ amount: p.amount, lines: p.plan.lines.map(l => [l.name, l.amount]), left: p.left })));
@@ -876,7 +876,7 @@ await section("budget: long-term goals", async () => {
     planFor(`inc-1|${addDaysIso(-14)}`).lines.push({ id: "line-1", name: "Ring fund", amount: 300, goal: g.id });
     planFor(`inc-1|${addDaysIso(14)}`).lines.push({ id: "line-2", name: "Ring fund", amount: 300, goal: g.id });
     saveBudgetData();
-    return { saved: goalStatus(g).saved, tag: !!document.querySelector("#income-card .goal-tag") };
+    return { saved: goalStatus(g).saved, tag: !!document.querySelector("#pay-periods .goal-tag") };
   });
   check("past paycheck line counts, future one doesn't yet", linked.saved === 1700, linked);
   check("linked paycheck lines are tagged", linked.tag);
@@ -890,6 +890,58 @@ await section("budget: long-term goals", async () => {
   // reaching the target
   await page.evaluate(() => { budget.goals[0].log.push({ id: "gl-big", date: addDaysIso(0), amount: 5000, note: "" }); saveBudgetData(); });
   check("reached goals say so", (await page.textContent("#goals-card")).includes("Reached"));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: pay periods, copy plans, variable bills, shares, card totals", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const setup = await page.evaluate(() => {
+    const k = budgetMonthKey(), d = n => `${k}-${String(n).padStart(2, "0")}`;
+    budget.income = [{ id: "inc-1", name: "Paycheck", amount: 2000, start: d(1), repeat: "biweekly" }];
+    budget.accounts = ["Bank A", "Card B"];
+    bills = [
+      { id: "bill-a", name: "Rent", amount: 1000, due: d(3), repeat: "monthly", autopay: false, link: null, group: "joint", account: "Bank A", share: 50 },
+      { id: "bill-b", name: "Electric", amount: 80, due: d(16), repeat: "monthly", autopay: false, link: null, group: "personal", account: "Card B", varies: true },
+    ];
+    saveBudgetData();
+    return { k };
+  });
+  const periods = await page.evaluate(() => [...document.querySelectorAll("#pay-periods .card.period")].map(c => c.textContent.replace(/\s+/g, " ")));
+  check("each payday is its own period with the bills due in it", periods.length >= 2 && periods[0].includes("Rent") && !periods[0].includes("Electric") && periods[1].includes("Electric"), periods);
+  check("joint share counts your part", periods[0].includes("$500.00") && periods[0].includes("50% of $1,000.00"), periods[0]);
+  check("spending hides until something's logged", !(await page.$("#spending-card")) && (await page.textContent("#panel-budget")).includes("Spending by category"));
+  // by-card totals
+  const acct = await page.$$eval("#bills-card .acct-total", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
+  check("totals by card/bank", acct.some(a => a.startsWith("Bank A") && a.includes("$500.00")) && acct.some(a => a.startsWith("Card B") && a.includes("$80.00")), acct);
+  // variable bill asks for the amount
+  await page.evaluate(() => payBill("bill-b"));
+  await page.fill("#modal-amount", "93.40");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("a bill that varies records what it came to", await page.evaluate(() => billPayments[0] && billPayments[0].amount === 93.4));
+  // paid rows fold away; open them and edit the payment
+  check("paid bills fold behind a toggle", !!(await page.$("#pay-periods .paid-toggle")));
+  await page.click("#pay-periods .paid-toggle");
+  await page.click("#pay-periods .bill-row.checked .body");
+  await page.fill("#modal-amount", "95");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("tapping a paid bill edits the payment", await page.evaluate(() => billPayments[0].amount === 95));
+  // plan lines tick off
+  await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; quickPlanLine(p.key, `1/2 of ${noonOf(budgetMonthKey() + "-01").toLocaleDateString("en-US", { month: "short" })} Bills`, 500); });
+  await page.click("#pay-periods .plan-row .todo-check");
+  check("plan lines can be checked off", await page.evaluate(() => incomeInMonth(budgetMonthKey())[0].plan.lines[0].done === true));
+  // reload: joint group, account, share, varies and done all survive
+  await page.reload(); await page.waitForTimeout(500);
+  await page.evaluate(() => activateTab("budget")); // the launch param is gone after the first load
+  const kept = await page.evaluate(() => ({ a: bills.find(b => b.id === "bill-a"), b: bills.find(b => b.id === "bill-b"), done: incomeInMonth(budgetMonthKey())[0].plan.lines[0].done }));
+  check("bill details survive a reload", kept.a.group === "joint" && kept.a.account === "Bank A" && kept.a.share === 50 && kept.b.varies === true && kept.done === true, kept);
+  // next month: offer to copy the plans, renaming the month in line names
+  await page.click('.budget-month .cal-nav[aria-label="Next month"]');
+  check("next month offers to copy last month's plans", !!(await page.$(".copy-plans")));
+  await page.click(".copy-plans");
+  const copied = await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; return { name: p.plan.lines[0].name, done: !!p.plan.lines[0].done,
+    want: `1/2 of ${noonOf(budgetMonthKey() + "-01").toLocaleDateString("en-US", { month: "short" })} Bills` }; });
+  check("copied lines move the month name along and start unchecked", copied.name === copied.want && !copied.done, copied);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
