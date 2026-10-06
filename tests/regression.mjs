@@ -489,36 +489,71 @@ await section("home: day agenda completes in place", async () => {
   await ctx.close();
 });
 
-await section("home: week strip picks a day", async () => {
+await section("home: calendar strip picks any day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "o", text: "Late thing", done: false, due: isoOffset(-2), starred: false, subitems: [], completedAt: null },
     { id: "t", text: "Today thing", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
     { id: "s", text: "Starred today", done: false, due: isoOffset(0), starred: true, subitems: [], completedAt: null },
-    { id: "f", text: "Friday-ish thing", done: false, due: isoOffset(3), starred: false, subitems: [], completedAt: null },
+    { id: "f", text: "Far thing", done: false, due: isoOffset(40), starred: false, subitems: [], completedAt: null },
     { id: "n", text: "Whenever", done: false, due: null, starred: false, subitems: [], completedAt: null },
   ]}});
   const titles = () => page.$$eval("#panel-home .todo-wrap .title", els => els.map(e => e.textContent.trim()));
   const today = await page.evaluate(() => ({
-    days: document.querySelectorAll(".home-day").length,
+    days: document.querySelectorAll(".home-week .home-day").length,
     secs: [...document.querySelectorAll(".home-sec")].map(e => e.textContent),
-    dots: document.querySelectorAll(".home-day")[0].querySelectorAll(".marks i").length,
+    dots: document.querySelector(".home-day.today").querySelectorAll(".marks i").length,
   }));
   check("seven days in the strip", today.days === 7, today.days);
   check("today shows Overdue, Today, Anytime", JSON.stringify(today.secs) === '["Overdue","Today","Anytime"]', today.secs);
   check("today's dots count overdue + due", today.dots === 3, today.dots);
   const t0 = await titles();
   check("starred floats to the top of Today", t0.indexOf("Starred today") < t0.indexOf("Today thing"), t0);
-  check("later items stay off today", !t0.includes("Friday-ish thing"), t0);
-  await page.click(".home-day >> nth=3");
-  const t3 = await titles();
-  check("picking a day shows its to-dos only", JSON.stringify(t3) === '["Friday-ish thing"]', t3);
+  check("later items stay off today", !t0.includes("Far thing"), t0);
+
+  // Swipes on the strip: down opens the month, sideways pages, up closes
+  const swipe = (dx, dy) => page.evaluate(([dx, dy]) => {
+    const el = document.querySelector(".home-cal"), r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + 40;
+    const t = (cx, cy) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: cy });
+    el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [t(x, y)], changedTouches: [t(x, y)] }));
+    el.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [t(x + dx, y + dy)], changedTouches: [t(x + dx, y + dy)] }));
+    el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], changedTouches: [t(x + dx, y + dy)] }));
+  }, [dx, dy]);
+  await swipe(0, 120);
+  const opened = await page.evaluate(() => ({
+    month: !!document.querySelector(".home-month"),
+    cells: document.querySelectorAll(".home-month .home-day:not(.blank)").length,
+    refreshing: document.getElementById("pull-indicator").classList.contains("refreshing"),
+  }));
+  check("swipe down opens the month", opened.month, opened);
+  check("month shows every day", opened.cells >= 28 && opened.cells <= 31, opened.cells);
+  check("swipe down on the calendar is not pull-to-refresh", !opened.refreshing);
+  const title0 = await page.textContent(".home-cal-title");
+  await swipe(-120, 0);
+  check("swipe left pages to the next month", (await page.textContent(".home-cal-title")) !== title0);
+  check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Home");
+  await swipe(0, -120);
+  check("swipe up closes back to the week", await page.evaluate(() => !document.querySelector(".home-month") && !!document.querySelector(".home-week")));
+
+  // Pick a date 40 days out from the month view
+  await page.click(".home-cal-grab");
+  const label = await page.evaluate(() => noonOf(addDaysIso(40)).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }));
+  for (let i = 0; i < 3 && !(await page.$(`.home-day[aria-label^="${label}:"]`)); i++) await page.click('.cal-nav[aria-label="Next month"]');
+  const cell = `.home-day[aria-label^="${label}:"]`;
+  check("far date has a dot", (await page.$$eval(`${cell} .marks i`, els => els.length)) === 1);
+  await page.click(cell);
+  check("picking a far date shows its to-dos", JSON.stringify(await titles()) === '["Far thing"]', await titles());
+  check("Today button appears away from today", !!(await page.$(".home-cal-today")));
   await page.click("#fab");
   const due = await page.evaluate(() => composerDue().due);
-  check("+ on a picked day presets that date", due === isoOffset(3), due);
+  check("+ on a picked day presets that date", due === isoOffset(40), due);
   await page.fill("#composer-text", "Planned add");
   await page.press("#composer-text", "Enter");
-  const added = await page.evaluate(() => todoList.find(t => t.text === "Planned add").due === addDaysIso(3));
+  const added = await page.evaluate(() => todoList.find(t => t.text === "Planned add").due === addDaysIso(40));
   check("added to-do lands on the picked day", added);
+  await page.evaluate(() => closeComposer());
+  await page.click(".home-cal-today");
+  check("Today button returns to today", (await titles()).includes("Today thing"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

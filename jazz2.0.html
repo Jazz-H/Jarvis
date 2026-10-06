@@ -156,13 +156,26 @@
   .glance-head h3{margin:0;}
 
   /* home: week strip + day agenda */
-  .home-week{display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; margin:0 0 14px;}
+  .home-cal{margin:-4px 0 12px; touch-action:none;}
+  .home-cal-head{display:flex; align-items:center; gap:2px; margin:0 -8px 2px 2px;}
+  .home-cal-title{flex:1; font-size:15px; font-weight:800;}
+  .home-cal-today{border:1px solid var(--line); background:none; color:var(--text); font:inherit; font-size:12px; font-weight:700; padding:5px 11px; border-radius:14px; margin-right:4px;}
+  .home-cal .cal-nav{width:38px; height:38px;}
+  .home-week, .home-month{display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;}
+  .home-month{gap:2px 4px;}
+  .home-cal.anim .home-week, .home-cal.anim .home-month{animation:homeCalIn .22s ease-out;}
+  @keyframes homeCalIn{from{opacity:0; transform:translateY(-8px);}}
   .home-day{
     display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; padding:8px 0 6px;
     border:none; border-radius:12px; background:none; color:var(--text-dim); font:inherit;
     font-size:10.5px; font-weight:700;
   }
   .home-day b{font-size:16px; font-weight:800; color:var(--text); line-height:1.1;}
+  .home-month .home-day{padding:6px 0 4px; gap:2px;}
+  .home-month .home-day b{font-size:14.5px; font-weight:700;}
+  .home-day.today:not(.on){box-shadow:inset 0 0 0 1px var(--line);}
+  .home-day.past:not(.on){opacity:.5;}
+  .home-day.blank{visibility:hidden;}
   .home-day.on{background:var(--olive); color:var(--on-accent);}
   .home-day.on b{color:var(--on-accent);}
   .home-day .marks{display:flex; align-items:center; gap:2px; height:9px;}
@@ -170,6 +183,8 @@
   .home-day .marks svg{width:9px; height:9px; color:var(--navy); stroke-width:2.6;}
   .home-day.on .marks i{background:var(--on-accent);}
   .home-day.on .marks svg{color:var(--on-accent);}
+  .home-cal-grab{display:flex; justify-content:center; width:100%; padding:8px 0 2px; border:none; background:none;}
+  .home-cal-grab span{width:36px; height:4px; border-radius:2px; background:var(--line);}
   .home-hero{display:flex; align-items:center; gap:14px; margin:0 2px 14px;}
   .home-hero h2{margin:0; font-size:22px; font-weight:800; letter-spacing:-.01em; line-height:1.2;}
   .home-hero .sub{color:var(--text-dim); font-size:13px; margin-top:3px;}
@@ -614,7 +629,7 @@
      interactive; gated on hover+fine-pointer so touch devices never get
      sticky-hover artifacts. */
   @media (hover:hover) and (pointer:fine){
-    .home-day:not(.on):hover, .coll-head:hover{background:var(--surface-2);}
+    .home-day:not(.on):not(.blank):hover, .home-cal-today:hover, .coll-head:hover{background:var(--surface-2);}
     .home-more:hover{text-decoration:underline;}
     .week-day-head:hover .week-day-name, .routine-step:hover .routine-text{color:var(--text);}
     .routine-step:not(.done):hover .box{border-color:var(--olive);}
@@ -1277,36 +1292,110 @@ function parseQuickAdd(raw){
   else due = nextWeekdayIso(DAY_ALIASES[w.slice(0,3)]);
   return {text:m[1].trim(), due};
 }
-// ---------- HOME: week strip + day agenda ----------
-// Home is a day planner: a 7-day strip (today first) picks the day and the list
-// below shows everything due that day. Today also carries Overdue and a short
-// Anytime peek. To-dos finished that day stay visible, struck through, so the
-// progress ring has something to show. The selected day is per-session only.
-let homeDay = 0; // days from today, 0–6
+// ---------- HOME: calendar strip + day agenda ----------
+// Home is a day planner. A Monday-first week strip picks the day; swiping it
+// sideways pages weeks, and swiping it down (or the chevron) opens the full
+// month, so any date can be picked. The list below shows everything due that
+// day; today also carries Overdue and a short Anytime peek. To-dos finished
+// that day stay visible, struck through, so the progress ring has something to
+// show. Selection is per-session only.
+let homeDate = null;     // selected "YYYY-MM-DD"; null means today
+let homeAnchor = null;   // a date inside the week/month on screen; null follows homeDate
+let homeCalOpen = false; // month view vs. week strip
+let homeCalAnim = false; // animate the next render (open/close only)
 const HOME_ANYTIME_MAX = 4;
-function selectHomeDay(n){
-  homeDay = n;
+function homeSelected(){ return homeDate || addDaysIso(0); }
+function selectHomeDate(iso){
+  homeDate = iso === addDaysIso(0) ? null : iso;
+  homeAnchor = null;
+  renderHomePanel();
+}
+function setHomeCalOpen(open){
+  if (open === homeCalOpen) return;
+  homeCalOpen = open;
+  homeAnchor = null; // reopen/close around the selected day
+  homeCalAnim = true;
+  renderHomePanel();
+}
+function shiftHomeCal(delta){
+  const d = noonOf(homeAnchor || homeSelected());
+  if (homeCalOpen){ d.setDate(1); d.setMonth(d.getMonth() + delta); }
+  else d.setDate(d.getDate() + 7 * delta);
+  homeAnchor = isoDate(d);
   renderHomePanel();
 }
 function completedOn(t, iso){ return t.done && !!t.completedAt && isoDate(new Date(t.completedAt)) === iso; }
 function starredFirst(list){ return [...list.filter(t => t.starred), ...list.filter(t => !t.starred)]; }
-function homeDayItems(n){
-  const iso = addDaysIso(n);
-  if (n > 0){
-    return {iso, overdue:[], anytime:[],
-      open:starredFirst(todoList.filter(t => !t.done && t.due === iso)),
-      done:todoList.filter(t => t.done && t.due === iso)};
-  }
+const byDue = (a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+function homeDayItems(iso){
+  const today = addDaysIso(0);
+  const open = starredFirst(todoList.filter(t => !t.done && t.due === iso));
+  if (iso > today) return {overdue:[], anytime:[], open, done:todoList.filter(t => t.done && t.due === iso)};
+  // A past day shows what was due then (still open) and what got done that day
+  if (iso < today) return {overdue:[], anytime:[], open, done:todoList.filter(t => completedOn(t, iso))};
   // Today's done list: anything ticked off today that wasn't scheduled for later
-  return {iso,
-    overdue:todoList.filter(t => !t.done && todoGroup(t) === "overdue").sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0),
-    open:starredFirst(todoList.filter(t => !t.done && t.due === iso)),
+  return {open,
+    overdue:todoList.filter(t => !t.done && todoGroup(t) === "overdue").sort(byDue),
     done:todoList.filter(t => completedOn(t, iso) && (!t.due || t.due <= iso)),
     anytime:starredFirst(todoList.filter(t => !t.done && !t.due))};
 }
-function homeOpenCount(n){
-  const d = homeDayItems(n);
-  return d.overdue.length + d.open.length;
+// Open to-dos per due date, for the calendar dots; today's count includes overdue
+function homeDueCounts(){
+  const today = addDaysIso(0), counts = {};
+  todoList.forEach(t => {
+    if (t.done || !t.due) return;
+    const key = t.due < today ? today : t.due;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+}
+function homeCalDayHtml(d, counts, monthView){
+  const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
+  const count = iso >= today ? (counts[iso] || 0) : 0;
+  const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
+  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : ""].filter(Boolean).join(" ");
+  const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
+  return `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${label}" onclick="selectHomeDate('${iso}')">
+      ${monthView ? "" : `<span class="dow">${iso === today ? "Today" : d.toLocaleDateString('en-US', {weekday:'short'})}</span>`}<b>${d.getDate()}</b>
+      <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${wash ? DROPLET_ICON : ""}</span>
+    </button>`;
+}
+function homeCalHtml(){
+  const counts = homeDueCounts();
+  const anchor = noonOf(homeAnchor || homeSelected());
+  const today = addDaysIso(0);
+  let body, period, showsToday;
+  if (homeCalOpen){
+    const first = new Date(anchor); first.setDate(1);
+    const lead = (first.getDay() + 6) % 7; // Monday-first, like the wash-day calendar
+    const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    body = ["M","T","W","T","F","S","S"].map(x => `<div class="cal-dow">${x}</div>`).join("");
+    for (let i = 0; i < lead; i++) body += `<div class="home-day blank"></div>`;
+    for (let n = 1; n <= days; n++) body += homeCalDayHtml(new Date(first.getFullYear(), first.getMonth(), n, 12), counts, true);
+    body = `<div class="home-month">${body}</div>`;
+    period = first;
+    showsToday = today.slice(0, 7) === isoDate(first).slice(0, 7);
+  } else {
+    const start = new Date(anchor); start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+    body = "";
+    for (let n = 0; n < 7; n++){ const d = new Date(start); d.setDate(start.getDate() + n); body += homeCalDayHtml(d, counts, false); }
+    body = `<div class="home-week">${body}</div>`;
+    period = anchor;
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    showsToday = isoDate(start) <= today && today <= isoDate(end);
+  }
+  const yearOpt = period.getFullYear() === new Date().getFullYear() ? {month:'long'} : {month:'long', year:'numeric'};
+  const back = !showsToday || homeSelected() !== today;
+  return `<div class="home-cal ${homeCalOpen ? "open" : ""} ${homeCalAnim ? "anim" : ""}">
+      <div class="home-cal-head">
+        <span class="home-cal-title">${period.toLocaleDateString('en-US', yearOpt)}</span>
+        ${back ? `<button class="home-cal-today" onclick="selectHomeDate('${today}')">Today</button>` : ""}
+        <button class="cal-nav" onclick="shiftHomeCal(-1)" aria-label="Previous ${homeCalOpen ? "month" : "week"}">‹</button>
+        <button class="cal-nav" onclick="shiftHomeCal(1)" aria-label="Next ${homeCalOpen ? "month" : "week"}">›</button>
+      </div>
+      ${body}
+      <button class="home-cal-grab" onclick="setHomeCalOpen(${!homeCalOpen})" aria-expanded="${homeCalOpen}" aria-label="${homeCalOpen ? "Show week" : "Show month"}"><span></span></button>
+    </div>`;
 }
 function homeRowHtml(t, meta = []){
   const subs = t.subitems || [];
@@ -1435,44 +1524,40 @@ function renderTodoPanel(){
 }
 function renderHomePanel(){
   const el = document.getElementById("panel-home");
-  if (homeDay < 0 || homeDay > 6) homeDay = 0;
-  const day = homeDayItems(homeDay);
-  const date = noonOf(day.iso);
-
-  let strip = `<div class="home-week" role="group" aria-label="Pick a day">`;
-  for (let n = 0; n < 7; n++){
-    const d = noonOf(addDaysIso(n));
-    const count = homeOpenCount(n);
-    const wash = isWashDate(d) && skinRoutine.washPm.length > 0;
-    const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
-    strip += `<button class="home-day ${n === homeDay ? 'on' : ''}" aria-pressed="${n === homeDay}" aria-label="${label}" onclick="selectHomeDay(${n})">
-        <span class="dow">${n === 0 ? "Today" : d.toLocaleDateString('en-US', {weekday:'short'})}</span><b>${d.getDate()}</b>
-        <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${wash ? DROPLET_ICON : ""}</span>
-      </button>`;
-  }
-  strip += `</div>`;
+  const iso = homeSelected(), today = addDaysIso(0);
+  const day = homeDayItems(iso);
+  const date = noonOf(iso);
+  const strip = homeCalHtml();
+  homeCalAnim = false;
 
   const total = day.overdue.length + day.open.length + day.done.length;
   const left = total - day.done.length;
   let sub;
-  if (homeDay === 0){
+  if (iso === today){
     sub = left ? `${left} left today` : total ? "All done for today" : "Nothing due today";
     const streak = routineStreak();
     if (streak) sub += ` · ${streak}-day routine streak`;
+  } else if (iso < today){
+    sub = [day.done.length ? `${day.done.length} done` : "", left ? `${left} still open` : ""].filter(Boolean).join(" · ") || "Nothing recorded";
   } else {
-    sub = (homeDay === 1 ? "Tomorrow · " : "") + (left ? `${left} to-do${left === 1 ? "" : "s"}` : total ? "All done" : "Nothing planned");
+    sub = (iso === addDaysIso(1) ? "Tomorrow · " : "") + (left ? `${left} to-do${left === 1 ? "" : "s"}` : total ? "All done" : "Nothing planned");
   }
+  const dateOpt = date.getFullYear() === new Date().getFullYear() ? {weekday:'long', month:'short', day:'numeric'} : {weekday:'short', month:'short', day:'numeric', year:'numeric'};
   const hero = `<div class="home-hero">
       ${homeRingHtml(day.done.length, total)}
-      <div><h2>${date.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}</h2><div class="sub">${sub}</div></div>
+      <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div></div>
     </div>`;
 
   const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join(""), "overdue");
-  const dayRows = day.open.map(t => homeRowHtml(t)).join("") + day.done.map(t => homeRowHtml(t)).join("");
-  const dayName = homeDay === 0 ? "Today" : homeDay === 1 ? "Tomorrow" : WEEKDAYS[date.getDay()];
+  const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
+  const dayRows = day.open.map(t => homeRowHtml(t, pastOpen)).join("") + day.done.map(t => homeRowHtml(t)).join("");
+  const dayName = escapeHtml(dueLabel(iso));
+  const emptyText = iso === today ? "Nothing due today — tap + to add one."
+    : iso < today ? "Nothing was due or done this day."
+    : `Nothing planned — tap + to add one for ${dayName}.`;
   list += dayRows ? section(dayName, dayRows)
-    : `<div class="home-sec">${dayName}</div><div class="card home-list"><div class="empty">Nothing ${homeDay === 0 ? "due today" : "planned"} — tap + to add one${homeDay === 0 ? "" : ` for ${dayName}`}.</div></div>`;
+    : `<div class="home-sec">${dayName}</div><div class="card home-list"><div class="empty">${emptyText}</div></div>`;
   if (day.anytime.length){
     const more = day.anytime.length - HOME_ANYTIME_MAX;
     list += section("Anytime", day.anytime.slice(0, HOME_ANYTIME_MAX).map(t => homeRowHtml(t)).join("")
@@ -1483,6 +1568,25 @@ function renderHomePanel(){
 
   el.innerHTML = strip + hero + list;
 }
+// The calendar strip's own gestures: down opens the month, up closes it, and
+// sideways pages weeks (or months). Touches that start on it are left out of
+// tab swiping and pull-to-refresh.
+(function(){
+  const panel = document.getElementById("panel-home");
+  let sx = 0, sy = 0, on = false;
+  panel.addEventListener("touchstart", e => {
+    on = !!e.target.closest(".home-cal");
+    if (on){ sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+  }, {passive:true});
+  panel.addEventListener("touchmove", e => { if (on) e.preventDefault(); }, {passive:false});
+  panel.addEventListener("touchend", e => {
+    if (!on) return;
+    on = false;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dy) > 35 && Math.abs(dy) > Math.abs(dx)) setHomeCalOpen(dy > 0);
+    else if (Math.abs(dx) > 45) shiftHomeCal(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
 // ---------- COMPOSER (the floating + button's sheet) ----------
 // One bottom sheet for adding things, in a mode picked by the current tab:
 // to-dos (Home, To-Do), shopping items (Shopping), wardrobe items (Wardrobe).
@@ -1506,8 +1610,8 @@ function fabMode(){ return FAB_MODE_BY_TAB[currentTab] || "todo"; }
 function composerFresh(mode, added, prev){
   const base = {mode, added, ignoreParse:false, showMore:false};
   if (mode === "todo"){
-    // On Home with a later day picked in the week strip, new to-dos land on that day
-    const preset = currentTab === "home" && homeDay > 0 ? addDaysIso(homeDay) : null;
+    // On Home with a later day picked in the calendar, new to-dos land on that day
+    const preset = currentTab === "home" && homeSelected() > addDaysIso(0) ? homeSelected() : null;
     return {...base, date:preset, manual:!!preset, star:false};
   }
   if (mode === "shop"){
@@ -2555,7 +2659,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   const mainEl = document.querySelector("main");
   let startX = 0, startY = 0, tracking = false;
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle, .sub-drag-handle")){ tracking = false; return; }
+    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal")){ tracking = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;
@@ -2585,7 +2689,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   let startY = 0, pulling = false, dragging = false;
 
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle, .sub-drag-handle")){ pulling = false; dragging = false; return; }
+    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal")){ pulling = false; dragging = false; return; }
     pulling = mainEl.scrollTop <= 0;
     dragging = false;
     startY = e.touches[0].clientY;
