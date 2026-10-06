@@ -16,8 +16,8 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 Tapping a card opens its tab.
 
 **To-Do** is the full list.
-- **Adding.** Tap the floating **+** button (on Home and To-Do). The **New to-do** form
-  opens with the keyboard up:
+- **Adding.** Tap the floating **+** button (on Home and To-Do; see *Adding things* below).
+  The **New to-do** form opens with the keyboard up:
   - **Text box:** a trailing day word sets the date ("dentist fri"), lighting up its pill;
     tap that pill to keep the words as plain text instead.
   - **Pills:** Today, Tomorrow, This weekend, Pick date (native date picker), Star, and
@@ -66,6 +66,7 @@ clothes, moto gear, and everything else.
 - **Need or want.** Every item carries a **Need** or **Want** tag. Unless set in its form,
   wardrobe items count as needs and everything else as wants. Needs sort ahead of wants,
   after high-priority items.
+- **Adding.** The **+** button opens the New item sheet (see *Adding things*).
 - **Filtering.** All / Needs / Wants / Wardrobe / Moto chips narrow the list. They sit
   in one row that scrolls sideways (no scrollbar; on phones it runs to the screen edges
   with a fade on the right), and the selected chip stays in view. Quick-adding under
@@ -77,8 +78,22 @@ clothes, moto gear, and everything else.
   the closet; un-buying takes it back out.
 - **Priority.** High-priority items get a badge and sort first.
 
+**Adding things.** A floating **+** button on Home, To-Do, Shopping, and Wardrobe opens one
+shared bottom sheet whose fields fit the tab:
+- **To-do** (Home, To-Do): described under To-Do above.
+- **Shopping → New item:** a trailing price in the text sets it ("helmet $250", tap the
+  price pill to keep it as text), plus Need / Want, General / Moto / Wardrobe (with a
+  Tops, Bottoms… row), High priority, and Details (notes, price, link). New items start in
+  whatever the filter is showing, and the category sticks between adds for batches.
+- **Wardrobe → Add to wardrobe:** In closet or To buy (which lands on Shopping), a category
+  row, Fit pending, and Notes.
+
+Every mode adds several in a row: Enter saves and clears, and the header counts the adds.
+Skin & Hair has no + because adding routine steps is a rare edit there.
+
 **Editing.** Each editable card has its own **Edit** chip. With it on, rows become tappable
-to edit or delete, and "+ Add …" rows appear. Edit forms are a bottom sheet on phones and
+to edit or delete, and "+ Add …" rows appear for rules, sizes, sub-items, and routine steps
+(new to-dos, shopping items, and closet items come from the + button). Edit forms are a bottom sheet on phones and
 a centered dialog on desktop. Esc closes them, Enter saves, and Delete always confirms first.
 
 **Navigation.**
@@ -131,10 +146,11 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (88 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (100 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
-- the new-to-do form (date pills, typed dates, star, sub-items, adding several in a row);
+- the + sheet in all three modes (to-do dates and sub-items, shopping price/category/details,
+  wardrobe closet vs. to-buy, batches, per-tab button);
 - to-do date parsing, migration, and undo;
 - drag between date groups;
 - quiet 7-day archiving;
