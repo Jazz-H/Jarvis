@@ -471,13 +471,55 @@ await section("composer: wardrobe items go to the closet or the shopping list", 
   await ctx.close();
 });
 
-await section("home: to-do summary completes in place", async () => {
+await section("home: day agenda completes in place", async () => {
   const { ctx, page } = await openApp({ seed: { "todo-content": [
     { id: "a", text: "Due today", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
   ]}});
-  await page.tap(".todo-glance .todo-check");
+  await page.tap("#panel-home .todo-check");
   check("completed from Home", await page.evaluate(() => todoList[0].done));
   check("still on Home", (await page.textContent("#headline")) === "Home");
+  const r = await page.evaluate(() => ({
+    struck: !!document.querySelector("#panel-home .item.checked"),
+    ring: document.querySelector(".home-ring").getAttribute("aria-label"),
+    sub: document.querySelector(".home-hero .sub").textContent,
+  }));
+  check("done today stays visible, struck through", r.struck);
+  check("progress ring counts it", r.ring === "1 of 1 done", r.ring);
+  check("hero says all done", r.sub.startsWith("All done for today"), r.sub);
+  await ctx.close();
+});
+
+await section("home: week strip picks a day", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "o", text: "Late thing", done: false, due: isoOffset(-2), starred: false, subitems: [], completedAt: null },
+    { id: "t", text: "Today thing", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "s", text: "Starred today", done: false, due: isoOffset(0), starred: true, subitems: [], completedAt: null },
+    { id: "f", text: "Friday-ish thing", done: false, due: isoOffset(3), starred: false, subitems: [], completedAt: null },
+    { id: "n", text: "Whenever", done: false, due: null, starred: false, subitems: [], completedAt: null },
+  ]}});
+  const titles = () => page.$$eval("#panel-home .todo-wrap .title", els => els.map(e => e.textContent.trim()));
+  const today = await page.evaluate(() => ({
+    days: document.querySelectorAll(".home-day").length,
+    secs: [...document.querySelectorAll(".home-sec")].map(e => e.textContent),
+    dots: document.querySelectorAll(".home-day")[0].querySelectorAll(".marks i").length,
+  }));
+  check("seven days in the strip", today.days === 7, today.days);
+  check("today shows Overdue, Today, Anytime", JSON.stringify(today.secs) === '["Overdue","Today","Anytime"]', today.secs);
+  check("today's dots count overdue + due", today.dots === 3, today.dots);
+  const t0 = await titles();
+  check("starred floats to the top of Today", t0.indexOf("Starred today") < t0.indexOf("Today thing"), t0);
+  check("later items stay off today", !t0.includes("Friday-ish thing"), t0);
+  await page.click(".home-day >> nth=3");
+  const t3 = await titles();
+  check("picking a day shows its to-dos only", JSON.stringify(t3) === '["Friday-ish thing"]', t3);
+  await page.click("#fab");
+  const due = await page.evaluate(() => composerDue().due);
+  check("+ on a picked day presets that date", due === isoOffset(3), due);
+  await page.fill("#composer-text", "Planned add");
+  await page.press("#composer-text", "Enter");
+  const added = await page.evaluate(() => todoList.find(t => t.text === "Planned add").due === addDaysIso(3));
+  check("added to-do lands on the picked day", added);
+  check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
 
