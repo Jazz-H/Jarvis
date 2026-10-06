@@ -97,7 +97,9 @@ clothes, moto gear, and everything else.
 - **Income:** a paycheck source repeats from a payday (every 2 weeks by default). Each
   payday has a plan: lines that spend it down (a share of bills, a card payment, fun
   money) and what's **Remaining**. A hint offers the bills due before the next payday as a
-  one-tap line. Tap a payday to set that check's actual amount.
+  one-tap line. Tap a payday to set that check's actual amount. **Import from sheet**
+  (under Income) takes pasted paycheck breakdowns: each block starts with its "Paycheck"
+  row, Remaining rows are skipped, and blocks fill the month's paydays in order.
 - **Savings:** goals with a target and amount saved (e.g. house savings @ $5,000).
 - **Spending:** expenses logged against monthly category limits (Groceries, Dining out, Gas,
   Fun, Other by default; the Edit chip adds, renames, re-limits, or deletes them). Tap a

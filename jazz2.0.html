@@ -260,6 +260,7 @@
   .acct-pill.big{border:none; font:inherit; font-size:12.5px; font-weight:700; padding:6px 10px; border-radius:10px; margin:0 6px 6px 0;}
   .acct-pill.big svg{width:11px; height:11px;}
   .acct-add{border:1px dashed var(--line); background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700; padding:5px 10px; border-radius:10px; margin:0 0 6px;}
+  .income-srcs .acct-add + .acct-add{margin-left:6px;}
   .acct-editor{padding-bottom:6px; border-bottom:1px solid var(--line); margin-bottom:6px;}
   .acct-editor .budget-sub{margin-bottom:8px;}
   .income-srcs{margin-top:10px;}
@@ -3340,6 +3341,54 @@ function parseBillRows(text){
   });
   return out;
 }
+// Paycheck plans pasted from a spreadsheet: a "Paycheck  $1,345.67" row starts
+// each payday's block, the rows under it are its lines, and Remaining/Total rows
+// are skipped (the app works those out). Blocks fill this month's paydays in order.
+function parsePlanBlocks(text){
+  const blocks = [];
+  String(text || "").split(/\r?\n/).forEach(line => {
+    if (!line.trim()) return;
+    let name, amountText;
+    if (line.includes("\t")){
+      const cells = line.split("\t").map(c => c.trim()).filter(Boolean);
+      const i = cells.findIndex(c => /^-?\$?\s*[\d,]+(\.\d{1,2})?$/.test(c));
+      amountText = i >= 0 ? cells.splice(i, 1)[0] : "";
+      name = cells.join(" ");
+    } else {
+      const m = line.trim().match(/^(.*?)\s*(\$?\s*[\d,]+(?:\.\d{1,2})?)?$/);
+      name = m[1]; amountText = m[2] || "";
+    }
+    name = (name || "").trim();
+    const amount = amountText ? Number(amountText.replace(/[$,\s]/g, "")) : null;
+    if (!name || /^(remaining|total|income)\b/i.test(name)) return;
+    if (/^paycheck\b/i.test(name)){ blocks.push({amount, lines:[]}); return; }
+    if (!blocks.length) blocks.push({amount:null, lines:[]});
+    blocks[blocks.length - 1].lines.push({name:name.slice(0, 80), amount:amount != null && isFinite(amount) ? Math.max(0, amount) : 0});
+  });
+  return blocks.filter(b => b.lines.length || b.amount != null);
+}
+function importPlans(){
+  const pays = incomeInMonth(budgetMonthKey());
+  if (!pays.length){ showToast(budget.income.length ? "No paydays this month" : "Add your paycheck under Income first", true); return; }
+  openModal("Import paycheck plans", [
+    {type:"note", label:"Copy your paycheck breakdowns from your sheet (each block starting with its <b>Paycheck</b> row) and paste them here. Blocks fill this month's paydays in order; a block's Paycheck amount sets that payday's amount."},
+    {key:"rows", label:"Rows", type:"textarea"},
+    {key:"replace", label:"Replace lines already on those paydays", type:"checkbox"},
+  ], {replace:true},
+    v => {
+      const blocks = parsePlanBlocks(v.rows);
+      if (!blocks.length){ showToast("Nothing found — paste rows with a name and an amount", true); return; }
+      blocks.slice(0, pays.length).forEach((b, i) => {
+        const p = pays[i], plan = planFor(p.key);
+        if (b.amount != null && isFinite(b.amount)){ if (b.amount !== p.src.amount) plan.amount = Math.max(0, b.amount); else delete plan.amount; }
+        const lines = b.lines.map(l => ({id:genId("line"), ...l}));
+        plan.lines = v.replace ? lines : [...plan.lines, ...lines];
+      });
+      saveBudgetData();
+      const n = Math.min(blocks.length, pays.length);
+      showToast(`Filled ${n} payday${n === 1 ? "" : "s"}` + (blocks.length > pays.length ? ` · ${blocks.length - pays.length} extra block${blocks.length - pays.length === 1 ? "" : "s"} skipped` : ""));
+    });
+}
 function importBills(){
   openModal("Import bills", [
     {type:"note", label:"Copy the rows from your sheet (card/bank, date, expense, amount) and paste them here. Each becomes a monthly bill due that day."},
@@ -3445,7 +3494,7 @@ function renderBudget(){
   if (paychecks.length) incBody += `<div class="budget-total"><span>${shortMonth} income</span><b>${money(incomeTotal)}</b></div>
     <div class="budget-total"><span>Remaining after plans</span><b class="${incomeTotal - plannedTotal < 0 ? "over" : ""}">${money(incomeTotal - plannedTotal)}</b></div>`;
   const srcs = budget.income.map(x => `<button class="acct-pill big" style="--acct:var(--olive)" onclick="editIncome('${x.id}')">${escapeHtml(x.name)} · ${moneyShort(x.amount)} · ${escapeHtml((BILL_REPEATS[x.repeat] || {}).label || "")}${PENCIL_ICON}</button>`).join("");
-  incBody += `<div class="income-srcs">${srcs}<button class="acct-add" onclick="addIncome()">+ Add income</button></div>`;
+  incBody += `<div class="income-srcs">${srcs}<button class="acct-add" onclick="addIncome()">+ Add income</button>${paychecks.length ? `<button class="acct-add" onclick="importPlans()">Import from sheet</button>` : ""}</div>`;
   html += collapsibleCard({id:"income-card", title:"Income", editable:false, insight:paychecks.length ? `${moneyShort(incomeTotal)} · ${paychecks.length} payday${paychecks.length === 1 ? "" : "s"}` : "None", body:incBody});
 
   // Savings goals
