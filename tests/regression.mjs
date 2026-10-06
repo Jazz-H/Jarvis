@@ -61,7 +61,7 @@ async function section(name, fn) {
 await section("every tab renders without JS errors (phone + desktop)", async () => {
   for (const phone of [true, false]) {
     const { ctx, page, errors } = await openApp({ phone });
-    for (const tab of ["home", "todo", "skin", "style", "wants", "budget"]) {
+    for (const tab of ["home", "todo", "skin", "wants", "budget"]) {
       await page.evaluate(t => activateTab(t), tab);
       check(`headline for ${tab}`, (await page.textContent("#headline")).length > 0);
     }
@@ -281,7 +281,7 @@ await section("shopping: page name and Moto category", async () => {
   await ctx.close();
 });
 
-await section("wardrobe: needs move onto Wants, belt merges, buy puts it in the closet", async () => {
+await section("wardrobe: needs move onto Wants, belt merges", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "style-state": { "tee-plum": "needed", "need-oxford": "owned" } } });
   const s = await page.evaluate(() => ({
     capsuleNeeded: capsule.filter(i => i.state === "needed").length,
@@ -298,9 +298,7 @@ await section("wardrobe: needs move onto Wants, belt merges, buy puts it in the 
   await page.reload(); await page.waitForTimeout(500);
   check("migration is idempotent", (await page.evaluate(() => JSON.stringify([capsule, wantsList]))) === s.snapshot);
   await page.evaluate(() => toggleWant("w-need-blazer"));
-  check("bought wardrobe item is in the closet", await page.evaluate(() => closetItems().some(c => c.title === "Structured blazer")));
-  await page.evaluate(() => toggleWant("w-need-blazer"));
-  check("un-buying removes it", await page.evaluate(() => !closetItems().some(c => c.title === "Structured blazer")));
+  check("a wardrobe item can be marked bought", await page.evaluate(() => wantsState["w-need-blazer"] === true));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -386,8 +384,8 @@ await section("security: a malicious backup cannot run script", async () => {
       "capsule-content": [{ id: "c1", title: evil, sub: evil, cat: evil, state: "owned", link: "javascript:window.__pwned++" }],
       "todo-content": [{ id: evilId, text: evil, done: false, due: null, starred: false, subitems: [{ id: evilId, text: evil, done: false }], completedAt: null }],
     }});
-    openPinned.add("rules-skin"); openPinned.add("rules-style"); openPinned.add("sizes-card"); expandedTodos.add(todoList[0].id);
-    renderSkin(); renderStyle(); renderWants(); renderHome();
+    openPinned.add("rules-skin"); expandedTodos.add(todoList[0].id);
+    renderSkin(); renderWants(); renderHome();
     await new Promise(r => setTimeout(r, 300));
     document.querySelectorAll("[onclick]").forEach(el => { if (el.getAttribute("onclick").includes("pwned")) el.click(); });
     return {
@@ -407,8 +405,8 @@ await section("composer: + on Home, hidden elsewhere, launch shortcut opens it",
   check("+ shows on Home", await page.isVisible("#fab"));
   await page.evaluate(() => activateTab("skin"));
   check("+ hidden on Skin & Hair", !(await page.isVisible("#fab")));
-  const labels = await page.evaluate(() => ["home", "todo", "wants", "style"].map(t => { activateTab(t); return document.getElementById("fab").getAttribute("aria-label"); }));
-  check("+ is labeled for each tab", labels.join("|") === "Add a to-do|Add a to-do|Add to shopping list|Add to wardrobe", labels);
+  const labels = await page.evaluate(() => ["home", "todo", "wants", "budget"].map(t => { activateTab(t); return document.getElementById("fab").getAttribute("aria-label"); }));
+  check("+ is labeled for each tab", labels.join("|") === "Add a to-do|Add a to-do|Add to shopping list|Add spending or a bill", labels);
   await page.evaluate(() => activateTab("home"));
   await page.tap("#fab");
   await page.fill("#composer-text", "From home");
@@ -448,33 +446,6 @@ await section("composer: shopping items (price, category, details, batches)", as
   check("dismissed price, wardrobe category, high priority", shirt.name === "Shirt $20" && shirt.price === null && shirt.wardrobeCat === "Tops" && shirt.priority === "high" && shirt.effKind === "need", shirt);
   check("counter", (await page.textContent("#composer-count")) === "3 added", await page.textContent("#composer-count"));
   check("price and link clear after each add", (await page.inputValue("#cx-price")) === "" && (await page.inputValue("#cx-link")) === "");
-  check("no JS errors", errors.length === 0, errors);
-  await ctx.close();
-});
-
-await section("composer: wardrobe items go to the closet or the shopping list", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=style" });
-  await page.tap("#fab");
-  check("+ opens Add to wardrobe", (await page.textContent("#composer-heading")) === "Add to wardrobe");
-  check("no price/link for closet items", !(await page.isVisible("#cx-price")));
-  await page.fill("#composer-text", "Black crewneck");
-  await page.click("#composer-chips .filter-chip >> text=Fit pending");
-  await page.press("#composer-text", "Enter");
-  await page.fill("#composer-text", "Chelsea boots");
-  await page.click("#composer-chips .filter-chip >> text=To buy");
-  await page.click("#composer-chips2 .filter-chip >> text=Shoes");
-  check("To buy shows price and link", (await page.isVisible("#cx-price")) && (await page.isVisible("#cx-link")));
-  await page.fill("#cx-price", "180");
-  await page.fill("#cx-link", "https://example.com/boots");
-  await page.press("#composer-text", "Enter");
-  const r = await page.evaluate(() => ({
-    closet: capsule.find(i => i.title === "Black crewneck"),
-    want: wantsList.find(w => w.name === "Chelsea boots"),
-    shownInCloset: [...document.querySelectorAll("#cap-owned .title")].some(t => t.textContent.startsWith("Black crewneck")),
-  }));
-  check("In closet adds an owned item (fit pending)", r.closet && r.closet.cat === "Tops" && r.closet.state === "pending" && r.shownInCloset, r.closet);
-  check("To buy adds a wardrobe item to Shopping", r.want && r.want.wardrobeCat === "Shoes", r.want);
-  check("To buy saves price and link", r.want && r.want.price === 180 && r.want.link === "https://example.com/boots", r.want);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -712,7 +683,7 @@ await section("to-do: recurring to-dos", async () => {
   await ctx.close();
 });
 
-await section("budget: tab, closet inside Shopping, spending, bills", async () => {
+await section("budget: tab, old closet links, spending, bills", async () => {
   const { ctx, page, errors } = await openApp({ seed: {
     "bills-content": [{ id: "<bad>", name: "Junk", amount: "abc", due: "nope", repeat: "hourly", autopay: 1, link: "javascript:alert(1)" }],
   }});
@@ -722,15 +693,11 @@ await section("budget: tab, closet inside Shopping, spending, bills", async () =
   check("bad bill data is coerced", /^bill-/.test(junk.id) && junk.amount === 0 && junk.repeat === "monthly" && /^\d{4}-/.test(junk.due), junk);
   await page.evaluate(() => { bills = []; saveBudgetData(); });
 
-  // Closet now lives behind Shopping's switch
-  await page.evaluate(() => activateTab("wants"));
-  await page.click("#panel-wants .seg-switch >> text=Closet");
-  const closet = await page.evaluate(() => ({ panel: document.getElementById("panel-style").classList.contains("active"),
-    nav: document.querySelector("nav.tabbar button.active").dataset.tab, head: document.getElementById("headline").textContent,
-    fab: document.getElementById("fab").getAttribute("aria-label") }));
-  check("Closet view: Shopping stays highlighted, + adds to wardrobe", closet.panel && closet.nav === "wants" && closet.head === "Shopping" && closet.fab === "Add to wardrobe", closet);
-  await page.click("#panel-style .seg-switch >> text=To buy");
-  check("To buy goes back to the list", await page.evaluate(() => document.getElementById("panel-wants").classList.contains("active")));
+  // The closet view is gone: old links to it open Shopping
+  await page.evaluate(() => activateTab("style"));
+  const old = await page.evaluate(() => ({ panel: document.getElementById("panel-wants").classList.contains("active"),
+    nav: document.querySelector("nav.tabbar button.active").dataset.tab, closet: !!document.getElementById("panel-style") }));
+  check("old closet links land on Shopping", old.panel && old.nav === "wants" && !old.closet, old);
 
   // Spending
   await page.evaluate(() => activateTab("budget"));
@@ -1102,14 +1069,7 @@ await section("budget: fixes from the review", async () => {
 });
 
 await section("shopping + backup: review fixes", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=style" });
-  await page.tap("#fab");
-  await page.click("#composer-chips .filter-chip >> text=To buy");
-  await page.fill("#composer-text", "Black jeans $80");
-  await page.press("#composer-text", "Enter");
-  check("closet 'To buy' splits the price from the name", await page.evaluate(() => wantsList.some(w => w.name === "Black jeans" && w.price === 80)));
-  check("closet composer offers Other", await page.evaluate(() => [...document.querySelectorAll("#composer-chips2 .filter-chip")].some(c => c.textContent === "Other")));
-  await page.evaluate(() => closeComposer());
+  const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
   // deleting by id never removes a different item when the id is already gone
   const kept = await page.evaluate(() => { const n = wantsList.length; editWant(wantsList[0].id); wantsList = wantsList.slice(1); modalDelete(); return wantsList.length === n - 1; });
   check("delete of an already-gone item removes nothing else", kept);

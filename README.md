@@ -2,7 +2,8 @@
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
 docs) into one place with five tabs: **Home, To-Do, Shopping, Budget, Skin & Hair.**
-The wardrobe (closet, sizes, fit rules) lives inside Shopping, behind its **To buy | Closet** switch.
+Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
+was removed; its data is still loaded, synced and backed up, just not shown.)
 
 Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main`).
 
@@ -56,13 +57,6 @@ On wash days, the wash-day PM routine replaces the regular PM routine. The sched
 stored on the routine as `wash: {anchor, everyDays}`. Routines saved before it was editable
 fall back to the original cadence: every 2 weeks from Thu Jul 16 2026.
 
-**Closet** (Shopping → Closet; the `style` panel in code) is the wardrobe.
-- **Wardrobe built:** progress, counting closet items against wardrobe items still to buy.
-- **Shopping link:** "N wardrobe items to buy · Shopping list →" opens Wants filtered to
-  Wardrobe.
-- **In closet:** grouped by category, with "fit pending" badges.
-- **Reference cards:** Fit rules and the Sizing grid.
-
 **Shopping** (the `wants` tab in code; renamed from "Wants") is the single shopping list:
 clothes, moto gear, and everything else.
 - **Need or want.** Every item carries a **Need** or **Want** tag. Unless set in its form,
@@ -76,8 +70,7 @@ clothes, moto gear, and everything else.
 - **Categories.** Each item's form has a Category select: General, **Moto** (motorcycle
   gear, `moto: true`, shown with a "Moto" tag), or a wardrobe category (`wardrobeCat`,
   shown as "Wardrobe · Tops"). They're mutually exclusive.
-- **Buying.** Mark bought moves the item to Purchased. A bought wardrobe item also appears in
-  the closet; un-buying takes it back out.
+- **Buying.** Mark bought moves the item to Purchased; tap Purchased to undo.
 - **Priority.** High-priority items get a badge and sort first.
 
 **Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
@@ -108,15 +101,13 @@ clothes, moto gear, and everything else.
 - **Spending** by category stays tucked away until something's logged (or Show ›).
 - Payments and expenses older than about 13 months are pruned automatically.
 
-**Adding things.** A floating **+** button on Home, To-Do, Shopping, Closet, and Budget opens one
+**Adding things.** A floating **+** button on Home, To-Do, Shopping, and Budget opens one
 shared bottom sheet whose fields fit the tab:
 - **To-do** (Home, To-Do): described under To-Do above.
 - **Shopping → New item:** a trailing price in the text sets it ("helmet $250", tap the
   price pill to keep it as text), plus Need / Want, General / Moto / Wardrobe (with a
   Tops, Bottoms… row), High priority, and Details (notes, price, link). New items start in
   whatever the filter is showing, and the category sticks between adds for batches.
-- **Closet → Add to wardrobe:** In closet or To buy (which lands on Shopping), a category
-  row, Fit pending, and Notes.
 - **Budget → Add to budget:** Expense or Bill. A trailing amount in the text sets it
   ("groceries $54") or use the Amount box. Expenses take a date (Today, Yesterday, Pick date)
   and a category; bills take a due date, a repeat, Autopay, and a pay link.
@@ -126,7 +117,7 @@ Skin & Hair has no + because adding routine steps is a rare edit there.
 
 **Editing.** Each editable card has its own **Edit** chip. With it on, rows become tappable
 to edit or delete, and "+ Add …" rows appear for rules, sizes, sub-items, and routine steps
-(new to-dos, shopping items, and closet items come from the + button). Edit forms are a bottom sheet on phones and
+(new to-dos, shopping items, and budget entries come from the + button). Edit forms are a bottom sheet on phones and
 a centered dialog on desktop. Esc closes them and Enter saves. **Delete** happens right away
 with a 5-second **Undo** (it restores a snapshot of every list, so linked data comes back too);
 only turning sync off still asks first.
@@ -181,17 +172,17 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (255 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (242 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
-  details; closet vs. to-buy; budget expenses, bills and goals; batches; per-tab button);
+  details; budget expenses, bills and goals; batches; per-tab button);
 - to-do date parsing, migration, undo, recurring to-dos, and drag between date groups;
 - Home's calendar strip, day agenda, and the Wash hair row;
 - quiet 7-day archiving;
 - routine equivalence with the legacy per-day data over 28 dates, check-offs, streaks,
   collapsible bands, and the wash-day calendar;
-- Shopping (need/want, Moto, filters) and the closet (buy-to-closet, migration);
+- Shopping (need/want, Moto, filters) and the old wardrobe → shopping migration;
 - Budget: pay periods, bills (pay/undo, variable amounts, shares, card totals, import),
   paycheck plans (import, copy forward), goals, spending;
 - month-end date math, midnight rollover, and malformed-data robustness;
@@ -230,8 +221,8 @@ Everything lives in `localStorage` on the device:
 | `todo-archive-content` | Completed to-dos older than 7 days (newest 200) |
 | `skin-routine-content` | `{am, pm, washPm, wash?: {anchor, everyDays}}`; steps are `{id, label, product, note?, days?}`, where `days` uses weekday numbers and 0 = Sun |
 | `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about a year kept |
-| `skin-rules-content`, `style-rules-content`, `sizes-content` | Reference lists |
-| `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
+| `skin-rules-content` | Skin & Hair key rules |
+| `style-rules-content`, `sizes-content`, `capsule-content` | From the removed closet view (fit rules, sizes, owned clothes). Kept, synced and backed up so nothing is lost; not shown |
 | `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
 | `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |

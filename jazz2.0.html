@@ -117,8 +117,6 @@
   .rule:before{content:"·"; position:absolute; left:0; color:var(--olive); font-weight:900;}
   .rule:last-child{margin-bottom:0;}
 
-  .sizegrid{display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; font-size:13px;}
-  .sizegrid div span{display:block; color:var(--text-dim); font-size:11px; text-transform:uppercase; letter-spacing:.05em; margin-bottom:1px;}
 
   .band{padding:12px 16px;}
   .band.am{border-left:3px solid var(--gold);}
@@ -211,10 +209,6 @@
   .home-more{display:block; border:none; background:none; padding:10px 0 6px; color:var(--link); font:inherit; font-size:12.5px; font-weight:700;}
   .home-all{margin:6px 2px 0;}
 
-  /* shopping: To buy | Closet switch */
-  .seg-switch{display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; margin:0 0 12px; background:var(--surface); border:1px solid var(--line); border-radius:14px;}
-  .seg-switch button{border:none; background:none; color:var(--text-dim); font:inherit; font-size:13.5px; font-weight:700; padding:9px 0; border-radius:10px;}
-  .seg-switch button.on{background:var(--surface-2); color:var(--text);}
 
   /* budget */
   .budget-month{display:flex; align-items:center; justify-content:space-between; margin:-6px -6px 6px; font-size:15px; font-weight:800;}
@@ -416,9 +410,6 @@
   .modal-field .day-chip input:focus-visible + span{outline:2px solid var(--olive); outline-offset:2px;}
   .badge.today{background:color-mix(in srgb, var(--olive) 22%, transparent); color:var(--olive); margin-left:8px;}
   .badge.wash{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
-  .progress-wrap{margin-bottom:12px;}
-  .progress-label{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;}
-  .progress-label b{color:var(--text); font-weight:700;}
   .progress-bar{height:8px; border-radius:5px; background:var(--surface-2); overflow:hidden;}
   .progress-fill{height:100%; background:linear-gradient(90deg, var(--gold), var(--olive)); border-radius:5px; transition:width .3s ease;}
 
@@ -599,13 +590,6 @@
   .completed-toggle span{flex:1;}
   .completed-toggle .chev{transition:transform .2s;}
   .completed-toggle.open .chev{transform:rotate(180deg);}
-  .shop-link{
-    display:flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; margin-top:12px;
-    padding:0; border:none; border-top:1px solid var(--line); background:none; color:var(--text);
-    font:inherit; font-size:13px; font-weight:600; text-align:left;
-  }
-  .shop-link-go{color:var(--link); font-size:12.5px; font-weight:700;}
-  .closet-item{cursor:default;}
   .filter-chip{
     flex-shrink:0; min-height:36px; padding:0 14px; border-radius:18px; border:1px solid var(--line);
     background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
@@ -659,9 +643,9 @@
     background:var(--olive); color:var(--on-accent); box-shadow:0 8px 24px rgba(0,0,0,.5);
   }
   .fab:active{transform:scale(.96);}
-  body[data-tab="home"] .fab, body[data-tab="todo"] .fab, body[data-tab="wants"] .fab, body[data-tab="style"] .fab, body[data-tab="budget"] .fab{display:flex;}
+  body[data-tab="home"] .fab, body[data-tab="todo"] .fab, body[data-tab="wants"] .fab, body[data-tab="budget"] .fab{display:flex;}
   body[data-tab="home"] main, body[data-tab="todo"] main, body[data-tab="budget"] main,
-  body[data-tab="wants"] main, body[data-tab="style"] main{padding-bottom:170px;} /* last row clears the button */
+  body[data-tab="wants"] main{padding-bottom:170px;} /* last row clears the button */
   .composer-backdrop{
     position:fixed; inset:0; z-index:30; display:flex; align-items:flex-end; justify-content:center;
     background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .2s;
@@ -822,7 +806,7 @@
     main{padding:24px max(24px, calc(50% - 380px)) 48px;}
     .fab{bottom:32px; right:32px;}
     body[data-tab="home"] main, body[data-tab="todo"] main, body[data-tab="budget"] main,
-    body[data-tab="wants"] main, body[data-tab="style"] main{padding-bottom:110px;}
+    body[data-tab="wants"] main{padding-bottom:110px;}
     .composer-backdrop{align-items:center;}
     .composer-sheet{border-radius:18px; padding-bottom:18px;}
     .composer-grab{display:none;}
@@ -866,10 +850,6 @@
   <section class="tabpanel" id="panel-todo"></section>
   <!-- SKIN / HAIR -->
   <section class="tabpanel" id="panel-skin"></section>
-  <!-- STYLE -->
-  <section class="tabpanel" id="panel-style">
-    <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
-  </section>
   <!-- BUDGET -->
   <section class="tabpanel" id="panel-budget"></section>
   <!-- WANTS -->
@@ -943,7 +923,7 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Shopping", wants:"Shopping", budget:"Budget"};
+const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", wants:"Shopping", budget:"Budget"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
@@ -1039,7 +1019,7 @@ let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "todo-recurring", "cap-owned-card", "wants-pending-card", "goals-card", "spending-card"]);
+let openPinned = new Set(["todo-card", "todo-recurring", "wants-pending-card", "goals-card", "spending-card"]);
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -1376,7 +1356,7 @@ function modalDelete(){
 
 function toggleCardEdit(id){
   if (editCards.has(id)) editCards.delete(id); else { editCards.add(id); openPinned.add(id); } // editing a closed card opens it
-  renderSkin(); renderStyle(); renderWants(); renderBudget();
+  renderSkin(); renderWants(); renderBudget();
 }
 function editChipHtml(id){
   const on = editCards.has(id);
@@ -1916,7 +1896,7 @@ function renderHomePanel(){
 })();
 // ---------- COMPOSER (the floating + button's sheet) ----------
 // One bottom sheet for adding things, in a mode picked by the current tab:
-// to-dos (Home, To-Do), shopping items (Shopping), wardrobe items (Wardrobe).
+// to-dos (Home, To-Do), shopping items (Shopping), spending/bills/goals (Budget).
 // Skin & Hair has no + button: adding routine steps is a rare edit there, and the
 // tab's everyday action is ticking steps off.
 // Every mode is built for adding several in a row: Enter (or Add) saves, clears
@@ -1928,10 +1908,9 @@ const TODO_MAX_LEN = 200;
 const COMPOSER_MODES = {
   todo:   {title:"New to-do", add:"Add to-do", fab:"Add a to-do", placeholder:"What needs doing? Try “dentist fri”"},
   shop:   {title:"New item", add:"Add to list", fab:"Add to shopping list", placeholder:"What to buy? Try “helmet $250”"},
-  closet: {title:"Add to wardrobe", add:"Add", fab:"Add to wardrobe", placeholder:"What is it? e.g. “Black crewneck”"},
   money:  {title:"Add to budget", add:"Add", fab:"Add spending or a bill", placeholder:"What did you spend on? Try “groceries $54”"},
 };
-const FAB_MODE_BY_TAB = {home:"todo", todo:"todo", wants:"shop", style:"closet", budget:"money"};
+const FAB_MODE_BY_TAB = {home:"todo", todo:"todo", wants:"shop", budget:"money"};
 const CALENDAR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 let composer = null;
 function fabMode(){ return FAB_MODE_BY_TAB[currentTab] || "todo"; }
@@ -1958,12 +1937,12 @@ function composerFresh(mode, added, prev){
       group:prev ? prev.group : "personal", account:prev ? prev.account : null,
       goal:prev && goalById(prev.goal) ? prev.goal : (budget.goals[0] || {}).id || null};
   }
-  return {...base, dest:prev ? prev.dest : "closet", cat:prev ? prev.cat : CAP_CATS[0], pending:false};
+  return base;
 }
 function composerExtraHtml(mode){
   if (mode === "todo") return `<textarea id="composer-subs" rows="3" maxlength="2000" placeholder="Sub-items — one per line"></textarea>`;
   if (mode === "shop") return `<input id="cx-meta" type="text" maxlength="200" placeholder="Notes — size, color, store">`;
-  return `<input id="cx-sub" type="text" maxlength="200" placeholder="Notes — size, brand, fit">`;
+  return "";
 }
 function composerText(){ return document.getElementById("composer-text").value.trim(); }
 function composerField(id){ const el = document.getElementById(id); return el ? el.value.trim() : ""; }
@@ -2035,17 +2014,9 @@ function renderComposerChips(){
     }
     document.getElementById("composer-text").placeholder = c.type === "bill" ? "Bill name — try “rent $1200”"
       : c.type === "goal" ? "What is it? Try “bonus $500”" : COMPOSER_MODES.money.placeholder;
-  } else {
-    const price = c.dest === "buy" && !c.ignoreParse ? parsePrice(composerText()).price : null;
-    if (price != null) row1 += cchip(`$${fmtMoney(price)}`, true, "composer.ignoreParse = true; renderComposerChips()");
-    row1 += cchip("In closet", c.dest === "closet", "composer.dest = 'closet'; renderComposerChips()")
-      + cchip("To buy", c.dest === "buy", "composer.dest = 'buy'; renderComposerChips()");
-    if (c.dest === "closet") row1 += cchip("Fit pending", c.pending, "composer.pending = !composer.pending; renderComposerChips()");
-    row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
-    row2 = [...CAP_CATS, "Other"].map(w => cchip(w, c.cat === w, `composer.cat = '${w}'; renderComposerChips()`)).join("");
   }
   // Price and link stay in view whenever the item is headed for the shopping list
-  document.getElementById("composer-buy").hidden = !(c.mode === "shop" || c.mode === "money" || (c.mode === "closet" && c.dest === "buy"));
+  document.getElementById("composer-buy").hidden = !(c.mode === "shop" || c.mode === "money");
   document.getElementById("cx-price").placeholder = c.mode === "money" ? "Amount" : "Price";
   document.getElementById("cx-link").hidden = c.mode === "money" && c.type !== "bill";
   if (c.mode === "money") document.getElementById("cx-link").placeholder = "Pay link (optional)";
@@ -2120,8 +2091,7 @@ function composerAdd(){
   if (!raw){ textEl.focus(); return; }
   const note = composer.mode === "todo" ? addTodoFromComposer(raw)
     : composer.mode === "shop" ? addWantFromComposer(raw)
-    : composer.mode === "money" ? addMoneyFromComposer(raw)
-    : addClosetFromComposer(raw);
+    : addMoneyFromComposer(raw);
   if (note === false) return; // not saved; the sheet says why
   composer = composerFresh(composer.mode, composer.added + 1, composer);
   // Feedback stays in the sheet's header: a toast would sit on top of the sheet
@@ -2157,7 +2127,7 @@ function addWantFromComposer(raw){
   setWantCategory(w, composer.cat === "moto" ? "Moto" : composer.cat === "wardrobe" ? "Wardrobe · " + composer.wcat : "General");
   wantsList.push(w);
   saveContent("wants-content", wantsList, {toast:false});
-  renderWants(); renderStyle(); renderHomePanel();
+  renderWants(); renderHomePanel();
   return price != null ? `$${fmtMoney(price)}` : "";
 }
 function addMoneyFromComposer(raw){
@@ -2185,23 +2155,6 @@ function addMoneyFromComposer(raw){
   }
   saveBudgetData();
   return composer.type === "bill" ? `bill due ${dueLabel(date)}` : money(amount);
-}
-function addClosetFromComposer(raw){
-  const sub = composer.showMore ? composerField("cx-sub") : "";
-  if (composer.dest === "closet"){
-    const item = {id:genId("cap"), title:raw, cat:composer.cat, state:composer.pending ? "pending" : "owned"};
-    if (sub) item.sub = sub;
-    capsule.push(item);
-    saveContent("capsule-content", capsule, {toast:false});
-  } else {
-    const parsed = composer.ignoreParse ? {text:raw, price:null} : parsePrice(raw); // "black jeans $80"
-    const typed = composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
-    wantsList.push({id:genId("want"), name:parsed.text, meta:sub, price:typed != null && !isNaN(typed) ? typed : parsed.price,
-      link:composerField("cx-link") || null, wardrobeCat:composer.cat});
-    saveContent("wants-content", wantsList, {toast:false});
-  }
-  renderStyle(); renderWants(); renderHomePanel();
-  return composer.dest === "closet" ? "to closet" : "to shopping list";
 }
 // Keep the sheet above the on-screen keyboard where the browser shrinks only the
 // visual viewport (iOS Safari, newer Android Chrome).
@@ -2764,62 +2717,12 @@ function addSkinRule(){
     (v) => { if(!v.text) return; skinRules.push(v.text); saveContent("skin-rules-content", skinRules); renderSkin(); }
   );
 }
-// ---------- RENDER: STYLE ----------
-function renderStyle(){
-  const el = document.getElementById("panel-style");
-  const rulesEdit = editCards.has('rules-style');
-  const sizesEdit = editCards.has('sizes-card');
-  // Fit rules and Sizing are reference material, so they render below the
-  // working cards (progress and the closet) at the bottom of the tab.
-  let rules = rulesEdit ? `<button class="add-row" onclick="addStyleRule()">+ Add rule</button>` : "";
-  styleRules.forEach((r,i) => {
-    rules += rulesEdit
-      ? `<p class="rule editable" onclick="editStyleRule(${i})">${escapeHtml(r)}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
-      : `<p class="rule">${escapeHtml(r)}</p>`;
-  });
-  let sizeGrid = sizesEdit ? `<button class="add-row" onclick="addSize()">+ Add size</button>` : "";
-  sizeGrid += `<div class="sizegrid">`;
-  sizes.forEach(([k,v],i) => {
-    sizeGrid += sizesEdit
-      ? `<div class="editable" onclick="editSize(${i})"><span>${escapeHtml(k)}</span>${escapeHtml(v)}<span class="inline-pencil">${PENCIL_ICON}</span></div>`
-      : `<div><span>${escapeHtml(k)}</span>${escapeHtml(v)}</div>`;
-  });
-  sizeGrid += `</div><p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p>`;
-  const refCards = collapsibleCard({id:"rules-style", title:"Fit rules", insight:`${styleRules.length} rules`, body:rules})
-    + collapsibleCard({id:"sizes-card", title:"Sizing", insight:`${sizes.length} sizes`, body:sizeGrid});
-
-  const toBuy = wardrobeShopping(), closetCount = closetItems().length;
-  const total = closetCount + toBuy.length;
-  const pct = total ? Math.round((closetCount / total) * 100) : 0;
-  let html = shopSwitchHtml("style") + `<div class="card"><div class="progress-wrap">
-      <div class="progress-label"><span>Wardrobe built</span><b>${closetCount}/${total} · ${pct}%</b></div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-    </div>
-    <button class="shop-link" onclick="openWardrobeShopping()">
-      <span>${toBuy.length ? `${toBuy.length} wardrobe item${toBuy.length === 1 ? "" : "s"} to buy` : "Nothing left to buy"}</span>
-      <span class="shop-link-go">Shopping list →</span>
-    </button></div>`;
-  html += collapsibleCard({id:"cap-owned-card", title:"In closet", insightId:"cap-owned-insight", innerId:"cap-owned"});
-  html += refCards;
-  el.innerHTML = html;
-  renderCapsuleLists();
-}
-// ---------- wardrobe + wants: one shopping list ----------
-// Clothes still needed live on the Wants list, tagged with a wardrobe category
-// (`wardrobeCat`). The closet is derived, not copied: owned capsule items plus
-// wardrobe wants marked bought. Buying a wardrobe item puts it in the closet;
-// un-buying takes it back out.
+// ---------- wardrobe items on the shopping list ----------
+// Clothes to buy live on the shopping list, tagged with a wardrobe category
+// (`wardrobeCat`). (The closet view was removed; its data — capsule, sizes, fit
+// rules — is still loaded, synced and backed up, just not shown.)
 const WANT_CAT_OPTIONS = ["General", "Moto", ...CAP_CATS.map(c => "Wardrobe · " + c), "Wardrobe · Other"];
 const DEFAULT_BELT_META = "Pending: merge with wardrobe belt? Price/link not locked in";
-function closetItems(){
-  return [
-    ...capsule.map(item => ({kind:"capsule", item, title:item.title, sub:item.sub, cat:item.cat || "Other",
-      price:item.price, estimated:item.estimated, link:item.link, pending:item.state === "pending"})),
-    ...wantsList.filter(w => w.wardrobeCat && wantsState[w.id]).map(w => ({kind:"want", item:w, title:w.name,
-      sub:w.meta, cat:w.wardrobeCat, price:w.price, estimated:w.estimated, link:w.link}))
-  ];
-}
-function wardrobeShopping(){ return wantsList.filter(w => w.wardrobeCat && !wantsState[w.id]); }
 // Older data kept a separate "Still need" list inside the capsule (state
 // "needed", or toggled via style-state). Move those onto Wants. Ids are derived
 // ("w-" + capsule id) so every device migrates to the same result; housekeeping,
@@ -2855,35 +2758,6 @@ function migrateWardrobeNeeds(){
   return true;
 }
 let wantsFilter = "all";
-function openWardrobeShopping(){
-  wantsFilter = "wardrobe";
-  renderWants();
-  activateTab("wants");
-}
-function renderCapsuleLists(){
-  const el = document.getElementById("cap-owned");
-  if (!el) return;
-  const edit = editCards.has('cap-owned-card');
-  const items = closetItems();
-  const byCat = {};
-  items.forEach(c => {
-    const pendingBadge = c.pending ? `<span class="badge pending">fit pending</span>` : "";
-    const editBtn = edit ? `<button class="row-edit-btn" onclick="${c.kind === 'want' ? `editWant('${c.item.id}')` : `editCapsuleItem('${c.item.id}')`}" aria-label="Edit item">${PENCIL_ICON}</button>` : "";
-    const priceLine = c.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${c.estimated?'~':''}$${fmtMoney(c.price)}${c.estimated?' (est.)':''}</div>` : "";
-    const linkLine = linkHtml(c.link, 'class="link"', "View product →");
-    byCat[c.cat] = (byCat[c.cat] || "") + `<div class="item closet-item">
-        <div class="body"><div class="title">${escapeHtml(c.title)}${pendingBadge}</div>${c.sub?`<div class="sub">${escapeHtml(c.sub)}</div>`:""}${priceLine}${linkLine}</div>
-        ${editBtn}
-      </div>`;
-  });
-  let grouped = "";
-  CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
-  Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
-  const sum = priceSummary(items);
-  el.innerHTML = (grouped || `<div class="empty">Nothing here yet — tap + to add.</div>`)
-    + sum.row;
-  document.getElementById("cap-owned-insight").textContent = `${items.length} items${sum.badge}`;
-}
 // Money summary for a list where some items may have no price yet. Each total
 // appears once: a complete sum goes in the card-header badge (visible even when
 // the card is collapsed); a partial sum goes in an in-card row labeled as
@@ -2898,51 +2772,6 @@ function priceSummary(items){
     row: priced.length && !full
       ? `<div class="total-row">Known prices · ${missing} unpriced <span>$${fmtMoney(sum)}</span></div>` : ""
   };
-}
-function editStyleRule(i){
-  openModal("Edit rule", [{key:"text",label:"Rule",type:"textarea"}], {text:styleRules[i]},
-    (v) => { if(!v.text) return; styleRules[i]=v.text; saveContent("style-rules-content", styleRules); renderStyle(); },
-    () => { styleRules.splice(i,1); saveContent("style-rules-content", styleRules); renderStyle(); }
-  );
-}
-function addStyleRule(){
-  openModal("Add rule", [{key:"text",label:"Rule",type:"textarea"}], {},
-    (v) => { if(!v.text) return; styleRules.push(v.text); saveContent("style-rules-content", styleRules); renderStyle(); }
-  );
-}
-function editSize(i){
-  const [k,v] = sizes[i];
-  openModal("Edit size", [{key:"k",label:"Category",type:"text"},{key:"v",label:"Size",type:"text"}], {k,v},
-    (vals) => { if(!vals.k||!vals.v) return; sizes[i] = [vals.k, vals.v]; saveContent("sizes-content", sizes); renderStyle(); },
-    () => { sizes.splice(i,1); saveContent("sizes-content", sizes); renderStyle(); }
-  );
-}
-function addSize(){
-  openModal("Add size", [{key:"k",label:"Category",type:"text"},{key:"v",label:"Size",type:"text"}], {},
-    (vals) => { if(!vals.k||!vals.v) return; sizes.push([vals.k, vals.v]); saveContent("sizes-content", sizes); renderStyle(); }
-  );
-}
-function editCapsuleItem(id){
-  const item = capsule.find(i=>i.id===id);
-  openModal("Edit item", [
-    {key:"title",label:"Title",type:"text"},
-    {key:"sub",label:"Notes (optional)",type:"text"},
-    {key:"cat",label:"Category",type:"select",options:[...CAP_CATS, "Other"]},
-    {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
-    {key:"link",label:"Link (optional)",type:"url"},
-    {key:"pending",label:"Fit pending",type:"checkbox"}
-  ], {title:item.title, sub:item.sub||"", cat:item.cat||"Other", price:item.price, link:item.link||"", pending:item.state==="pending"},
-    (v) => {
-      if(!v.title) return;
-      item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat; item.price=v.price; item.link=v.link||null;
-      item.state = v.pending ? "pending" : "owned";
-      saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
-    },
-    () => {
-      capsule = capsule.filter(i => i.id !== id);
-      saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
-    }
-  );
 }
 // ---------- RENDER: WANTS ----------
 function fmtMoney(n){
@@ -2967,11 +2796,6 @@ function wantsOrder(a, b){
     || ((wantKind(a) === "need" ? 0 : 1) - (wantKind(b) === "need" ? 0 : 1))
     || ((a.price ?? Infinity) - (b.price ?? Infinity));
 }
-// Shopping's two views: the shopping list and the closet (wardrobe)
-function shopSwitchHtml(on){
-  const b = (tab, label) => `<button class="${on === tab ? "on" : ""}" aria-pressed="${on === tab}" onclick="activateTab('${tab}')">${label}</button>`;
-  return `<div class="seg-switch" role="group" aria-label="Shopping view">${b("wants", "To buy")}${b("style", "Closet")}</div>`;
-}
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
@@ -2989,7 +2813,7 @@ function renderWants(){
     return `<div class="want-card">
         <div class="body">
           <div class="name">${escapeHtml(w.name)} <span class="badges"><span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</span></div>
-          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}${isDone ? " · in closet" : ""}</div>` : ""}
+          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}</div>` : ""}
           ${w.moto ? `<div class="want-tag moto">${MOTO_ICON}Moto</div>` : ""}
           ${w.meta?`<div class="meta">${escapeHtml(w.meta)}</div>`:""}
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
@@ -3003,7 +2827,7 @@ function renderWants(){
   };
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
-  let html = shopSwitchHtml("wants");
+  let html = "";
   const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();"><span class="fc-label">${label}</span><span class="fc-count">${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
@@ -3035,9 +2859,7 @@ async function toggleWant(id){
   wantsState[id] = !wantsState[id];
   const w = wantsList.find(x => x.id === id);
   renderWants();
-  renderStyle(); // a bought wardrobe item shows up in the closet
   saveContent("wants-state", wantsState);
-  if (w && w.wardrobeCat) showToast(wantsState[id] ? "Added to your closet" : "Back on your shopping list");
 }
 function editWant(id){
   const w = wantsList.find(x=>x.id===id);
@@ -3056,16 +2878,14 @@ function editWant(id){
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
       if (v.high) w.priority = "high"; else delete w.priority;
-      const wasInCloset = !!(w.wardrobeCat && wantsState[w.id]);
       setWantCategory(w, v.cat);
       w.kind = v.kind === "Need" ? "need" : "want";
-      saveContent("wants-content", wantsList, {toast:!(wasInCloset && !w.wardrobeCat)}); renderWants(); renderStyle(); renderHomePanel();
-      if (wasInCloset && !w.wardrobeCat) showToast("Saved · no longer clothing, so it's out of your closet");
+      saveContent("wants-content", wantsList); renderWants(); renderHomePanel();
     },
     () => {
       wantsList = wantsList.filter(x => x.id !== id);
       delete wantsState[id];
-      saveContent("wants-content", wantsList); saveContent("wants-state", wantsState); renderWants(); renderStyle(); renderHomePanel();
+      saveContent("wants-content", wantsList); saveContent("wants-state", wantsState); renderWants(); renderHomePanel();
     }
   );
 }
@@ -3926,11 +3746,12 @@ function normalizeBudgetData(){
 
 // ---------- TAB SWITCHING ----------
 const TAB_ORDER = ["home","todo","wants","budget","skin"]; // nav bar and swipe order
-// The closet (panel "style") lives inside Shopping, behind its To buy | Closet switch
+// Old links to the removed closet view (?tab=style) land on Shopping
 const NAV_TAB = tab => tab === "style" ? "wants" : tab;
 let currentTab = "home";
 
 function activateTab(tab){
+  tab = NAV_TAB(tab);
   currentTab = tab;
   document.body.dataset.tab = tab; // shows/hides the floating + button
   const fabCfg = COMPOSER_MODES[FAB_MODE_BY_TAB[tab]];
@@ -4363,7 +4184,7 @@ function applyRemote(payload){
   wantsState = loadState("wants-state");
   migrateWardrobeNeeds(); // data from an older app version may still have a wardrobe "Still need" list
   archiveOldTodos(); // the other device may have carried expired completed items
-  renderSkin(); renderStyle(); renderWants(); renderBudget(); renderHome();
+  renderSkin(); renderWants(); renderBudget(); renderHome();
 }
 async function findOrCreateGist(){
   const gists = await gistApi("/gists?per_page=100");
@@ -4534,7 +4355,7 @@ function restoreBackup(){
 function openSyncModal(){
   const connected = !!localStorage.getItem("sync-token");
   openModal("Sync & backup", [
-    {type:"note", label:`Syncs everything (to-dos, routines, shopping, closet, budget) through a private gist on
+    {type:"note", label:`Syncs everything (to-dos, routines, shopping, budget) through a private gist on
       your GitHub account. Create a <b>classic</b> personal access token with only the
       <b>gist</b> scope at github.com &rsaquo; Settings &rsaquo; Developer settings &rsaquo; Tokens (classic),
       then paste the same token into the app on each device. Newest change wins when
@@ -4728,7 +4549,6 @@ function writeQuietly(key, value){
   styleState = loadState("style-state");
   wantsState = loadState("wants-state");
   migrateWardrobeNeeds();
-  renderStyle();
   renderBudget();
   renderWants();
   renderHome();
