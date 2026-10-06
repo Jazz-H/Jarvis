@@ -195,6 +195,10 @@
   .home-list{padding-top:2px; padding-bottom:2px; margin-bottom:0;}
   .home-list .todo-wrap:last-of-type{border-bottom:none;}
   .home-list .empty{padding:14px 0;}
+  .wash-row .wash-icon{order:1; display:flex; align-items:center; justify-content:center; width:40px; height:44px; flex-shrink:0; color:var(--navy);}
+  #todo-list .wash-row .item{padding-left:20px;} /* lines up with rows that have a drag handle */
+  .wash-row .wash-icon svg{width:18px; height:18px;}
+  .wash-tag{color:var(--navy); font-weight:700;}
   .home-star{display:inline-flex; vertical-align:-2px; margin-left:6px; color:var(--gold);}
   .home-star svg{width:13px; height:13px;}
   .home-more{display:block; border:none; background:none; padding:10px 0 6px; color:var(--link); font:inherit; font-size:12.5px; font-weight:700;}
@@ -1346,11 +1350,12 @@ const byDue = (a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
 function homeDayItems(iso){
   const today = addDaysIso(0);
   const open = starredFirst(todoList.filter(t => !t.done && t.due === iso));
-  if (iso > today) return {overdue:[], anytime:[], open, done:todoList.filter(t => t.done && t.due === iso)};
+  const wash = isWashDay(noonOf(iso));
+  if (iso > today) return {wash, overdue:[], anytime:[], open, done:todoList.filter(t => t.done && t.due === iso)};
   // A past day shows what was due then (still open) and what got done that day
-  if (iso < today) return {overdue:[], anytime:[], open, done:todoList.filter(t => completedOn(t, iso))};
+  if (iso < today) return {wash, overdue:[], anytime:[], open, done:todoList.filter(t => completedOn(t, iso))};
   // Today's done list: anything ticked off today that wasn't scheduled for later
-  return {open,
+  return {wash, open,
     overdue:todoList.filter(t => !t.done && todoGroup(t) === "overdue").sort(byDue),
     done:todoList.filter(t => completedOn(t, iso) && (!t.due || t.due <= iso)),
     anytime:starredFirst(todoList.filter(t => !t.done && !t.due))};
@@ -1412,6 +1417,37 @@ function homeCalHtml(){
       ${body}
       <button class="home-cal-grab" onclick="setHomeCalOpen(${!homeCalOpen})" aria-expanded="${homeCalOpen}" aria-label="${homeCalOpen ? "Show week" : "Show month"}"><span></span></button>
     </div>`;
+}
+// Wash day as a to-do: a row derived from the wash schedule rather than stored in
+// todoList. Its checkbox ticks the wash-only PM steps (the ones regular PM
+// doesn't have: shampoo, mask), so it stays in step with Skin & Hair. Only
+// today's can be ticked; other days show the droplet instead.
+function isWashDay(d){ return isWashDate(d) && skinRoutine.washPm.length > 0; }
+function washHairSteps(){
+  const regular = new Set(skinRoutine.pm.map(s => s.label));
+  const own = skinRoutine.washPm.filter(s => !regular.has(s.label));
+  return own.length ? own : skinRoutine.washPm;
+}
+function washHairDone(iso){
+  const c = routineChecks[iso], steps = washHairSteps();
+  return !!c && steps.length > 0 && steps.every(s => (c.pm || []).includes(s.id));
+}
+function toggleWashHair(){
+  const iso = addDaysIso(0);
+  if (!isWashDay(noonOf(iso))) return;
+  const done = washHairDone(iso), ticked = todayChecks().pm;
+  washHairSteps().forEach(s => { if (ticked.includes(s.id) === done) toggleRoutineStep("pm", s.id); });
+}
+function washRowHtml(iso){
+  const done = washHairDone(iso);
+  const products = washHairSteps().map(s => s.product).filter(Boolean).join(" + ");
+  const check = iso === addDaysIso(0)
+    ? `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" onclick="event.stopPropagation(); toggleWashHair()"><span class="box">${BOX_CHECK_SVG}</span></button>`
+    : `<span class="wash-icon" aria-hidden="true">${DROPLET_ICON}</span>`;
+  return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
+      ${check}
+      <div class="body" onclick="activateTab('skin')"><div class="title">Wash hair</div><div class="todo-meta"><span class="wash-tag">Wash day</span>${products ? ` · ${escapeHtml(products)}` : ""}</div></div>
+    </div></div>`;
 }
 function homeRowHtml(t, meta = []){
   const subs = t.subitems || [];
@@ -1487,11 +1523,17 @@ function renderTodoPanel(){
   const overdueCount = todoList.filter(t => !t.done && todoGroup(t) === "overdue").length;
   const countLabel = todoList.length === 0 ? 'Empty'
     : (totalOpen ? `${totalOpen} open${overdueCount ? ` · <span class="overdue">${overdueCount} overdue</span>` : ''}` : 'All done');
+  // Wash days in the next week get a "Wash hair" row in their date group
+  const washGroups = new Map();
+  for (let n = 0; n < 7; n++){
+    const iso = addDaysIso(n);
+    if (isWashDay(noonOf(iso))) washGroups.set(n === 0 ? "today" : "d" + n, iso);
+  }
   html += `<div class="card" id="todo-card">
     <div class="todo-card-head"><span class="insight">${countLabel}</span></div>`;
-  if (todoList.length === 0){
+  if (todoList.length === 0 && !washGroups.size){
     html += `<div class="empty">Nothing on your list — tap + to add one.</div>`;
-  } else if (totalOpen === 0){
+  } else if (totalOpen === 0 && !washGroups.size){
     html += `<div class="empty">All done for now.</div>`;
   } else {
     // Within a group, array order IS display order (drag-to-reorder writes it
@@ -1501,9 +1543,11 @@ function renderTodoPanel(){
     todoGroups().forEach(g => {
       let items = todoList.filter(t => !t.done && todoGroup(t) === g.key);
       if (g.key === "overdue" || g.key === "later") items = items.slice().sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
-      if (!items.length) return;
+      const washIso = washGroups.get(g.key);
+      if (!items.length && !washIso) return;
       html += `<div class="cat-title${g.key==='overdue'?' overdue':''}" data-due="${g.due}"${firstGroup?' style="margin-top:0;"':''}>${g.label}</div>`;
       firstGroup = false;
+      if (washIso) html += washRowHtml(washIso);
       items.forEach(t => { html += todoRow(t); });
     });
     html += `</div>`;
@@ -1546,28 +1590,31 @@ function renderHomePanel(){
   const strip = homeCalHtml();
   homeCalAnim = false;
 
-  const total = day.overdue.length + day.open.length + day.done.length;
-  const left = total - day.done.length;
+  const washDone = day.wash && washHairDone(iso);
+  const total = day.overdue.length + day.open.length + day.done.length + (day.wash ? 1 : 0);
+  const done = day.done.length + (washDone ? 1 : 0);
+  const left = total - done;
   let sub;
   if (iso === today){
     sub = left ? `${left} left today` : total ? "All done for today" : "Nothing due today";
     const streak = routineStreak();
     if (streak) sub += ` · ${streak}-day routine streak`;
   } else if (iso < today){
-    sub = [day.done.length ? `${day.done.length} done` : "", left ? `${left} still open` : ""].filter(Boolean).join(" · ") || "Nothing recorded";
+    sub = [done ? `${done} done` : "", left ? `${left} still open` : ""].filter(Boolean).join(" · ") || "Nothing recorded";
   } else {
     sub = (iso === addDaysIso(1) ? "Tomorrow · " : "") + (left ? `${left} to-do${left === 1 ? "" : "s"}` : total ? "All done" : "Nothing planned");
   }
   const dateOpt = date.getFullYear() === new Date().getFullYear() ? {weekday:'long', month:'short', day:'numeric'} : {weekday:'short', month:'short', day:'numeric', year:'numeric'};
   const hero = `<div class="home-hero">
-      ${homeRingHtml(day.done.length, total)}
+      ${homeRingHtml(done, total)}
       <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div></div>
     </div>`;
 
   const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join(""), "overdue");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
-  const dayRows = day.open.map(t => homeRowHtml(t, pastOpen)).join("") + day.done.map(t => homeRowHtml(t)).join("");
+  const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, pastOpen)).join("")
+    + (washDone ? washRowHtml(iso) : "") + day.done.map(t => homeRowHtml(t)).join("");
   const dayName = escapeHtml(dueLabel(iso));
   const emptyText = iso === today ? "Nothing due today — tap + to add one."
     : iso < today ? "Nothing was due or done this day."
@@ -2089,7 +2136,7 @@ function toggleRoutineStep(band, id){
   }catch(e){ showToast("Save failed — storage may be full or disabled", true); }
   if (!wasDone && day[band + "Done"]) showToast(band === "am" ? "Morning routine done" : "Evening routine done");
   renderSkin();
-  renderHomePanel();
+  renderHome(); // both to-do views show the Wash hair row
 }
 // Consecutive days with both AM and PM finished, counting today only once it's done
 function routineStreak(){
@@ -2946,16 +2993,19 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
 
   function prevTodoWrap(w){
     let el = w.previousElementSibling;
-    while (el && !el.classList.contains("todo-wrap")) el = el.previousElementSibling;
+    while (el && !(el.classList.contains("todo-wrap") && el.dataset.todoId)) el = el.previousElementSibling;
     return el;
   }
 
   function reorder(){
     const siblings = [...drag.list.querySelectorAll(".todo-wrap:not(.drag-active)")];
-    const next = siblings.find(s => {
+    let next = siblings.find(s => {
       const r = s.getBoundingClientRect();
       return drag.clientY <= r.top + r.height / 2;
     });
+    // A Wash hair row is pinned under its day header: dropping above it lands
+    // at the end of the previous group, not between the header and the row
+    if (next && next.classList.contains("wash-row") && next.previousElementSibling && next.previousElementSibling.classList.contains("cat-title")) next = next.previousElementSibling;
     if (next){
       if (next.previousElementSibling !== drag.wrap) drag.list.insertBefore(drag.wrap, next);
     } else if (drag.list.lastElementChild !== drag.wrap){

@@ -631,6 +631,42 @@ await section("skin: the three original rules are removed", async () => {
   await fresh.ctx.close();
 });
 
+await section("wash day shows as a Wash hair to-do", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "a", text: "Due today", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+  ]}});
+  await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(0), everyDays: 14 }; renderHome(); });
+  const home = await page.evaluate(() => ({
+    row: !!document.querySelector("#panel-home .wash-row .todo-check"),
+    ring: document.querySelector(".home-ring").getAttribute("aria-label"),
+    todo: [...document.querySelectorAll("#todo-list > *")].slice(0, 2).map(e => e.className),
+  }));
+  check("Home lists Wash hair today, checkable", home.row);
+  check("ring counts it", home.ring === "0 of 2 done", home.ring);
+  check("To-Do shows it under Today", home.todo[0].startsWith("cat-title") && home.todo[1].includes("wash-row"), home.todo);
+  await page.click("#panel-home .wash-row .todo-check");
+  const ticked = await page.evaluate(() => ({
+    steps: washHairSteps().every(s => todayChecks().pm.includes(s.id)),
+    labels: washHairSteps().map(s => s.label),
+    checked: document.querySelector("#panel-home .wash-row .item").classList.contains("checked"),
+    ring: document.querySelector(".home-ring").getAttribute("aria-label"),
+  }));
+  check("ticking it ticks the wash-only routine steps", ticked.steps && !ticked.labels.includes("Cleanse"), ticked);
+  check("row shows done, ring moves", ticked.checked && ticked.ring === "1 of 2 done", ticked);
+  await page.click("#panel-home .wash-row .todo-check");
+  check("unticking clears them", await page.evaluate(() => !washHairSteps().some(s => todayChecks().pm.includes(s.id))));
+  await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(2), everyDays: 14 }; renderHome(); });
+  const later = await page.evaluate(() => ({
+    homeRow: !!document.querySelector("#panel-home .wash-row"),
+    todoRow: !!document.querySelector("#todo-list .wash-row .wash-icon"),
+    todoCheck: !!document.querySelector("#todo-list .wash-row .todo-check"),
+  }));
+  check("not on Home on a non-wash day", !later.homeRow);
+  check("upcoming wash day shows with the droplet, not a checkbox", later.todoRow && !later.todoCheck, later);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
