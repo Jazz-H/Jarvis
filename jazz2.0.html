@@ -3283,10 +3283,13 @@ function loadAllContent(){
 // per routine (tracked in `added`, which syncs with it), so deleting a step
 // later sticks. Ids are fixed so two devices adding the same step agree.
 const ROUTINE_ADDITIONS = [
-  {key:"teeth-whitening", band:"pm", step:{id:"pm-teeth-whitening", label:"Teeth whitening", product:"Whitening strips",
-    note:"Brush first, then leave on as long as the box says", days:[2, 6]}},
-  {key:"pore-strips", band:"pm", after:/^cleanse/i, step:{id:"pm-pore-strips", label:"Pore strips", product:"Nose pore strips",
-    note:"Wet your nose first; peel off after 10–15 min", days:[0]}},
+  // Every night (no `days`) for the box's 20-day course
+  {key:"teeth-whitening", band:"pm", step:{id:"pm-teeth-whitening", label:"Teeth whitening",
+    product:"Crest 3D Whitestrips Professional Effects",
+    note:"Brush first; 30 min. 20-day course, then delete this step or set touch-up days"}},
+  {key:"pore-strips", band:"pm", after:/^cleanse/i, step:{id:"pm-pore-strips", label:"Pore strips",
+    product:"Bioré Witch Hazel Ultra Strength Blackhead Remover Pore Strips",
+    note:"Wet your nose, press on, peel after 10–15 min. No more than every 3 days", days:[0]}},
 ];
 function applyRoutineAdditions(r){
   r.added = Array.isArray(r.added) ? r.added : [];
@@ -3296,7 +3299,7 @@ function applyRoutineAdditions(r){
     const list = r[band] || (r[band] = []);
     if (!list.some(x => x.id === step.id)){
       const i = after ? list.findIndex(x => after.test(x.label)) : -1;
-      list.splice(i + 1, 0, {...step, days:[...step.days]}); // no anchor: goes first
+      list.splice(i + 1, 0, JSON.parse(JSON.stringify(step))); // no anchor: goes first
     }
     r.added.push(key);
     changed = true;

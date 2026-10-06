@@ -604,7 +604,7 @@ await section("routine: pore strips + teeth whitening added once", async () => {
       stored: JSON.parse(localStorage.getItem("skin-routine-content")).added };
   });
   check("pore strips on Sundays", JSON.stringify(r.strips) === "[0]", r.strips);
-  check("whitening on Tue + Sat", JSON.stringify(r.teeth) === "[2,6]", r.teeth);
+  check("whitening every night", r.teeth === undefined, r.teeth);
   check("marker saved with the routine", JSON.stringify(r.stored) === '["teeth-whitening","pore-strips"]', r.stored);
   await page.evaluate(() => { skinRoutine.pm = skinRoutine.pm.filter(x => x.id !== "pm-pore-strips"); saveRoutine(); });
   await page.reload(); await page.waitForTimeout(500);
