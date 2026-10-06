@@ -442,10 +442,6 @@
   .cat-title.overdue{color:var(--danger);}
   .todo-card-head{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
   .todo-card-head h3{margin:0;}
-  .show-more{
-    width:100%; margin-top:8px; min-height:44px; border-radius:10px; border:1px solid var(--line);
-    background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
-  }
   .completed-toggle{
     display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin-top:8px; padding:0 2px;
     border:none; border-top:1px solid var(--line); background:none; color:var(--text-dim);
@@ -454,6 +450,10 @@
   .completed-toggle span{flex:1;}
   .completed-toggle .chev{transition:transform .2s;}
   .completed-toggle.open .chev{transform:rotate(180deg);}
+  .todo-glance .glance-head{margin-bottom:4px;}
+  .todo-glance .glance-title-row .insight{margin-left:2px;}
+  .todo-glance-footer{font-size:12px; color:var(--text-dim); padding-top:8px;}
+  .todo-glance .todo-wrap:last-of-type{border-bottom:none;}
   .badge.high{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
   .modal-section{display:block; margin:6px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
   .backup-actions{display:flex; gap:8px; margin-top:10px;}
@@ -548,7 +548,7 @@
     .day-head:hover{background:var(--surface-3);}
     .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
-    .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover, .show-more:hover{background:var(--surface-2); color:var(--text);}
+    .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
     .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
     .icon-btn:hover{color:var(--olive);}
     .icon-btn.link:hover{color:var(--gold);}
@@ -626,6 +626,8 @@
   <div id="pull-indicator"><span class="pull-spinner"></span><span class="pull-label">Pull to refresh</span></div>
   <!-- HOME -->
   <section class="tabpanel active" id="panel-home"></section>
+  <!-- TO-DO -->
+  <section class="tabpanel" id="panel-todo"></section>
   <!-- SKIN / HAIR -->
   <section class="tabpanel" id="panel-skin"></section>
   <!-- STYLE -->
@@ -659,6 +661,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
     Home
   </button>
+  <button data-tab="todo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    To-Do
+  </button>
   <button data-tab="skin">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
     Skin &amp; Hair
@@ -674,10 +680,11 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants"};
+const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const LINK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
+const TODO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>';
@@ -1183,10 +1190,47 @@ function updateDueHint(){
   if (!p.due || quickAddIgnoreDate){ hint.innerHTML = ""; return; }
   hint.innerHTML = `<span class="due-hint">Due ${escapeHtml(dueLabel(p.due))}<button type="button" onclick="quickAddIgnoreDate=true; updateDueHint(); document.getElementById('todo-quick-add-input').focus();" aria-label="Keep as text, no due date">${X_ICON}</button></span>`;
 }
-let showAllTodos = false;
-const TODO_PREVIEW_COUNT = 5;
+// Home's to-do summary: only what needs attention now (overdue + due today),
+// each completable in place; the full list lives on the To-Do page.
+const TODO_GLANCE_MAX = 3;
+function todoGlanceHtml(){
+  const open = todoList.filter(t => !t.done);
+  const urgent = open.filter(t => todoGroup(t) === "overdue" || todoGroup(t) === "today")
+    .sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+  const overdue = urgent.filter(t => todoGroup(t) === "overdue").length;
+  const rows = urgent.slice(0, TODO_GLANCE_MAX).map(t => `<div class="todo-wrap"><div class="item">
+      <button class="todo-check" role="checkbox" aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="event.stopPropagation(); completeTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
+      <div class="body"><div class="title">${escapeHtml(t.text)}</div>${todoGroup(t) === "overdue" ? `<div class="todo-meta"><span class="overdue">${escapeHtml(dueLabel(t.due))}</span></div>` : ""}</div>
+    </div></div>`).join("");
+  const more = urgent.length - Math.min(urgent.length, TODO_GLANCE_MAX);
+  const rest = open.length - urgent.length;
+  let footer;
+  if (!open.length) footer = "Nothing on your list";
+  else if (!urgent.length) footer = `Nothing due today · ${open.length} open`;
+  else footer = [more ? `${more} more due` : "", rest ? `${rest} more on your list` : ""].filter(Boolean).join(" · ");
+  const insight = urgent.length
+    ? `${urgent.length} due${overdue ? ` · <span class="overdue">${overdue} overdue</span>` : ""}`
+    : (open.length ? `${open.length} open` : "Empty");
+  return `<div class="card glance todo-glance" onclick="activateTab('todo')">
+      <div class="glance-head">
+        <div class="glance-title-row">
+          <div class="glance-icon" style="background:color-mix(in srgb, var(--olive) 15%, transparent); color:var(--olive);">${TODO_ICON}</div>
+          <h3 style="margin:0;">To-Do</h3><span class="insight">${insight}</span>
+        </div>
+        <svg class="glance-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      ${rows}
+      ${footer ? `<div class="todo-glance-footer">${footer}</div>` : ""}
+    </div>`;
+}
+// Re-renders both pages that show to-dos, so every to-do change can keep
+// calling renderHome() and Home's summary card never goes stale.
 function renderHome(){
-  const el = document.getElementById("panel-home");
+  renderTodoPanel();
+  renderHomePanel();
+}
+function renderTodoPanel(){
+  const el = document.getElementById("panel-todo");
   let html = "";
 
   const totalOpen = todoList.filter(t => !t.done).length;
@@ -1244,32 +1288,25 @@ function renderHome(){
   const countLabel = todoList.length === 0 ? 'Empty'
     : (totalOpen ? `${totalOpen} open${overdueCount ? ` · <span class="overdue">${overdueCount} overdue</span>` : ''}` : 'All done');
   html += `<div class="card" id="todo-card">
-    <div class="todo-card-head"><h3>To-Do</h3><span class="insight">${countLabel}</span></div>`;
+    <div class="todo-card-head"><span class="insight">${countLabel}</span></div>`;
   if (todoList.length === 0){
     html += `<div class="empty">Nothing on your list — add one above.</div>`;
   } else if (totalOpen === 0){
     html += `<div class="empty">All done for now.</div>`;
   } else {
     // Within a group, array order IS display order (drag-to-reorder writes it
-    // back); Overdue and Later sort by date instead. Only the first few rows
-    // show until "Show all" so the rest of Home stays in reach.
+    // back); Overdue and Later sort by date instead.
     html += `<div id="todo-list">`;
-    let shown = 0, hidden = 0, firstGroup = true;
+    let firstGroup = true;
     todoGroups().forEach(g => {
       let items = todoList.filter(t => !t.done && todoGroup(t) === g.key);
       if (g.key === "overdue" || g.key === "later") items = items.slice().sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
       if (!items.length) return;
-      const room = showAllTodos ? items.length : Math.max(0, TODO_PREVIEW_COUNT - shown);
-      hidden += items.length - Math.min(room, items.length);
-      items = items.slice(0, room);
-      if (!items.length) return;
       html += `<div class="cat-title${g.key==='overdue'?' overdue':''}" data-due="${g.due}"${firstGroup?' style="margin-top:0;"':''}>${g.label}</div>`;
       firstGroup = false;
-      items.forEach(t => { html += todoRow(t); shown++; });
+      items.forEach(t => { html += todoRow(t); });
     });
     html += `</div>`;
-    if (hidden) html += `<button class="show-more" onclick="showAllTodos=true; renderHome();">Show ${hidden} more</button>`;
-    else if (showAllTodos && totalOpen > TODO_PREVIEW_COUNT) html += `<button class="show-more" onclick="showAllTodos=false; renderHome();">Show less</button>`;
   }
 
   // Completed lives inside the to-do card behind a one-line toggle, so it
@@ -1299,6 +1336,11 @@ function renderHome(){
     }
   }
   html += `</div>`;
+  el.innerHTML = html;
+}
+function renderHomePanel(){
+  const el = document.getElementById("panel-home");
+  let html = todoGlanceHtml();
 
   const todayName = new Date().toLocaleDateString('en-US', {weekday:'long'});
   const today = skinDays.find(d => d.day === todayName);
@@ -1400,7 +1442,6 @@ function quickAddTodo(){
   if (at >= 0) todoList.splice(at, 0, t); else todoList.push(t);
   saveContent("todo-content", todoList);
   renderHome();
-  if (!document.querySelector(`#todo-list [data-todo-id="${t.id}"]`)){ showAllTodos = true; renderHome(); }
   if (t.due) showToast(`Added for ${dueLabel(t.due)}`);
   document.getElementById("todo-quick-add-input").focus();
 }
@@ -2042,7 +2083,7 @@ function addWant(){
 }
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home","skin","style","wants"];
+const TAB_ORDER = ["home","todo","skin","style","wants"];
 let currentTab = "home";
 
 function activateTab(tab){
@@ -2144,7 +2185,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
 // (the mirror of dragging a to-do right to nest it).
 (function(){
   const mainEl = document.querySelector("main");
-  const panel = document.getElementById("panel-home");
+  const panel = document.getElementById("panel-todo");
   let sd = null;
 
   panel.addEventListener("pointerdown", e => {
@@ -2275,7 +2316,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
 // different day header reassigns the to-do's day.
 (function(){
   const mainEl = document.querySelector("main");
-  const panel = document.getElementById("panel-home");
+  const panel = document.getElementById("panel-todo");
   let drag = null;
 
   panel.addEventListener("pointerdown", e => {
@@ -2685,7 +2726,8 @@ function applyLaunchParams(){
   const tab = params.get("tab");
   const action = params.get("action");
   if (!tab && !action) return;
-  if (tab && TAB_ORDER.includes(tab) && tab !== "home") activateTab(tab);
+  if (action === "addtodo") activateTab("todo");
+  else if (tab && TAB_ORDER.includes(tab) && tab !== "home") activateTab(tab);
   if (action === "addtodo"){
     setTimeout(() => document.getElementById("todo-quick-add-input")?.focus(), 150);
   }
