@@ -61,7 +61,7 @@ async function section(name, fn) {
 await section("every tab renders without JS errors (phone + desktop)", async () => {
   for (const phone of [true, false]) {
     const { ctx, page, errors } = await openApp({ phone });
-    for (const tab of ["home", "todo", "skin", "style", "wants"]) {
+    for (const tab of ["home", "todo", "skin", "style", "wants", "budget"]) {
       await page.evaluate(t => activateTab(t), tab);
       check(`headline for ${tab}`, (await page.textContent("#headline")).length > 0);
     }
@@ -327,7 +327,7 @@ await section("backup: download has every list, restore replaces data, junk reje
     navigator.canShare = undefined;
     return downloadBackup().then(() => captured.text()).then(JSON.parse);
   });
-  check("backup holds 11 lists", Object.keys(backup.data).length === 11, Object.keys(backup.data));
+  check("backup holds 14 lists (incl. bills + budget)", Object.keys(backup.data).length === 14 && "budget-content" in backup.data, Object.keys(backup.data));
   backup.data["todo-content"] = [{ id: "r1", text: "Restored", done: false, due: null, starred: false, subitems: [], completedAt: null }];
   await page.evaluate(() => openSyncModal());
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("text=Restore…")]);
@@ -708,6 +708,70 @@ await section("to-do: recurring to-dos", async () => {
   await page.press("#composer-text", "Enter");
   const added = await page.evaluate(() => { const t = todoList.find(x => x.text === "Water plants"); return { repeat: t.repeat, due: t.due }; });
   check("composer Repeat chip makes a repeating to-do starting today", added.repeat === "biweekly" && added.due === isoOffset(0), added);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: tab, closet inside Shopping, spending, bills", async () => {
+  const { ctx, page, errors } = await openApp({ seed: {
+    "bills-content": [{ id: "<bad>", name: "Junk", amount: "abc", due: "nope", repeat: "hourly", autopay: 1, link: "javascript:alert(1)" }],
+  }});
+  const nav = await page.$$eval("nav.tabbar button", bs => bs.map(b => b.textContent.trim()));
+  check("nav: Home, To-Do, Shopping, Budget, Skin & Hair", JSON.stringify(nav) === '["Home","To-Do","Shopping","Budget","Skin & Hair"]', nav);
+  const junk = await page.evaluate(() => bills[0]);
+  check("bad bill data is coerced", /^bill-/.test(junk.id) && junk.amount === 0 && junk.repeat === "monthly" && /^\d{4}-/.test(junk.due), junk);
+  await page.evaluate(() => { bills = []; saveBudgetData(); });
+
+  // Closet now lives behind Shopping's switch
+  await page.evaluate(() => activateTab("wants"));
+  await page.click("#panel-wants .seg-switch >> text=Closet");
+  const closet = await page.evaluate(() => ({ panel: document.getElementById("panel-style").classList.contains("active"),
+    nav: document.querySelector("nav.tabbar button.active").dataset.tab, head: document.getElementById("headline").textContent,
+    fab: document.getElementById("fab").getAttribute("aria-label") }));
+  check("Closet view: Shopping stays highlighted, + adds to wardrobe", closet.panel && closet.nav === "wants" && closet.head === "Shopping" && closet.fab === "Add to wardrobe", closet);
+  await page.click("#panel-style .seg-switch >> text=To buy");
+  check("To buy goes back to the list", await page.evaluate(() => document.getElementById("panel-wants").classList.contains("active")));
+
+  // Spending
+  await page.evaluate(() => activateTab("budget"));
+  await page.click("#fab");
+  check("+ on Budget opens Add to budget", (await page.textContent("#composer-heading")) === "Add to budget");
+  await page.fill("#composer-text", "Coffee");
+  await page.press("#composer-text", "Enter");
+  check("no amount: not saved, sheet says why", (await page.evaluate(() => budget.expenses.length)) === 0 && (await page.textContent("#composer-count")).includes("amount"));
+  await page.fill("#composer-text", "Groceries $54.25");
+  await page.click("#composer-chips2 .filter-chip >> text=Groceries");
+  await page.press("#composer-text", "Enter");
+  const exp = await page.evaluate(() => budget.expenses[0]);
+  check("expense parsed: name, amount, category, today", exp.name === "Groceries" && exp.amount === 54.25 && exp.cat === "cat-groceries" && exp.date === isoOffset(0), exp);
+
+  // Bill
+  await page.fill("#composer-text", "Rent $1200");
+  await page.click("#composer-chips .filter-chip >> text=Bill");
+  check("bill shows the link field", await page.isVisible("#cx-link"));
+  await page.click("#composer-chips .filter-chip >> text=Autopay");
+  await page.press("#composer-text", "Enter");
+  await page.evaluate(() => closeComposer());
+  const bill = await page.evaluate(() => bills[0]);
+  check("bill saved: monthly, due today, autopay", bill.name === "Rent" && bill.amount === 1200 && bill.repeat === "monthly" && bill.due === isoOffset(0) && bill.autopay, bill);
+  const sum = await page.textContent(".budget-stats");
+  check("summary shows spent and bills due", sum.includes("$54.25") && sum.includes("$1,200"), sum);
+
+  // Pay it from Home
+  await page.evaluate(() => activateTab("home"));
+  check("bill shows on Home today", (await page.textContent("#panel-home")).includes("Pay Rent"));
+  await page.click('#panel-home .bill-home .todo-check[aria-label="Mark paid: Rent"]');
+  const paid = await page.evaluate(() => ({ due: bills[0].due, pays: billPayments.length, next: addMonthsIso(addDaysIso(0), 1) }));
+  check("paying logs it and moves the bill to next month", paid.pays === 1 && paid.due === paid.next, paid);
+  check("paid bill stays on Home, struck", !!(await page.$("#panel-home .bill-home .item.checked")));
+  await page.click(".toast button");
+  check("undo un-pays", await page.evaluate(() => billPayments.length === 0 && bills[0].due === addDaysIso(0)));
+
+  // Next month shows the projected due; over-budget category turns red
+  await page.evaluate(() => { activateTab("budget"); budget.expenses.push({ id: "exp-big", name: "Big shop", amount: 500, cat: "cat-groceries", date: addDaysIso(0) }); renderBudget(); });
+  check("over-limit category is flagged", !!(await page.$(".budget-cat-amt.over")));
+  await page.click('.budget-month .cal-nav[aria-label="Next month"]');
+  check("next month projects the bill", (await page.textContent("#bills-card")).includes("Rent"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

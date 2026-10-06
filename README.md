@@ -1,19 +1,21 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
-docs) into one place with five tabs: **Home, To-Do, Shopping, Wardrobe, Skin & Hair.**
+docs) into one place with five tabs: **Home, To-Do, Shopping, Budget, Skin & Hair.**
+The wardrobe (closet, sizes, fit rules) lives inside Shopping, behind its **To buy | Closet** switch.
 
 Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main`).
 
 ## Using the app
 
-**Home** is a dashboard. It has:
-- a To-Do summary of overdue and due-today items (up to 3), which you can tick off in place;
-- today's skin routine progress ("AM 4/6 · PM 0/6"), the streak, and the next wash day;
-- Wardrobe and Shopping stat tiles;
-- **Up next**: the top two items to buy, by priority then price.
-
-Tapping a card opens its tab.
+**Home** is a day planner.
+- **Calendar strip:** a Monday-first week with dots for what's due and a droplet on wash
+  days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
+  full month. Any date can be picked; **Today** jumps back.
+- **Day hero:** the date, a done/total progress ring, and what's left.
+- **Day list:** Overdue, the day's to-dos (starred first, finished ones struck through),
+  bills due ("Pay Rent · $1,450"), the Wash hair item on wash days, future repeats of
+  recurring to-dos and bills, and an Anytime peek on today. Everything can be ticked in place.
 
 **To-Do** is the full list.
 - **Adding.** Tap the floating **+** button (on Home and To-Do; see *Adding things* below).
@@ -54,7 +56,7 @@ On wash days, the wash-day PM routine replaces the regular PM routine. The sched
 stored on the routine as `wash: {anchor, everyDays}`. Routines saved before it was editable
 fall back to the original cadence: every 2 weeks from Thu Jul 16 2026.
 
-**Wardrobe** is the closet.
+**Closet** (Shopping → Closet; the `style` panel in code) is the wardrobe.
 - **Wardrobe built:** progress, counting closet items against wardrobe items still to buy.
 - **Shopping link:** "N wardrobe items to buy · Shopping list →" opens Wants filtered to
   Wardrobe.
@@ -78,15 +80,30 @@ clothes, moto gear, and everything else.
   the closet; un-buying takes it back out.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Adding things.** A floating **+** button on Home, To-Do, Shopping, and Wardrobe opens one
+**Budget** tracks bills and spending, one calendar month at a time (‹ › to step months).
+- **Summary:** left to spend (category budgets minus spending), spent vs. budget, and bills
+  due vs. paid.
+- **Bills:** each has an amount, a due date, a repeat (monthly, weekly, every 2 weeks,
+  quarterly, yearly, one time), Autopay, and an optional pay link. Tick one to mark it paid:
+  the payment is logged and the bill moves to its next due date (Undo, or untick the paid
+  row, takes it back). Later dues in the month are projected. Bills also show on Home.
+- **Spending:** expenses logged against monthly category limits (Groceries, Dining out, Gas,
+  Fun, Other by default; the Edit chip adds, renames, re-limits, or deletes them). Tap a
+  category for its expenses; over-limit categories turn red.
+- Payments and expenses older than about 13 months are pruned automatically.
+
+**Adding things.** A floating **+** button on Home, To-Do, Shopping, Closet, and Budget opens one
 shared bottom sheet whose fields fit the tab:
 - **To-do** (Home, To-Do): described under To-Do above.
 - **Shopping → New item:** a trailing price in the text sets it ("helmet $250", tap the
   price pill to keep it as text), plus Need / Want, General / Moto / Wardrobe (with a
   Tops, Bottoms… row), High priority, and Details (notes, price, link). New items start in
   whatever the filter is showing, and the category sticks between adds for batches.
-- **Wardrobe → Add to wardrobe:** In closet or To buy (which lands on Shopping), a category
+- **Closet → Add to wardrobe:** In closet or To buy (which lands on Shopping), a category
   row, Fit pending, and Notes.
+- **Budget → Add to budget:** Expense or Bill. A trailing amount in the text sets it
+  ("groceries $54") or use the Amount box. Expenses take a date (Today, Yesterday, Pick date)
+  and a category; bills take a due date, a repeat, Autopay, and a pay link.
 
 Every mode adds several in a row: Enter saves and clears, and the header counts the adds.
 Skin & Hair has no + because adding routine steps is a rare edit there.
@@ -103,7 +120,7 @@ a centered dialog on desktop. Esc closes them, Enter saves, and Delete always co
 - **Hard refresh:** pull down from the top of a tab (or use the refresh button on
   desktop). It clears the service worker cache and reloads, but never touches your data.
 - **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Shopping,
-  Wardrobe, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
+  Budget, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.
 
 ## Project layout
@@ -198,6 +215,9 @@ Everything lives in `localStorage` on the device:
 | `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
 | `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
+| `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, done?}` (`done` = a paid one-time bill) |
+| `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
+| `budget-content` | `{categories: [{id, name, limit}], expenses: [{id, name, amount, cat, date}]}` |
 | `data-updated-at` | Last real edit, used for sync |
 | `sync-token`, `sync-gist-id` | Sync settings for this device (never synced) |
 
