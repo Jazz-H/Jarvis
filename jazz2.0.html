@@ -835,6 +835,18 @@ function escapeHtml(s){
 function escapeAttr(s){
   return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 }
+// Only http(s) links are rendered; anything else (javascript:, data:, junk) is dropped.
+function safeUrl(u){
+  if (!u) return "";
+  try{
+    const url = new URL(String(u), location.href);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  }catch(e){ return ""; }
+}
+function linkHtml(u, attrs, inner){
+  const href = safeUrl(u);
+  return href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener" ${attrs}>${inner}</a>` : "";
+}
 
 let styleState = {};
 let wantsState = {};
@@ -853,7 +865,7 @@ let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add inp
 const DEFAULT_SKIN_RULES = [
   "Vitamin C (AM) and Glycolic Acid (PM) are fine same day — just never same session.",
   "SPF is the final AM step, no exceptions, even indoors.",
-  "Multi-Peptide Lash &amp; Brow Serum is always the very last PM step."
+  "Multi-Peptide Lash & Brow Serum is always the very last PM step."
 ];
 
 const DEFAULT_SKIN_DAYS = [
@@ -874,7 +886,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -893,7 +905,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -913,7 +925,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -932,7 +944,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Cleanse","Glucoside Foaming Cleanser"],
       ["Niacinamide","10% + Zinc"],
       ["Moisturize","Natural Moisturizing Factors + HA"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ],
     pm:[
       ["Cleanse","Glucoside Foaming Cleanser"],
@@ -940,7 +952,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -960,7 +972,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -979,7 +991,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   },
   {
@@ -998,7 +1010,7 @@ const DEFAULT_SKIN_DAYS = [
       ["Moisturize","Natural Moisturizing Factors + HA"],
       ["Eye area","Caffeine Solution 5% + EGCG"],
       ["Hair mist","Daily Hair Spray"],
-      ["Lash/brow — last step","Multi-Peptide Lash &amp; Brow Serum"]
+      ["Lash/brow — last step","Multi-Peptide Lash & Brow Serum"]
     ]
   }
 ];
@@ -1100,7 +1112,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
       return `<div class="modal-field"><span>${f.label}</span><div class="day-chips" id="modal-${f.key}">${chips}</div></div>`;
     }
     if (f.type === "select"){
-      const opts = f.options.map(o => `<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${o}</option>`).join("");
+      const opts = f.options.map(o => `<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${escapeHtml(o)}</option>`).join("");
       return `<label class="modal-field"><span>${f.label}</span><select id="modal-${f.key}">${opts}</select></label>`;
     }
     if (f.type === "textarea"){
@@ -1471,10 +1483,10 @@ function renderHomePanel(){
         <div class="glance-icon" style="background:${iconBg}; color:${iconColor};">${icon}</div>
         <div class="next-info">
           <div class="next-name">${escapeHtml(name)}</div>
-          <div class="next-meta">${priceStr?`<b>${priceStr}</b> · `:""}${context}</div>
+          <div class="next-meta">${priceStr?`<b>${priceStr}</b> · `:""}${escapeHtml(context)}</div>
         </div>
         <div class="tile-actions">
-          ${link?`<a href="${link}" target="_blank" rel="noopener" class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product">${LINK_ICON}</a>`:''}
+          ${linkHtml(link, 'class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product"', LINK_ICON)}
           <button class="icon-btn" onclick="event.stopPropagation(); ${checkCall}" aria-label="${checkLabel}">${CHECK_ICON}</button>
         </div>
       </div>`;
@@ -1868,8 +1880,8 @@ function renderSkin(){
   if (rulesEdit) html += `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>`;
   skinRules.forEach((r,i) => {
     html += rulesEdit
-      ? `<p class="rule editable" onclick="editSkinRule(${i})">${r}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
-      : `<p class="rule">${r}</p>`;
+      ? `<p class="rule editable" onclick="editSkinRule(${i})">${escapeHtml(r)}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
+      : `<p class="rule">${escapeHtml(r)}</p>`;
   });
   html += `</div></div></div>`;
   el.innerHTML = html;
@@ -1971,8 +1983,8 @@ function renderStyle(){
   if (rulesEdit) refCards += `<button class="add-row" onclick="addStyleRule()">+ Add rule</button>`;
   styleRules.forEach((r,i) => {
     refCards += rulesEdit
-      ? `<p class="rule editable" onclick="editStyleRule(${i})">${r}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
-      : `<p class="rule">${r}</p>`;
+      ? `<p class="rule editable" onclick="editStyleRule(${i})">${escapeHtml(r)}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
+      : `<p class="rule">${escapeHtml(r)}</p>`;
   });
   refCards += `</div></div></div>`;
 
@@ -1989,8 +2001,8 @@ function renderStyle(){
   refCards += `<div class="sizegrid">`;
   sizes.forEach(([k,v],i) => {
     refCards += sizesEdit
-      ? `<div class="editable" onclick="editSize(${i})"><span>${k}</span>${v}<span class="inline-pencil">${PENCIL_ICON}</span></div>`
-      : `<div><span>${k}</span>${v}</div>`;
+      ? `<div class="editable" onclick="editSize(${i})"><span>${escapeHtml(k)}</span>${escapeHtml(v)}<span class="inline-pencil">${PENCIL_ICON}</span></div>`
+      : `<div><span>${escapeHtml(k)}</span>${escapeHtml(v)}</div>`;
   });
   refCards += `</div>`;
   refCards += `<p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div></div></div>`;
@@ -2087,15 +2099,15 @@ function renderCapsuleLists(){
     const pendingBadge = c.pending ? `<span class="badge pending">fit pending</span>` : "";
     const editBtn = edit ? `<button class="row-edit-btn" onclick="${c.kind === 'want' ? `editWant('${c.item.id}')` : `editCapsuleItem('${c.item.id}')`}" aria-label="Edit item">${PENCIL_ICON}</button>` : "";
     const priceLine = c.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${c.estimated?'~':''}$${fmtMoney(c.price)}${c.estimated?' (est.)':''}</div>` : "";
-    const linkLine = c.link ? `<a class="link" href="${c.link}" target="_blank" rel="noopener">View product →</a>` : "";
+    const linkLine = linkHtml(c.link, 'class="link"', "View product →");
     byCat[c.cat] = (byCat[c.cat] || "") + `<div class="item closet-item">
-        <div class="body"><div class="title">${c.title}${pendingBadge}</div>${c.sub?`<div class="sub">${c.sub}</div>`:""}${priceLine}${linkLine}</div>
+        <div class="body"><div class="title">${escapeHtml(c.title)}${pendingBadge}</div>${c.sub?`<div class="sub">${escapeHtml(c.sub)}</div>`:""}${priceLine}${linkLine}</div>
         ${editBtn}
       </div>`;
   });
   let grouped = "";
-  CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
-  Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
+  CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
+  Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
   const sum = priceSummary(items);
   el.innerHTML = (edit ? `<button class="add-row" onclick="addCapsuleItem()">+ Add item</button>` : "")
     + (grouped || `<div class="empty">Nothing here yet.</div>`)
@@ -2202,16 +2214,16 @@ function renderWants(){
   const pendingSum = priceSummary(pendingItems), doneSum = priceSummary(doneItems);
   const wantRow = (w, isDone) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
-    const linkHtml = w.link ? `<a class="link" href="${w.link}" target="_blank" rel="noopener">View product →</a>` : "";
+    const linkLine = linkHtml(w.link, 'class="link"', "View product →");
     const editBtn = editCards.has(isDone ? 'wants-purchased-card' : 'wants-pending-card')
       ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
         <div class="body">
-          <div class="name">${w.name}${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
-          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${w.wardrobeCat}${isDone ? " · in closet" : ""}</div>` : ""}
-          ${w.meta?`<div class="meta">${w.meta}</div>`:""}
+          <div class="name">${escapeHtml(w.name)}${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
+          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}${isDone ? " · in closet" : ""}</div>` : ""}
+          ${w.meta?`<div class="meta">${escapeHtml(w.meta)}</div>`:""}
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
-          ${linkHtml}
+          ${linkLine}
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
           <button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
@@ -2943,6 +2955,23 @@ function loadAllContent(){
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
   todoList = loadContent("todo-content", DEFAULT_TODO);
   if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
+  normalizeLoadedData(); // last: needs every list loaded
+}
+// Stored data can arrive from sync or a backup file, so it's treated as untrusted:
+// text is escaped wherever it's rendered, and ids — which are interpolated into
+// inline onclick handlers — must be plain tokens or they're replaced. Older builds
+// also stored a few strings as HTML ("&amp;"); those are decoded so all text is
+// plain. Runs on every load (idempotent), so nothing is written here.
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+function safeId(id, prefix){ return SAFE_ID.test(String(id)) ? id : genId(prefix); }
+function normalizeLoadedData(){
+  skinRules = skinRules.map(decodeEntities);
+  styleRules = styleRules.map(decodeEntities);
+  sizes = sizes.map(([k, v]) => [decodeEntities(k), decodeEntities(v)]);
+  capsule.forEach(i => { i.id = safeId(i.id, "cap"); i.title = decodeEntities(i.title); if (i.sub) i.sub = decodeEntities(i.sub); });
+  wantsList.forEach(w => { w.id = safeId(w.id, "want"); w.name = decodeEntities(w.name); if (w.meta) w.meta = decodeEntities(w.meta); });
+  todoList.forEach(t => { t.id = safeId(t.id, "todo"); (t.subitems || []).forEach(st => { st.id = safeId(st.id, "sub"); }); });
+  ["am", "pm", "washPm"].forEach(b => (skinRoutine[b] || []).forEach(st => { st.id = safeId(st.id, b); }));
 }
 // Persists housekeeping (format migrations, auto-archive) WITHOUT bumping
 // data-updated-at. Bumping it would make a device holding stale data look
