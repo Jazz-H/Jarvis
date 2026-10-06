@@ -334,6 +334,9 @@
   .want-card:last-child{border-bottom:none;}
   .want-card .body{flex:1;}
   .want-card .name{font-size:13.5px; font-weight:700; line-height:1.35;}
+  .link-btn{border:none; background:none; padding:0; color:var(--link); font:inherit; font-weight:700; font-style:normal; text-decoration:underline;}
+  .want-card .badges{white-space:nowrap;} /* badges wrap as a group, flush left */
+  .want-card .badges .badge:first-child{margin-left:0;}
   .want-card .meta{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
   .link{font-size:12px; color:var(--link); text-decoration:none; font-weight:600; display:inline-block; margin-top:4px;}
   .want-card .price{font-size:14px; font-weight:700; color:var(--gold); margin-top:5px;}
@@ -903,7 +906,7 @@
 </div>
 
 <div class="modal-backdrop" id="modal-backdrop" onclick="if(event.target===this) closeModal()">
-  <div class="modal-sheet">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
     <div class="modal-head">
       <h3 id="modal-heading">Edit</h3>
       <button class="modal-x" onclick="closeModal()" aria-label="Close">&times;</button>
@@ -943,9 +946,7 @@
 const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Shopping", wants:"Shopping", budget:"Budget"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
-const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
-const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>';
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
 const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
@@ -969,6 +970,11 @@ function loadContent(key, defaults){
     if (raw) return JSON.parse(raw);
   }catch(e){}
   return JSON.parse(JSON.stringify(defaults));
+}
+// Flag maps ({id: true}) — anything that isn't a plain object becomes {}
+function loadState(key){
+  const v = loadContent(key, {});
+  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
 }
 function saveContent(key, data, {toast = true} = {}){
   try{
@@ -1010,7 +1016,7 @@ function escapeHtml(s){
   return String(s == null ? "" : s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 }
 function escapeAttr(s){
-  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/</g,"&lt;");
 }
 // Only http(s) links are rendered; anything else (javascript:, data:, junk) is dropped.
 function safeUrl(u){
@@ -1270,14 +1276,16 @@ let skinRules, skinRoutine, routineChecks, styleRules, sizes, capsule, wantsList
 let modalFields = [];
 let modalOnSave = null;
 let modalOnDelete = null;
-let modalDeleteConfirm = "";
+let modalDeleteOpts = {};
 
+let modalReturnFocus = null;
 function openModal(title, fields, values, onSave, onDelete, deleteOpts){
+  modalReturnFocus = document.activeElement;
   document.getElementById("modal-heading").textContent = title;
   modalFields = fields;
   modalOnSave = onSave;
   modalOnDelete = onDelete || null;
-  modalDeleteConfirm = (deleteOpts && deleteOpts.confirm) || "Delete this? This can't be undone.";
+  modalDeleteOpts = deleteOpts || {};
   document.getElementById("modal-delete-btn").textContent = (deleteOpts && deleteOpts.label) || "Delete";
   const body = document.getElementById("modal-body");
   body.innerHTML = fields.map(f => {
@@ -1329,6 +1337,9 @@ document.addEventListener("keydown", e => {
 });
 function closeModal(){
   document.getElementById("modal-backdrop").classList.remove("open");
+  // back to whatever opened it, if it's still on the page (keyboard/screen-reader users)
+  if (modalReturnFocus && document.contains(modalReturnFocus)) try{ modalReturnFocus.focus({preventScroll:true}); }catch(e){}
+  modalReturnFocus = null;
 }
 function modalSave(){
   const values = {};
@@ -1347,17 +1358,25 @@ function modalSave(){
   if (modalOnSave) modalOnSave(values);
   closeModal();
 }
+// Deletes happen right away with an Undo (no "are you sure?"): the undo puts
+// back a snapshot of every list taken just before, so it covers anything the
+// delete touched (a goal's links, a category's spending…).
 function modalDelete(){
   if (!modalOnDelete) return;
-  if (confirm(modalDeleteConfirm)){
-    modalOnDelete();
-    closeModal();
+  if (modalDeleteOpts.noUndo){ // not a data change (e.g. turning sync off): ask instead
+    if (confirm(modalDeleteOpts.confirm)){ modalOnDelete(); closeModal(); }
+    return;
   }
+  const snapshot = JSON.parse(JSON.stringify(liveData()));
+  const label = document.getElementById("modal-delete-btn").textContent;
+  modalOnDelete();
+  closeModal();
+  showUndoToast(/delete/i.test(label) ? "Deleted" : "Done", () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
 }
 
 function toggleCardEdit(id){
-  if (editCards.has(id)) editCards.delete(id); else editCards.add(id);
-  renderSkin(); renderStyle(); renderWants();
+  if (editCards.has(id)) editCards.delete(id); else { editCards.add(id); openPinned.add(id); } // editing a closed card opens it
+  renderSkin(); renderStyle(); renderWants(); renderBudget();
 }
 function editChipHtml(id){
   const on = editCards.has(id);
@@ -1453,43 +1472,45 @@ const REPEATS = {
   monthly:  {label:"Every month", short:"Monthly"},
 };
 const NO_REPEAT = "Doesn't repeat";
-function nextRepeatIso(iso, repeat){
+// `day` is the series' own day of month, so a repeat on the 31st lands on the
+// 30th in a 30-day month and goes back to the 31st after (no drift to the 28th)
+function nextRepeatIso(iso, repeat, day){
+  if (repeat === "monthly") return addMonthsIso(iso, 1, day);
   const d = noonOf(iso);
   if (repeat === "daily") d.setDate(d.getDate() + 1);
   else if (repeat === "weekdays"){ do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6); }
   else if (repeat === "weekly") d.setDate(d.getDate() + 7);
   else if (repeat === "biweekly") d.setDate(d.getDate() + 14);
-  else { // monthly: same date, or the month's last day when it's shorter
-    const day = d.getDate();
-    d.setDate(1); d.setMonth(d.getMonth() + 1);
-    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
-  }
   return isoDate(d);
 }
+function dayOf(iso){ return iso ? Number(iso.slice(8, 10)) : undefined; }
+function todoRepeatDay(t){ return t.repeatDay || dayOf(t.due); }
 function ordinal(n){ const s = ["th","st","nd","rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 function repeatLabel(t){
   const r = REPEATS[t.repeat];
   if (!r) return "";
   if (!t.due || t.repeat === "daily" || t.repeat === "weekdays") return r.short;
   const d = noonOf(t.due);
-  if (t.repeat === "monthly") return `Monthly on the ${ordinal(d.getDate())}`;
+  if (t.repeat === "monthly") return `Monthly on the ${ordinal(todoRepeatDay(t))}`;
   return `${r.short} · ${WEEKDAYS[d.getDay()]}s`;
 }
 // Does a repeating to-do land on `iso`, after its current (stored) date?
 function occursOn(t, iso){
   if (!t.repeat || t.done || !t.due || iso <= t.due) return false;
   let d = t.due;
-  for (let i = 0; i < 800 && d < iso; i++) d = nextRepeatIso(d, t.repeat);
+  for (let i = 0; i < 800 && d < iso; i++) d = nextRepeatIso(d, t.repeat, todoRepeatDay(t));
   return d === iso;
 }
 function completeRepeating(t){
   const today = addDaysIso(0);
   const occurrence = t.due || today;
   const prev = {due:t.due, subitems:JSON.parse(JSON.stringify(t.subitems || []))};
-  const copy = {id:genId("todo"), text:t.text, done:true, due:occurrence, starred:false,
+  const copy = {id:genId("todo"), text:t.text, done:true, due:occurrence, starred:false, seriesId:t.id,
     subitems:prev.subitems.map(s => ({...s, id:genId("sub")})), completedAt:Date.now()};
-  let next = nextRepeatIso(occurrence, t.repeat);
-  if (occurrence <= today) while (next <= today) next = nextRepeatIso(next, t.repeat);
+  const day = todoRepeatDay(t);
+  if (t.repeat === "monthly" && !t.repeatDay) t.repeatDay = day; // pin it before the first clamp
+  let next = nextRepeatIso(occurrence, t.repeat, day);
+  if (occurrence <= today) while (next <= today) next = nextRepeatIso(next, t.repeat, day);
   t.due = next;
   (t.subitems || []).forEach(s => { s.done = false; }); // fresh checklist each time
   todoList.splice(todoList.indexOf(t) + 1, 0, copy);
@@ -1497,7 +1518,8 @@ function completeRepeating(t){
   renderHome();
   showUndoToast(`Done · next ${dueLabel(next)}`, () => {
     todoList = todoList.filter(x => x.id !== copy.id);
-    t.due = prev.due; t.subitems = prev.subitems;
+    const cur = todoList.find(x => x.id === t.id); // a sync may have replaced the object
+    if (cur){ cur.due = prev.due; cur.subitems = prev.subitems; }
     saveContent("todo-content", todoList);
     renderHome();
   });
@@ -1917,8 +1939,9 @@ function composerFresh(mode, added, prev){
   const base = {mode, added, ignoreParse:false, showMore:false};
   if (mode === "todo"){
     // On Home with a later day picked in the calendar, new to-dos land on that day
+    // (a typed day word still wins over it)
     const preset = currentTab === "home" && homeSelected() > addDaysIso(0) ? homeSelected() : null;
-    return {...base, date:preset, manual:!!preset, star:false, repeat:null};
+    return {...base, date:null, manual:false, preset, star:false, repeat:null};
   }
   if (mode === "shop"){
     if (prev) return {...base, kind:prev.kind, cat:prev.cat, wcat:prev.wcat, high:false}; // categories stick for batches
@@ -1950,9 +1973,9 @@ function weekendIso(){
 }
 function composerDue(){
   if (composer.manual) return {due:composer.date, auto:false};
-  if (composer.ignoreParse) return {due:null, auto:false};
+  if (composer.ignoreParse) return {due:composer.preset || null, auto:false};
   const p = parseQuickAdd(composerText());
-  return {due:p.due, auto:!!p.due};
+  return p.due ? {due:p.due, auto:true} : {due:composer.preset || null, auto:false};
 }
 // "helmet $250" / "boots $119.45": a trailing dollar amount is the price
 function parsePrice(raw){
@@ -2013,11 +2036,13 @@ function renderComposerChips(){
     document.getElementById("composer-text").placeholder = c.type === "bill" ? "Bill name — try “rent $1200”"
       : c.type === "goal" ? "What is it? Try “bonus $500”" : COMPOSER_MODES.money.placeholder;
   } else {
-    row1 = cchip("In closet", c.dest === "closet", "composer.dest = 'closet'; renderComposerChips()")
+    const price = c.dest === "buy" && !c.ignoreParse ? parsePrice(composerText()).price : null;
+    if (price != null) row1 += cchip(`$${fmtMoney(price)}`, true, "composer.ignoreParse = true; renderComposerChips()");
+    row1 += cchip("In closet", c.dest === "closet", "composer.dest = 'closet'; renderComposerChips()")
       + cchip("To buy", c.dest === "buy", "composer.dest = 'buy'; renderComposerChips()");
     if (c.dest === "closet") row1 += cchip("Fit pending", c.pending, "composer.pending = !composer.pending; renderComposerChips()");
     row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
-    row2 = CAP_CATS.map(w => cchip(w, c.cat === w, `composer.cat = '${w}'; renderComposerChips()`)).join("");
+    row2 = [...CAP_CATS, "Other"].map(w => cchip(w, c.cat === w, `composer.cat = '${w}'; renderComposerChips()`)).join("");
   }
   // Price and link stay in view whenever the item is headed for the shopping list
   document.getElementById("composer-buy").hidden = !(c.mode === "shop" || c.mode === "money" || (c.mode === "closet" && c.dest === "buy"));
@@ -2111,7 +2136,7 @@ function addTodoFromComposer(raw){
     ? composerField("composer-subs").split("\n").map(x => x.trim()).filter(Boolean).map(x => ({id:genId("sub"), text:x.slice(0, TODO_MAX_LEN), done:false}))
     : [];
   const t = {id:genId("todo"), text:auto ? parseQuickAdd(raw).text : raw, done:false, due, starred:composer.star, subitems:subs, completedAt:null};
-  if (composer.repeat){ t.repeat = composer.repeat; if (!t.due) t.due = addDaysIso(0); } // a repeat needs a start date
+  if (composer.repeat){ t.repeat = composer.repeat; if (!t.due) t.due = addDaysIso(0); t.repeatDay = dayOf(t.due); } // a repeat needs a start date
   // New items go to the top of their group so they land in view, not below the fold
   const at = todoList.findIndex(x => !x.done && todoGroup(x) === todoGroup(t));
   if (at >= 0) todoList.splice(at, 0, t); else todoList.push(t);
@@ -2153,7 +2178,7 @@ function addMoneyFromComposer(raw){
     return `to ${g.name}`;
   }
   if (composer.type === "bill"){
-    bills.push({id:genId("bill"), name, amount:Math.max(0, amount), due:date, repeat:composer.repeat, autopay:composer.autopay,
+    bills.push({id:genId("bill"), name, amount:Math.max(0, amount), due:date, day:dayOf(date), repeat:composer.repeat, autopay:composer.autopay,
       link:composerField("cx-link") || null, group:composer.group, account:budget.accounts.includes(composer.account) ? composer.account : null});
   } else {
     budget.expenses.push({id:genId("exp"), name, amount:Math.max(0, amount), cat:composer.cat, date});
@@ -2169,8 +2194,9 @@ function addClosetFromComposer(raw){
     capsule.push(item);
     saveContent("capsule-content", capsule, {toast:false});
   } else {
+    const parsed = composer.ignoreParse ? {text:raw, price:null} : parsePrice(raw); // "black jeans $80"
     const typed = composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
-    wantsList.push({id:genId("want"), name:raw, meta:sub, price:typed != null && !isNaN(typed) ? typed : null,
+    wantsList.push({id:genId("want"), name:parsed.text, meta:sub, price:typed != null && !isNaN(typed) ? typed : parsed.price,
       link:composerField("cx-link") || null, wardrobeCat:composer.cat});
     saveContent("wants-content", wantsList, {toast:false});
   }
@@ -2210,6 +2236,17 @@ if (window.visualViewport){
 })();
 function toggleTodo(id){
   const t = todoList.find(x=>x.id===id);
+  if (!t) return;
+  // Un-ticking a repeat's done copy puts the series back on that date instead
+  // of leaving a stray one-off to-do next to it
+  const series = t.done && t.seriesId && todoList.find(x => x.id === t.seriesId && !x.done && x.repeat);
+  if (series && series.due > t.due){
+    series.due = t.due;
+    todoList = todoList.filter(x => x.id !== t.id);
+    saveContent("todo-content", todoList);
+    renderHome();
+    return;
+  }
   t.done = !t.done;
   t.completedAt = t.done ? Date.now() : null;
   saveContent("todo-content", todoList);
@@ -2295,8 +2332,7 @@ function duplicateTodo(id){
 }
 function deleteTodoPermanently(id){
   if (!confirm("Delete this to-do? This can't be undone.")) return;
-  const idx = todoList.findIndex(x=>x.id===id);
-  todoList.splice(idx,1);
+  todoList = todoList.filter(x => x.id !== id); // (by id: never splice(-1) if it's already gone)
   saveContent("todo-content", todoList);
   renderHome();
 }
@@ -2314,7 +2350,7 @@ function editTodo(id){
       t.text = text;
       t.due = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : null;
       const repeat = Object.keys(REPEATS).find(k => REPEATS[k].label === v.repeat);
-      if (repeat){ t.repeat = repeat; if (!t.due) t.due = addDaysIso(0); } // a repeat needs a start date
+      if (repeat){ t.repeat = repeat; if (!t.due) t.due = addDaysIso(0); t.repeatDay = dayOf(t.due); } // a repeat needs a start date
       else delete t.repeat;
       const newSubs = (v.subs || "").split("\n").map(s => s.trim()).filter(Boolean);
       if (newSubs.length){
@@ -2325,11 +2361,9 @@ function editTodo(id){
       saveContent("todo-content", todoList); renderHome();
     },
     () => {
-      const idx = todoList.findIndex(x=>x.id===id);
-      todoList.splice(idx,1);
+      todoList = todoList.filter(x => x.id !== id);
       saveContent("todo-content", todoList); renderHome();
-    },
-    t.repeat ? {confirm:"Delete this repeating to-do? Future repeats stop too."} : undefined
+    }
   );
 }
 function clearCompletedTodos(){
@@ -2444,9 +2478,10 @@ function toggleRoutineStep(band, id){
   const wasDone = !!day[band + "Done"];
   // amDone/pmDone are recorded when ticking so the streak survives later routine edits
   const r = routineForDate(new Date());
-  day.amDone = r.am.length > 0 && r.am.every(s => day.am.includes(s.id));
-  day.pmDone = r.pm.length > 0 && r.pm.every(s => day.pm.includes(s.id));
-  const cutoff = addDaysIso(-60);
+  // a band with no steps that day counts as done, so it can't block the streak
+  day.amDone = r.am.every(s => day.am.includes(s.id));
+  day.pmDone = r.pm.every(s => day.pm.includes(s.id));
+  const cutoff = addDaysIso(-400); // about a year of history, so long streaks keep counting
   Object.keys(routineChecks).forEach(k => { if (k < cutoff) delete routineChecks[k]; });
   try{
     localStorage.setItem("routine-checks", JSON.stringify(routineChecks));
@@ -2634,7 +2669,7 @@ const WASH_FREQUENCIES = [[7, "Every week"], [10, "Every 10 days"], [14, "Every 
 let washCalOffset = 0; // months from the current one shown in the wash-day calendar
 function washSchedule(){
   const w = skinRoutine && skinRoutine.wash;
-  return w && /^\d{4}-\d{2}-\d{2}$/.test(w.anchor) && w.everyDays > 0 ? w : DEFAULT_WASH;
+  return w && /^\d{4}-\d{2}-\d{2}$/.test(w.anchor) && Number.isInteger(w.everyDays) && w.everyDays >= 1 && w.everyDays <= 365 ? w : DEFAULT_WASH;
 }
 function washFrequencyLabel(){
   const n = washSchedule().everyDays;
@@ -2892,11 +2927,11 @@ function editCapsuleItem(id){
   openModal("Edit item", [
     {key:"title",label:"Title",type:"text"},
     {key:"sub",label:"Notes (optional)",type:"text"},
-    {key:"cat",label:"Category",type:"select",options:CAP_CATS},
+    {key:"cat",label:"Category",type:"select",options:[...CAP_CATS, "Other"]},
     {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"pending",label:"Fit pending",type:"checkbox"}
-  ], {title:item.title, sub:item.sub||"", cat:item.cat||CAP_CATS[0], price:item.price, link:item.link||"", pending:item.state==="pending"},
+  ], {title:item.title, sub:item.sub||"", cat:item.cat||"Other", price:item.price, link:item.link||"", pending:item.state==="pending"},
     (v) => {
       if(!v.title) return;
       item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat; item.price=v.price; item.link=v.link||null;
@@ -2904,8 +2939,7 @@ function editCapsuleItem(id){
       saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
     },
     () => {
-      const idx = capsule.findIndex(i=>i.id===id);
-      capsule.splice(idx,1);
+      capsule = capsule.filter(i => i.id !== id);
       saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
     }
   );
@@ -2951,10 +2985,10 @@ function renderWants(){
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
     const linkLine = linkHtml(w.link, 'class="link"', "View product →");
     const editBtn = editCards.has(isDone ? 'wants-purchased-card' : 'wants-pending-card')
-      ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')">${PENCIL_ICON}</button>` : "";
+      ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')" aria-label="Edit ${escapeAttr(w.name)}">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
         <div class="body">
-          <div class="name">${escapeHtml(w.name)}<span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
+          <div class="name">${escapeHtml(w.name)} <span class="badges"><span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</span></div>
           ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}${isDone ? " · in closet" : ""}</div>` : ""}
           ${w.moto ? `<div class="want-tag moto">${MOTO_ICON}Moto</div>` : ""}
           ${w.meta?`<div class="meta">${escapeHtml(w.meta)}</div>`:""}
@@ -2979,7 +3013,8 @@ function renderWants(){
       ${chip("moto", "Moto", allPending.filter(w => w.moto).length)}
     </div>`;
   html += collapsibleCard({id:"wants-pending-card", title:"To buy", insight:`${pendingItems.length}${pendingSum.badge}`, body:`
-        ${pending||'<div class="empty">All caught up.</div>'}
+        ${pending || (wantsFilter === "all" ? '<div class="empty">All caught up.</div>'
+          : `<div class="empty">Nothing here in this filter. <button class="link-btn" onclick="wantsFilter='all'; renderWants()">Show all</button></div>`)}
         ${pendingSum.row}`});
   html += collapsibleCard({id:"wants-purchased-card", title:"Purchased", insight:doneItems.length ? doneItems.length + doneSum.badge : "None yet", body:`
         ${done||'<div class="empty">Nothing marked yet.</div>'}
@@ -3006,7 +3041,7 @@ async function toggleWant(id){
 }
 function editWant(id){
   const w = wantsList.find(x=>x.id===id);
-  openModal("Edit want", [
+  openModal("Edit item", [
     {key:"name",label:"Name",type:"text"},
     {key:"meta",label:"Notes (optional)",type:"text"},
     {key:"price",label:"Price",type:"number",step:"0.01"},
@@ -3021,13 +3056,14 @@ function editWant(id){
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
       if (v.high) w.priority = "high"; else delete w.priority;
+      const wasInCloset = !!(w.wardrobeCat && wantsState[w.id]);
       setWantCategory(w, v.cat);
       w.kind = v.kind === "Need" ? "need" : "want";
-      saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
+      saveContent("wants-content", wantsList, {toast:!(wasInCloset && !w.wardrobeCat)}); renderWants(); renderStyle(); renderHomePanel();
+      if (wasInCloset && !w.wardrobeCat) showToast("Saved · no longer clothing, so it's out of your closet");
     },
     () => {
-      const idx = wantsList.findIndex(x=>x.id===id);
-      wantsList.splice(idx,1);
+      wantsList = wantsList.filter(x => x.id !== id);
       delete wantsState[id];
       saveContent("wants-content", wantsList); saveContent("wants-state", wantsState); renderWants(); renderStyle(); renderHomePanel();
     }
@@ -3061,15 +3097,15 @@ let budgetMonthOffset = 0; // months from the current one shown on the Budget ta
 const openBudgetCats = new Set();
 const WALLET_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/></svg>';
 
-function addMonthsIso(iso, n){
-  const d = noonOf(iso), day = d.getDate();
+function addMonthsIso(iso, n, keepDay){
+  const d = noonOf(iso), day = keepDay || d.getDate();
   d.setDate(1); d.setMonth(d.getMonth() + n);
   d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
   return isoDate(d);
 }
-function nextBillIso(iso, repeat){
+function nextBillIso(iso, repeat, day){
   const r = BILL_REPEATS[repeat];
-  if (r && r.months) return addMonthsIso(iso, r.months);
+  if (r && r.months) return addMonthsIso(iso, r.months, day);
   if (repeat === "weekly" || repeat === "biweekly") return nextRepeatIso(iso, repeat);
   return null; // one-time
 }
@@ -3091,7 +3127,7 @@ function billsInMonth(key){
       // the current month also carries the bill's unpaid due from before it
       if (d >= start || (first && current)) rows.push({bill:b, name:b.name, amount:billShare(b), due:d, current:first});
       first = false;
-      d = nextBillIso(d, b.repeat);
+      d = nextBillIso(d, b.repeat, b.day);
     }
   });
   const byDate = (a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
@@ -3104,7 +3140,7 @@ function billsOnDay(iso){
   const projected = iso > today ? bills.filter(b => {
     if (b.done || !b.due || b.due >= iso) return false;
     let d = b.due;
-    for (let i = 0; i < 600 && d && d < iso; i++) d = nextBillIso(d, b.repeat);
+    for (let i = 0; i < 600 && d && d < iso; i++) d = nextBillIso(d, b.repeat, b.day);
     return d === iso;
   }) : [];
   const paid = billPayments.filter(p => p.date === iso);
@@ -3126,7 +3162,7 @@ function payBill(id){
 function recordPayment(b, amount){
   const p = {id:genId("pay"), billId:b.id, name:b.name, amount, due:b.due, date:addDaysIso(0), group:b.group || "personal", account:b.account || null};
   billPayments.push(p);
-  const prevDue = b.due, next = nextBillIso(b.due, b.repeat);
+  const prevDue = b.due, next = nextBillIso(b.due, b.repeat, b.day);
   if (next) b.due = next; else b.done = true;
   saveBudgetData();
   showUndoToast(next ? `${b.name} paid · next ${dueLabel(next)}` : `${b.name} paid`, () => {
@@ -3169,7 +3205,9 @@ function billFields(){
 function applyBillValues(b, v){
   b.name = (v.name || "").trim().slice(0, 120) || b.name || "Bill";
   b.amount = Math.max(0, Number(v.amount) || 0);
-  b.due = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : (b.due || addDaysIso(0));
+  const newDue = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : (b.due || addDaysIso(0));
+  if (newDue !== b.due || !b.day) b.day = dayOf(newDue); // the series' day of month
+  b.due = newDue;
   b.repeat = Object.keys(BILL_REPEATS).find(k => BILL_REPEATS[k].label === v.repeat) || "monthly";
   b.autopay = !!v.autopay;
   b.link = (v.link || "").trim() || null;
@@ -3185,8 +3223,7 @@ function editBill(id){
   openModal("Edit bill", billFields(), {name:b.name, amount:b.amount, due:b.due || "", repeat:(BILL_REPEATS[b.repeat] || BILL_REPEATS.monthly).label, autopay:!!b.autopay, link:b.link || "",
     group:BILL_GROUPS[b.group] || BILL_GROUPS.personal, account:b.account || "—", share:b.share || "", varies:!!b.varies},
     v => { applyBillValues(b, v); delete b.done; saveBudgetData(); },
-    () => { bills = bills.filter(x => x.id !== id); saveBudgetData(); },
-    {confirm:"Delete this bill? Its past payments stay in your history."});
+    () => { bills = bills.filter(x => x.id !== id); saveBudgetData(); });
 }
 function addBill(){
   openModal("Add bill", billFields(), {repeat:"Monthly", due:addDaysIso(0), group:BILL_GROUPS.personal, account:"—"},
@@ -3232,8 +3269,7 @@ function editBudgetCat(id){
       const fallback = budget.categories.find(x => /^other$/i.test(x.name)) || budget.categories[0];
       budget.expenses.forEach(e => { if (e.cat === id) e.cat = fallback ? fallback.id : null; });
       saveBudgetData();
-    } : null,
-    {confirm:"Delete this category? Its spending moves to Other."});
+    } : null);
 }
 function toggleBudgetCat(id){
   if (openBudgetCats.has(id)) openBudgetCats.delete(id); else openBudgetCats.add(id);
@@ -3279,28 +3315,28 @@ function incomeInMonth(key){
     let d = src.start;
     for (let i = 0; i < 800 && d && d <= end; i++){
       if (d >= start) out.push(paycheckAt(src, d));
-      d = nextBillIso(d, src.repeat);
+      d = nextBillIso(d, src.repeat, dayOf(src.start));
     }
   });
   return out.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+}
+function isPayday(srcId, date){
+  const src = budget.income.find(i => i.id === srcId);
+  if (!src) return false;
+  let d = src.start;
+  for (let i = 0; i < 800 && d && d < date; i++) d = nextBillIso(d, src.repeat, dayOf(src.start));
+  return d === date;
 }
 function paycheckAt(src, date){
   const key = `${src.id}|${date}`, plan = budget.plans[key] || {lines:[]};
   const amount = plan.amount != null ? plan.amount : src.amount;
   const planned = plan.lines.reduce((s, l) => s + l.amount, 0);
-  return {src, date, key, amount, plan, planned, left:amount - planned};
+  return {src, date, key, amount, plan, planned, left:Math.round((amount - planned) * 100) / 100}; // cents, so 0.1 + 0.2 isn't "−$0.00"
 }
 // The next payday after `iso`, across every income source (for the bills hint)
 function nextPayday(iso){
   const key = iso.slice(0, 7), nextKey = addMonthsIso(key + "-01", 1).slice(0, 7);
   return [...incomeInMonth(key), ...incomeInMonth(nextKey)].map(p => p.date).filter(d => d > iso).sort()[0] || null;
-}
-function billsBetween(from, toExclusive){
-  const lastDay = isoDate(new Date(noonOf(toExclusive).getTime() - 864e5));
-  const months = [...new Set([from.slice(0, 7), lastDay.slice(0, 7)])];
-  let total = 0;
-  months.forEach(k => billsInMonth(k).forEach(r => { if (r.due >= from && r.due < toExclusive) total += Number(r.amount) || 0; }));
-  return Math.round(total * 100) / 100;
 }
 function planFor(key){ return budget.plans[key] || (budget.plans[key] = {lines:[]}); }
 function incomeFields(){
@@ -3326,8 +3362,11 @@ function editIncome(id){
   if (!x) return;
   openModal("Edit income", incomeFields(), {name:x.name, amount:x.amount, start:x.start, repeat:(BILL_REPEATS[x.repeat] || BILL_REPEATS.biweekly).label},
     v => { applyIncomeValues(x, v); saveBudgetData(); },
-    () => { budget.income = budget.income.filter(i => i.id !== id); saveBudgetData(); },
-    {confirm:"Delete this income? Its paycheck plans are removed too."});
+    () => {
+      budget.income = budget.income.filter(i => i.id !== id);
+      Object.keys(budget.plans).forEach(k => { if (k.startsWith(id + "|")) delete budget.plans[k]; });
+      saveBudgetData();
+    });
 }
 function editPaycheck(srcId, date){
   const src = budget.income.find(i => i.id === srcId);
@@ -3337,7 +3376,12 @@ function editPaycheck(srcId, date){
     {key:"amount", label:"Amount for this payday", type:"number", step:"0.01"},
     {type:"note", label:`Usual amount: ${money(src.amount)}. Change the source itself from <b>Income</b> → Edit.`},
   ], {amount:p.amount},
-    v => { const n = Number(v.amount); const plan = planFor(p.key); if (isFinite(n) && n >= 0 && n !== src.amount) plan.amount = n; else delete plan.amount; saveBudgetData(); });
+    v => {
+      const n = Number(v.amount), plan = planFor(p.key);
+      // blank (or the usual amount) goes back to the usual amount
+      if (v.amount != null && v.amount !== "" && isFinite(n) && n >= 0 && n !== src.amount) plan.amount = n; else delete plan.amount;
+      saveBudgetData();
+    });
 }
 function addPlanLine(key, name = "", amount = ""){
   openModal("Add to this paycheck", [
@@ -3383,8 +3427,8 @@ function goalById(id){ return budget.goals.find(g => g.id === id); }
 function goalLinkedLines(g){
   const today = addDaysIso(0), out = [];
   Object.entries(budget.plans).forEach(([key, plan]) => {
-    const date = key.split("|")[1];
-    if (date > today) return;
+    const [srcId, date] = key.split("|");
+    if (date > today || !isPayday(srcId, date)) return; // plans left over from an edited income don't count
     plan.lines.forEach(l => { if (l.goal === g.id) out.push({date, amount:l.amount, note:`${l.name} · paycheck`, linked:true}); });
   });
   return out;
@@ -3420,6 +3464,7 @@ function editGoal(id, preset = ""){
     v => {
       const name = (v.name || "").trim().slice(0, 60);
       if (!name) return;
+      if (budget.goals.some(x => x !== g && x.name.toLowerCase() === name.toLowerCase())){ showToast("You already have a goal with that name", true); return; }
       const t = g || {id:genId("goal"), created:addDaysIso(0), log:[]};
       t.name = name; t.target = Math.max(0, Number(v.target) || 0);
       t.date = /^\d{4}-\d{2}-\d{2}$/.test(v.date || "") ? v.date : null;
@@ -3431,8 +3476,7 @@ function editGoal(id, preset = ""){
       budget.goals = budget.goals.filter(x => x.id !== id);
       Object.values(budget.plans).forEach(p => p.lines.forEach(l => { if (l.goal === id) delete l.goal; }));
       saveBudgetData();
-    } : null,
-    {confirm:"Delete this goal and its history? Paycheck lines pointing at it are kept."});
+    } : null);
 }
 function addToGoal(id, entryId){
   const g = goalById(id);
@@ -3511,10 +3555,10 @@ function editAccount(i){
       const n = (v.name || "").trim().slice(0, 40);
       if (!n || (n !== name && budget.accounts.includes(n))) return;
       if (i == null) budget.accounts.push(n);
-      else { budget.accounts[i] = n; bills.forEach(b => { if (b.account === name) b.account = n; }); }
+      else { budget.accounts[i] = n; [...bills, ...billPayments].forEach(b => { if (b.account === name) b.account = n; }); }
       saveBudgetData();
     },
-    i == null ? null : () => { budget.accounts.splice(i, 1); bills.forEach(b => { if (b.account === name) b.account = null; }); saveBudgetData(); });
+    i == null ? null : () => { budget.accounts.splice(i, 1); [...bills, ...billPayments].forEach(b => { if (b.account === name) b.account = null; }); saveBudgetData(); });
 }
 // ---------- import bills pasted from a spreadsheet ----------
 // Copying rows out of Google Sheets / Excel gives tab-separated text, e.g.
@@ -3523,7 +3567,8 @@ function editAccount(i){
 function parseBillRows(text){
   const out = [];
   String(text || "").split(/\r?\n/).forEach(line => {
-    if (!line.trim() || /^\s*(total|card\s*\/\s*bank|monthly|joint bills)\b/i.test(line)) return;
+    // skip header/total rows (a first cell that's exactly a heading), not bills like "Monthly gym"
+    if (!line.trim() || /^\s*(total|total bills|card\s*\/\s*bank|monthly|joint bills)\s*(\t|$)/i.test(line)) return;
     let cells = line.includes("\t") ? line.split("\t") : line.split(/\s{2,}|\s*,\s*(?=\$|\d|[A-Za-z])/);
     cells = cells.map(c => c.trim()).filter(Boolean);
     let amount = null, day = null, account = null; const rest = [];
@@ -3608,11 +3653,11 @@ function importBills(){
       rows.forEach(r => {
         if (r.account && !budget.accounts.includes(r.account)) budget.accounts.push(r.account.slice(0, 40));
         const due = `${key}-${String(Math.min(r.day, last)).padStart(2, "0")}`;
-        const b = {id:genId("bill"), name:r.name, amount:r.amount, due, repeat:"monthly", autopay:false, link:null,
+        const b = {id:genId("bill"), name:r.name, amount:r.amount, due, day:r.day, repeat:"monthly", autopay:false, link:null,
           group:v.group === BILL_GROUPS.joint ? "joint" : "personal", account:r.account || null};
         if (v.paid && due < today){
           billPayments.push({id:genId("pay"), billId:b.id, name:b.name, amount:b.amount, due, date:due, group:b.group, account:b.account});
-          b.due = nextBillIso(due, "monthly");
+          b.due = nextBillIso(due, "monthly", r.day);
         }
         bills.push(b);
       });
@@ -3715,7 +3760,7 @@ function editPayment(id){
     {key:"date", label:"Paid on", type:"date"},
   ], {amount:p.amount, date:p.date},
     v => { p.amount = Math.max(0, Number(v.amount) || 0); if (/^\d{4}-\d{2}-\d{2}$/.test(v.date || "")) p.date = v.date; saveBudgetData(); },
-    () => unpayBill(id), {label:"Mark not paid", confirm:"Mark this bill as not paid?"});
+    () => unpayBill(id), {label:"Mark not paid"});
 }
 function renderBudget(){
   const el = document.getElementById("panel-budget");
@@ -3733,7 +3778,7 @@ function renderBudget(){
   const incomeTotal = paychecks.reduce((s, p) => s + p.amount, 0);
   const plannedTotal = paychecks.reduce((s, p) => s + p.planned, 0);
   const hasIncome = budget.income.length > 0;
-  const remaining = hasIncome ? incomeTotal - plannedTotal : limitTotal - spentTotal;
+  const remaining = Math.round((hasIncome ? incomeTotal - plannedTotal : limitTotal - spentTotal) * 100) / 100;
   const goalSavedTotal = budget.goals.reduce((s, g) => s + goalSaved(g), 0), goalTarget = budget.goals.reduce((s, g) => s + g.target, 0);
 
   let html = `<div class="budget-month">
@@ -3761,9 +3806,11 @@ function renderBudget(){
   const pre = hasIncome && paychecks.length ? billRowsBetween(monthStart, firstStart) : [];
   if (lead.length) periods += `<div class="period-sec overdue"><span>Overdue</span><span>${money(sum(lead))}</span></div><div class="card period">${billListHtml(lead, "lead", today)}</div>`;
   if (pre.length) periods += `<div class="period-sec"><span>${shortDate(monthStart)} – ${shortDate(isoDate(new Date(noonOf(firstStart).getTime() - 864e5)))} · before payday</span><span>${money(sum(pre))}</span></div><div class="card period">${billListHtml(pre, "pre", today)}</div>`;
+  const billedDates = new Set(); // two paychecks on one day: bills list under the first
   paychecks.forEach(p => {
     const next = nextPayday(p.date) || isoDate(new Date(noonOf(monthEndIso(key)).getTime() + 864e5));
-    const due = billRowsBetween(p.date, next);
+    const due = billedDates.has(p.date) ? [] : billRowsBetween(p.date, next);
+    billedDates.add(p.date);
     const end = isoDate(new Date(noonOf(next).getTime() - 864e5));
     const now = p.date <= today && today < next;
     const billsDue = Math.round(sum(due) * 100) / 100;
@@ -3846,7 +3893,8 @@ function normalizeBudgetData(){
   if (!Array.isArray(budget.expenses)) budget.expenses = [];
   bills = bills.filter(b => b && typeof b === "object").map(b => ({id:safeId(b.id, "bill"), name:str(b.name, 120) || "Bill", amount:amt(b.amount),
     due:iso(b.due) || addDaysIso(0), repeat:BILL_REPEATS[b.repeat] ? b.repeat : "monthly", autopay:!!b.autopay, link:b.link ? str(b.link, 2000) : null, ...(b.done ? {done:true} : {}),
-    group:b.group, account:b.account == null ? null : str(b.account, 40), share:b.share, varies:!!b.varies}));
+    group:b.group, account:b.account == null ? null : str(b.account, 40), share:b.share, varies:!!b.varies,
+    day:Number.isInteger(b.day) && b.day >= 1 && b.day <= 31 ? b.day : dayOf(iso(b.due) || addDaysIso(0))}));
   billPayments = billPayments.filter(p => p && iso(p.due) && iso(p.date)).map(p => ({id:safeId(p.id, "pay"), billId:safeId(p.billId, "bill"), name:str(p.name, 120), amount:amt(p.amount), due:p.due, date:p.date,
     group:p.group, account:p.account}));
   budget.categories = budget.categories.filter(c => c && typeof c === "object").map(c => ({id:safeId(c.id, "cat"), name:str(c.name, 60) || "Category", limit:amt(c.limit)}));
@@ -4210,6 +4258,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     const t = todoList.find(x => x.id === wrap.dataset.todoId);
     const target = todoList.find(x => x.id === targetWrap.dataset.todoId);
     if (!t || !target || t === target){ renderHome(); return; }
+    if (t.repeat){ showToast("Repeating to-dos can't become sub-items"); renderHome(); return; }
     if (!target.subitems) target.subitems = [];
     target.subitems.push({id:genId("sub"), text:t.text, done:false});
     (t.subitems || []).forEach(s => target.subitems.push({id:genId("sub"), text:s.text, done:s.done}));
@@ -4228,7 +4277,12 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
       while (el && !el.classList.contains("cat-title")) el = el.previousElementSibling;
       // Overdue/Later headers say "keep": dropping there reorders without
       // inventing a date. Other headers carry their own date ("" = Anytime).
-      if (el && el.dataset.due !== "keep") t.due = el.dataset.due || null;
+      // a repeating to-do keeps a date (dropping it in Anytime leaves its date alone)
+      if (el && el.dataset.due !== "keep" && !(t.repeat && !el.dataset.due)){
+        const due = el.dataset.due || null;
+        if (t.repeat && due !== t.due) t.repeatDay = dayOf(due);
+        t.due = due;
+      }
       ordered.push(t);
     });
     const ids = new Set(ordered.map(t => t.id));
@@ -4305,8 +4359,8 @@ function applyRemote(payload){
   }
   localStorage.setItem("data-updated-at", String(payload.updatedAt || Date.now()));
   loadAllContent();
-  try{ styleState = JSON.parse(localStorage.getItem("style-state")) || {}; }catch(e){ styleState = {}; }
-  try{ wantsState = JSON.parse(localStorage.getItem("wants-state")) || {}; }catch(e){ wantsState = {}; }
+  styleState = loadState("style-state");
+  wantsState = loadState("wants-state");
   migrateWardrobeNeeds(); // data from an older app version may still have a wardrobe "Still need" list
   archiveOldTodos(); // the other device may have carried expired completed items
   renderSkin(); renderStyle(); renderWants(); renderBudget(); renderHome();
@@ -4330,61 +4384,91 @@ function scheduleSyncPush(){
   clearTimeout(syncPushTimer);
   syncPushTimer = setTimeout(() => pushSync().catch(() => {}), 1500);
 }
-async function pushSync(){
-  if (!localStorage.getItem("sync-token")) return;
-  if (syncBusy){ scheduleSyncPush(); return; }
-  syncBusy = true; setSyncStatus("busy");
-  try{
-    const gistId = localStorage.getItem("sync-gist-id") || await findOrCreateGist();
-    const payload = collectLocal();
-    if (!payload.updatedAt){
-      payload.updatedAt = Date.now();
-      localStorage.setItem("data-updated-at", String(payload.updatedAt));
-    }
-    await gistApi("/gists/" + gistId, {method:"PATCH", body: JSON.stringify({
-      files:{[GIST_FILENAME]:{content: JSON.stringify(payload)}}
-    })});
-    setSyncStatus("ok");
-  }catch(e){
-    console.error("sync push failed", e);
-    setSyncStatus("error");
-    showToast("Sync failed — will retry on next change", true);
-    throw e;
-  }finally{
-    syncBusy = false;
-  }
+// Sync is a three-way merge per list (each SYNC_KEYS entry). "sync-base" keeps
+// every list as it was at the last successful sync. A list this device changed
+// since then is sent up; a list only the other device changed is taken from
+// the gist. If both changed the same list, this device's copy wins for that
+// list only, so edits to different lists on two devices never clobber each
+// other. The gist is always re-read right before writing.
+const SYNC_BASE_KEY = "sync-base";
+function isEditing(){
+  return document.getElementById("modal-backdrop").classList.contains("open")
+    || document.getElementById("composer").classList.contains("open");
 }
-async function pullSync(){
-  if (!localStorage.getItem("sync-token") || syncBusy) return;
+function localSnapshot(){
+  const out = {};
+  SYNC_KEYS.forEach(k => {
+    const raw = localStorage.getItem(k);
+    if (raw != null){ try{ out[k] = JSON.stringify(JSON.parse(raw)); }catch(e){} }
+  });
+  return out;
+}
+async function fetchRemote(gistId){
+  const g = await gistApi("/gists/" + gistId);
+  const file = g.files && g.files[GIST_FILENAME];
+  if (!file) return null;
+  const text = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;
+  try{ const p = JSON.parse(text); return p && typeof p === "object" && p.data && typeof p.data === "object" ? p : null; }catch(e){ return null; }
+}
+async function syncNow(){
+  if (!localStorage.getItem("sync-token")) return;
+  // never swap data out from under an open edit form; try again shortly
+  if (syncBusy || isEditing()){ scheduleSyncPush(); return; }
   syncBusy = true; setSyncStatus("busy");
-  let remoteNewer = false, localNewer = false;
   try{
     const gistId = localStorage.getItem("sync-gist-id") || await findOrCreateGist();
-    const g = await gistApi("/gists/" + gistId);
-    const file = g.files && g.files[GIST_FILENAME];
-    let payload = null;
-    if (file){
-      const text = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;
-      try{ payload = JSON.parse(text); }catch(e){}
+    const remote = await fetchRemote(gistId);
+    const local = localSnapshot();
+    const remoteStr = {};
+    if (remote) Object.entries(remote.data).forEach(([k, v]) => { remoteStr[k] = JSON.stringify(v); });
+    let baseRaw = localStorage.getItem(SYNC_BASE_KEY), base = null;
+    try{ base = baseRaw ? JSON.parse(baseRaw) : null; }catch(e){ base = null; }
+    let merged = {}, takeRemote = [], sendUp = false;
+    if (!base){
+      // First sync on this device (or the first since this kind of sync existed):
+      // fall back to "newest copy wins", which is what earlier versions did
+      const localUpdated = Number(localStorage.getItem("data-updated-at")) || 0;
+      const remoteUpdated = (remote && remote.updatedAt) || 0;
+      if (remote && remoteUpdated > localUpdated){ merged = {...remoteStr}; takeRemote = Object.keys(remoteStr); }
+      else { merged = {...local}; sendUp = true; }
+    } else {
+      new Set([...SYNC_KEYS, ...Object.keys(remoteStr)]).forEach(k => {
+        const l = local[k], r = remoteStr[k], b = base[k];
+        if (l !== b){ if (l !== undefined) merged[k] = l; if (l !== r) sendUp = true; }        // changed here
+        else if (r !== undefined){ merged[k] = r; if (r !== l) takeRemote.push(k); }           // unchanged here
+      });
+      if (!remote) sendUp = true;
     }
-    const localUpdated = Number(localStorage.getItem("data-updated-at")) || 0;
-    const remoteUpdated = (payload && payload.updatedAt) || 0;
-    remoteNewer = payload && remoteUpdated > localUpdated;
-    localNewer = localUpdated > remoteUpdated;
-    if (remoteNewer){
-      applyRemote(payload);
+    if (takeRemote.length){
+      const data = {};
+      takeRemote.forEach(k => { data[k] = JSON.parse(merged[k]); });
+      applyRemote({updatedAt:(remote && remote.updatedAt) || Date.now(), data});
       showToast("Synced from your other device");
     }
+    if (sendUp){
+      const data = {};
+      Object.entries(merged).forEach(([k, v]) => { data[k] = JSON.parse(v); });
+      const updatedAt = Math.max(Date.now(), (remote && remote.updatedAt) || 0);
+      await gistApi("/gists/" + gistId, {method:"PATCH", body: JSON.stringify({
+        files:{[GIST_FILENAME]:{content: JSON.stringify({updatedAt, data})}}
+      })});
+      localStorage.setItem("data-updated-at", String(updatedAt));
+    }
+    localStorage.setItem(SYNC_BASE_KEY, JSON.stringify(merged));
     setSyncStatus("ok");
   }catch(e){
-    console.error("sync pull failed", e);
+    console.error("sync failed", e);
     setSyncStatus("error");
     throw e;
   }finally{
     syncBusy = false;
   }
-  if (localNewer) await pushSync(); // this device is ahead — send it up
 }
+async function pushSync(){
+  try{ await syncNow(); }
+  catch(e){ showToast("Sync failed — will retry on next change", true); throw e; }
+}
+function pullSync(){ return syncNow(); }
 // ---------- BACKUP ----------
 // One JSON file holding every synced key. Works with or without gist sync, so
 // it doubles as a manual way to move data between devices.
@@ -4392,7 +4476,14 @@ async function downloadBackup(){
   // Live values, not just what's in localStorage: a list still on its built-in
   // defaults has no stored key, and a backup missing it wouldn't fully replace
   // a device where that list was customized.
-  const data = {
+  const data = liveData();
+  const payload = {app:"jazz2", version:1, exportedAt:new Date().toISOString(), data};
+  return saveBackupFile(payload);
+}
+// Every synced list as it is in memory (lists still on their defaults have no
+// stored key, so localStorage alone isn't the full picture)
+function liveData(){
+  return {
     "skin-rules-content":skinRules, "skin-routine-content":skinRoutine, "routine-checks":routineChecks,
     "style-rules-content":styleRules,
     "sizes-content":sizes, "capsule-content":capsule, "wants-content":wantsList, "todo-content":todoList,
@@ -4400,7 +4491,8 @@ async function downloadBackup(){
     "style-state":styleState, "wants-state":wantsState,
     "bills-content":bills, "bill-payments":billPayments, "budget-content":budget
   };
-  const payload = {app:"jazz2", version:1, exportedAt:new Date().toISOString(), data};
+}
+async function saveBackupFile(payload){
   const name = `jazz2-backup-${isoDate(new Date())}.json`;
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   // Installed iOS PWAs handle <a download> poorly; the share sheet offers "Save to Files"
@@ -4429,6 +4521,9 @@ function restoreBackup(){
     const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : "an unknown date";
     if (!confirm(`Replace everything on this device with the backup from ${when}? If sync is on, your other device will get it too.`)) return;
     closeModal();
+    // "Replace everything": lists the backup doesn't have (e.g. one made before
+    // Budget existed) go back to their defaults instead of keeping this device's
+    SYNC_KEYS.forEach(k => { if (!(k in data)) localStorage.removeItem(k); });
     // A restore is a deliberate edit: stamp it now so sync pushes it out
     applyRemote({updatedAt:Date.now(), data});
     scheduleSyncPush();
@@ -4456,6 +4551,7 @@ function openSyncModal(){
     if (!v.token) return; // closing without a token (e.g. after a backup) is fine
     localStorage.setItem("sync-token", v.token);
     localStorage.removeItem("sync-gist-id"); // re-resolve under the (possibly new) account
+    localStorage.removeItem(SYNC_BASE_KEY);
     showToast("Connecting…");
     pullSync()
       .then(() => showToast("Sync is on"))
@@ -4464,10 +4560,11 @@ function openSyncModal(){
   connected ? () => {
     localStorage.removeItem("sync-token");
     localStorage.removeItem("sync-gist-id");
+    localStorage.removeItem(SYNC_BASE_KEY);
     setSyncStatus("off");
     showToast("Sync turned off");
   } : null,
-  {label:"Turn off", confirm:"Turn off sync on this device? Your data stays on the device and in the gist."});
+  {label:"Turn off", confirm:"Turn off sync on this device? Your data stays on the device and in the gist.", noUndo:true});
 }
 function initSync(){
   if (localStorage.getItem("sync-token")){
@@ -4479,6 +4576,7 @@ function initSync(){
   // Also a natural moment to expire old completed to-dos in long-lived sessions.
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
+    checkDayChange();
     if (archiveOldTodos()) renderHome();
     pullSync().catch(() => {});
   });
@@ -4497,6 +4595,7 @@ function loadAllContent(){
   capsule = loadContent("capsule-content", DEFAULT_CAPSULE);
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
   todoList = loadContent("todo-content", DEFAULT_TODO);
+  sanitizeCoreData(); // before anything walks these lists
   if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
   bills = loadContent("bills-content", []);
   billPayments = loadContent("bill-payments", []);
@@ -4542,6 +4641,46 @@ function applyRoutineAdditions(r){
 // plain. Runs on every load (idempotent), so nothing is written here.
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 function safeId(id, prefix){ return SAFE_ID.test(String(id)) ? id : genId(prefix); }
+// Shape checks for everything outside Budget (which has normalizeBudgetData).
+// Synced or restored data is untrusted: wrong types are coerced or dropped, so
+// one malformed record can't stop the app from starting. Runs on every load.
+function sanitizeCoreData(){
+  const arr = v => Array.isArray(v) ? v : [];
+  const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+  const str = (v, max) => String(v == null ? "" : v).slice(0, max);
+  const isIso = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  todoList = arr(todoList).filter(isObj);
+  todoList.forEach(t => {
+    t.text = str(t.text, 500);
+    t.done = !!t.done; t.starred = !!t.starred;
+    if ("due" in t && t.due !== null && !isIso(t.due)) t.due = null; // (an absent due is left for migrateTodoDays)
+    if (t.completedAt != null && !isFinite(Number(t.completedAt))) t.completedAt = null;
+    t.subitems = arr(t.subitems).filter(isObj).map(st => ({...st, text:str(st.text, 500), done:!!st.done}));
+    if ("repeatDay" in t && !(Number.isInteger(t.repeatDay) && t.repeatDay >= 1 && t.repeatDay <= 31)) delete t.repeatDay;
+  });
+  if (!isObj(skinRoutine)) skinRoutine = routineFromDays(DEFAULT_SKIN_DAYS);
+  ["am", "pm", "washPm"].forEach(b => {
+    skinRoutine[b] = arr(skinRoutine[b]).filter(isObj).map(st => {
+      const step = {...st, label:str(st.label, 120), product:str(st.product, 200)};
+      if (st.note != null) step.note = str(st.note, 200); else delete step.note;
+      const days = arr(st.days).filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
+      if (days.length && days.length < 7) step.days = [...new Set(days)]; else delete step.days;
+      return step;
+    });
+  });
+  if (!isObj(routineChecks)) routineChecks = {};
+  Object.keys(routineChecks).forEach(k => {
+    const c = routineChecks[k];
+    if (!isIso(k) || !isObj(c)){ delete routineChecks[k]; return; }
+    c.am = arr(c.am).map(String); c.pm = arr(c.pm).map(String);
+  });
+  skinRules = arr(skinRules).filter(r => typeof r === "string");
+  styleRules = arr(styleRules).filter(r => typeof r === "string");
+  sizes = arr(sizes).filter(x => Array.isArray(x) && x.length >= 2).map(([k, v]) => [str(k, 60), str(v, 120)]);
+  capsule = arr(capsule).filter(isObj).map(i => ({...i, title:str(i.title, 200)}));
+  wantsList = arr(wantsList).filter(isObj).map(w => ({...w, name:str(w.name, 200),
+    price:w.price == null || !isFinite(Number(w.price)) ? null : Math.max(0, Number(w.price))}));
+}
 function normalizeLoadedData(){
   skinRules = skinRules.map(decodeEntities);
   styleRules = styleRules.map(decodeEntities);
@@ -4557,6 +4696,24 @@ function normalizeLoadedData(){
 // newest on its next sync and push that stale copy over the other device's
 // real edits. Every device applies the same housekeeping rules on its own,
 // so nothing is lost by not syncing these writes.
+// The app can stay open past midnight: when the date changes, everything that
+// says "today" (header, Home, the routine, budget) is redrawn for the new day
+let renderedDay = addDaysIso(0);
+function setHeaderDate(){
+  const now = new Date();
+  document.getElementById("header-date").textContent =
+    `${now.toLocaleDateString('en-US',{weekday:'short'})} · ${now.toLocaleDateString('en-US',{month:'short', day:'numeric'})}`;
+}
+function checkDayChange(){
+  const today = addDaysIso(0);
+  if (today === renderedDay) return;
+  renderedDay = today;
+  if (homeDate && homeDate < today) homeDate = null;
+  homeAnchor = null;
+  setHeaderDate();
+  archiveOldTodos();
+  renderSkin(); renderBudget(); renderHome();
+}
 function writeQuietly(key, value){
   try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error("write failed", key, e); }
 }
@@ -4564,13 +4721,12 @@ function writeQuietly(key, value){
   loadAllContent();
   archiveOldTodos();
 
-  const now = new Date();
-  document.getElementById("header-date").textContent =
-    `${now.toLocaleDateString('en-US',{weekday:'short'})} · ${now.toLocaleDateString('en-US',{month:'short', day:'numeric'})}`;
+  setHeaderDate();
+  setInterval(checkDayChange, 60000);
 
   renderSkin();
-  styleState = loadContent("style-state", {});
-  wantsState = loadContent("wants-state", {});
+  styleState = loadState("style-state");
+  wantsState = loadState("wants-state");
   migrateWardrobeNeeds();
   renderStyle();
   renderBudget();
