@@ -80,35 +80,32 @@ clothes, moto gear, and everything else.
   the closet; un-buying takes it back out.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Budget** tracks bills and spending, one calendar month at a time (‹ › to step months).
-- **Summary:** with income set, **Remaining** = this month's paychecks minus what they're
-  planned for; otherwise left to spend (category budgets minus spending). Plus bills
-  total vs. paid and spending vs. budget.
-- **Bills:** each has an amount, a due date, a repeat (monthly, weekly, every 2 weeks,
-  quarterly, yearly, one time), Autopay, and an optional pay link. Tick one to mark it paid:
-  the payment is logged and the bill moves to its next due date (Undo, or untick the paid
-  row, takes it back). Later dues in the month are projected. Bills also show on Home.
-  Bills are grouped **Monthly** (yours) and **Joint**, each with a subtotal, then Total
-  bills. Each can name the card/bank that pays it (colored pill); manage that list with the
-  card's Edit chip.
-- **Import from sheet:** paste rows copied from a spreadsheet (card/bank, date like "6th",
-  expense, amount like "$120.00" or "-") and choose Monthly or Joint. Header and Total rows
-  are skipped, new cards/banks are added, and bills due before today can be marked paid.
-- **Income:** a paycheck source repeats from a payday (every 2 weeks by default). Each
-  payday has a plan: lines that spend it down (a share of bills, a card payment, fun
-  money) and what's **Remaining**. A hint offers the bills due before the next payday as a
-  one-tap line. Tap a payday to set that check's actual amount. **Import from sheet**
-  (under Income) takes pasted paycheck breakdowns: each block starts with its "Paycheck"
-  row, Remaining rows are skipped, and blocks fill the month's paydays in order.
-- **Goals:** long-term savings goals (savings goal, big purchase, emergency fund…;
-  idea chips start one). Each has a target, an optional target date, and a starting
-  amount. **+ Add money** logs money in or out (also from + → To a goal), and History lists
-  it. With a date, the card shows the $/month needed and whether the last 3 months kept
-  pace. A paycheck plan line can point at a goal and counts toward it once that payday
-  arrives.
-- **Spending:** expenses logged against monthly category limits (Groceries, Dining out, Gas,
-  Fun, Other by default; the Edit chip adds, renames, re-limits, or deletes them). Tap a
-  category for its expenses; over-limit categories turn red.
+**Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
+- **Top:** Remaining (this month's paychecks minus their plans; without income, category
+  budget minus spending) and Bills left (unpaid, N of M paid), plus a Goals progress strip.
+- **Pay periods:** each payday (e.g. Oct 1 – Oct 14, marked **Now**) shows the check (tap to
+  set this payday's amount), the **bills due** before the next payday, its **plan** lines
+  (tickable when done, optionally pointed at a goal), and **Remaining**. Paid bills fold
+  behind "Paid (N) · $X". If no line covers bills, "+ Add bills due · $X" adds one. Bills due
+  before the month's first payday, and overdue ones, get their own group on top. A period
+  that runs into next month shows those bills too.
+- **Copy plans:** when a month's paydays are empty, one tap copies last month's lines,
+  moving month names along ("1/2 of Oct Bills" → "1/2 of Nov Bills").
+- **Bills:** amount, due date, repeat (monthly, weekly, every 2 weeks, quarterly, yearly,
+  one time), Monthly or Joint, the card/bank that pays it, Autopay, a pay link, **your share
+  %** for joint bills, and **amount varies** (ticking it paid asks what it came to). Ticking
+  logs a payment and moves the bill to its next due date; tap a paid bill to fix the amount
+  or un-pay it. Bills also show on Home.
+- **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, **totals by
+  card/bank**, + Add bill, and **Import from sheet** (paste rows: card/bank, "6th", expense,
+  "$120.00" or "-"; header/Total rows skipped; earlier dues can be marked paid). Its Edit
+  chip manages the card/bank list.
+- **Income:** paycheck sources (every 2 weeks by default) sit under the periods, with
+  **Import plans from sheet** (blocks starting with a "Paycheck" row fill the paydays).
+- **Goals:** long-term savings goals (savings goal, big purchase…) with a target,
+  optional date ($/month needed, On pace / Behind), + Add money, and History. Plan lines
+  pointed at a goal count once their payday arrives.
+- **Spending** by category stays tucked away until something's logged (or Show ›).
 - Payments and expenses older than about 13 months are pruned automatically.
 
 **Adding things.** A floating **+** button on Home, To-Do, Shopping, Closet, and Budget opens one
@@ -234,7 +231,7 @@ Everything lives in `localStorage` on the device:
 | `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
 | `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
-| `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, done?}` (`done` = a paid one-time bill) |
+| `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
 | `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount}]}}, goals: [{id, name, target, saved}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
 | `data-updated-at` | Last real edit, used for sync |
