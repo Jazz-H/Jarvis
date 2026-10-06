@@ -2,7 +2,7 @@
   "id": "./jazz2.0.html",
   "name": "Jazz 2.0",
   "short_name": "Jazz 2.0",
-  "description": "Home, To-Do, Shopping, Budget, and Skin & Hair — Jazz 2.0 personal dashboard",
+  "description": "Home, To-Do, Skin & Hair, Budget, and Shopping — Jazz 2.0 personal dashboard",
   "start_url": "./jazz2.0.html",
   "scope": "./",
   "display": "standalone",
