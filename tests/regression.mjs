@@ -84,7 +84,7 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
   check("migration does not bump the sync timestamp", (await page.evaluate(() => localStorage.getItem("data-updated-at"))) === "111");
 
   // composer: the floating + button opens it; it stays open for several adds
-  await page.tap("#todo-fab");
+  await page.tap("#fab");
   check("+ opens the composer with the text box focused",
     await page.evaluate(() => document.getElementById("composer").classList.contains("open") && document.activeElement.id === "composer-text"));
   await page.fill("#composer-text", "Call mom tomorrow");
@@ -239,9 +239,11 @@ await section("wants: need/want tags, sorting, filters, editing", async () => {
   await page.click(".filter-chip >> text=Needs");
   const needsOnly = await page.$$eval("#wants-pending-card .want-card .badge.kind-want", e => e.length);
   check("Needs filter hides wants", needsOnly === 0, needsOnly);
-  await page.fill("#quick-add-input", "Phone charger");
-  await page.press("#quick-add-input", "Enter");
-  check("quick-add under Needs is a need", await page.evaluate(() => wantKind(wantsList.find(w => w.name === "Phone charger")) === "need"));
+  await page.tap("#fab");
+  await page.fill("#composer-text", "Phone charger");
+  await page.press("#composer-text", "Enter");
+  await page.keyboard.press("Escape");
+  check("adding under the Needs filter makes a need", await page.evaluate(() => wantKind(wantsList.find(w => w.name === "Phone charger")) === "need"));
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-kind", "Need");
   await page.tap("#modal-backdrop .modal-btn.primary");
@@ -264,9 +266,11 @@ await section("shopping: page name and Moto category", async () => {
   await page.click(".filter-chip >> text=Moto");
   const names = await page.$$eval("#wants-pending-card .want-card .name", e => e.map(x => x.textContent));
   check("Moto filter shows only moto gear", names.length === 1 && names[0].startsWith("Trailco"), names);
-  await page.fill("#quick-add-input", "Riding gloves");
-  await page.press("#quick-add-input", "Enter");
-  check("quick-add under Moto is moto gear", await page.evaluate(() => wantsList.find(w => w.name === "Riding gloves").moto === true));
+  await page.tap("#fab");
+  await page.fill("#composer-text", "Riding gloves");
+  await page.press("#composer-text", "Enter");
+  await page.keyboard.press("Escape");
+  check("adding under the Moto filter makes moto gear", await page.evaluate(() => wantsList.find(w => w.name === "Riding gloves").moto === true));
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-cat", "Wardrobe · Outerwear");
   await page.tap("#modal-backdrop .modal-btn.primary");
@@ -399,11 +403,13 @@ await section("security: a malicious backup cannot run script", async () => {
 
 await section("composer: + on Home, hidden elsewhere, launch shortcut opens it", async () => {
   const { ctx, page } = await openApp();
-  check("+ shows on Home", await page.isVisible("#todo-fab"));
+  check("+ shows on Home", await page.isVisible("#fab"));
   await page.evaluate(() => activateTab("skin"));
-  check("+ hidden on other tabs", !(await page.isVisible("#todo-fab")));
+  check("+ hidden on Skin & Hair", !(await page.isVisible("#fab")));
+  const labels = await page.evaluate(() => ["home", "todo", "wants", "style"].map(t => { activateTab(t); return document.getElementById("fab").getAttribute("aria-label"); }));
+  check("+ is labeled for each tab", labels.join("|") === "Add a to-do|Add a to-do|Add to shopping list|Add to wardrobe", labels);
   await page.evaluate(() => activateTab("home"));
-  await page.tap("#todo-fab");
+  await page.tap("#fab");
   await page.fill("#composer-text", "From home");
   await page.press("#composer-text", "Enter");
   check("adding from Home works", await page.evaluate(() => todoList.some(t => t.text === "From home")));
@@ -411,6 +417,58 @@ await section("composer: + on Home, hidden elsewhere, launch shortcut opens it",
   const shortcut = await openApp({ query: "?tab=todo&action=addtodo" });
   check("Add a to-do shortcut opens the composer", await shortcut.page.evaluate(() => document.getElementById("composer").classList.contains("open")));
   await shortcut.ctx.close();
+});
+
+await section("composer: shopping items (price, category, details, batches)", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  await page.tap("#fab");
+  check("+ opens the New item sheet", (await page.textContent("#composer-heading")) === "New item");
+  await page.fill("#composer-text", "Helmet $250");
+  check("typed price lights a chip", ((await page.textContent("#composer-chips .filter-chip.on")) || "").includes("$250.00"));
+  await page.click("#composer-chips .filter-chip >> text=Moto");
+  await page.press("#composer-text", "Enter");
+  await page.fill("#composer-text", "Gloves");                     // category sticks for the next add
+  await page.click("#composer-chips .filter-chip >> text=Details");
+  await page.fill("#cx-price", "45");
+  await page.fill("#cx-link", "https://example.com/gloves");
+  await page.fill("#cx-meta", "Size S");
+  await page.press("#cx-meta", "Enter");
+  await page.fill("#composer-text", "Shirt $20");
+  await page.click("#composer-chips .filter-chip.on >> text=$20.00"); // keep "$20" as text
+  await page.click("#composer-chips .filter-chip >> text=Wardrobe");
+  await page.click("#composer-chips2 .filter-chip >> text=Tops");
+  await page.click("#composer-chips .filter-chip >> text=High priority");
+  await page.press("#composer-text", "Enter");
+  const items = await page.evaluate(() => wantsList.slice(-3).map(w => ({ ...w, effKind: wantKind(w) })));
+  const [helmet, gloves, shirt] = items;
+  check("price parsed off the name", helmet.name === "Helmet" && helmet.price === 250 && helmet.moto === true, helmet);
+  check("category sticks between adds; details saved", gloves.moto === true && gloves.price === 45 && gloves.link === "https://example.com/gloves" && gloves.meta === "Size S", gloves);
+  check("dismissed price, wardrobe category, high priority", shirt.name === "Shirt $20" && shirt.price === null && shirt.wardrobeCat === "Tops" && shirt.priority === "high" && shirt.effKind === "need", shirt);
+  check("counter", (await page.textContent("#composer-count")) === "3 added", await page.textContent("#composer-count"));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("composer: wardrobe items go to the closet or the shopping list", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=style" });
+  await page.tap("#fab");
+  check("+ opens Add to wardrobe", (await page.textContent("#composer-heading")) === "Add to wardrobe");
+  await page.fill("#composer-text", "Black crewneck");
+  await page.click("#composer-chips .filter-chip >> text=Fit pending");
+  await page.press("#composer-text", "Enter");
+  await page.fill("#composer-text", "Chelsea boots");
+  await page.click("#composer-chips .filter-chip >> text=To buy");
+  await page.click("#composer-chips2 .filter-chip >> text=Shoes");
+  await page.press("#composer-text", "Enter");
+  const r = await page.evaluate(() => ({
+    closet: capsule.find(i => i.title === "Black crewneck"),
+    want: wantsList.find(w => w.name === "Chelsea boots"),
+    shownInCloset: [...document.querySelectorAll("#cap-owned .title")].some(t => t.textContent.startsWith("Black crewneck")),
+  }));
+  check("In closet adds an owned item (fit pending)", r.closet && r.closet.cat === "Tops" && r.closet.state === "pending" && r.shownInCloset, r.closet);
+  check("To buy adds a wardrobe item to Shopping", r.want && r.want.wardrobeCat === "Shoes", r.want);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
 });
 
 await section("home: to-do summary completes in place", async () => {

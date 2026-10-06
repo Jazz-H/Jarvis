@@ -212,19 +212,7 @@
   .icon-btn.link{border-color:color-mix(in srgb, var(--gold) 40%, transparent); color:var(--gold); display:flex; margin-top:0;}
   .icon-btn:active{background:var(--surface-2);}
 
-  /* wants */
-  .quick-add{display:flex; gap:8px; margin-bottom:16px;}
-  .quick-add input{
-    flex:1; min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:12px;
-    color:var(--text); font-size:14px; font-family:inherit; padding:0 14px; height:46px;
-  }
-  .quick-add input::placeholder{color:var(--text-dim);}
-  .quick-add input:focus{outline:2px solid var(--olive); outline-offset:1px;}
-  .quick-add button{
-    flex-shrink:0; width:46px; height:46px; border-radius:12px; border:none;
-    background:var(--olive); color:var(--on-accent); display:flex; align-items:center; justify-content:center;
-  }
-  .quick-add button:active{opacity:.85;}
+  /* shopping */
   .want-card{display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line);}
   .want-card:last-child{border-bottom:none;}
   .want-card .body{flex:1;}
@@ -505,7 +493,7 @@
      drew a gray bar under it), and on phones the row bleeds to the screen edges with
      a right-edge fade so a partly visible chip reads as "swipe for more". */
   .filter-chips{
-    display:flex; gap:6px; margin:-4px 0 14px; overflow-x:auto; overscroll-behavior-x:contain;
+    display:flex; gap:6px; margin:0 0 14px; overflow-x:auto; overscroll-behavior-x:contain;
     scrollbar-width:none; -webkit-overflow-scrolling:touch;
   }
   .filter-chips::-webkit-scrollbar{display:none;}
@@ -549,8 +537,9 @@
     background:var(--olive); color:var(--on-accent); box-shadow:0 8px 24px rgba(0,0,0,.5);
   }
   .fab:active{transform:scale(.96);}
-  body[data-tab="home"] .fab, body[data-tab="todo"] .fab{display:flex;}
-  body[data-tab="home"] main, body[data-tab="todo"] main{padding-bottom:170px;} /* last row clears the button */
+  body[data-tab="home"] .fab, body[data-tab="todo"] .fab, body[data-tab="wants"] .fab, body[data-tab="style"] .fab{display:flex;}
+  body[data-tab="home"] main, body[data-tab="todo"] main,
+  body[data-tab="wants"] main, body[data-tab="style"] main{padding-bottom:170px;} /* last row clears the button */
   .composer-backdrop{
     position:fixed; inset:0; z-index:30; display:flex; align-items:flex-end; justify-content:center;
     background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .2s;
@@ -563,12 +552,17 @@
   }
   .composer-grab{width:40px; height:4px; border-radius:2px; background:var(--line); margin:2px auto 10px;}
   .composer-sheet .modal-head h3{display:flex; align-items:center; gap:8px;}
-  #composer-text, #composer-subs{
+  #composer-text, #composer-subs, #composer-extra input{
     width:100%; background:var(--surface-2); border:1px solid var(--line); border-radius:12px;
     color:var(--text); font-family:inherit; font-size:16px; padding:12px; resize:none;
   }
-  #composer-text:focus, #composer-subs:focus{outline:2px solid var(--olive); outline-offset:1px;}
-  #composer-subs-wrap{margin-top:10px;}
+  #composer-text:focus, #composer-subs:focus, #composer-extra input:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  #composer-extra{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
+  #composer-extra[hidden]{display:none;}
+  #composer-extra input{min-height:46px; padding:0 12px;}
+  .composer-row{display:flex; gap:8px;}
+  .composer-row input{flex:1; min-width:0;}
+  #composer-chips2{margin-top:8px;}
   .composer-chips{display:flex; gap:6px; margin:12px -18px 0; padding:0 18px; overflow-x:auto; scrollbar-width:none;}
   .composer-chips::-webkit-scrollbar{display:none;}
   .composer-chips .filter-chip{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; min-height:40px;}
@@ -583,7 +577,6 @@
     flex:1; min-height:44px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2);
     color:var(--text); font:inherit; font-size:13px; font-weight:700;
   }
-  /* quick-add date preview: collapses to the old 16px gap when empty */
   .modal-field input[type=date]{min-height:44px; -webkit-appearance:none; appearance:none;}
   /* boxed buttons: the visible 26px box is drawn by ::before inside a 36×44 hit area */
   .todo-wrap .row-edit-btn, #todo-completed .completed-actions{
@@ -643,7 +636,7 @@
   /* iOS Safari zooms the page when a focused field is under 16px. Must stay
      below the base input rules (incl. the modal's) so it wins the cascade. */
   @media (pointer:coarse){
-    .quick-add input, .subitem-add input,
+    .subitem-add input, #composer-extra input,
     .modal-field input, .modal-field textarea, .modal-field select{font-size:16px;}
     .subitem-add input{height:38px;}
     .subitem-add button{width:38px; height:38px;}
@@ -667,7 +660,7 @@
     .icon-btn.link:hover{color:var(--gold);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
     .toggle:hover:not(.done){color:var(--olive);}
-    .toggle.done:hover, .edit-chip.on:hover, .quick-add button:hover,
+    .toggle.done:hover, .edit-chip.on:hover, .fab:hover,
     .modal-btn.primary:hover, .subitem-add button:hover{opacity:.85;}
     .add-row:hover, .subitem-add-toggle:hover{background:color-mix(in srgb, var(--olive) 12%, transparent);}
     .reset-btn:hover, .modal-btn.danger:hover{background:color-mix(in srgb, var(--danger) 12%, transparent);}
@@ -705,7 +698,8 @@
     }
     main{padding:24px max(24px, calc(50% - 380px)) 48px;}
     .fab{bottom:32px; right:32px;}
-    body[data-tab="home"] main, body[data-tab="todo"] main{padding-bottom:110px;}
+    body[data-tab="home"] main, body[data-tab="todo"] main,
+    body[data-tab="wants"] main, body[data-tab="style"] main{padding-bottom:110px;}
     .composer-backdrop{align-items:center;}
     .composer-sheet{border-radius:18px; padding-bottom:18px;}
     .composer-grab{display:none;}
@@ -761,7 +755,7 @@
 
 <div class="toast" id="toast" aria-live="polite"></div>
 
-<button class="fab" id="todo-fab" onclick="openComposer()" aria-label="Add a to-do">
+<button class="fab" id="fab" onclick="openComposer(fabMode())" aria-label="Add a to-do">
   <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
 </button>
 
@@ -769,18 +763,16 @@
   <div class="composer-sheet" id="composer-sheet" role="dialog" aria-modal="true" aria-labelledby="composer-title">
     <div class="composer-grab" aria-hidden="true"></div>
     <div class="modal-head">
-      <h3 id="composer-title">New to-do <span class="insight" id="composer-count"></span></h3>
+      <h3 id="composer-title"><span id="composer-heading">New to-do</span> <span class="insight" id="composer-count"></span></h3>
       <button class="modal-x" onclick="closeComposer()" aria-label="Close">&times;</button>
     </div>
-    <textarea id="composer-text" rows="2" maxlength="200" enterkeyhint="send" autocomplete="off"
-      placeholder="What needs doing? Try “dentist fri”" oninput="if(composer){ if(!this.value.trim()) composer.ignoreParse = false; renderComposerChips(); }"></textarea>
+    <textarea id="composer-text" rows="2" maxlength="200" enterkeyhint="send" autocomplete="off" oninput="composerTextChanged()"></textarea>
     <div class="composer-chips" id="composer-chips"></div>
-    <div id="composer-subs-wrap" hidden>
-      <textarea id="composer-subs" rows="3" maxlength="2000" placeholder="Sub-items — one per line"></textarea>
-    </div>
+    <div class="composer-chips" id="composer-chips2" hidden></div>
+    <div id="composer-extra" hidden></div>
     <input type="date" id="composer-date" class="composer-date-input" tabindex="-1" aria-hidden="true"
       onchange="if(this.value){ composer.manual = true; composer.date = this.value; renderComposerChips(); }">
-    <button class="modal-btn primary composer-add" onclick="composerAdd()">Add to-do</button>
+    <button class="modal-btn primary composer-add" id="composer-add-btn" onclick="composerAdd()">Add to-do</button>
   </div>
 </div>
 
@@ -1211,7 +1203,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
 document.addEventListener("keydown", e => {
   if (document.getElementById("composer").classList.contains("open")){
     if (e.key === "Escape"){ e.preventDefault(); closeComposer(); }
-    else if (e.key === "Enter" && !e.shiftKey && e.target.id === "composer-text"){ e.preventDefault(); composerAdd(); }
+    else if (e.key === "Enter" && !e.shiftKey && (e.target.id === "composer-text" || e.target.matches("#composer-extra input"))){ e.preventDefault(); composerAdd(); }
     return;
   }
   if (!document.getElementById("modal-backdrop").classList.contains("open")) return;
@@ -1286,8 +1278,8 @@ function dueLabel(iso){
   return noonOf(iso).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
 }
 // Groups in display order. Overdue and Today sit above Anytime because they're
-// time-critical and usually short; Anytime stays near the top so quick-adds
-// (undated by default) land right under the input.
+// time-critical and usually short; Anytime stays near the top so new to-dos
+// (undated by default) land in view.
 function todoGroup(t){
   if (!t.due) return "anytime";
   const n = daysFromToday(t.due);
@@ -1321,10 +1313,10 @@ function migrateTodoDays(list){
   });
   return changed;
 }
-// Trailing date word in quick-add: "dentist fri", "call mom tomorrow",
-// "pay rent by today". Only the final word counts, and the input shows a
-// dismissible preview, so a title that legitimately ends in a day name can
-// be kept as plain text.
+// Trailing date word in a new to-do: "dentist fri", "call mom tomorrow",
+// "pay rent by today". Only the final word counts, and the composer lights up
+// the matching chip (tap it to dismiss), so a title that legitimately ends in
+// a day name can be kept as plain text.
 const DAY_ALIASES = {sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6};
 function parseQuickAdd(raw){
   const m = raw.match(/^(.*?)\s+(?:on\s+|by\s+)?(today|tonight|tomorrow|tmrw|tmr|sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:s|nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?)$/i);
@@ -1564,16 +1556,49 @@ function renderHomePanel(){
 
   el.innerHTML = html;
 }
-// ---------- NEW TO-DO COMPOSER ----------
-// Opened by the floating + button (Home and To-Do) or the "Add a to-do" home-
-// screen shortcut. Built for adding several in a row: Enter (or Add) saves,
-// clears the form, and keeps the keyboard up; the sheet stays open until it's
-// dismissed. A date comes from a chip, the date picker, or — if neither was
-// touched — a trailing day word in the text ("dentist fri"), which lights up the
-// matching chip; tapping that chip again keeps the words as plain text.
+// ---------- COMPOSER (the floating + button's sheet) ----------
+// One bottom sheet for adding things, in a mode picked by the current tab:
+// to-dos (Home, To-Do), shopping items (Shopping), wardrobe items (Wardrobe).
+// Skin & Hair has no + button: adding routine steps is a rare edit there, and the
+// tab's everyday action is ticking steps off.
+// Every mode is built for adding several in a row: Enter (or Add) saves, clears
+// the text, keeps the keyboard up, and counts adds in the header; the sheet stays
+// open until dismissed. Typed shortcuts — a trailing day word for to-dos ("dentist
+// fri"), a trailing price for shopping ("helmet $250") — light up their chip;
+// tapping a lit chip keeps the words as plain text.
 const TODO_MAX_LEN = 200;
-let composer = null; // {date, manual, ignoreParse, star, showSubs, added}
-function composerFresh(added){ return {date:null, manual:false, ignoreParse:false, star:false, showSubs:false, added}; }
+const COMPOSER_MODES = {
+  todo:   {title:"New to-do", add:"Add to-do", fab:"Add a to-do", placeholder:"What needs doing? Try “dentist fri”"},
+  shop:   {title:"New item", add:"Add to list", fab:"Add to shopping list", placeholder:"What to buy? Try “helmet $250”"},
+  closet: {title:"Add to wardrobe", add:"Add", fab:"Add to wardrobe", placeholder:"What is it? e.g. “Black crewneck”"},
+};
+const FAB_MODE_BY_TAB = {home:"todo", todo:"todo", wants:"shop", style:"closet"};
+const CALENDAR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+let composer = null;
+function fabMode(){ return FAB_MODE_BY_TAB[currentTab] || "todo"; }
+function composerFresh(mode, added, prev){
+  const base = {mode, added, ignoreParse:false, showMore:false};
+  if (mode === "todo") return {...base, date:null, manual:false, star:false};
+  if (mode === "shop"){
+    if (prev) return {...base, kind:prev.kind, cat:prev.cat, wcat:prev.wcat, high:false}; // categories stick for batches
+    // start in whatever the Shopping filter shows, so new items stay visible
+    const f = wantsFilter;
+    return {...base, kind:f === "need" || f === "want" ? f : null,
+      cat:f === "moto" ? "moto" : f === "wardrobe" ? "wardrobe" : "general", wcat:"Other", high:false};
+  }
+  return {...base, dest:prev ? prev.dest : "closet", cat:prev ? prev.cat : CAP_CATS[0], pending:false};
+}
+function composerExtraHtml(mode){
+  if (mode === "todo") return `<textarea id="composer-subs" rows="3" maxlength="2000" placeholder="Sub-items — one per line"></textarea>`;
+  if (mode === "shop") return `<input id="cx-meta" type="text" maxlength="200" placeholder="Notes — size, color, store">
+    <div class="composer-row">
+      <input id="cx-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price">
+      <input id="cx-link" type="url" inputmode="url" placeholder="Link">
+    </div>`;
+  return `<input id="cx-sub" type="text" maxlength="200" placeholder="Notes — size, brand, fit">`;
+}
+function composerText(){ return document.getElementById("composer-text").value.trim(); }
+function composerField(id){ const el = document.getElementById(id); return el ? el.value.trim() : ""; }
 function weekendIso(){
   const dow = new Date().getDay();
   return dow === 6 || dow === 0 ? addDaysIso(0) : nextWeekdayIso(6);
@@ -1581,24 +1606,59 @@ function weekendIso(){
 function composerDue(){
   if (composer.manual) return {due:composer.date, auto:false};
   if (composer.ignoreParse) return {due:null, auto:false};
-  const p = parseQuickAdd(document.getElementById("composer-text").value.trim());
+  const p = parseQuickAdd(composerText());
   return {due:p.due, auto:!!p.due};
 }
-function renderComposerChips(){
-  const {due, auto} = composerDue();
-  const presets = [["Today", addDaysIso(0)], ["Tomorrow", addDaysIso(1)], ["This weekend", weekendIso()]];
-  const presetHit = presets.some(([, iso]) => iso === due);
-  const chip = (label, on, onclick, extra = "") =>
-    `<button type="button" class="filter-chip ${on ? "on" : ""}" aria-pressed="${on}" onclick="${onclick}">${extra}${label}</button>`;
-  let html = presets.map(([label, iso]) => chip(label, due === iso, `composerPickDate('${iso}')`)).join("");
-  html += chip(due && !presetHit ? escapeHtml(dueLabel(due)) : "Pick date", !!due && !presetHit,
-    due && !presetHit ? `composerPickDate('${due}')` : "composerOpenPicker()",
-    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`);
-  html += chip("Star", composer.star, "composer.star = !composer.star; renderComposerChips()", composer.star ? STAR_FILLED_ICON : STAR_ICON);
-  html += chip("Sub-items", composer.showSubs, "composerToggleSubs()", SMALL_PLUS_ICON);
-  document.getElementById("composer-chips").innerHTML = html;
+// "helmet $250" / "boots $119.45": a trailing dollar amount is the price
+function parsePrice(raw){
+  const m = raw.match(/^(.*?)\s+\$\s?(\d{1,6}(?:\.\d{1,2})?)$/);
+  return m && m[1].trim() ? {text:m[1].trim(), price:Number(m[2])} : {text:raw, price:null};
 }
-// Tapping the selected date chip clears the date; any other chip selects its date
+function cchip(label, on, onclick, icon = ""){
+  return `<button type="button" class="filter-chip ${on ? "on" : ""}" aria-pressed="${on}" onclick="${onclick}">${icon}${label}</button>`;
+}
+function renderComposerChips(){
+  const c = composer;
+  let row1 = "", row2 = "";
+  if (c.mode === "todo"){
+    const {due} = composerDue();
+    const presets = [["Today", addDaysIso(0)], ["Tomorrow", addDaysIso(1)], ["This weekend", weekendIso()]];
+    const presetHit = presets.some(([, iso]) => iso === due);
+    row1 = presets.map(([label, iso]) => cchip(label, due === iso, `composerPickDate('${iso}')`)).join("");
+    row1 += cchip(due && !presetHit ? escapeHtml(dueLabel(due)) : "Pick date", !!due && !presetHit,
+      due && !presetHit ? `composerPickDate('${due}')` : "composerOpenPicker()", CALENDAR_ICON);
+    row1 += cchip("Star", c.star, "composer.star = !composer.star; renderComposerChips()", c.star ? STAR_FILLED_ICON : STAR_ICON);
+    row1 += cchip("Sub-items", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
+  } else if (c.mode === "shop"){
+    const price = c.ignoreParse ? null : parsePrice(composerText()).price;
+    if (price != null) row1 += cchip(`$${fmtMoney(price)}`, true, "composer.ignoreParse = true; renderComposerChips()");
+    const kind = c.kind || (c.cat === "wardrobe" ? "need" : "want");
+    row1 += cchip("Need", kind === "need", "composer.kind = 'need'; renderComposerChips()")
+      + cchip("Want", kind === "want", "composer.kind = 'want'; renderComposerChips()");
+    row1 += cchip("General", c.cat === "general", "composer.cat = 'general'; renderComposerChips()")
+      + cchip("Moto", c.cat === "moto", "composer.cat = 'moto'; renderComposerChips()", MOTO_ICON)
+      + cchip("Wardrobe", c.cat === "wardrobe", "composer.cat = 'wardrobe'; renderComposerChips()", SHIRT_ICON);
+    row1 += cchip("High priority", c.high, "composer.high = !composer.high; renderComposerChips()", c.high ? STAR_FILLED_ICON : STAR_ICON);
+    row1 += cchip("Details", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
+    if (c.cat === "wardrobe") row2 = [...CAP_CATS, "Other"].map(w => cchip(w, c.wcat === w, `composer.wcat = '${w}'; renderComposerChips()`)).join("");
+  } else {
+    row1 = cchip("In closet", c.dest === "closet", "composer.dest = 'closet'; renderComposerChips()")
+      + cchip("To buy", c.dest === "buy", "composer.dest = 'buy'; renderComposerChips()");
+    if (c.dest === "closet") row1 += cchip("Fit pending", c.pending, "composer.pending = !composer.pending; renderComposerChips()");
+    row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
+    row2 = CAP_CATS.map(w => cchip(w, c.cat === w, `composer.cat = '${w}'; renderComposerChips()`)).join("");
+  }
+  document.getElementById("composer-chips").innerHTML = row1;
+  const r2 = document.getElementById("composer-chips2");
+  r2.innerHTML = row2;
+  r2.hidden = !row2;
+}
+function composerTextChanged(){
+  if (!composer) return;
+  if (!composerText()) composer.ignoreParse = false;
+  renderComposerChips();
+}
+// To-dos: tapping the selected date chip clears the date; any other chip selects its date
 function composerPickDate(iso){
   const {due, auto} = composerDue();
   if (due === iso){
@@ -1614,19 +1674,28 @@ function composerOpenPicker(){
   input.value = "";
   try{ input.showPicker(); }catch(e){ input.focus(); input.click(); }
 }
-function composerToggleSubs(){
-  composer.showSubs = !composer.showSubs;
-  document.getElementById("composer-subs-wrap").hidden = !composer.showSubs;
+function composerToggleMore(){
+  composer.showMore = !composer.showMore;
+  const extra = document.getElementById("composer-extra");
+  extra.hidden = !composer.showMore;
   renderComposerChips();
-  if (composer.showSubs) document.getElementById("composer-subs").focus();
+  if (composer.showMore){ const first = extra.querySelector("input, textarea"); if (first) first.focus(); }
 }
-function openComposer(){
-  composer = composerFresh(0);
+function composerResetFields(){
+  document.getElementById("composer-text").value = "";
+  const extra = document.getElementById("composer-extra");
+  extra.innerHTML = composerExtraHtml(composer.mode);
+  extra.hidden = true;
+}
+function openComposer(mode = "todo"){
+  const cfg = COMPOSER_MODES[mode];
+  composer = composerFresh(mode, 0);
+  document.getElementById("composer-heading").textContent = cfg.title;
+  document.getElementById("composer-add-btn").textContent = cfg.add;
   const text = document.getElementById("composer-text");
-  text.value = "";
-  document.getElementById("composer-subs").value = "";
-  document.getElementById("composer-subs-wrap").hidden = true;
+  text.placeholder = cfg.placeholder;
   document.getElementById("composer-count").textContent = "";
+  composerResetFields();
   renderComposerChips();
   const el = document.getElementById("composer");
   el.classList.add("open");
@@ -1643,29 +1712,59 @@ function closeComposer(){
 }
 function composerAdd(){
   const textEl = document.getElementById("composer-text");
-  const raw = textEl.value.trim().slice(0, TODO_MAX_LEN);
+  const raw = composerText().slice(0, TODO_MAX_LEN);
   if (!raw){ textEl.focus(); return; }
+  const note = composer.mode === "todo" ? addTodoFromComposer(raw)
+    : composer.mode === "shop" ? addWantFromComposer(raw)
+    : addClosetFromComposer(raw);
+  composer = composerFresh(composer.mode, composer.added + 1, composer);
+  // Feedback stays in the sheet's header: a toast would sit on top of the sheet
+  document.getElementById("composer-count").textContent = `${composer.added} added` + (note ? ` · last ${note}` : "");
+  composerResetFields();
+  renderComposerChips();
+  textEl.focus();
+}
+function addTodoFromComposer(raw){
   const {due, auto} = composerDue();
-  const text = auto ? parseQuickAdd(raw).text : raw;
-  const subs = composer.showSubs
-    ? document.getElementById("composer-subs").value.split("\n").map(x => x.trim()).filter(Boolean).map(x => ({id:genId("sub"), text:x.slice(0, TODO_MAX_LEN), done:false}))
+  const subs = composer.showMore
+    ? composerField("composer-subs").split("\n").map(x => x.trim()).filter(Boolean).map(x => ({id:genId("sub"), text:x.slice(0, TODO_MAX_LEN), done:false}))
     : [];
-  const t = {id:genId("todo"), text, done:false, due, starred:composer.star, subitems:subs, completedAt:null};
+  const t = {id:genId("todo"), text:auto ? parseQuickAdd(raw).text : raw, done:false, due, starred:composer.star, subitems:subs, completedAt:null};
   // New items go to the top of their group so they land in view, not below the fold
   const at = todoList.findIndex(x => !x.done && todoGroup(x) === todoGroup(t));
   if (at >= 0) todoList.splice(at, 0, t); else todoList.push(t);
   if (subs.length) expandedTodos.add(t.id);
   saveContent("todo-content", todoList, {toast:false}); // the sheet header confirms it
   renderHome();
-  composer = composerFresh(composer.added + 1);
-  // Feedback stays in the sheet's header: a toast would sit on top of the sheet
-  document.getElementById("composer-count").textContent =
-    `${composer.added} added` + (due ? ` · last for ${dueLabel(due)}` : "");
-  textEl.value = "";
-  document.getElementById("composer-subs").value = "";
-  document.getElementById("composer-subs-wrap").hidden = true;
-  renderComposerChips();
-  textEl.focus();
+  return due ? `for ${dueLabel(due)}` : "";
+}
+function addWantFromComposer(raw){
+  const parsed = composer.ignoreParse ? {text:raw, price:null} : parsePrice(raw);
+  const typed = composer.showMore && composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
+  const price = typed != null && !isNaN(typed) ? typed : parsed.price;
+  const w = {id:genId("want"), name:parsed.text, meta:composer.showMore ? composerField("cx-meta") : "",
+    price:price ?? null, link:composer.showMore && composerField("cx-link") ? composerField("cx-link") : null};
+  if (composer.kind) w.kind = composer.kind;
+  if (composer.high) w.priority = "high";
+  setWantCategory(w, composer.cat === "moto" ? "Moto" : composer.cat === "wardrobe" ? "Wardrobe · " + composer.wcat : "General");
+  wantsList.push(w);
+  saveContent("wants-content", wantsList, {toast:false});
+  renderWants(); renderStyle(); renderHomePanel();
+  return price != null ? `$${fmtMoney(price)}` : "";
+}
+function addClosetFromComposer(raw){
+  const sub = composer.showMore ? composerField("cx-sub") : "";
+  if (composer.dest === "closet"){
+    const item = {id:genId("cap"), title:raw, cat:composer.cat, state:composer.pending ? "pending" : "owned"};
+    if (sub) item.sub = sub;
+    capsule.push(item);
+    saveContent("capsule-content", capsule, {toast:false});
+  } else {
+    wantsList.push({id:genId("want"), name:raw, meta:sub, price:null, link:null, wardrobeCat:composer.cat});
+    saveContent("wants-content", wantsList, {toast:false});
+  }
+  renderStyle(); renderWants(); renderHomePanel();
+  return composer.dest === "closet" ? "to closet" : "to shopping list";
 }
 // Keep the sheet above the on-screen keyboard where the browser shrinks only the
 // visual viewport (iOS Safari, newer Android Chrome).
@@ -2312,8 +2411,7 @@ function renderCapsuleLists(){
   CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
   Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${escapeHtml(cat)}</div>${byCat[cat]}`; });
   const sum = priceSummary(items);
-  el.innerHTML = (edit ? `<button class="add-row" onclick="addCapsuleItem()">+ Add item</button>` : "")
-    + (grouped || `<div class="empty">Nothing here yet.</div>`)
+  el.innerHTML = (grouped || `<div class="empty">Nothing here yet — tap + to add.</div>`)
     + sum.row;
   document.getElementById("cap-owned-insight").textContent = `${items.length} items${sum.badge}`;
 }
@@ -2378,23 +2476,6 @@ function editCapsuleItem(id){
     }
   );
 }
-function addCapsuleItem(){
-  openModal("Add item", [
-    {key:"title",label:"Title",type:"text"},
-    {key:"sub",label:"Notes (optional)",type:"text"},
-    {key:"cat",label:"Category",type:"select",options:CAP_CATS},
-    {key:"price",label:"Price (optional)",type:"number",step:"0.01"},
-    {key:"link",label:"Link (optional)",type:"url"},
-    {key:"pending",label:"Fit pending",type:"checkbox"}
-  ], {cat:CAP_CATS[0]},
-    (v) => {
-      if(!v.title) return;
-      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, price:v.price, link:v.link||null, state: v.pending ? "pending" : "owned"});
-      saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
-    }
-  );
-}
-
 // ---------- RENDER: WANTS ----------
 function fmtMoney(n){
   return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -2449,12 +2530,7 @@ function renderWants(){
   };
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
-  let html = `<div class="quick-add">
-      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : wantsFilter === "moto" ? "Add moto gear" : wantsFilter === "need" ? "Add something you need" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
-      <button onclick="quickAddWant()" aria-label="Add want">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-    </div>`;
+  let html = "";
   const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();"><span class="fc-label">${label}</span><span class="fc-count">${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
@@ -2464,7 +2540,6 @@ function renderWants(){
       ${chip("moto", "Moto", allPending.filter(w => w.moto).length)}
     </div>`;
   html += collapsibleCard({id:"wants-pending-card", title:"To buy", insight:`${pendingItems.length}${pendingSum.badge}`, body:`
-        ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
         ${pending||'<div class="empty">All caught up.</div>'}
         ${pendingSum.row}`});
   html += collapsibleCard({id:"wants-purchased-card", title:"Purchased", insight:doneItems.length ? doneItems.length + doneSum.badge : "None yet", body:`
@@ -2481,21 +2556,6 @@ function renderWants(){
       else if (a.right > r.right - 28) row.scrollLeft += a.right - (r.right - 28);
     }
   }
-}
-function quickAddWant(){
-  const input = document.getElementById("quick-add-input");
-  const name = input.value.trim();
-  if (!name) return;
-  const w = {id:genId("want"), name, meta:"", price:null, link:null};
-  // stay visible under the active filter
-  if (wantsFilter === "wardrobe") w.wardrobeCat = "Other";
-  if (wantsFilter === "moto") w.moto = true;
-  if (wantsFilter === "need" || wantsFilter === "want") w.kind = wantsFilter;
-  wantsList.push(w);
-  saveContent("wants-content", wantsList);
-  renderWants();
-  const freshInput = document.getElementById("quick-add-input");
-  freshInput.focus();
 }
 async function toggleWant(id){
   wantsState[id] = !wantsState[id];
@@ -2534,30 +2594,6 @@ function editWant(id){
     }
   );
 }
-function addWant(){
-  openModal("Add want", [
-    {key:"name",label:"Name",type:"text"},
-    {key:"meta",label:"Notes (optional)",type:"text"},
-    {key:"price",label:"Price",type:"number",step:"0.01"},
-    {key:"link",label:"Link (optional)",type:"url"},
-    {key:"estimated",label:"Estimated price",type:"checkbox"},
-    {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
-    {key:"high",label:"High priority",type:"checkbox"},
-    {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
-  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : wantsFilter === "moto" ? "Moto" : "General",
-      kind: wantsFilter === "need" || wantsFilter === "wardrobe" ? "Need" : "Want"},
-    (v) => {
-      if(!v.name) return;
-      const w = {id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated,
-        ...(v.high ? {priority:"high"} : {})};
-      setWantCategory(w, v.cat);
-      w.kind = v.kind === "Need" ? "need" : "want";
-      wantsList.push(w);
-      saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
-    }
-  );
-}
-
 // ---------- TAB SWITCHING ----------
 const TAB_ORDER = ["home","todo","wants","style","skin"]; // nav bar and swipe order
 let currentTab = "home";
@@ -2565,6 +2601,8 @@ let currentTab = "home";
 function activateTab(tab){
   currentTab = tab;
   document.body.dataset.tab = tab; // shows/hides the floating + button
+  const fabCfg = COMPOSER_MODES[FAB_MODE_BY_TAB[tab]];
+  if (fabCfg) document.getElementById("fab").setAttribute("aria-label", fabCfg.fab);
   if (tab === "home") renderHome(); // refreshes glance cards with whatever changed on other tabs
   document.querySelectorAll("nav.tabbar button").forEach(b => {
     const active = b.dataset.tab === tab;
@@ -3227,7 +3265,7 @@ function applyLaunchParams(){
   if (!tab && !action) return;
   if (action === "addtodo") activateTab("todo");
   else if (tab && TAB_ORDER.includes(tab) && tab !== "home") activateTab(tab);
-  if (action === "addtodo") openComposer();
+  if (action === "addtodo") openComposer("todo");
   history.replaceState(null, "", location.pathname);
 }
 
