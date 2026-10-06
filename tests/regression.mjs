@@ -147,7 +147,9 @@ await section("routine: merged routine matches the old per-day lists for 28 days
     for (let n = -7; n < 21; n++) {
       const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n);
       const legacy = DEFAULT_SKIN_DAYS.find(x => x.day === WEEKDAYS[d.getDay()]);
-      const wash = !!legacy.pmWash && isWashThursday(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+      // the original rule, computed independently: every other Thursday from Jul 16 2026
+      const weeks = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(2026, 6, 16)) / (7 * 864e5));
+      const wash = !!legacy.pmWash && ((weeks % 2) + 2) % 2 === 0;
       const exp = s => s.map(x => decodeEntities(x[0]) + "|" + decodeEntities(x[1])).join(",");
       const got = s => s.map(x => x.label + "|" + x.product).join(",");
       const r = routineForDate(d);
@@ -178,6 +180,56 @@ await section("routine: check-offs, toast, streak, editing days", async () => {
   await page.tap(".modal-btn.primary");
   const days = await page.evaluate(id => JSON.parse(localStorage.getItem("skin-routine-content")).pm.find(s => s.id === id).days, ex);
   check("day chips edit is saved", JSON.stringify(days) === "[2,4]", days);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("wash day: pick a date on the calendar, change frequency, undo", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=skin" });
+  await page.evaluate(() => { openPinned.add("wash-card"); renderSkin(); });
+  const before = await page.evaluate(() => ({ sched: washSchedule(), marked: document.querySelectorAll("#wash-card .cal-day.wash").length }));
+  check("defaults to every 2 weeks from Jul 16", before.sched.anchor === "2026-07-16" && before.sched.everyDays === 14, before.sched);
+  check("calendar marks wash days", before.marked >= 2, before.marked);
+  const target = isoOffset(2);
+  await page.evaluate(iso => setWashDate(iso), target);
+  const after = await page.evaluate(iso => ({
+    wash: routineForDate(noonOf(iso)).wash, stored: JSON.parse(localStorage.getItem("skin-routine-content")).wash,
+    twoWeeksLater: isWashDate(noonOf(addDaysIso(16))), dayAfter: isWashDate(noonOf(addDaysIso(3))),
+  }), target);
+  check("picked date becomes a wash day", after.wash, after);
+  check("schedule saved with the routine", after.stored && after.stored.anchor === target, after.stored);
+  check("repeats every 2 weeks from the picked date", after.twoWeeksLater && !after.dayAfter, after);
+  await page.evaluate(() => setWashFrequency(7));
+  check("frequency change", await page.evaluate(iso => washSchedule().everyDays === 7 && isWashDate(noonOf(addDaysIso(9))), target));
+  await page.tap(".toast-action");
+  check("undo restores the previous schedule", await page.evaluate(() => washSchedule().everyDays === 14));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("wants: need/want tags, sorting, filters, editing", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  const r = await page.evaluate(() => ({
+    beltKind: wantKind(wantsList.find(w => w.id === "belt-brown")),
+    pouchKind: wantKind(wantsList.find(w => w.id === "pouch")),
+    tags: document.querySelectorAll("#wants-pending-card .badge.kind-need, #wants-pending-card .badge.kind-want").length,
+    cards: document.querySelectorAll("#wants-pending-card .want-card").length,
+    order: wantsList.filter(w => !wantsState[w.id]).sort(wantsOrder).map(wantKind),
+  }));
+  check("wardrobe items default to need, others to want", r.beltKind === "need" && r.pouchKind === "want", r);
+  check("every item shows a tag", r.tags === r.cards && r.cards > 0, r);
+  check("needs sort before wants", r.order.join(",") === [...r.order].sort().join(","), r.order);
+  await page.click(".filter-chip >> text=Needs");
+  const needsOnly = await page.$$eval("#wants-pending-card .want-card .badge.kind-want", e => e.length);
+  check("Needs filter hides wants", needsOnly === 0, needsOnly);
+  await page.fill("#quick-add-input", "Phone charger");
+  await page.press("#quick-add-input", "Enter");
+  check("quick-add under Needs is a need", await page.evaluate(() => wantKind(wantsList.find(w => w.name === "Phone charger")) === "need"));
+  await page.evaluate(() => editWant("pouch"));
+  await page.selectOption("#modal-kind", "Need");
+  await page.tap(".modal-btn.primary");
+  check("tag changed in the edit form is saved",
+    await page.evaluate(() => JSON.parse(localStorage.getItem("wants-content")).find(w => w.id === "pouch").kind === "need"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

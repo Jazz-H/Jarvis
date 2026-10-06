@@ -35,13 +35,17 @@ Tapping a card opens its tab.
   across devices.
 - **This week:** Mon–Sun rows showing only what differs from the base routine
   ("Exfoliate", "Wash day"). Tap a day for its full list.
+- **Wash day:** pick a frequency (every week, 10 days, 2, 3, or 4 weeks) and tap any date
+  on the month calendar to make it a wash day. The schedule repeats from that date, and
+  wash days are highlighted. Each change shows an Undo.
 - **Routine:** the one place to edit the AM, PM, and wash-day PM steps. A step can be
   limited to certain days with a Mon–Sun chip picker. New steps go before any
   "… — last step" entry, so SPF and lash serum stay last.
 - **Key rules:** the routine's ground rules.
 
-Wash day falls on every other Thursday, anchored to Thu Jul 16 2026 (`WASH_DAY_ANCHOR`), and
-its PM routine replaces the regular PM routine.
+On wash days, the wash-day PM routine replaces the regular PM routine. The schedule is
+stored on the routine as `wash: {anchor, everyDays}`. Routines saved before it was editable
+fall back to the original cadence: every 2 weeks from Thu Jul 16 2026.
 
 **Wardrobe** is the closet.
 - **Wardrobe built:** progress, counting closet items against wardrobe items still to buy.
@@ -51,7 +55,11 @@ its PM routine replaces the regular PM routine.
 - **Reference cards:** Fit rules and the Sizing grid.
 
 **Wants** is the single shopping list, clothes included.
-- **Filtering.** All / Wardrobe / Other chips narrow the list.
+- **Need or want.** Every item carries a **Need** or **Want** tag. Unless set in its form,
+  wardrobe items count as needs and everything else as wants. Needs sort ahead of wants,
+  after high-priority items.
+- **Filtering.** All / Needs / Wants / Wardrobe chips narrow the list. Quick-adding under
+  a filter keeps the new item in it.
 - **Categories.** Each item's form has a Category select: Not clothing, or a wardrobe
   category. Clothing items show a "Wardrobe · Tops" tag.
 - **Buying.** Mark bought moves the item to Purchased. A bought wardrobe item also appears in
@@ -112,7 +120,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (54 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (69 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - to-do date parsing, migration, and undo;
@@ -120,6 +128,8 @@ server. It covers:
 - quiet 7-day archiving;
 - routine equivalence with the legacy per-day data over 28 dates;
 - check-offs and streaks;
+- the wash-day calendar and frequency;
+- need/want tags;
 - the wardrobe → wants migration and buy-to-closet flow;
 - the totals rule;
 - backup and restore;
@@ -154,11 +164,11 @@ Everything lives in `localStorage` on the device:
 | --- | --- |
 | `todo-content` | To-dos: `{id, text, done, due: "YYYY-MM-DD" \| null, starred, subitems, completedAt}` |
 | `todo-archive-content` | Completed to-dos older than 7 days (newest 200) |
-| `skin-routine-content` | `{washDay, am, pm, washPm}`; steps are `{id, label, product, note?, days?}`, where `days` uses weekday numbers and 0 = Sun |
+| `skin-routine-content` | `{am, pm, washPm, wash?: {anchor, everyDays}}`; steps are `{id, label, product, note?, days?}`, where `days` uses weekday numbers and 0 = Sun |
 | `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about 60 days kept |
 | `skin-rules-content`, `style-rules-content`, `sizes-content` | Reference lists |
 | `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
-| `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, wardrobeCat?}` |
+| `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?}` |
 | `wants-state` | Bought flags, by want id |
 | `data-updated-at` | Last real edit, used for sync |
 | `sync-token`, `sync-gist-id` | Sync settings for this device (never synced) |
@@ -211,7 +221,6 @@ devices so iOS doesn't zoom.
 - **No notifications.** A static web page can't wake itself up to alert you, and iOS
   blocks this even for installed PWAs. The planned workaround is "Add to calendar" on
   dated to-dos (an `.ics` file with an alarm).
-- **Wash-day cadence** (every other Thursday) is a code constant, not editable in the app.
 - **Home's short step names** (`STEP_SHORT_NAMES`) are a code lookup. Unmapped labels fall
   back to the full label.
 - **Sync push replaces the gist file.** A device on an outdated app version can drop keys

@@ -505,6 +505,22 @@
   .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
   .want-tag{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--olive); margin-top:2px;}
   .want-tag svg{width:12px; height:12px;}
+  /* wash-day calendar */
+  .wash-freq{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
+  .cal-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700;}
+  .cal-nav{width:44px; height:44px; border:none; background:none; color:var(--text); font:inherit; font-size:20px; border-radius:10px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; text-align:center;}
+  .cal-dow{font-size:10.5px; font-weight:700; color:var(--text-dim); padding:4px 0;}
+  .cal-day{
+    min-height:42px; border:none; border-radius:10px; background:none; padding:0;
+    color:var(--text); font:inherit; font-size:13px; font-variant-numeric:tabular-nums;
+  }
+  .cal-day.past{color:var(--text-dim); opacity:.55;}
+  .cal-day.today{box-shadow:inset 0 0 0 1px var(--line); font-weight:800;}
+  .cal-day.wash{background:color-mix(in srgb, var(--navy) 24%, transparent); color:var(--navy); font-weight:800; opacity:1;}
+  .cal-day.blank{visibility:hidden;}
+  .badge.kind-need{background:color-mix(in srgb, var(--gold) 20%, transparent); color:var(--gold); margin-left:8px;}
+  .badge.kind-want{background:var(--surface-2); color:var(--text-dim); margin-left:8px;}
   .badge.high{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
   .modal-section{display:block; margin:6px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
   .backup-actions{display:flex; gap:8px; margin-top:10px;}
@@ -602,6 +618,8 @@
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
     .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
     .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
+    .cal-day:not(.blank):hover, .cal-nav:hover{background:var(--surface-2);}
+    .cal-day.wash:hover{background:color-mix(in srgb, var(--navy) 32%, transparent);}
     .icon-btn:hover{color:var(--olive);}
     .icon-btn.link:hover{color:var(--gold);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
@@ -1478,7 +1496,7 @@ function renderHomePanel(){
             w.wardrobeCat ? 'color-mix(in srgb, var(--olive) 15%, transparent)' : 'color-mix(in srgb, var(--navy) 15%, transparent)',
             w.wardrobeCat ? 'var(--olive)' : 'var(--navy)', w.wardrobeCat ? SHIRT_ICON : BAG_ICON, w.name,
             w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}` : '',
-            (w.wardrobeCat ? `Wardrobe · ${w.wardrobeCat}` : 'Wants') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
+            (wantKind(w) === 'need' ? 'Need' : 'Want') + (w.wardrobeCat ? ` · Wardrobe · ${w.wardrobeCat}` : '') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
             `toggleWant('${w.id}').then(renderHome);`, 'Mark bought')).join("")}
       </div>`;
   }
@@ -1706,15 +1724,10 @@ function routineFromDays(days){
   const week = days.map(d => ({...d, dow:WEEKDAYS.indexOf(d.day)})).filter(d => d.dow >= 0);
   const washDay = week.find(d => d.pmWash && d.pmWash.length);
   return {
-    washDay: washDay ? washDay.dow : 4,
     am: merge("am", week.map(d => ({dow:d.dow, steps:d.am || []}))),
     pm: merge("pm", week.map(d => ({dow:d.dow, steps:d.pm || []}))),
     washPm: washDay ? merge("washPm", [{dow:washDay.dow, steps:washDay.pmWash}]) : []
   };
-}
-function isWashDate(date){
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return d.getDay() === skinRoutine.washDay && isWashThursday(d);
 }
 function routineForDate(date){
   const dow = date.getDay();
@@ -1821,12 +1834,19 @@ function renderSkin(){
   }
   html += `<div class="card"><div class="glance-head"><h3 style="margin:0;">This week</h3></div>${week}</div>`;
 
-  // 3. The routine itself, edited in one place
+  // 3. Wash-day schedule: frequency + a calendar to pick the date
+  const nextWash = nextWashDate();
+  const nextLabel = daysUntilWashDay() === 0 ? "today"
+    : nextWash.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  html += collapsibleCard({id:"wash-card", title:"Wash day", editable:false,
+    insight:`${washFrequencyLabel()} · next ${nextLabel}`, body:washCalendarHtml()});
+
+  // 4. The routine itself, edited in one place
   const edit = editCards.has('routine-card');
   const editorBand = key => {
     const steps = skinRoutine[key];
     const head = key === "washPm"
-      ? `Wash-day PM<span class="routine-sub">replaces PM every other ${WEEKDAYS[skinRoutine.washDay]}</span>`
+      ? `Wash-day PM<span class="routine-sub">replaces PM on wash days</span>`
       : key.toUpperCase();
     const rows = steps.map((s, n) => `<div class="step ${edit ? 'editable' : ''}" ${edit ? `onclick="editRoutineStep('${key}','${s.id}')"` : ''}>
         <span class="n">${n+1}.</span><div>${routineStepText(s)}${s.days ? `<span class="note">${daysText(s.days)} only</span>` : ''}${edit ? `<span class="inline-pencil">${PENCIL_ICON}</span>` : ''}</div>
@@ -1839,7 +1859,7 @@ function renderSkin(){
   html += collapsibleCard({id:"routine-card", title:"Routine", insight:`${skinRoutine.am.length} AM · ${skinRoutine.pm.length} PM`,
     wrapBody:false, body:`${editorBand('am')}${editorBand('pm')}${skinRoutine.washPm.length || edit ? editorBand('washPm') : ''}`});
 
-  // 4. Key rules
+  // 5. Key rules
   const rulesEdit = editCards.has('rules-skin');
   let rules = rulesEdit ? `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>` : "";
   skinRules.forEach((r,i) => {
@@ -1891,23 +1911,77 @@ function addRoutineStep(band){
   );
 }
 
-// Wash day falls on Thursday every 2 weeks; last wash was Thu Jul 16, 2026.
-const WASH_DAY_ANCHOR = new Date(2026, 6, 16);
-function isWashThursday(thuDate){
-  const diffWeeks = Math.round((thuDate - WASH_DAY_ANCHOR) / (7 * 86400000));
-  return ((diffWeeks % 2) + 2) % 2 === 0;
+// ---------- wash-day schedule ----------
+// Wash day repeats every `everyDays` days counting from `anchor` (a YYYY-MM-DD
+// wash day). It's stored on the routine (skinRoutine.wash) so it syncs and backs
+// up with it. Routines saved before the schedule was editable fall back to the
+// original cadence: every 2 weeks from Thu Jul 16, 2026.
+const DEFAULT_WASH = {anchor:"2026-07-16", everyDays:14};
+const WASH_FREQUENCIES = [[7, "Every week"], [10, "Every 10 days"], [14, "Every 2 weeks"], [21, "Every 3 weeks"], [28, "Every 4 weeks"]];
+let washCalOffset = 0; // months from the current one shown in the wash-day calendar
+function washSchedule(){
+  const w = skinRoutine && skinRoutine.wash;
+  return w && /^\d{4}-\d{2}-\d{2}$/.test(w.anchor) && w.everyDays > 0 ? w : DEFAULT_WASH;
+}
+function washFrequencyLabel(){
+  const n = washSchedule().everyDays;
+  const hit = WASH_FREQUENCIES.find(([d]) => d === n);
+  return hit ? hit[1] : `Every ${n} days`;
+}
+function isWashDate(date){
+  const {anchor, everyDays} = washSchedule();
+  const diff = Math.round((noonOf(isoDate(date)) - noonOf(anchor)) / 86400000);
+  return ((diff % everyDays) + everyDays) % everyDays === 0;
 }
 function nextWashDate(){
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  let cand = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((4 - today.getDay() + 7) % 7));
-  while (!isWashThursday(cand)) cand = new Date(cand.getFullYear(), cand.getMonth(), cand.getDate() + 7);
-  return cand;
+  const d = new Date(); d.setHours(12, 0, 0, 0);
+  for (let i = 0; i < washSchedule().everyDays && !isWashDate(d); i++) d.setDate(d.getDate() + 1);
+  return d;
 }
-function daysUntilWashDay(){
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  return Math.round((nextWashDate() - today) / 86400000);
+function daysUntilWashDay(){ return daysFromToday(isoDate(nextWashDate())); }
+function setWashSchedule(next, message){
+  const prev = skinRoutine.wash ? {...skinRoutine.wash} : null;
+  skinRoutine.wash = next;
+  saveRoutine();
+  showUndoToast(message, () => {
+    if (prev) skinRoutine.wash = prev; else delete skinRoutine.wash;
+    saveRoutine();
+  });
+}
+function setWashDate(iso){
+  const label = noonOf(iso).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  setWashSchedule({anchor:iso, everyDays:washSchedule().everyDays}, `Wash day set to ${label}`);
+}
+function setWashFrequency(n){
+  // keep the series lined up with the next upcoming wash day
+  setWashSchedule({anchor:isoDate(nextWashDate()), everyDays:n}, `Wash day: ${WASH_FREQUENCIES.find(([d]) => d === n)[1].toLowerCase()}`);
+}
+function shiftWashMonth(delta){ washCalOffset += delta; renderSkin(); }
+function washCalendarHtml(){
+  const first = new Date(); first.setHours(12, 0, 0, 0); first.setDate(1); first.setMonth(first.getMonth() + washCalOffset);
+  const month = first.getMonth(), todayKey = isoDate(new Date());
+  const lead = (first.getDay() + 6) % 7; // Monday-first grid
+  const daysInMonth = new Date(first.getFullYear(), month + 1, 0).getDate();
+  let cells = ["M","T","W","T","F","S","S"].map(d => `<div class="cal-dow">${d}</div>`).join("");
+  for (let i = 0; i < lead; i++) cells += `<div class="cal-day blank"></div>`;
+  for (let n = 1; n <= daysInMonth; n++){
+    const d = new Date(first.getFullYear(), month, n, 12);
+    const key = isoDate(d), wash = isWashDate(d);
+    const cls = ["cal-day", wash ? "wash" : "", key === todayKey ? "today" : "", key < todayKey ? "past" : ""].filter(Boolean).join(" ");
+    const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) + (wash ? ", wash day" : "");
+    cells += `<button class="${cls}" onclick="setWashDate('${key}')" aria-label="${label}"${wash ? ' aria-pressed="true"' : ''}>${n}</button>`;
+  }
+  const freq = washSchedule().everyDays;
+  const chips = WASH_FREQUENCIES.map(([n, text]) =>
+    `<button class="filter-chip ${n === freq ? "on" : ""}" aria-pressed="${n === freq}" onclick="setWashFrequency(${n})">${text}</button>`).join("");
+  return `<div class="wash-freq">${chips}</div>
+    <div class="cal-head">
+      <button class="cal-nav" onclick="shiftWashMonth(-1)" aria-label="Previous month">‹</button>
+      <span>${first.toLocaleDateString('en-US', {month:'long', year:'numeric'})}</span>
+      <button class="cal-nav" onclick="shiftWashMonth(1)" aria-label="Next month">›</button>
+    </div>
+    <div class="cal-grid">${cells}</div>
+    <p class="footnote">Tap a date to make it a wash day — the schedule repeats from there.</p>`;
 }
 // Collapsible card used across tabs: the header (title, insight badge, optional
 // Edit chip, chevron) toggles the body; open state lives in openPinned.
@@ -2149,14 +2223,19 @@ function setWantCategory(w, choice){
   if (choice && choice.startsWith("Wardrobe · ")) w.wardrobeCat = choice.slice("Wardrobe · ".length);
   else delete w.wardrobeCat;
 }
-// High-priority wants first, then cheapest; unpriced items sort last.
+// Every item is a "need" or a "want". Unless set explicitly, wardrobe items
+// (which came from the old "still need" list) count as needs, everything else as wants.
+function wantKind(w){ return w.kind === "need" || w.kind === "want" ? w.kind : (w.wardrobeCat ? "need" : "want"); }
+// High priority first, then needs before wants, then cheapest; unpriced last.
 function wantsOrder(a, b){
-  return ((b.priority === "high") - (a.priority === "high")) || ((a.price ?? Infinity) - (b.price ?? Infinity));
+  return ((b.priority === "high") - (a.priority === "high"))
+    || ((wantKind(a) === "need" ? 0 : 1) - (wantKind(b) === "need" ? 0 : 1))
+    || ((a.price ?? Infinity) - (b.price ?? Infinity));
 }
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
-  const inFilter = w => wantsFilter === "all" || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : !w.wardrobeCat);
+  const inFilter = w => wantsFilter === "all" || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : wantKind(w) === wantsFilter);
   const allPending = wantsList.filter(w => !wantsState[w.id]);
   const pendingItems = allPending.filter(inFilter).sort(wantsOrder);
   const doneItems = wantsList.filter(w => !!wantsState[w.id] && inFilter(w)).sort(wantsOrder);
@@ -2168,7 +2247,7 @@ function renderWants(){
       ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
         <div class="body">
-          <div class="name">${escapeHtml(w.name)}${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
+          <div class="name">${escapeHtml(w.name)}<span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
           ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}${isDone ? " · in closet" : ""}</div>` : ""}
           ${w.meta?`<div class="meta">${escapeHtml(w.meta)}</div>`:""}
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
@@ -2183,7 +2262,7 @@ function renderWants(){
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
   let html = `<div class="quick-add">
-      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
+      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : wantsFilter === "need" ? "Add something you need" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
       <button onclick="quickAddWant()" aria-label="Add want">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -2191,10 +2270,11 @@ function renderWants(){
   const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();">${label} <span>${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
+      ${chip("need", "Needs", allPending.filter(w => wantKind(w) === "need").length)}
+      ${chip("want", "Wants", allPending.filter(w => wantKind(w) === "want").length)}
       ${chip("wardrobe", "Wardrobe", allPending.filter(w => w.wardrobeCat).length)}
-      ${chip("other", "Other", allPending.filter(w => !w.wardrobeCat).length)}
     </div>`;
-  html += collapsibleCard({id:"wants-pending-card", title:"Still need", insight:`${pendingItems.length}${pendingSum.badge}`, body:`
+  html += collapsibleCard({id:"wants-pending-card", title:"To buy", insight:`${pendingItems.length}${pendingSum.badge}`, body:`
         ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
         ${pending||'<div class="empty">All caught up.</div>'}
         ${pendingSum.row}`});
@@ -2208,7 +2288,9 @@ function quickAddWant(){
   const name = input.value.trim();
   if (!name) return;
   const w = {id:genId("want"), name, meta:"", price:null, link:null};
-  if (wantsFilter === "wardrobe") w.wardrobeCat = "Other"; // stay visible under the active filter
+  // stay visible under the active filter
+  if (wantsFilter === "wardrobe") w.wardrobeCat = "Other";
+  if (wantsFilter === "need" || wantsFilter === "want") w.kind = wantsFilter;
   wantsList.push(w);
   saveContent("wants-content", wantsList);
   renderWants();
@@ -2231,15 +2313,17 @@ function editWant(id){
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"estimated",label:"Estimated price",type:"checkbox"},
+    {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
     {key:"high",label:"High priority",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
   ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high",
-      cat: w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : "Not clothing"},
+      kind: wantKind(w) === "need" ? "Need" : "Want", cat: w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : "Not clothing"},
     (v) => {
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
       if (v.high) w.priority = "high"; else delete w.priority;
       setWantCategory(w, v.cat);
+      w.kind = v.kind === "Need" ? "need" : "want";
       saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
     },
     () => {
@@ -2257,14 +2341,17 @@ function addWant(){
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"estimated",label:"Estimated price",type:"checkbox"},
+    {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
     {key:"high",label:"High priority",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
-  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : "Not clothing"},
+  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : "Not clothing",
+      kind: wantsFilter === "need" || wantsFilter === "wardrobe" ? "Need" : "Want"},
     (v) => {
       if(!v.name) return;
       const w = {id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated,
         ...(v.high ? {priority:"high"} : {})};
       setWantCategory(w, v.cat);
+      w.kind = v.kind === "Need" ? "need" : "want";
       wantsList.push(w);
       saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
     }
