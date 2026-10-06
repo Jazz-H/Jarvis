@@ -4553,7 +4553,76 @@ function writeQuietly(key, value){
   renderHome();
   applyLaunchParams();
   initSync();
+  importFromLink();
 })();
+
+// ---------- import link ----------
+// A link ending in #import=<base64url JSON> adds budget data (bills, paychecks
+// and their plans, goals) after the user confirms. The data rides in the URL
+// fragment, which never reaches a server, so personal numbers don't have to live
+// in this public repo. Nothing is replaced: bills/goals already present by name,
+// and paydays that already have plan lines, are skipped. Everything still goes
+// through normalizeBudgetData on the next load like any other stored data.
+function importFromLink(){
+  const m = location.hash.match(/^#import=([A-Za-z0-9_-]+)$/);
+  if (!m) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  let data;
+  try{
+    const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), c => c.charCodeAt(0));
+    data = JSON.parse(new TextDecoder().decode(bytes));
+  }catch(e){ showToast("That import link is damaged", true); return; }
+  if (!data || data.app !== "jazz2-budget" || !/^\d{4}-\d{2}$/.test(data.month || "")){ showToast("That isn't a budget import link", true); return; }
+  // let the first sync pull land before adding on top of it
+  setTimeout(() => applyBudgetImport(data), localStorage.getItem("sync-token") ? 2500 : 0);
+}
+function applyBudgetImport(data){
+  const arr = v => Array.isArray(v) ? v : [];
+  const num = v => { const n = Number(v); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0; };
+  const has = (list, name) => list.some(x => String(x.name).toLowerCase() === String(name).toLowerCase());
+  const newBills = arr(data.bills).filter(b => b && b.name && !has(bills, b.name));
+  const newGoals = arr(data.goals).filter(g => g && g.name && !has(budget.goals, g.name));
+  const incomes = arr(data.income).filter(x => x && x.name && /^\d{4}-\d{2}-\d{2}$/.test(x.start || ""));
+  const planCount = incomes.reduce((n, x) => n + arr(x.plans).length, 0);
+  const parts = [newBills.length && `${newBills.length} bill${newBills.length === 1 ? "" : "s"}`,
+    incomes.length && `${incomes.length} paycheck${incomes.length === 1 ? "" : "s"} with ${planCount} payday plan${planCount === 1 ? "" : "s"}`,
+    newGoals.length && `${newGoals.length} goal${newGoals.length === 1 ? "" : "s"}`].filter(Boolean);
+  if (!parts.length){ showToast("Everything in that link is already in your budget"); return; }
+  if (!confirm(`Add ${parts.join(", ")} to your budget? Nothing already there is changed.`)) return;
+  const month = data.month, last = Number(monthEndIso(month).slice(8));
+  arr(data.accounts).forEach(a => { a = String(a).trim().slice(0, 40); if (a && !budget.accounts.includes(a)) budget.accounts.push(a); });
+  newBills.forEach(b => {
+    const day = Math.min(31, Math.max(1, parseInt(b.day, 10) || 1));
+    const due = `${month}-${String(Math.min(day, last)).padStart(2, "0")}`;
+    const bill = {id:genId("bill"), name:String(b.name).slice(0, 120), amount:num(b.amount), due, day, repeat:BILL_REPEATS[b.repeat] ? b.repeat : "monthly",
+      autopay:!!b.autopay, link:null, group:b.group === "joint" ? "joint" : "personal",
+      account:budget.accounts.includes(b.account) ? b.account : null, ...(b.varies ? {varies:true} : {})};
+    if (b.paid){ // already paid this month: log it and move on to next month's due
+      billPayments.push({id:genId("pay"), billId:bill.id, name:bill.name, amount:bill.amount, due, date:due, group:bill.group, account:bill.account});
+      bill.due = nextBillIso(due, bill.repeat, day);
+    }
+    bills.push(bill);
+  });
+  incomes.forEach(x => {
+    const repeat = BILL_REPEATS[x.repeat] ? x.repeat : "biweekly";
+    let src = budget.income.find(i => i.name.toLowerCase() === String(x.name).toLowerCase() && i.start === x.start && i.repeat === repeat);
+    if (!src){ src = {id:genId("inc"), name:String(x.name).slice(0, 60), amount:num(x.amount), start:x.start, repeat}; budget.income.push(src); }
+    arr(x.plans).forEach(pl => {
+      if (!pl || !/^\d{4}-\d{2}-\d{2}$/.test(pl.date || "")) return;
+      const key = `${src.id}|${pl.date}`;
+      if (budget.plans[key] && budget.plans[key].lines.length) return; // keep what's there
+      budget.plans[key] = {...(pl.amount != null && num(pl.amount) !== src.amount ? {amount:num(pl.amount)} : {}),
+        lines:arr(pl.lines).filter(l => l && l.name).map(l => ({id:genId("line"), name:String(l.name).slice(0, 80), amount:num(l.amount)}))};
+    });
+  });
+  newGoals.forEach(g => budget.goals.push({id:genId("goal"), name:String(g.name).slice(0, 60), target:num(g.target), saved:num(g.saved),
+    date:/^\d{4}-\d{2}-\d{2}$/.test(g.date || "") ? g.date : null, created:addDaysIso(0), log:[]}));
+  saveBudgetData();
+  budgetMonthOffset = 0;
+  activateTab("budget");
+  showToast(`Added ${parts.join(", ")}`);
+}
 
 // Handles ?tab=&action= launch params from the home-screen icon shortcuts
 // (manifest.json "shortcuts") so long-pressing the app icon can jump straight
