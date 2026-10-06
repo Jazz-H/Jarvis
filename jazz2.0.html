@@ -493,6 +493,22 @@
   .todo-glance .glance-title-row .insight{margin-left:2px;}
   .todo-glance-footer{font-size:12px; color:var(--text-dim); padding-top:8px;}
   .todo-glance .todo-wrap:last-of-type{border-bottom:none;}
+  .shop-link{
+    display:flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; margin-top:12px;
+    padding:0; border:none; border-top:1px solid var(--line); background:none; color:var(--text);
+    font:inherit; font-size:13px; font-weight:600; text-align:left;
+  }
+  .shop-link-go{color:var(--link); font-size:12.5px; font-weight:700;}
+  .closet-item{cursor:default;}
+  .filter-chips{display:flex; gap:8px; margin:-4px 0 14px; overflow-x:auto;}
+  .filter-chip{
+    flex-shrink:0; min-height:36px; padding:0 14px; border-radius:18px; border:1px solid var(--line);
+    background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
+  }
+  .filter-chip span{opacity:.7; margin-left:2px;}
+  .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
+  .want-tag{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--olive); margin-top:2px;}
+  .want-tag svg{width:12px; height:12px;}
   .badge.high{background:color-mix(in srgb, var(--navy) 22%, transparent); color:var(--navy); margin-left:8px;}
   .modal-section{display:block; margin:6px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); font-weight:700;}
   .backup-actions{display:flex; gap:8px; margin-top:10px;}
@@ -828,7 +844,7 @@ let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "cap-needed-card", "wants-pending-card"]);
+let openPinned = new Set(["todo-card", "cap-owned-card", "wants-pending-card"]);
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -1416,12 +1432,12 @@ function renderHomePanel(){
       ${washNote}
     </div>`;
 
-  const ownedCount = capsule.filter(i => currentCapState(i) === "owned").length;
-  const capPct = capsule.length ? Math.round((ownedCount / capsule.length) * 100) : 0;
-  const cheapestNeeded = capsule.filter(i => currentCapState(i) !== "owned").sort((a,b)=>(a.price??Infinity)-(b.price??Infinity))[0];
+  const closetCount = closetItems().length, toBuy = wardrobeShopping().length;
+  const capPct = closetCount + toBuy ? Math.round((closetCount / (closetCount + toBuy)) * 100) : 0;
   const pendingItems = wantsList.filter(w => !wantsState[w.id]);
   const pendingTotal = pendingItems.reduce((sum,w) => sum + (w.price||0), 0);
-  const nextWant = pendingItems.slice().sort(wantsOrder)[0];
+  const unpriced = pendingItems.filter(w => w.price == null).length; // "+" marks a partial total
+  const upNext = pendingItems.slice().sort(wantsOrder).slice(0, 2);
 
   const boughtCount = wantsList.length - pendingItems.length;
   const boughtPct = wantsList.length ? Math.round((boughtCount / wantsList.length) * 100) : 0;
@@ -1434,7 +1450,7 @@ function renderHomePanel(){
         </div>
         <div class="tile-label">Wardrobe</div>
         <div class="tile-stat" style="color:var(--olive);">${capPct}%</div>
-        <div class="tile-caption">${ownedCount}/${capsule.length} owned</div>
+        <div class="tile-caption">${closetCount} in closet · ${toBuy} to buy</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
       </div>
       <div class="card glance" onclick="activateTab('wants')">
@@ -1443,13 +1459,13 @@ function renderHomePanel(){
           <svg class="glance-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="tile-label">Wants</div>
-        <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}</div>
-        <div class="tile-caption">${pendingItems.length} still needed${boughtCount ? ` · ${boughtCount} bought` : ""}</div>
+        <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}${unpriced ? "+" : ""}</div>
+        <div class="tile-caption">${pendingItems.length} still needed${unpriced ? ` · ${unpriced} unpriced` : ""}${boughtCount ? ` · ${boughtCount} bought` : ""}</div>
         ${boughtCount ? `<div class="progress-bar"><div class="progress-fill wants" style="width:${boughtPct}%"></div></div>` : ""}
       </div>
     </div>`;
 
-  if (cheapestNeeded || nextWant){
+  if (upNext.length){
     const nextRow = (tab, iconBg, iconColor, icon, name, priceStr, context, link, checkCall, checkLabel) => `
       <div class="next-row" onclick="activateTab('${tab}')">
         <div class="glance-icon" style="background:${iconBg}; color:${iconColor};">${icon}</div>
@@ -1464,14 +1480,12 @@ function renderHomePanel(){
       </div>`;
     html += `<div class="card">
         <div class="glance-head"><h3>Up next</h3><span class="insight">priority, then price</span></div>
-        ${cheapestNeeded ? nextRow('style', 'color-mix(in srgb, var(--olive) 15%, transparent)', 'var(--olive)', SHIRT_ICON, cheapestNeeded.title,
-            cheapestNeeded.price!=null?`${cheapestNeeded.estimated?'~':''}$${fmtMoney(cheapestNeeded.price)}`:'',
-            'Wardrobe · still need', cheapestNeeded.link,
-            `toggleCapsule('${cheapestNeeded.id}').then(renderHome);`, 'Mark owned') : ''}
-        ${nextWant ? nextRow('wants', 'color-mix(in srgb, var(--navy) 15%, transparent)', 'var(--navy)', BAG_ICON, nextWant.name,
-            nextWant.price!=null?`${nextWant.estimated?'~':''}$${fmtMoney(nextWant.price)}`:'',
-            nextWant.priority === 'high' ? 'Wants · high priority' : 'Wants · still need', nextWant.link,
-            `toggleWant('${nextWant.id}').then(renderHome);`, 'Mark bought') : ''}
+        ${upNext.map(w => nextRow('wants',
+            w.wardrobeCat ? 'color-mix(in srgb, var(--olive) 15%, transparent)' : 'color-mix(in srgb, var(--navy) 15%, transparent)',
+            w.wardrobeCat ? 'var(--olive)' : 'var(--navy)', w.wardrobeCat ? SHIRT_ICON : BAG_ICON, w.name,
+            w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}` : '',
+            (w.wardrobeCat ? `Wardrobe · ${w.wardrobeCat}` : 'Wants') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
+            `toggleWant('${w.id}').then(renderHome);`, 'Mark bought')).join("")}
       </div>`;
   }
 
@@ -1981,22 +1995,17 @@ function renderStyle(){
   refCards += `</div>`;
   refCards += `<p class="footnote">*Sample Band Ring confirmed at size 7; range covers standard ring sizing.</p></div></div></div>`;
 
+  const toBuy = wardrobeShopping(), closetCount = closetItems().length;
+  const total = closetCount + toBuy.length;
+  const pct = total ? Math.round((closetCount / total) * 100) : 0;
   let html = `<div class="card"><div class="progress-wrap">
-      <div class="progress-label"><span>Wardrobe built</span><b id="cap-progress-label"></b></div>
-      <div class="progress-bar"><div class="progress-fill" id="cap-progress-fill"></div></div>
-    </div></div>`;
-
-  html += `<div class="card pinned ${openPinned.has('cap-needed-card')?'open':''}" id="cap-needed-card">
-    <div class="coll-head" onclick="toggleRules('cap-needed-card')">
-      <h3>Still need</h3>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="insight" id="cap-needed-insight"></span>
-        ${editChipHtml('cap-needed-card')}
-        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
+      <div class="progress-label"><span>Wardrobe built</span><b>${closetCount}/${total} · ${pct}%</b></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
     </div>
-    <div class="coll-body"><div class="coll-inner" id="cap-needed"></div></div>
-  </div>`;
+    <button class="shop-link" onclick="openWardrobeShopping()">
+      <span>${toBuy.length ? `${toBuy.length} wardrobe item${toBuy.length === 1 ? "" : "s"} to buy` : "Nothing left to buy"}</span>
+      <span class="shop-link-go">Shopping list →</span>
+    </button></div>`;
   html += `<div class="card pinned ${openPinned.has('cap-owned-card')?'open':''}" id="cap-owned-card">
     <div class="coll-head" onclick="toggleRules('cap-owned-card')">
       <h3>In closet</h3>
@@ -2012,59 +2021,86 @@ function renderStyle(){
   el.innerHTML = html;
   renderCapsuleLists();
 }
-function currentCapState(item){
-  if (styleState[item.id] !== undefined) return styleState[item.id];
-  return item.state === "owned" || item.state === "pending" ? "owned" : "needed";
+// ---------- wardrobe + wants: one shopping list ----------
+// Clothes still needed live on the Wants list, tagged with a wardrobe category
+// (`wardrobeCat`). The closet is derived, not copied: owned capsule items plus
+// wardrobe wants marked bought. Buying a wardrobe item puts it in the closet;
+// un-buying takes it back out.
+const WANT_CAT_OPTIONS = ["Not clothing", ...CAP_CATS.map(c => "Wardrobe · " + c), "Wardrobe · Other"];
+const DEFAULT_BELT_META = "Pending: merge with wardrobe belt? Price/link not locked in";
+function closetItems(){
+  return [
+    ...capsule.map(item => ({kind:"capsule", item, title:item.title, sub:item.sub, cat:item.cat || "Other",
+      price:item.price, estimated:item.estimated, link:item.link, pending:item.state === "pending"})),
+    ...wantsList.filter(w => w.wardrobeCat && wantsState[w.id]).map(w => ({kind:"want", item:w, title:w.name,
+      sub:w.meta, cat:w.wardrobeCat, price:w.price, estimated:w.estimated, link:w.link}))
+  ];
+}
+function wardrobeShopping(){ return wantsList.filter(w => w.wardrobeCat && !wantsState[w.id]); }
+// Older data kept a separate "Still need" list inside the capsule (state
+// "needed", or toggled via style-state). Move those onto Wants. Ids are derived
+// ("w-" + capsule id) so every device migrates to the same result; housekeeping,
+// so it saves quietly like the other migrations.
+function migrateWardrobeNeeds(){
+  const stateOf = item => styleState[item.id] !== undefined ? styleState[item.id]
+    : (item.state === "owned" || item.state === "pending" ? "owned" : "needed");
+  const moved = capsule.filter(item => stateOf(item) !== "owned");
+  const stale = Object.keys(styleState).length > 0;
+  if (!moved.length && !stale) return false;
+  capsule.forEach(item => { if (stateOf(item) === "owned" && item.state === "needed") item.state = "owned"; });
+  capsule = capsule.filter(item => stateOf(item) === "owned");
+  moved.forEach(item => {
+    // The original data listed the brown belt twice (wardrobe + wants); fold them together
+    if (item.id === "need-belt-brown"){
+      const twin = wantsList.find(w => w.id === "belt-brown");
+      if (twin){
+        if (!twin.wardrobeCat) twin.wardrobeCat = item.cat || "Accessories";
+        if (twin.meta === DEFAULT_BELT_META) twin.meta = "Price/link not locked in";
+        return;
+      }
+    }
+    const id = "w-" + item.id;
+    if (wantsList.some(w => w.id === id)) return;
+    const w = {id, name:item.title, meta:item.sub || "", price:item.price ?? null, link:item.link || null, wardrobeCat:item.cat || "Other"};
+    if (item.estimated) w.estimated = true;
+    wantsList.push(w);
+  });
+  styleState = {};
+  writeQuietly("capsule-content", capsule);
+  writeQuietly("wants-content", wantsList);
+  writeQuietly("style-state", styleState);
+  return true;
+}
+let wantsFilter = "all";
+function openWardrobeShopping(){
+  wantsFilter = "wardrobe";
+  renderWants();
+  activateTab("wants");
 }
 function renderCapsuleLists(){
-  const ownedEl = document.getElementById("cap-owned");
-  const neededEl = document.getElementById("cap-needed");
-  const CAT_ORDER = CAP_CATS;
-  const ownedByCat = {};
-  const neededByCat = {};
-
-  capsule.forEach(item => {
-    const checked = currentCapState(item) === "owned";
-    const pendingBadge = item.state === "pending" ? `<span class="badge pending">fit pending</span>` : "";
-    const canEdit = editCards.has(checked ? 'cap-owned-card' : 'cap-needed-card');
-    const editBtn = canEdit ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editCapsuleItem('${item.id}')">${PENCIL_ICON}</button>` : "";
-    const priceLine = item.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${item.estimated?'~':''}$${fmtMoney(item.price)}${item.estimated?' (est.)':''}</div>` : "";
-    const linkLine = item.link ? `<a class="link" href="${item.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View product →</a>` : "";
-    const row = `<div class="item ${checked?'checked':''}" onclick="toggleCapsule('${item.id}')">
-        <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-        <div class="body"><div class="title">${item.title}${pendingBadge}</div>${item.sub?`<div class="sub">${item.sub}</div>`:""}${priceLine}${linkLine}</div>
+  const el = document.getElementById("cap-owned");
+  if (!el) return;
+  const edit = editCards.has('cap-owned-card');
+  const items = closetItems();
+  const byCat = {};
+  items.forEach(c => {
+    const pendingBadge = c.pending ? `<span class="badge pending">fit pending</span>` : "";
+    const editBtn = edit ? `<button class="row-edit-btn" onclick="${c.kind === 'want' ? `editWant('${c.item.id}')` : `editCapsuleItem('${c.item.id}')`}" aria-label="Edit item">${PENCIL_ICON}</button>` : "";
+    const priceLine = c.price != null ? `<div class="sub" style="color:var(--gold);font-weight:700;">${c.estimated?'~':''}$${fmtMoney(c.price)}${c.estimated?' (est.)':''}</div>` : "";
+    const linkLine = c.link ? `<a class="link" href="${c.link}" target="_blank" rel="noopener">View product →</a>` : "";
+    byCat[c.cat] = (byCat[c.cat] || "") + `<div class="item closet-item">
+        <div class="body"><div class="title">${c.title}${pendingBadge}</div>${c.sub?`<div class="sub">${c.sub}</div>`:""}${priceLine}${linkLine}</div>
         ${editBtn}
       </div>`;
-    const cat = item.cat || "Other";
-    const bucket = checked ? ownedByCat : neededByCat;
-    if (!bucket[cat]) bucket[cat] = "";
-    bucket[cat] += row;
   });
-
-  function buildGrouped(byCat){
-    let out = "";
-    CAT_ORDER.forEach(cat => { if (byCat[cat]) out += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
-    Object.keys(byCat).forEach(cat => { if (!CAT_ORDER.includes(cat)) out += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
-    return out;
-  }
-
-  const ownedItems = capsule.filter(i => currentCapState(i) === "owned");
-  const neededItems = capsule.filter(i => currentCapState(i) !== "owned");
-  const owned = priceSummary(ownedItems), needed = priceSummary(neededItems);
-
-  ownedEl.innerHTML = (editCards.has('cap-owned-card')?`<button class="add-row" onclick="addCapsuleItem('owned')">+ Add item</button>`:"")
-    + (buildGrouped(ownedByCat) || `<div class="empty">Nothing here yet.</div>`)
-    + owned.row;
-  neededEl.innerHTML = (editCards.has('cap-needed-card')?`<button class="add-row" onclick="addCapsuleItem('needed')">+ Add item</button>`:"")
-    + (buildGrouped(neededByCat) || `<div class="empty">All acquired.</div>`)
-    + needed.row
-    + (neededItems.length ? `<p class="footnote">Tick an item when you get it — it moves to In closet.</p>` : "");
-
-  document.getElementById("cap-owned-insight").textContent = `${ownedItems.length} items${owned.badge}`;
-  document.getElementById("cap-needed-insight").textContent = `${neededItems.length} items${needed.badge}`;
-  const pct = capsule.length ? Math.round((ownedItems.length / capsule.length) * 100) : 0;
-  document.getElementById("cap-progress-label").textContent = `${ownedItems.length}/${capsule.length} · ${pct}%`;
-  document.getElementById("cap-progress-fill").style.width = `${pct}%`;
+  let grouped = "";
+  CAP_CATS.forEach(cat => { if (byCat[cat]) grouped += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
+  Object.keys(byCat).forEach(cat => { if (!CAP_CATS.includes(cat)) grouped += `<div class="cat-title">${cat}</div>${byCat[cat]}`; });
+  const sum = priceSummary(items);
+  el.innerHTML = (edit ? `<button class="add-row" onclick="addCapsuleItem()">+ Add item</button>` : "")
+    + (grouped || `<div class="empty">Nothing here yet.</div>`)
+    + sum.row;
+  document.getElementById("cap-owned-insight").textContent = `${items.length} items${sum.badge}`;
 }
 // Money summary for a list where some items may have no price yet. Each total
 // appears once: a complete sum goes in the card-header badge (visible even when
@@ -2080,12 +2116,6 @@ function priceSummary(items){
     row: priced.length && !full
       ? `<div class="total-row">Known prices · ${missing} unpriced <span>$${fmtMoney(sum)}</span></div>` : ""
   };
-}
-async function toggleCapsule(id){
-  const cur = currentCapState(capsule.find(i=>i.id===id));
-  styleState[id] = cur === "owned" ? "needed" : "owned";
-  renderCapsuleLists();
-  await saveState("style-state", styleState);
 }
 function editStyleRule(i){
   openModal("Edit rule", [{key:"text",label:"Rule",type:"textarea"}], {text:styleRules[i]},
@@ -2123,19 +2153,17 @@ function editCapsuleItem(id){
     (v) => {
       if(!v.title) return;
       item.title=v.title; item.sub=v.sub||undefined; item.cat=v.cat; item.price=v.price; item.link=v.link||null;
-      if (v.pending) item.state = "pending";
-      else if (item.state === "pending") item.state = currentCapState(item);
-      saveContent("capsule-content", capsule); renderStyle();
+      item.state = v.pending ? "pending" : "owned";
+      saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
     },
     () => {
       const idx = capsule.findIndex(i=>i.id===id);
       capsule.splice(idx,1);
-      delete styleState[id];
-      saveContent("capsule-content", capsule); saveState("style-state", styleState); renderStyle();
+      saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
     }
   );
 }
-function addCapsuleItem(bucket){
+function addCapsuleItem(){
   openModal("Add item", [
     {key:"title",label:"Title",type:"text"},
     {key:"sub",label:"Notes (optional)",type:"text"},
@@ -2146,8 +2174,8 @@ function addCapsuleItem(bucket){
   ], {cat:CAP_CATS[0]},
     (v) => {
       if(!v.title) return;
-      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, price:v.price, link:v.link||null, state: v.pending ? "pending" : bucket});
-      saveContent("capsule-content", capsule); renderStyle();
+      capsule.push({id:genId("cap"), title:v.title, sub:v.sub||undefined, cat:v.cat, price:v.price, link:v.link||null, state: v.pending ? "pending" : "owned"});
+      saveContent("capsule-content", capsule); renderStyle(); renderHomePanel();
     }
   );
 }
@@ -2156,6 +2184,10 @@ function addCapsuleItem(bucket){
 function fmtMoney(n){
   return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
+function setWantCategory(w, choice){
+  if (choice && choice.startsWith("Wardrobe · ")) w.wardrobeCat = choice.slice("Wardrobe · ".length);
+  else delete w.wardrobeCat;
+}
 // High-priority wants first, then cheapest; unpriced items sort last.
 function wantsOrder(a, b){
   return ((b.priority === "high") - (a.priority === "high")) || ((a.price ?? Infinity) - (b.price ?? Infinity));
@@ -2163,8 +2195,10 @@ function wantsOrder(a, b){
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
-  const pendingItems = wantsList.filter(w => !wantsState[w.id]).sort(wantsOrder);
-  const doneItems = wantsList.filter(w => !!wantsState[w.id]).sort(wantsOrder);
+  const inFilter = w => wantsFilter === "all" || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : !w.wardrobeCat);
+  const allPending = wantsList.filter(w => !wantsState[w.id]);
+  const pendingItems = allPending.filter(inFilter).sort(wantsOrder);
+  const doneItems = wantsList.filter(w => !!wantsState[w.id] && inFilter(w)).sort(wantsOrder);
   const pendingSum = priceSummary(pendingItems), doneSum = priceSummary(doneItems);
   const wantRow = (w, isDone) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
@@ -2174,8 +2208,9 @@ function renderWants(){
     return `<div class="want-card">
         <div class="body">
           <div class="name">${w.name}${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
+          ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${w.wardrobeCat}${isDone ? " · in closet" : ""}</div>` : ""}
           ${w.meta?`<div class="meta">${w.meta}</div>`:""}
-          <div class="price">${priceStr}</div>
+          ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
           ${linkHtml}
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
@@ -2187,10 +2222,16 @@ function renderWants(){
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
   let html = `<div class="quick-add">
-      <input type="text" id="quick-add-input" placeholder="What do you want?" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
+      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
       <button onclick="quickAddWant()" aria-label="Add want">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
+    </div>`;
+  const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();">${label} <span>${n}</span></button>`;
+  html += `<div class="filter-chips">
+      ${chip("all", "All", allPending.length)}
+      ${chip("wardrobe", "Wardrobe", allPending.filter(w => w.wardrobeCat).length)}
+      ${chip("other", "Other", allPending.filter(w => !w.wardrobeCat).length)}
     </div>`;
   html += `<div class="card pinned ${openPinned.has('wants-pending-card')?'open':''}" id="wants-pending-card">
       <div class="coll-head" onclick="toggleRules('wants-pending-card')">
@@ -2225,7 +2266,9 @@ function quickAddWant(){
   const input = document.getElementById("quick-add-input");
   const name = input.value.trim();
   if (!name) return;
-  wantsList.push({id:genId("want"), name, meta:"", price:null, link:null});
+  const w = {id:genId("want"), name, meta:"", price:null, link:null};
+  if (wantsFilter === "wardrobe") w.wardrobeCat = "Other"; // stay visible under the active filter
+  wantsList.push(w);
   saveContent("wants-content", wantsList);
   renderWants();
   const freshInput = document.getElementById("quick-add-input");
@@ -2233,8 +2276,11 @@ function quickAddWant(){
 }
 async function toggleWant(id){
   wantsState[id] = !wantsState[id];
+  const w = wantsList.find(x => x.id === id);
   renderWants();
+  renderStyle(); // a bought wardrobe item shows up in the closet
   await saveState("wants-state", wantsState);
+  if (w && w.wardrobeCat) showToast(wantsState[id] ? "Added to your closet" : "Back on your shopping list");
 }
 function editWant(id){
   const w = wantsList.find(x=>x.id===id);
@@ -2244,19 +2290,22 @@ function editWant(id){
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"estimated",label:"Estimated price",type:"checkbox"},
-    {key:"high",label:"High priority",type:"checkbox"}
-  ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high"},
+    {key:"high",label:"High priority",type:"checkbox"},
+    {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
+  ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high",
+      cat: w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : "Not clothing"},
     (v) => {
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
       if (v.high) w.priority = "high"; else delete w.priority;
-      saveContent("wants-content", wantsList); renderWants();
+      setWantCategory(w, v.cat);
+      saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
     },
     () => {
       const idx = wantsList.findIndex(x=>x.id===id);
       wantsList.splice(idx,1);
       delete wantsState[id];
-      saveContent("wants-content", wantsList); saveState("wants-state", wantsState); renderWants();
+      saveContent("wants-content", wantsList); saveState("wants-state", wantsState); renderWants(); renderStyle(); renderHomePanel();
     }
   );
 }
@@ -2267,13 +2316,16 @@ function addWant(){
     {key:"price",label:"Price",type:"number",step:"0.01"},
     {key:"link",label:"Link (optional)",type:"url"},
     {key:"estimated",label:"Estimated price",type:"checkbox"},
-    {key:"high",label:"High priority",type:"checkbox"}
-  ], {},
+    {key:"high",label:"High priority",type:"checkbox"},
+    {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
+  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : "Not clothing"},
     (v) => {
       if(!v.name) return;
-      wantsList.push({id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated,
-        ...(v.high ? {priority:"high"} : {})});
-      saveContent("wants-content", wantsList); renderWants();
+      const w = {id:genId("want"), name:v.name, meta:v.meta||"", price:v.price, link:v.link||null, estimated:v.estimated,
+        ...(v.high ? {priority:"high"} : {})};
+      setWantCategory(w, v.cat);
+      wantsList.push(w);
+      saveContent("wants-content", wantsList); renderWants(); renderStyle(); renderHomePanel();
     }
   );
 }
@@ -2701,6 +2753,7 @@ function applyRemote(payload){
   loadAllContent();
   try{ styleState = JSON.parse(localStorage.getItem("style-state")) || {}; }catch(e){ styleState = {}; }
   try{ wantsState = JSON.parse(localStorage.getItem("wants-state")) || {}; }catch(e){ wantsState = {}; }
+  migrateWardrobeNeeds(); // data from an older app version may still have a wardrobe "Still need" list
   archiveOldTodos(); // the other device may have carried expired completed items
   renderSkin(); renderStyle(); renderWants(); renderHome();
 }
@@ -2913,6 +2966,7 @@ function writeQuietly(key, value){
     loadState("wants-state")
   ]);
   styleState = s; wantsState = w;
+  migrateWardrobeNeeds();
   renderStyle();
   renderWants();
   renderHome();
