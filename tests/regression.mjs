@@ -688,7 +688,8 @@ await section("budget: tab, old closet links, spending, bills", async () => {
     "bills-content": [{ id: "<bad>", name: "Junk", amount: "abc", due: "nope", repeat: "hourly", autopay: 1, link: "javascript:alert(1)" }],
   }});
   const nav = await page.$$eval("nav.tabbar button", bs => bs.map(b => b.textContent.trim()));
-  check("nav: Home, To-Do, Shopping, Budget, Skin & Hair", JSON.stringify(nav) === '["Home","To-Do","Shopping","Budget","Skin & Hair"]', nav);
+  check("nav: Home, To-Do, Budget, Shopping, Skin & Hair", JSON.stringify(nav) === '["Home","To-Do","Budget","Shopping","Skin & Hair"]', nav);
+  check("swipe order matches the nav", await page.evaluate(() => JSON.stringify(TAB_ORDER) === JSON.stringify([...document.querySelectorAll("nav.tabbar button")].map(b => b.dataset.tab))));
   const junk = await page.evaluate(() => bills[0]);
   check("bad bill data is coerced", /^bill-/.test(junk.id) && junk.amount === 0 && junk.repeat === "monthly" && /^\d{4}-/.test(junk.due), junk);
   await page.evaluate(() => { bills = []; saveBudgetData(); });
