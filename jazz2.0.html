@@ -152,65 +152,51 @@
     padding:2px 6px; border-radius:5px; margin-left:6px; vertical-align:1px;}
   .badge.pending{background:color-mix(in srgb, var(--gold) 18%, transparent); color:var(--gold);}
 
-  /* home */
-  .glance{cursor:pointer;}
-  .glance:active{background:var(--surface-2);}
   .glance-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
   .glance-head h3{margin:0;}
-  .glance-arrow{color:var(--text-dim); flex-shrink:0;}
-  .glance-stat{font-size:18px; font-weight:800; color:var(--olive); margin-bottom:6px;}
-  .wash-note{
-    display:flex; align-items:center; gap:8px; margin-top:10px; padding:9px 12px;
-    background:color-mix(in srgb, var(--navy) 12%, transparent); border:1px solid color-mix(in srgb, var(--navy) 35%, transparent); border-radius:10px;
-    color:var(--text); font-size:12.5px; font-weight:700;
+
+  /* home: week strip + day agenda */
+  .home-week{display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; margin:0 0 14px;}
+  .home-day{
+    display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; padding:8px 0 6px;
+    border:none; border-radius:12px; background:none; color:var(--text-dim); font:inherit;
+    font-size:10.5px; font-weight:700;
   }
-  .wash-note svg{flex-shrink:0; color:var(--navy);}
-  .glance-routine-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:5px;}
-  .glance-routine-row:last-of-type{margin-bottom:0;}
-  .glance-tag{
-    flex-shrink:0; font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
-    padding:2px 6px; border-radius:5px; margin-top:1px;
+  .home-day b{font-size:16px; font-weight:800; color:var(--text); line-height:1.1;}
+  .home-day.on{background:var(--olive); color:var(--on-accent);}
+  .home-day.on b{color:var(--on-accent);}
+  .home-day .marks{display:flex; align-items:center; gap:2px; height:9px;}
+  .home-day .marks i{width:5px; height:5px; border-radius:50%; background:var(--gold);}
+  .home-day .marks svg{width:9px; height:9px; color:var(--navy); stroke-width:2.6;}
+  .home-day.on .marks i{background:var(--on-accent);}
+  .home-day.on .marks svg{color:var(--on-accent);}
+  .home-hero{display:flex; align-items:center; gap:14px; margin:0 2px 14px;}
+  .home-hero h2{margin:0; font-size:22px; font-weight:800; letter-spacing:-.01em; line-height:1.2;}
+  .home-hero .sub{color:var(--text-dim); font-size:13px; margin-top:3px;}
+  .home-ring{width:58px; height:58px; flex-shrink:0;}
+  .home-pills{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;}
+  .home-pill{
+    display:flex; align-items:center; gap:10px; min-width:0; padding:10px 12px; text-align:left;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; color:var(--text); font:inherit;
   }
-  .glance-tag.am{background:color-mix(in srgb, var(--gold) 16%, transparent); color:var(--gold);}
-  .glance-tag.pm{background:color-mix(in srgb, var(--navy) 16%, transparent); color:var(--navy);}
-  .glance-detail-text{font-size:12px; color:var(--text-dim); line-height:1.5;}
+  .home-pill:active{background:var(--surface-2);}
+  .home-pill > span:last-child{min-width:0;}
+  .home-pill .t{display:block; font-size:10.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .home-pill .v{display:block; font-size:13.5px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .glance-icon{
     width:30px; height:30px; border-radius:9px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
   }
   .glance-icon svg{width:15px; height:15px;}
-  .glance-title-row{display:flex; align-items:center; gap:10px;}
-
-  /* home stat tiles (wardrobe / wants) */
-  .home-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
-  .home-grid .card{margin-bottom:0; padding:14px; min-width:0; display:flex; flex-direction:column;}
-  .tile-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
-  .tile-label{font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;}
-  .tile-stat{font-size:23px; font-weight:800; line-height:1; margin:3px 0 5px;}
-  .tile-caption{font-size:11px; color:var(--text-dim); margin-bottom:12px;}
-  .home-grid .progress-bar{margin-top:auto;}
-  .progress-fill.wants{background:linear-gradient(90deg, color-mix(in srgb, var(--navy) 55%, white), var(--navy));}
-  .tile-actions{display:flex; gap:6px; flex-shrink:0;}
-
-  /* home "Up next" rows (full-width so product names have room to breathe) */
-  .next-row{display:flex; align-items:center; gap:12px; padding:11px 0; cursor:pointer;}
-  .next-row + .next-row{border-top:1px solid var(--line);}
-  .next-row .tile-actions{align-self:flex-start;}
-  .next-info{flex:1; min-width:0;}
-  .next-name{
-    font-size:13.5px; font-weight:600; line-height:1.35;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-  }
-  .next-meta{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
-  .next-meta b{color:var(--gold); font-weight:700;}
-  .icon-btn{
-    flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--olive-dim);
-    background:none; color:var(--olive); display:flex; align-items:center; justify-content:center;
-  }
-  /* .icon-btn.link must undo the generic text-link `.link` rule (display:inline-block,
-     margin-top) that otherwise wins the cascade and knocks the glyph off-center */
-  .icon-btn.link{border-color:color-mix(in srgb, var(--gold) 40%, transparent); color:var(--gold); display:flex; margin-top:0;}
-  .icon-btn:active{background:var(--surface-2);}
+  .home-sec{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin:16px 2px 6px;}
+  .home-sec.overdue{color:var(--danger);}
+  .home-list{padding-top:2px; padding-bottom:2px; margin-bottom:0;}
+  .home-list .todo-wrap:last-of-type{border-bottom:none;}
+  .home-list .empty{padding:14px 0;}
+  .home-star{display:inline-flex; vertical-align:-2px; margin-left:6px; color:var(--gold);}
+  .home-star svg{width:13px; height:13px;}
+  .home-more{display:block; border:none; background:none; padding:10px 0 6px; color:var(--link); font:inherit; font-size:12.5px; font-weight:700;}
+  .home-all{margin:6px 2px 0;}
 
   /* shopping */
   .want-card{display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line);}
@@ -257,8 +243,6 @@
   .routine-step.done .routine-text{color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--line);}
   .routine-text b{font-weight:600;}
   .routine-text .note, .step .note{display:block; color:var(--text-dim); font-size:12px;}
-  .glance-streak{margin-left:10px; font-size:12px; font-weight:700; color:var(--text-dim);}
-  .glance-detail-text s{text-decoration-color:var(--text-dim); opacity:.6;}
   /* this week overview */
   .week-day + .week-day{border-top:1px solid var(--line);}
   .week-day-head{
@@ -473,10 +457,6 @@
   .completed-toggle span{flex:1;}
   .completed-toggle .chev{transition:transform .2s;}
   .completed-toggle.open .chev{transform:rotate(180deg);}
-  .todo-glance .glance-head{margin-bottom:4px;}
-  .todo-glance .glance-title-row .insight{margin-left:2px;}
-  .todo-glance-footer{font-size:12px; color:var(--text-dim); padding-top:8px;}
-  .todo-glance .todo-wrap:last-of-type{border-bottom:none;}
   .shop-link{
     display:flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; margin-top:12px;
     padding:0; border:none; border-top:1px solid var(--line); background:none; color:var(--text);
@@ -647,17 +627,16 @@
      interactive; gated on hover+fine-pointer so touch devices never get
      sticky-hover artifacts. */
   @media (hover:hover) and (pointer:fine){
-    .glance:hover, .coll-head:hover{background:var(--surface-2);}
+    .home-pill:hover, .home-day:not(.on):hover, .coll-head:hover{background:var(--surface-2);}
+    .home-more:hover{text-decoration:underline;}
     .week-day-head:hover .week-day-name, .routine-step:hover .routine-text{color:var(--text);}
     .routine-step:not(.done):hover .box{border-color:var(--olive);}
-    .icon-btn:hover, .toggle:hover:not(.done), .edit-chip:hover:not(.on),
+    .toggle:hover:not(.done), .edit-chip:hover:not(.on),
     .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
     .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
     .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
     .cal-day:not(.blank):hover, .cal-nav:hover{background:var(--surface-2);}
     .cal-day.wash:hover{background:color-mix(in srgb, var(--navy) 32%, transparent);}
-    .icon-btn:hover{color:var(--olive);}
-    .icon-btn.link:hover{color:var(--gold);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
     .toggle:hover:not(.done){color:var(--olive);}
     .toggle.done:hover, .edit-chip.on:hover, .fab:hover,
@@ -816,16 +795,13 @@
 <script>
 const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Wardrobe", wants:"Shopping"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-const LINK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
-const TODO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>';
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
 const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
-const glanceArrow = size => `<svg class="glance-arrow" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>`;
 const MOTO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a9 9 0 0 1 18 0v3H3z"/><path d="M12 11h9"/><path d="M8 18v2"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const STAR_PATH = "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
@@ -837,20 +813,6 @@ const X_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stro
 const GRIP_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none"><circle cx="9" cy="5.5" r="1.7"/><circle cx="15" cy="5.5" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18.5" r="1.7"/><circle cx="15" cy="18.5" r="1.7"/></svg>';
 const DUPLICATE_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14ZM10 11v6M14 11v6"/></svg>';
-// Short display names for Home's Today card, keyed by step label — a middle ground
-// between the vague step category ("Eye area") and the full product name with its
-// concentration ("Caffeine Solution 5% + EGCG"). Falls back to the step's own label
-// (already short) for anything not in this list, e.g. custom-added steps.
-const STEP_SHORT_NAMES = {
-  "Cleanse":"Cleanser", "Vitamin C":"Ascorbyl Glucoside", "Niacinamide":"Niacinamide",
-  "Moisturize":"Moisturizer", "Hair mist":"Hair mist", "SPF":"Sunscreen",
-  "Exfoliate":"Glycolic Acid", "Eye area":"Caffeine Solution", "Lash/brow":"Lash serum",
-  "Wash day":"Shampoo", "Mask":"Hair mask"
-};
-function shortStepLabel(s){
-  const key = s.label.replace(/\s*—\s*last step$/i, "").trim();
-  return STEP_SHORT_NAMES[key] || key;
-}
 
 // ---------- storage helpers (one JSON blob per key, plain localStorage) ----------
 function loadContent(key, defaults){
@@ -1328,38 +1290,55 @@ function parseQuickAdd(raw){
   else due = nextWeekdayIso(DAY_ALIASES[w.slice(0,3)]);
   return {text:m[1].trim(), due};
 }
-// Home's to-do summary: only what needs attention now (overdue + due today),
-// each completable in place; the full list lives on the To-Do page.
-const TODO_GLANCE_MAX = 3;
-function todoGlanceHtml(){
-  const open = todoList.filter(t => !t.done);
-  const urgent = open.filter(t => todoGroup(t) === "overdue" || todoGroup(t) === "today")
-    .sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
-  const overdue = urgent.filter(t => todoGroup(t) === "overdue").length;
-  const rows = urgent.slice(0, TODO_GLANCE_MAX).map(t => `<div class="todo-wrap"><div class="item">
-      <button class="todo-check" role="checkbox" aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="event.stopPropagation(); completeTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
-      <div class="body"><div class="title">${escapeHtml(t.text)}</div>${todoGroup(t) === "overdue" ? `<div class="todo-meta"><span class="overdue">${escapeHtml(dueLabel(t.due))}</span></div>` : ""}</div>
-    </div></div>`).join("");
-  const more = urgent.length - Math.min(urgent.length, TODO_GLANCE_MAX);
-  const rest = open.length - urgent.length;
-  let footer;
-  if (!open.length) footer = "Nothing on your list";
-  else if (!urgent.length) footer = `Nothing due today · ${open.length} open`;
-  else footer = [more ? `${more} more due` : "", rest ? `${rest} more on your list` : ""].filter(Boolean).join(" · ");
-  const insight = urgent.length
-    ? `${urgent.length} due${overdue ? ` · <span class="overdue">${overdue} overdue</span>` : ""}`
-    : (open.length ? `${open.length} open` : "Empty");
-  return `<div class="card glance todo-glance" onclick="activateTab('todo')">
-      <div class="glance-head">
-        <div class="glance-title-row">
-          <div class="glance-icon" style="background:color-mix(in srgb, var(--olive) 15%, transparent); color:var(--olive);">${TODO_ICON}</div>
-          <h3 style="margin:0;">To-Do</h3><span class="insight">${insight}</span>
-        </div>
-        ${glanceArrow(16)}
-      </div>
-      ${rows}
-      ${footer ? `<div class="todo-glance-footer">${footer}</div>` : ""}
-    </div>`;
+// ---------- HOME: week strip + day agenda ----------
+// Home is a day planner: a 7-day strip (today first) picks the day and the list
+// below shows everything due that day. Today also carries Overdue and a short
+// Anytime peek. To-dos finished that day stay visible, struck through, so the
+// progress ring has something to show. The selected day is per-session only.
+let homeDay = 0; // days from today, 0–6
+const HOME_ANYTIME_MAX = 4;
+function selectHomeDay(n){
+  homeDay = n;
+  renderHomePanel();
+}
+function completedOn(t, iso){ return t.done && !!t.completedAt && isoDate(new Date(t.completedAt)) === iso; }
+function starredFirst(list){ return [...list.filter(t => t.starred), ...list.filter(t => !t.starred)]; }
+function homeDayItems(n){
+  const iso = addDaysIso(n);
+  if (n > 0){
+    return {iso, overdue:[], anytime:[],
+      open:starredFirst(todoList.filter(t => !t.done && t.due === iso)),
+      done:todoList.filter(t => t.done && t.due === iso)};
+  }
+  // Today's done list: anything ticked off today that wasn't scheduled for later
+  return {iso,
+    overdue:todoList.filter(t => !t.done && todoGroup(t) === "overdue").sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0),
+    open:starredFirst(todoList.filter(t => !t.done && t.due === iso)),
+    done:todoList.filter(t => completedOn(t, iso) && (!t.due || t.due <= iso)),
+    anytime:starredFirst(todoList.filter(t => !t.done && !t.due))};
+}
+function homeOpenCount(n){
+  const d = homeDayItems(n);
+  return d.overdue.length + d.open.length;
+}
+function homeRowHtml(t, meta = []){
+  const subs = t.subitems || [];
+  if (subs.length && !t.done) meta = [...meta, `${subs.filter(s => s.done).length}/${subs.length} sub-items`];
+  const check = t.done
+    ? `aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"`
+    : `aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"`;
+  return `<div class="todo-wrap"><div class="item ${t.done ? 'checked' : ''}">
+      <button class="todo-check" role="checkbox" ${check}><span class="box">${BOX_CHECK_SVG}</span></button>
+      <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
+    </div></div>`;
+}
+function homeRingHtml(done, total){
+  const r = 24, c = 2 * Math.PI * r, f = total ? done / total : 0;
+  return `<svg class="home-ring" viewBox="0 0 58 58" role="img" aria-label="${done} of ${total} done">
+      <circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="6"/>
+      ${f ? `<circle cx="29" cy="29" r="${r}" fill="none" stroke="var(--olive)" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 29 29)"/>` : ""}
+      <text x="29" y="34" text-anchor="middle" font-size="${total > 9 ? 12 : 14}" font-weight="800" fill="var(--text)">${total ? `${done}/${total}` : "–"}</text>
+    </svg>`;
 }
 // Re-renders both pages that show to-dos, so every to-do change can keep
 // calling renderHome() and Home's summary card never goes stale.
@@ -1469,92 +1448,69 @@ function renderTodoPanel(){
 }
 function renderHomePanel(){
   const el = document.getElementById("panel-home");
-  let html = todoGlanceHtml();
+  if (homeDay < 0 || homeDay > 6) homeDay = 0;
+  const day = homeDayItems(homeDay);
+  const date = noonOf(day.iso);
 
-  const now = new Date();
-  const r = routineForDate(now);
-  const checks = todayChecks();
-  const doneCount = (key, steps) => steps.filter(st => checks[key].includes(st.id)).length;
-  const names = (key, steps) => steps.map(st => {
-    const n = escapeHtml(shortStepLabel(st));
-    return checks[key].includes(st.id) ? `<s>${n}</s>` : n;
-  }).join(", ");
-  const streak = routineStreak();
-  const washDays = daysUntilWashDay();
-  const washDateLabel = nextWashDate().toLocaleDateString('en-US', {month:'short', day:'numeric'});
-  const washNote = r.wash ? "" : `<div class="wash-note">${DROPLET_ICON}Next wash day: ${washDateLabel} — ${washDays===1?'tomorrow':`in ${washDays} days`}</div>`;
-  html += `<div class="card glance" onclick="activateTab('skin')">
-      <div class="glance-head">
-        <div class="glance-title-row">
-          <div class="glance-icon" style="background:color-mix(in srgb, var(--gold) 15%, transparent); color:var(--gold);">${SKIN_ICON}</div>
-          <h3 style="margin:0;">Today — ${WEEKDAYS[now.getDay()]}</h3>${r.wash?'<span class="badge wash">Wash day</span>':''}
-        </div>
-        ${glanceArrow(16)}
-      </div>
-      <div class="glance-stat">AM ${doneCount("am", r.am)}/${r.am.length} · PM ${doneCount("pm", r.pm)}/${r.pm.length}${streak ? `<span class="glance-streak">${streak}-day streak</span>` : ""}</div>
-      <div class="glance-routine-row"><span class="glance-tag am">AM</span><span class="glance-detail-text">${names("am", r.am)}</span></div>
-      <div class="glance-routine-row"><span class="glance-tag pm">PM</span><span class="glance-detail-text">${names("pm", r.pm)}</span></div>
-      ${washNote}
-    </div>`;
-
-  const closetCount = closetItems().length, toBuy = wardrobeShopping().length;
-  const capPct = closetCount + toBuy ? Math.round((closetCount / (closetCount + toBuy)) * 100) : 0;
-  const pendingItems = wantsList.filter(w => !wantsState[w.id]);
-  const pendingTotal = pendingItems.reduce((sum,w) => sum + (w.price||0), 0);
-  const unpriced = pendingItems.filter(w => w.price == null).length; // "+" marks a partial total
-  const upNext = pendingItems.slice().sort(wantsOrder).slice(0, 2);
-
-  const boughtCount = wantsList.length - pendingItems.length;
-  const boughtPct = wantsList.length ? Math.round((boughtCount / wantsList.length) * 100) : 0;
-
-  html += `<div class="home-grid">
-      <div class="card glance" onclick="activateTab('style')">
-        <div class="tile-head">
-          <div class="glance-icon" style="background:color-mix(in srgb, var(--olive) 15%, transparent); color:var(--olive);">${SHIRT_ICON}</div>
-          ${glanceArrow(15)}
-        </div>
-        <div class="tile-label">Wardrobe</div>
-        <div class="tile-stat" style="color:var(--olive);">${capPct}%</div>
-        <div class="tile-caption">${closetCount} in closet · ${toBuy} to buy</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${capPct}%"></div></div>
-      </div>
-      <div class="card glance" onclick="activateTab('wants')">
-        <div class="tile-head">
-          <div class="glance-icon" style="background:color-mix(in srgb, var(--navy) 15%, transparent); color:var(--navy);">${BAG_ICON}</div>
-          ${glanceArrow(15)}
-        </div>
-        <div class="tile-label">Shopping</div>
-        <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}${unpriced ? "+" : ""}</div>
-        <div class="tile-caption">${pendingItems.length} still needed${unpriced ? ` · ${unpriced} unpriced` : ""}${boughtCount ? ` · ${boughtCount} bought` : ""}</div>
-        ${boughtCount ? `<div class="progress-bar"><div class="progress-fill wants" style="width:${boughtPct}%"></div></div>` : ""}
-      </div>
-    </div>`;
-
-  if (upNext.length){
-    const nextRow = (tab, iconBg, iconColor, icon, name, priceStr, context, link, checkCall, checkLabel) => `
-      <div class="next-row" onclick="activateTab('${tab}')">
-        <div class="glance-icon" style="background:${iconBg}; color:${iconColor};">${icon}</div>
-        <div class="next-info">
-          <div class="next-name">${escapeHtml(name)}</div>
-          <div class="next-meta">${priceStr?`<b>${priceStr}</b> · `:""}${escapeHtml(context)}</div>
-        </div>
-        <div class="tile-actions">
-          ${linkHtml(link, 'class="icon-btn link" onclick="event.stopPropagation()" aria-label="View product"', LINK_ICON)}
-          <button class="icon-btn" onclick="event.stopPropagation(); ${checkCall}" aria-label="${checkLabel}">${CHECK_ICON}</button>
-        </div>
-      </div>`;
-    html += `<div class="card">
-        <div class="glance-head"><h3>Up next</h3><span class="insight">priority, then price</span></div>
-        ${upNext.map(w => nextRow('wants',
-            w.wardrobeCat ? 'color-mix(in srgb, var(--olive) 15%, transparent)' : 'color-mix(in srgb, var(--navy) 15%, transparent)',
-            w.wardrobeCat ? 'var(--olive)' : 'var(--navy)', w.wardrobeCat ? SHIRT_ICON : BAG_ICON, w.name,
-            w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}` : '',
-            (wantKind(w) === 'need' ? 'Need' : 'Want') + (w.wardrobeCat ? ` · Wardrobe · ${w.wardrobeCat}` : '') + (w.moto ? ' · Moto' : '') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
-            `toggleWant('${w.id}').then(renderHome);`, 'Mark bought')).join("")}
-      </div>`;
+  let strip = `<div class="home-week" role="group" aria-label="Pick a day">`;
+  for (let n = 0; n < 7; n++){
+    const d = noonOf(addDaysIso(n));
+    const count = homeOpenCount(n);
+    const wash = isWashDate(d) && skinRoutine.washPm.length > 0;
+    const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
+    strip += `<button class="home-day ${n === homeDay ? 'on' : ''}" aria-pressed="${n === homeDay}" aria-label="${label}" onclick="selectHomeDay(${n})">
+        <span class="dow">${n === 0 ? "Today" : d.toLocaleDateString('en-US', {weekday:'short'})}</span><b>${d.getDate()}</b>
+        <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${wash ? DROPLET_ICON : ""}</span>
+      </button>`;
   }
+  strip += `</div>`;
 
-  el.innerHTML = html;
+  const total = day.overdue.length + day.open.length + day.done.length;
+  const left = total - day.done.length;
+  let sub;
+  if (homeDay === 0){
+    sub = left ? `${left} left today` : total ? "All done for today" : "Nothing due today";
+    const streak = routineStreak();
+    if (streak) sub += ` · ${streak}-day routine streak`;
+  } else {
+    sub = (homeDay === 1 ? "Tomorrow · " : "") + (left ? `${left} to-do${left === 1 ? "" : "s"}` : total ? "All done" : "Nothing planned");
+  }
+  const hero = `<div class="home-hero">
+      ${homeRingHtml(day.done.length, total)}
+      <div><h2>${date.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}</h2><div class="sub">${sub}</div></div>
+    </div>`;
+
+  // Today's routine and shopping at a glance; each opens its tab
+  const r = routineForDate(new Date());
+  const checks = todayChecks();
+  const ticked = (key, steps) => steps.filter(st => checks[key].includes(st.id)).length;
+  const toBuy = wantsList.filter(w => !wantsState[w.id]).length;
+  const pills = `<div class="home-pills">
+      <button class="home-pill" onclick="activateTab('skin')">
+        <span class="glance-icon" style="background:color-mix(in srgb, var(--gold) 15%, transparent); color:var(--gold);">${SKIN_ICON}</span>
+        <span><span class="t">Routine${r.wash ? " · Wash day" : ""}</span><span class="v">AM ${ticked("am", r.am)}/${r.am.length} · PM ${ticked("pm", r.pm)}/${r.pm.length}</span></span>
+      </button>
+      <button class="home-pill" onclick="activateTab('wants')">
+        <span class="glance-icon" style="background:color-mix(in srgb, var(--navy) 15%, transparent); color:var(--navy);">${BAG_ICON}</span>
+        <span><span class="t">Shopping</span><span class="v">${toBuy ? `${toBuy} to buy` : "All bought"}</span></span>
+      </button>
+    </div>`;
+
+  const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
+  let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join(""), "overdue");
+  const dayRows = day.open.map(t => homeRowHtml(t)).join("") + day.done.map(t => homeRowHtml(t)).join("");
+  const dayName = homeDay === 0 ? "Today" : homeDay === 1 ? "Tomorrow" : WEEKDAYS[date.getDay()];
+  list += dayRows ? section(dayName, dayRows)
+    : `<div class="home-sec">${dayName}</div><div class="card home-list"><div class="empty">Nothing ${homeDay === 0 ? "due today" : "planned"} — tap + to add one${homeDay === 0 ? "" : ` for ${dayName}`}.</div></div>`;
+  if (day.anytime.length){
+    const more = day.anytime.length - HOME_ANYTIME_MAX;
+    list += section("Anytime", day.anytime.slice(0, HOME_ANYTIME_MAX).map(t => homeRowHtml(t)).join("")
+      + (more > 0 ? `<button class="home-more" onclick="activateTab('todo')">${more} more anytime →</button>` : ""));
+  }
+  const openTotal = todoList.filter(t => !t.done).length;
+  list += `<button class="home-more home-all" onclick="activateTab('todo')">All to-dos (${openTotal}) →</button>`;
+
+  el.innerHTML = strip + hero + pills + list;
 }
 // ---------- COMPOSER (the floating + button's sheet) ----------
 // One bottom sheet for adding things, in a mode picked by the current tab:
@@ -1578,7 +1534,11 @@ let composer = null;
 function fabMode(){ return FAB_MODE_BY_TAB[currentTab] || "todo"; }
 function composerFresh(mode, added, prev){
   const base = {mode, added, ignoreParse:false, showMore:false};
-  if (mode === "todo") return {...base, date:null, manual:false, star:false};
+  if (mode === "todo"){
+    // On Home with a later day picked in the week strip, new to-dos land on that day
+    const preset = currentTab === "home" && homeDay > 0 ? addDaysIso(homeDay) : null;
+    return {...base, date:preset, manual:!!preset, star:false};
+  }
   if (mode === "shop"){
     if (prev) return {...base, kind:prev.kind, cat:prev.cat, wcat:prev.wcat, high:false}; // categories stick for batches
     // start in whatever the Shopping filter shows, so new items stay visible
@@ -2603,7 +2563,7 @@ function activateTab(tab){
   document.body.dataset.tab = tab; // shows/hides the floating + button
   const fabCfg = COMPOSER_MODES[FAB_MODE_BY_TAB[tab]];
   if (fabCfg) document.getElementById("fab").setAttribute("aria-label", fabCfg.fab);
-  if (tab === "home") renderHome(); // refreshes glance cards with whatever changed on other tabs
+  if (tab === "home") renderHome(); // picks up whatever changed on other tabs
   document.querySelectorAll("nav.tabbar button").forEach(b => {
     const active = b.dataset.tab === tab;
     b.classList.toggle("active", active);
