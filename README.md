@@ -48,7 +48,7 @@ Tapping a card opens its tab.
 - **Routine:** the one place to edit the AM, PM, and wash-day PM steps. A step can be
   limited to certain days with a Mon–Sun chip picker. New steps go before any
   "… — last step" entry, so SPF and lash serum stay last.
-- **Key rules:** the routine's ground rules.
+- **Key rules:** the routine's ground rules. The card is hidden while the list is empty.
 
 On wash days, the wash-day PM routine replaces the regular PM routine. The schedule is
 stored on the routine as `wash: {anchor, everyDays}`. Routines saved before it was editable

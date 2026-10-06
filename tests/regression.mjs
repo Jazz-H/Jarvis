@@ -614,6 +614,104 @@ await section("routine: pore strips + teeth whitening added once", async () => {
   await ctx.close();
 });
 
+await section("skin: the three original rules are removed", async () => {
+  const keep = "My own rule";
+  const { ctx, page, errors } = await openApp({ query: "?tab=skin", seed: { "skin-rules-content": [
+    "SPF is the final AM step, no exceptions, even indoors.", keep,
+  ]}});
+  const r = await page.evaluate(() => ({ rules: skinRules, stored: JSON.parse(localStorage.getItem("skin-rules-content")), card: !!document.getElementById("rules-skin") }));
+  check("old rules dropped, the user's own kept", JSON.stringify(r.rules) === JSON.stringify([keep]) && JSON.stringify(r.stored) === JSON.stringify([keep]), r);
+  check("card still shows with a rule left", r.card);
+  await page.evaluate(() => { skinRules.length = 0; renderSkin(); });
+  check("card hidden when empty", !(await page.$("#rules-skin")));
+  await ctx.close();
+  const fresh = await openApp({ query: "?tab=skin" });
+  check("fresh install has no rules card", !(await fresh.page.$("#rules-skin")));
+  check("no JS errors", errors.length === 0 && fresh.errors.length === 0, [...errors, ...fresh.errors]);
+  await fresh.ctx.close();
+});
+
+await section("wash day shows as a Wash hair to-do", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "a", text: "Due today", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+  ]}});
+  await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(0), everyDays: 14 }; renderHome(); });
+  const home = await page.evaluate(() => ({
+    row: !!document.querySelector("#panel-home .wash-row .todo-check"),
+    ring: document.querySelector(".home-ring").getAttribute("aria-label"),
+    todo: [...document.querySelectorAll("#todo-list > *")].slice(0, 2).map(e => e.className),
+  }));
+  check("Home lists Wash hair today, checkable", home.row);
+  check("ring counts it", home.ring === "0 of 2 done", home.ring);
+  check("To-Do shows it under Today", home.todo[0].startsWith("cat-title") && home.todo[1].includes("wash-row"), home.todo);
+  await page.click("#panel-home .wash-row .todo-check");
+  const ticked = await page.evaluate(() => ({
+    steps: washHairSteps().every(s => todayChecks().pm.includes(s.id)),
+    labels: washHairSteps().map(s => s.label),
+    checked: document.querySelector("#panel-home .wash-row .item").classList.contains("checked"),
+    ring: document.querySelector(".home-ring").getAttribute("aria-label"),
+  }));
+  check("ticking it ticks the wash-only routine steps", ticked.steps && !ticked.labels.includes("Cleanse"), ticked);
+  check("row shows done, ring moves", ticked.checked && ticked.ring === "1 of 2 done", ticked);
+  await page.click("#panel-home .wash-row .todo-check");
+  check("unticking clears them", await page.evaluate(() => !washHairSteps().some(s => todayChecks().pm.includes(s.id))));
+  await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(2), everyDays: 14 }; renderHome(); });
+  const later = await page.evaluate(() => ({
+    homeRow: !!document.querySelector("#panel-home .wash-row"),
+    todoRow: !!document.querySelector("#todo-list .wash-row .wash-icon"),
+    todoCheck: !!document.querySelector("#todo-list .wash-row .todo-check"),
+  }));
+  check("not on Home on a non-wash day", !later.homeRow);
+  check("upcoming wash day shows with the droplet, not a checkbox", later.todoRow && !later.todoCheck, later);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("to-do: recurring to-dos", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "w", text: "Take out trash", done: false, due: isoOffset(-3), starred: false, subitems: [{ id: "s1", text: "Recycling too", done: true }], completedAt: null, repeat: "weekly" },
+    { id: "d", text: "Vitamins", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "daily" },
+    { id: "x", text: "Bad rule", done: false, due: null, starred: false, subitems: [], completedAt: null, repeat: "hourly<script>" },
+  ]}});
+  const r0 = await page.evaluate(() => ({
+    bad: "repeat" in todoList.find(t => t.id === "x"),
+    rows: [...document.querySelectorAll("#todo-recurring .recurring-row .title")].map(e => e.textContent),
+    meta: document.querySelector('[data-todo-id="w"] .repeat-meta').textContent,
+    next: [addDaysIso(1), addDaysIso(4), nextRepeatIso("2026-01-31", "monthly"), nextRepeatIso("2026-10-09", "weekdays")],
+  }));
+  check("unknown repeat rules are dropped", !r0.bad);
+  check("Recurring section lists repeating to-dos, soonest first", JSON.stringify(r0.rows) === '["Take out trash","Vitamins"]', r0.rows);
+  check("row shows its rule", r0.meta.startsWith("Weekly · "), r0.meta);
+  check("monthly clamps to the month's end; weekdays skip the weekend", r0.next[2] === "2026-02-28" && r0.next[3] === "2026-10-12", r0.next);
+  await page.click('[data-todo-id="w"] .todo-check');
+  const r1 = await page.evaluate(() => {
+    const w = todoList.find(t => t.id === "w");
+    const copy = todoList.find(t => t.id !== "w" && t.text === "Take out trash");
+    return { due: w.due, done: w.done, subReset: w.subitems.every(s => !s.done), copy: copy && { done: copy.done, due: copy.due, repeat: copy.repeat } };
+  });
+  check("ticking an overdue weekly moves it to the next date after today", r1.due === isoOffset(4) && !r1.done, r1);
+  check("its sub-items reset for next time", r1.subReset);
+  check("a done copy is kept for the record", r1.copy && r1.copy.done && r1.copy.due === isoOffset(-3) && r1.copy.repeat === undefined, r1.copy);
+  await page.click(".toast button");
+  const undone = await page.evaluate(() => ({ due: todoList.find(t => t.id === "w").due, n: todoList.filter(t => t.text === "Take out trash").length }));
+  check("undo puts it back", undone.due === isoOffset(-3) && undone.n === 1, undone);
+  // Home projects future repeats onto the calendar
+  await page.evaluate(() => { activateTab("home"); selectHomeDate(addDaysIso(2)); });
+  const ghosts = await page.$$eval("#panel-home .repeat-ghost .title", els => els.map(e => e.textContent));
+  check("future repeats show on Home's calendar", ghosts.includes("Vitamins"), ghosts);
+  // Composer: Repeat chip
+  await page.evaluate(() => selectHomeDate(addDaysIso(0)));
+  await page.click("#fab");
+  await page.fill("#composer-text", "Water plants");
+  await page.click("#composer-chips .filter-chip >> text=Repeat");
+  await page.click("#composer-chips2 .filter-chip >> text=Every 2 weeks");
+  await page.press("#composer-text", "Enter");
+  const added = await page.evaluate(() => { const t = todoList.find(x => x.text === "Water plants"); return { repeat: t.repeat, due: t.due }; });
+  check("composer Repeat chip makes a repeating to-do starting today", added.repeat === "biweekly" && added.due === isoOffset(0), added);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
