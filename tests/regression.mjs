@@ -168,7 +168,8 @@ await section("routine: merged routine matches the old per-day lists for 28 days
       const weeks = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(2026, 6, 16)) / (7 * 864e5));
       const wash = !!legacy.pmWash && ((weeks % 2) + 2) % 2 === 0;
       const exp = s => s.map(x => decodeEntities(x[0]) + "|" + decodeEntities(x[1])).join(",");
-      const got = s => s.map(x => x.label + "|" + x.product).join(",");
+      const added = new Set(ROUTINE_ADDITIONS.map(x => x.step.id)); // later additions aren't in the legacy lists
+      const got = s => s.filter(x => !added.has(x.id)).map(x => x.label + "|" + x.product).join(",");
       const r = routineForDate(d);
       if (exp(legacy.am) !== got(r.am) || exp(wash ? legacy.pmWash : legacy.pm) !== got(r.pm) || r.wash !== wash) bad.push(isoDate(d));
     }
@@ -586,6 +587,29 @@ await section("routine: AM/PM bands on Today collapse", async () => {
   check("finished band reads Done", (await page.textContent(".routine-today .routine-band.pm .routine-count")).includes("Done"));
   await page.click(".routine-today .routine-band.pm .routine-band-head");
   check("a finished band can be reopened", (await state())[1].open);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("routine: pore strips + teeth whitening added once", async () => {
+  // A routine saved before the additions existed (no `added` marker)
+  const saved = { am: [{ id: "am-1", label: "Cleanse", product: "Gel" }], pm: [{ id: "pm-1", label: "Cleanse", product: "Gel" }, { id: "pm-2", label: "Moisturize", product: "Cream" }], washPm: [] };
+  const { ctx, page, errors } = await openApp({ seed: { "skin-routine-content": saved } });
+  const pm = () => page.evaluate(() => skinRoutine.pm.map(x => x.id));
+  check("whitening first, pore strips after Cleanse", JSON.stringify(await pm()) === '["pm-teeth-whitening","pm-1","pm-pore-strips","pm-2"]', await pm());
+  const r = await page.evaluate(() => {
+    const on = (dow, id) => { const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7));
+      return skinRoutine.pm.find(x => x.id === id).days.includes(d.getDay()); };
+    return { strips: skinRoutine.pm.find(x => x.id === "pm-pore-strips").days, teeth: skinRoutine.pm.find(x => x.id === "pm-teeth-whitening").days,
+      stored: JSON.parse(localStorage.getItem("skin-routine-content")).added };
+  });
+  check("pore strips on Sundays", JSON.stringify(r.strips) === "[0]", r.strips);
+  check("whitening on Tue + Sat", JSON.stringify(r.teeth) === "[2,6]", r.teeth);
+  check("marker saved with the routine", JSON.stringify(r.stored) === '["teeth-whitening","pore-strips"]', r.stored);
+  await page.evaluate(() => { skinRoutine.pm = skinRoutine.pm.filter(x => x.id !== "pm-pore-strips"); saveRoutine(); });
+  await page.reload(); await page.waitForTimeout(500);
+  check("a deleted addition stays deleted", !(await pm()).includes("pm-pore-strips"), await pm());
+  check("and nothing is duplicated", (await pm()).filter(id => id === "pm-teeth-whitening").length === 1);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

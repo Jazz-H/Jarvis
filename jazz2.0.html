@@ -3277,6 +3277,31 @@ function loadAllContent(){
   todoList = loadContent("todo-content", DEFAULT_TODO);
   if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
   normalizeLoadedData(); // last: needs every list loaded
+  if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
+}
+// Steps added to an existing routine after it was set up. Each is applied once
+// per routine (tracked in `added`, which syncs with it), so deleting a step
+// later sticks. Ids are fixed so two devices adding the same step agree.
+const ROUTINE_ADDITIONS = [
+  {key:"teeth-whitening", band:"pm", step:{id:"pm-teeth-whitening", label:"Teeth whitening", product:"Whitening strips",
+    note:"Brush first, then leave on as long as the box says", days:[2, 6]}},
+  {key:"pore-strips", band:"pm", after:/^cleanse/i, step:{id:"pm-pore-strips", label:"Pore strips", product:"Nose pore strips",
+    note:"Wet your nose first; peel off after 10–15 min", days:[0]}},
+];
+function applyRoutineAdditions(r){
+  r.added = Array.isArray(r.added) ? r.added : [];
+  let changed = false;
+  ROUTINE_ADDITIONS.forEach(({key, band, after, step}) => {
+    if (r.added.includes(key)) return;
+    const list = r[band] || (r[band] = []);
+    if (!list.some(x => x.id === step.id)){
+      const i = after ? list.findIndex(x => after.test(x.label)) : -1;
+      list.splice(i + 1, 0, {...step, days:[...step.days]}); // no anchor: goes first
+    }
+    r.added.push(key);
+    changed = true;
+  });
+  return changed;
 }
 // Stored data can arrive from sync or a backup file, so it's treated as untrusted:
 // text is escaped wherever it's rendered, and ids — which are interpolated into
