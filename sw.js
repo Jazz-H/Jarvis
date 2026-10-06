@@ -1,4 +1,4 @@
-const CACHE_NAME = "jazz2-cache-v65";
+const CACHE_NAME = "jazz2-cache-v66";
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -10,7 +10,10 @@ const ASSETS = [
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      Promise.all(ASSETS.map((url) => fetch(url, {cache:"reload"}).then((res) => cache.put(url, res))))
+      Promise.all(ASSETS.map((url) => fetch(url, {cache:"reload"}).then((res) => {
+        if (!res.ok) throw new Error(url + " " + res.status); // never cache an error page
+        return cache.put(url, res);
+      })))
     )
   );
   self.skipWaiting();
@@ -47,7 +50,8 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        // ?tab=… launch shortcuts must find the cached page offline too
+        .catch(() => caches.match(event.request, {ignoreSearch:true}).then((hit) => hit || caches.match("./jazz2.0.html")))
     );
     return;
   }

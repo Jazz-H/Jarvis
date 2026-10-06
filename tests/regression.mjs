@@ -946,6 +946,189 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
   await ctx.close();
 });
 
+await section("sync: per-list merge keeps both devices' edits", async () => {
+  const now = Date.now();
+  const todos = [{ id: "t1", text: "Shared", done: false, due: null, starred: false, subitems: [], completedAt: null }];
+  const rules = ["Rule A"];
+  // both devices last synced the same data; then the other device edited rules
+  const base = { "todo-content": JSON.stringify(todos), "skin-rules-content": JSON.stringify(rules) };
+  const gist = { id: "g0", files: { "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: now, data: {
+    "todo-content": todos, "skin-rules-content": ["Rule A", "Rule from desktop"] } }) } } };
+  let patches = 0;
+  const route = async r => {
+    const req = r.request(), url = new URL(req.url());
+    const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      patches++;
+      Object.entries(JSON.parse(req.postData()).files).forEach(([n, f]) => { gist.files[n] = { truncated: false, content: f.content }; });
+      return json(200, gist);
+    }
+    return json(404, {});
+  };
+  const { ctx, page, errors } = await openApp({ route, seed: {
+    "sync-token": "tok", "sync-gist-id": "g0", "data-updated-at": String(now + 5000), "sync-base": base,
+    // this device edited to-dos (and is "newer" by timestamp)
+    "todo-content": [...todos, { id: "t2", text: "Phone edit", done: false, due: null, starred: false, subitems: [], completedAt: null }],
+    "skin-rules-content": rules,
+  }});
+  await page.waitForTimeout(1200);
+  const local = await page.evaluate(() => ({ todos: todoList.map(t => t.text), rules: skinRules }));
+  const remote = JSON.parse(gist.files["jazz2-data.json"].content).data;
+  check("the other device's rule edit comes in", local.rules.includes("Rule from desktop"), local.rules);
+  check("this device's to-do edit is kept", local.todos.includes("Phone edit"), local.todos);
+  check("the gist ends up with both", remote["todo-content"].some(x => x.text === "Phone edit") && remote["skin-rules-content"].includes("Rule from desktop") && patches === 1, { patches });
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("robustness: malformed synced data can't stop the app", async () => {
+  const { ctx, page, errors } = await openApp({ seed: {
+    "todo-content": [null, { id: "a", text: "Bad due", due: 20261006, subitems: "abc", done: 0 }, { id: "b", text: "Fine", due: null, subitems: {} }],
+    "skin-routine-content": { am: "x", pm: [{ id: "p1", label: "Cleanse", product: "Gel", days: "Mon" }] },
+    "routine-checks": "null",
+    "sizes-content": [1, ["Shoe", "10"]],
+    "wants-content": { not: "a list" },
+    "style-state": [1, 2],
+  }});
+  const r = await page.evaluate(() => ({ home: document.getElementById("panel-home").innerHTML.length, todos: todoList.map(t => [t.text, t.due, Array.isArray(t.subitems)]),
+    am: skinRoutine.am, wash: skinRoutine.washPm, sizes, wants: wantsList }));
+  check("app still renders", r.home > 100, r.home);
+  check("bad to-dos are dropped or coerced", r.todos.length === 2 && r.todos[0][1] === null && r.todos.every(x => x[2]), r.todos);
+  check("routine and lists fall back to safe shapes", Array.isArray(r.am) && Array.isArray(r.wash) && r.sizes.length === 1 && Array.isArray(r.wants), r);
+  // a wild wash interval can't freeze the app
+  const t0 = Date.now();
+  await page.evaluate(() => { skinRoutine.wash = { anchor: "2020-01-01", everyDays: 1e9 }; renderSkin(); renderHome(); });
+  check("absurd wash interval is ignored", Date.now() - t0 < 2000 && (await page.evaluate(() => washSchedule().everyDays)) === 14);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("dates: monthly repeats keep their day; Home follows midnight", async () => {
+  const { ctx, page, errors } = await openApp();
+  const r = await page.evaluate(() => {
+    let d = "2027-01-31", seq = [];
+    for (let i = 0; i < 3; i++){ d = nextRepeatIso(d, "monthly", 31); seq.push(d); }
+    let b = "2027-01-31", bseq = [];
+    for (let i = 0; i < 3; i++){ b = nextBillIso(b, "monthly", 31); bseq.push(b); }
+    budget.income = [{ id: "inc-m", name: "Monthly pay", amount: 100, start: "2027-01-31", repeat: "monthly" }];
+    const mar = incomeInMonth("2027-03").map(p => p.date);
+    return { seq, bseq, mar };
+  });
+  check("to-do repeat on the 31st comes back to the 31st", JSON.stringify(r.seq) === '["2027-02-28","2027-03-31","2027-04-30"]', r.seq);
+  check("bill repeat too", JSON.stringify(r.bseq) === '["2027-02-28","2027-03-31","2027-04-30"]', r.bseq);
+  check("monthly income too", JSON.stringify(r.mar) === '["2027-03-31"]', r.mar);
+  // pretend the date rolled over while the app stayed open
+  const rolled = await page.evaluate(() => { renderedDay = "2000-01-01"; homeDate = "2000-01-01"; checkDayChange(); return { day: renderedDay, home: homeDate }; });
+  check("a new day resets Home to today", rolled.day === await page.evaluate(() => addDaysIso(0)) && rolled.home === null, rolled);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words on a picked day", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "r", text: "Water plants", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "weekly" },
+  ]}});
+  await page.click('#panel-home .todo-check[aria-label="Complete: Water plants"]');
+  // a sync swaps in fresh objects before Undo is tapped
+  await page.evaluate(() => { todoList = JSON.parse(JSON.stringify(todoList)); });
+  await page.click(".toast button");
+  const u = await page.evaluate(() => todoList.map(t => [t.text, t.due, t.done]));
+  check("undo still restores the repeat after a sync", u.length === 1 && u[0][1] === isoOffset(0), u);
+  // complete again, then un-tick the done copy on Home: the series comes back
+  await page.click('#panel-home .todo-check[aria-label="Complete: Water plants"]');
+  await page.click('#panel-home .todo-check[aria-label="Mark not done: Water plants"]');
+  const back = await page.evaluate(() => todoList.map(t => [t.due, t.done]));
+  check("un-ticking a repeat's done copy rolls the series back", back.length === 1 && back[0][0] === isoOffset(0) && !back[0][1], back);
+  // a day word wins over Home's picked day
+  await page.evaluate(() => selectHomeDate(addDaysIso(3)));
+  await page.click("#fab");
+  await page.fill("#composer-text", "Dentist tomorrow");
+  await page.press("#composer-text", "Enter");
+  const added = await page.evaluate(() => { const t = todoList.find(x => x.text === "Dentist"); return t && t.due; });
+  check("typed day word beats the picked day", added === isoOffset(1), added);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: fixes from the review", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const r = await page.evaluate(() => {
+    const k = budgetMonthKey();
+    budget.income = [{ id: "inc-a", name: "A", amount: 0.3, start: k + "-02", repeat: "biweekly" }, { id: "inc-b", name: "B", amount: 500, start: k + "-02", repeat: "biweekly" }];
+    bills = [{ id: "bill-1", name: "Rent", amount: 900, due: k + "-05", repeat: "monthly", autopay: false, link: null, group: "personal", account: null }];
+    const pa = incomeInMonth(k).find(p => p.src.id === "inc-a");
+    planFor(pa.key).lines = [{ id: "l1", name: "x", amount: 0.1 }, { id: "l2", name: "y", amount: 0.2 }];
+    budget.goals = [{ id: "goal-1", name: "Trip", target: 100, saved: 0, date: null, created: k + "-01", log: [] }];
+    planFor(pa.key).lines.push({ id: "l3", name: "to trip", amount: 10, goal: "goal-1" });
+    saveBudgetData();
+    const left = incomeInMonth(k).find(p => p.src.id === "inc-a").left;
+    // the first two periods are both the 2nd (A and B); only the first lists the bills
+    const cards = [...document.querySelectorAll("#pay-periods .card.period")].slice(0, 2);
+    const rentListed = cards.filter(c => c.textContent.includes("Rent")).length;
+    return { left, rentListed, k };
+  });
+  check("paycheck remaining rounds to cents (no −$0.00)", r.left === -10, r.left);
+  check("two paychecks on one day don't both list the same bills", r.rentListed === 1, r.rentListed);
+  // deleting an income removes its plans (and their goal money)
+  const g = await page.evaluate(() => {
+    editIncome("inc-a");
+    return true;
+  });
+  await page.click("#modal-delete-btn");
+  const after = await page.evaluate(() => ({ plans: Object.keys(budget.plans).filter(k => k.startsWith("inc-a|")).length, saved: goalSaved(budget.goals[0]) }));
+  check("deleting an income removes its plans", after.plans === 0 && after.saved === 0, after);
+  // ...and Undo brings everything back
+  await page.click(".toast button");
+  check("undo restores a delete", await page.evaluate(() => budget.income.some(i => i.id === "inc-a") && Object.keys(budget.plans).some(k => k.startsWith("inc-a|"))));
+  // blank paycheck amount goes back to the usual amount
+  await page.evaluate(k => { const p = incomeInMonth(k).find(x => x.src.id === "inc-b"); planFor(p.key).amount = 123; saveBudgetData(); editPaycheck("inc-b", p.date); }, r.k);
+  await page.fill("#modal-amount", "");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("clearing a payday's amount resets it", await page.evaluate(k => incomeInMonth(k).find(x => x.src.id === "inc-b").amount === 500, r.k));
+  // duplicate goal names are refused
+  await page.evaluate(() => editGoal());
+  await page.fill("#modal-name", "trip");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("duplicate goal names are refused", await page.evaluate(() => budget.goals.length === 1));
+  await page.evaluate(() => closeModal());
+  // a bill named "Monthly gym" imports
+  check("import keeps bills whose name starts with a heading word", await page.evaluate(() => parseBillRows("Card\t3rd\tMonthly gym\t$30").length === 1));
+  // Edit on a Budget card actually switches the card into edit mode
+  await page.evaluate(() => toggleCardEdit("bills-card"));
+  check("Edit chip works on Budget cards", !!(await page.$("#bills-card .acct-editor")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("shopping + backup: review fixes", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=style" });
+  await page.tap("#fab");
+  await page.click("#composer-chips .filter-chip >> text=To buy");
+  await page.fill("#composer-text", "Black jeans $80");
+  await page.press("#composer-text", "Enter");
+  check("closet 'To buy' splits the price from the name", await page.evaluate(() => wantsList.some(w => w.name === "Black jeans" && w.price === 80)));
+  check("closet composer offers Other", await page.evaluate(() => [...document.querySelectorAll("#composer-chips2 .filter-chip")].some(c => c.textContent === "Other")));
+  await page.evaluate(() => closeComposer());
+  // deleting by id never removes a different item when the id is already gone
+  const kept = await page.evaluate(() => { const n = wantsList.length; editWant(wantsList[0].id); wantsList = wantsList.slice(1); modalDelete(); return wantsList.length === n - 1; });
+  check("delete of an already-gone item removes nothing else", kept);
+  // a filtered empty list says so and offers Show all
+  await page.evaluate(() => { activateTab("wants"); wantsFilter = "moto"; wantsList = wantsList.filter(w => !w.moto); renderWants(); });
+  check("filtered empty list offers Show all", (await page.textContent("#wants-pending-card")).includes("Show all"));
+  // restoring an older backup resets lists it doesn't have
+  const restored = await page.evaluate(() => {
+    localStorage.setItem("bills-content", JSON.stringify([{ id: "bill-x", name: "Old", amount: 1, due: "2026-01-01", repeat: "monthly" }]));
+    const data = { "todo-content": [] };
+    SYNC_KEYS.forEach(k => { if (!(k in data)) localStorage.removeItem(k); });
+    applyRemote({ updatedAt: Date.now(), data });
+    return bills.length;
+  });
+  check("restore clears lists the backup doesn't have", restored === 0, restored);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

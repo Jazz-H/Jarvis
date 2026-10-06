@@ -127,7 +127,9 @@ Skin & Hair has no + because adding routine steps is a rare edit there.
 **Editing.** Each editable card has its own **Edit** chip. With it on, rows become tappable
 to edit or delete, and "+ Add …" rows appear for rules, sizes, sub-items, and routine steps
 (new to-dos, shopping items, and closet items come from the + button). Edit forms are a bottom sheet on phones and
-a centered dialog on desktop. Esc closes them, Enter saves, and Delete always confirms first.
+a centered dialog on desktop. Esc closes them and Enter saves. **Delete** happens right away
+with a 5-second **Undo** (it restores a snapshot of every list, so linked data comes back too);
+only turning sync off still asks first.
 
 **Navigation.**
 - **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
@@ -146,7 +148,7 @@ a centered dialog on desktop. Esc closes them, Enter saves, and Delete always co
 | `jazz2.0.html` | The whole app: HTML, CSS, and JS in one file. No build step, no framework. |
 | `index.html` | Redirects the bare site URL to `jazz2.0.html`. |
 | `manifest.json` | PWA manifest: name, icons, standalone display, home-screen shortcuts. |
-| `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys. Icons and the manifest are cache-first. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
+| `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys, with the cached page as the offline fallback (query strings ignored, so `?tab=` shortcuts work offline). Icons and the manifest are served from cache and refreshed in the background. Install never caches an error response. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
 | `icon-192.png`, `icon-512.png` | App icons. See *Design system*. |
 | `tests/regression.mjs` | Regression suite (see *Development*). |
 | `package.json` | Only holds the test dependency (Playwright). The app itself needs no install. |
@@ -179,23 +181,22 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (100 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (255 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
-- the + sheet in all three modes (to-do dates and sub-items, shopping price/category/details,
-  wardrobe closet vs. to-buy, batches, per-tab button);
-- to-do date parsing, migration, and undo;
-- drag between date groups;
+- the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
+  details; closet vs. to-buy; budget expenses, bills and goals; batches; per-tab button);
+- to-do date parsing, migration, undo, recurring to-dos, and drag between date groups;
+- Home's calendar strip, day agenda, and the Wash hair row;
 - quiet 7-day archiving;
-- routine equivalence with the legacy per-day data over 28 dates;
-- check-offs and streaks;
-- the wash-day calendar and frequency;
-- need/want tags, the Moto category, and the Shopping rename;
-- the wardrobe → wants migration and buy-to-closet flow;
-- the totals rule;
-- backup and restore;
-- sync against a mocked Gist API;
-- XSS hardening.
+- routine equivalence with the legacy per-day data over 28 dates, check-offs, streaks,
+  collapsible bands, and the wash-day calendar;
+- Shopping (need/want, Moto, filters) and the closet (buy-to-closet, migration);
+- Budget: pay periods, bills (pay/undo, variable amounts, shares, card totals, import),
+  paycheck plans (import, copy forward), goals, spending;
+- month-end date math, midnight rollover, and malformed-data robustness;
+- backup and restore, sync against a mocked Gist API (including the per-list merge), and
+  XSS hardening.
 
 CI runs the suite on every PR.
 
@@ -206,7 +207,9 @@ CI runs the suite on every PR.
 - **Stored data is untrusted.** It can arrive from sync or a backup file. Render text with
   `escapeHtml`/`escapeAttr`, and links with `linkHtml()`, which only allows `http(s)`.
   `normalizeLoadedData()` gives a fresh id to any id that isn't a plain token, because ids
-  are interpolated into inline `onclick` handlers.
+  are interpolated into inline `onclick` handlers. `sanitizeCoreData()` and
+  `normalizeBudgetData()` coerce every list to a safe shape on load, so one malformed record
+  can't stop the app from starting.
 - **User actions vs. housekeeping.**
   - User actions save with `saveContent()`, which bumps the sync timestamp.
   - Housekeeping (migrations, auto-archive) saves with `writeQuietly()`, which doesn't.
@@ -226,16 +229,17 @@ Everything lives in `localStorage` on the device:
 | `todo-content` | To-dos: `{id, text, done, due: "YYYY-MM-DD" \| null, starred, subitems, completedAt}` |
 | `todo-archive-content` | Completed to-dos older than 7 days (newest 200) |
 | `skin-routine-content` | `{am, pm, washPm, wash?: {anchor, everyDays}}`; steps are `{id, label, product, note?, days?}`, where `days` uses weekday numbers and 0 = Sun |
-| `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about 60 days kept |
+| `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about a year kept |
 | `skin-rules-content`, `style-rules-content`, `sizes-content` | Reference lists |
 | `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
 | `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
 | `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
-| `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount}]}}, goals: [{id, name, target, saved}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
+| `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
 | `data-updated-at` | Last real edit, used for sync |
-| `sync-token`, `sync-gist-id` | Sync settings for this device (never synced) |
+| `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
+| `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |
 
 Lists still on their built-in defaults have no key until first edited.
 
@@ -252,13 +256,18 @@ Lists still on their built-in defaults have no key until first edited.
 - **Storage:** all lists live as one JSON file in a private gist.
 - **Timing:** the app pushes about 1.5s after each edit, and pulls on load and whenever
   it returns to the foreground.
-- **Conflicts:** the newest edit wins.
+- **Conflicts:** merged per list. Each device remembers every list as of its last sync
+  (`sync-base`). Lists this device changed are sent up; lists only the other device changed
+  are taken from the gist; if both changed the same list, the device syncing now wins for
+  that list only. The gist is re-read right before every write, and sync waits while an
+  edit form is open. A device's very first sync falls back to "newest copy wins".
 
 **Backup.** The same dialog has **Download backup** and **Restore…**.
 - **Format:** one JSON file containing the full live value of every list.
 - **Sync not required:** works whether or not sync is on.
 - **Download:** uses the share sheet on mobile.
-- **Restore:** asks for confirmation, then counts as an edit, so it syncs.
+- **Restore:** asks for confirmation, replaces everything (lists the backup doesn't have go
+  back to their defaults), then counts as an edit, so it syncs.
 
 ## Design system
 
