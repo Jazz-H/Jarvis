@@ -42,11 +42,14 @@ Every color in the app derives from the `:root` tokens — tints use `color-mix(
 the accent tokens and checkmark glyphs inherit `currentColor` — so changing themes only
 means editing that one block (plus `theme-color` in the HTML and `manifest.json`). The
 token names are historical (`--gold` = AM, `--navy` = PM, `--olive` = primary accent).
-The app icons still use the old neon gradient. App icons:
-a plain terminal-window card (rounded square, no border, three status dots) with a
-"J2.0" wordmark in a monospace font — the "J" in a cyan→magenta gradient fill, "2.0"
-smaller and raised like an exponent with its own white→soft-gray gradient for a bit of
-depth, plus a solid cyan cursor block after it. The card sits at 17% margin from the
+Links use their own `--link` token (pastel blue) so they stay distinguishable from
+body text, which shares the soft-white primary accent. App icons (redrawn in Graphite
+colors in Oct 2026; earlier versions were neon):
+a plain terminal-window card (charcoal, rounded square, no border, three status dots in
+pink/gray/blue) with a "J2.0" wordmark in DejaVu Sans Mono Bold — the "J" in a pastel
+blue→pink gradient fill, "2.0" smaller and raised like an exponent with a white→soft-gray
+gradient for a bit of depth, plus a solid soft-white cursor block after it. Regenerated
+by a Pillow script (drawn at 2048px, downsampled to 512/192). The card sits at 17% margin from the
 canvas edge (not the ~9% of earlier drafts) — Android's maskable-icon safe zone is
 roughly the center 66%-diameter circle, and the tighter margin was getting its corners
 cropped and looking "zoomed in" next to other home-screen icons once actually installed
