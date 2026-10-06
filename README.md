@@ -81,12 +81,24 @@ clothes, moto gear, and everything else.
 - **Priority.** High-priority items get a badge and sort first.
 
 **Budget** tracks bills and spending, one calendar month at a time (‹ › to step months).
-- **Summary:** left to spend (category budgets minus spending), spent vs. budget, and bills
-  due vs. paid.
+- **Summary:** with income set, **Remaining** = this month's paychecks minus what they're
+  planned for; otherwise left to spend (category budgets minus spending). Plus bills
+  total vs. paid and spending vs. budget.
 - **Bills:** each has an amount, a due date, a repeat (monthly, weekly, every 2 weeks,
   quarterly, yearly, one time), Autopay, and an optional pay link. Tick one to mark it paid:
   the payment is logged and the bill moves to its next due date (Undo, or untick the paid
   row, takes it back). Later dues in the month are projected. Bills also show on Home.
+  Bills are grouped **Monthly** (yours) and **Joint**, each with a subtotal, then Total
+  bills. Each can name the card/bank that pays it (colored pill); manage that list with the
+  card's Edit chip.
+- **Import from sheet:** paste rows copied from a spreadsheet (card/bank, date like "6th",
+  expense, amount like "$120.00" or "-") and choose Monthly or Joint. Header and Total rows
+  are skipped, new cards/banks are added, and bills due before today can be marked paid.
+- **Income:** a paycheck source repeats from a payday (every 2 weeks by default). Each
+  payday has a plan: lines that spend it down (a share of bills, a card payment, fun
+  money) and what's **Remaining**. A hint offers the bills due before the next payday as a
+  one-tap line. Tap a payday to set that check's actual amount.
+- **Savings:** goals with a target and amount saved (e.g. house savings @ $5,000).
 - **Spending:** expenses logged against monthly category limits (Groceries, Dining out, Gas,
   Fun, Other by default; the Edit chip adds, renames, re-limits, or deletes them). Tap a
   category for its expenses; over-limit categories turn red.
@@ -215,9 +227,9 @@ Everything lives in `localStorage` on the device:
 | `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
 | `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
-| `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, done?}` (`done` = a paid one-time bill) |
+| `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
-| `budget-content` | `{categories: [{id, name, limit}], expenses: [{id, name, amount, cat, date}]}` |
+| `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount}]}}, goals: [{id, name, target, saved}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
 | `data-updated-at` | Last real edit, used for sync |
 | `sync-token`, `sync-gist-id` | Sync settings for this device (never synced) |
 
