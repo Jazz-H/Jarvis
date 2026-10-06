@@ -234,6 +234,31 @@ await section("wants: need/want tags, sorting, filters, editing", async () => {
   await ctx.close();
 });
 
+await section("shopping: page name and Moto category", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  check("page is titled Shopping", (await page.textContent("#headline")) === "Shopping");
+  check("tab is labeled Shopping", (await page.textContent('nav.tabbar button[data-tab="wants"]')).trim() === "Shopping");
+  await page.evaluate(() => editWant("pouch"));
+  await page.selectOption("#modal-cat", "Moto");
+  await page.tap(".modal-btn.primary");
+  const h = await page.evaluate(() => JSON.parse(localStorage.getItem("wants-content")).find(w => w.id === "pouch"));
+  check("Moto category saved", h.moto === true && !h.wardrobeCat, h);
+  check("Moto tag shown", await page.locator('#wants-pending-card .want-card', { hasText: "Trailco" }).locator(".want-tag.moto").count() === 1);
+  await page.click(".filter-chip >> text=Moto");
+  const names = await page.$$eval("#wants-pending-card .want-card .name", e => e.map(x => x.textContent));
+  check("Moto filter shows only moto gear", names.length === 1 && names[0].startsWith("Trailco"), names);
+  await page.fill("#quick-add-input", "Riding gloves");
+  await page.press("#quick-add-input", "Enter");
+  check("quick-add under Moto is moto gear", await page.evaluate(() => wantsList.find(w => w.name === "Riding gloves").moto === true));
+  await page.evaluate(() => editWant("pouch"));
+  await page.selectOption("#modal-cat", "Wardrobe · Outerwear");
+  await page.tap(".modal-btn.primary");
+  const h2 = await page.evaluate(() => wantsList.find(w => w.id === "pouch"));
+  check("categories are exclusive", !h2.moto && h2.wardrobeCat === "Outerwear", h2);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("wardrobe: needs move onto Wants, belt merges, buy puts it in the closet", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "style-state": { "tee-plum": "needed", "need-oxford": "owned" } } });
   const s = await page.evaluate(() => ({
