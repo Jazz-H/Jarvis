@@ -776,6 +776,52 @@ await section("budget: tab, closet inside Shopping, spending, bills", async () =
   await ctx.close();
 });
 
+await section("budget: sheet import, joint bills, paychecks, savings", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const rows = ["Card/Bank\tDate\tExpense\tAmount", "Bank A\t2nd\tPhone\t$70.00", "Card B\t3rd\tGym\t-", "Card B\t28th\tInsurance\t$1,200.50", "Total\t\t\t$1,270.50"].join("\n");
+  await page.evaluate(() => importBills());
+  await page.fill("#modal-rows", rows);
+  await page.click("#modal-backdrop .modal-btn.primary");
+  await page.evaluate(() => importBills());
+  await page.fill("#modal-rows", "Card B\t20th\tStorage\t$60");
+  await page.selectOption("#modal-group", "Joint");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const r = await page.evaluate(() => ({
+    bills: bills.map(b => [b.name, b.amount, b.account, b.group, Number(b.due.slice(8))]),
+    accts: budget.accounts,
+    total: billsInMonth(budgetMonthKey()).reduce((s, x) => s + x.amount, 0),
+    subs: [...document.querySelectorAll("#bills-card .budget-sub")].map(e => e.textContent),
+  }));
+  check("rows import with account, amount ('-' = 0) and day; header and Total skipped", r.bills.length === 4
+    && JSON.stringify(r.bills[0].slice(0, 4)) === '["Phone",70,"Bank A","personal"]' && r.bills[1][1] === 0 && r.bills[2][1] === 1200.5, r.bills);
+  check("new cards/banks are added to the list", r.accts.includes("Bank A") && r.accts.includes("Card B"), r.accts);
+  check("joint bills group separately with subtotals", r.bills[3][3] === "joint" && r.subs.length === 2 && r.subs[1].startsWith("Joint"), r.subs);
+  check("month total covers both groups", Math.abs(r.total - 1330.5) < 0.001, r.total);
+  // Paychecks
+  const p = await page.evaluate(() => {
+    budget.income.push({ id: "inc-1", name: "Paycheck", amount: 2000, start: budgetMonthKey() + "-01", repeat: "biweekly" });
+    saveBudgetData();
+    const pays = incomeInMonth(budgetMonthKey());
+    quickPlanLine(pays[0].key, "Card payment", 500);
+    const after = incomeInMonth(budgetMonthKey());
+    return { n: pays.length, left: after[0].left, hint: !!document.querySelector("#income-card .plan-hint"), head: document.querySelector(".budget-label").textContent };
+  });
+  check("a biweekly paycheck lands 2–3 times a month", p.n >= 2 && p.n <= 3, p.n);
+  check("paycheck remaining = amount minus its lines", p.left === 1500, p.left);
+  check("bills-before-next-payday hint offered", p.hint);
+  check("summary switches to Remaining once there's income", p.head === "Remaining", p.head);
+  // Savings goal
+  await page.evaluate(() => editGoal());
+  await page.fill("#modal-name", "House");
+  await page.fill("#modal-target", "5000");
+  await page.fill("#modal-saved", "2000");
+  await page.fill("#modal-add", "500");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("savings goal tracks saved of target", (await page.textContent("#goals-card")).includes("$2,500 of $5,000 · 50%"));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
