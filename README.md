@@ -100,7 +100,12 @@ clothes, moto gear, and everything else.
   one-tap line. Tap a payday to set that check's actual amount. **Import from sheet**
   (under Income) takes pasted paycheck breakdowns: each block starts with its "Paycheck"
   row, Remaining rows are skipped, and blocks fill the month's paydays in order.
-- **Savings:** goals with a target and amount saved (e.g. house savings @ $5,000).
+- **Goals:** long-term savings goals (savings goal, big purchase, emergency fund…;
+  idea chips start one). Each has a target, an optional target date, and a starting
+  amount. **+ Add money** logs money in or out (also from + → To a goal), and History lists
+  it. With a date, the card shows the $/month needed and whether the last 3 months kept
+  pace. A paycheck plan line can point at a goal and counts toward it once that payday
+  arrives.
 - **Spending:** expenses logged against monthly category limits (Groceries, Dining out, Gas,
   Fun, Other by default; the Edit chip adds, renames, re-limits, or deletes them). Tap a
   category for its expenses; over-limit categories turn red.
