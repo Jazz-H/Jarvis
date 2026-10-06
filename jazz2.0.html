@@ -279,7 +279,7 @@
   }
 
   .toast{
-    position:fixed; left:50%; bottom:82px; transform:translateX(-50%) translateY(10px);
+    position:fixed; left:50%; bottom:calc(82px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(10px);
     background:var(--surface-2); border:1px solid var(--line); color:var(--text);
     font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:20px;
     opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:20;
@@ -419,6 +419,46 @@
   }
   body.todo-dragging, body.todo-dragging *{user-select:none; -webkit-user-select:none;}
 
+  /* ---------- to-do rows: checkbox first, ~44px touch targets ----------
+     Scoped to to-do rows only — the Style tab checklist shares .item/.box.
+     Visible icons keep their old sizes; only the tappable boxes grow. Rows
+     are 44px tall, and the body's 12px vertical padding centers a one-line
+     title against the 44px buttons. */
+  .todo-wrap .item, #todo-completed .item{padding:0 2px 0 0; gap:0;}
+  .todo-wrap .item .body, #todo-completed .item .body{order:2; padding:12px 6px 12px 2px; min-width:0;}
+  .todo-wrap .item .body{cursor:pointer;}
+  .todo-wrap .drag-handle{height:44px; width:28px; margin-left:-8px; align-self:flex-start;}
+  .todo-check{
+    order:1; flex-shrink:0; width:40px; height:44px; padding:0; border:none; background:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .todo-check .box{margin-top:0;}
+  .todo-icon-btn{width:36px; height:44px; border-radius:10px;}
+  .todo-sub-badge{bottom:5px; right:0;}
+  /* boxed buttons: the visible 26px box is drawn by ::before inside a 36×44 hit area */
+  .todo-wrap .row-edit-btn, #todo-completed .completed-actions{
+    width:36px; height:44px; border:none; background:none; position:relative; isolation:isolate;
+  }
+  .todo-wrap .row-edit-btn::before, #todo-completed .completed-actions::before{
+    content:""; position:absolute; inset:9px 5px; z-index:-1;
+    border:1px solid var(--line); background:var(--surface-2); border-radius:8px;
+  }
+  .subitem-row{padding:0; gap:2px; min-height:44px;}
+  .sub-drag-handle{height:44px;}
+  .subitem-check{
+    flex-shrink:0; width:36px; height:44px; padding:0; border:none; background:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .subitem-del{width:36px; height:44px;}
+  .subitem-add-toggle{min-height:40px; padding:8px 14px;}
+
+  /* undo toast: tappable, unlike the plain status toast */
+  .toast.actionable{pointer-events:auto; display:flex; align-items:center; gap:6px; padding:0 0 0 16px;}
+  .toast-action{
+    background:none; border:none; color:var(--olive); font:inherit; font-weight:800;
+    min-height:44px; padding:0 16px; border-radius:20px;
+  }
+
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.55);
     display:flex; align-items:flex-end; justify-content:center;
@@ -450,6 +490,15 @@
   .modal-btn.primary{background:var(--olive); color:#161710;}
   .modal-btn.danger{background:none; border:1.5px solid var(--danger); color:#ffb3c0;}
 
+  /* iOS Safari zooms the page when a focused field is under 16px. Must stay
+     below the base input rules (incl. the modal's) so it wins the cascade. */
+  @media (pointer:coarse){
+    .quick-add input, .subitem-add input,
+    .modal-field input, .modal-field textarea, .modal-field select{font-size:16px;}
+    .subitem-add input{height:38px;}
+    .subitem-add button{width:38px; height:38px;}
+  }
+
   /* ---------- hover feedback (mouse/trackpad only) ----------
      Mirrors the existing :active touch styles so pointer users can see what's
      interactive; gated on hover+fine-pointer so touch devices never get
@@ -472,6 +521,9 @@
     .box:hover, .subitem-box:not(.checked):hover{border-color:var(--olive);}
     .link:hover{text-decoration:underline;}
     .drag-handle:hover, .sub-drag-handle:hover{opacity:1; color:var(--text);}
+    .todo-wrap .row-edit-btn:hover, #todo-completed .completed-actions:hover{background:none;}
+    .todo-wrap .row-edit-btn:hover::before, #todo-completed .completed-actions:hover::before{border-color:var(--text-dim);}
+    .todo-check:hover .box, .subitem-check:hover .subitem-box:not(.checked){border-color:var(--olive);}
   }
   body.todo-dragging .drag-handle, body.todo-dragging .sub-drag-handle{cursor:grabbing;}
 
@@ -655,10 +707,24 @@ let toastTimer;
 function showToast(msg, isError){
   const t = document.getElementById("toast");
   t.textContent = msg;
+  t.classList.remove("actionable");
   t.classList.toggle("error", !!isError);
   t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove("show"), isError ? 2600 : 1400);
+}
+function showUndoToast(msg, onUndo){
+  const t = document.getElementById("toast");
+  t.innerHTML = `<span>${escapeHtml(msg)}</span><button type="button" class="toast-action">Undo</button>`;
+  t.classList.remove("error");
+  t.classList.add("show", "actionable");
+  t.querySelector(".toast-action").onclick = () => {
+    clearTimeout(toastTimer);
+    t.classList.remove("show", "actionable");
+    onUndo();
+  };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show", "actionable"), 5000);
 }
 function escapeHtml(s){
   return String(s == null ? "" : s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
@@ -1008,9 +1074,9 @@ function renderHome(){
     const subs = t.subitems || [];
     const rows = subs.map(s => `<div class="subitem-row" data-sub-id="${s.id}">
         <button class="sub-drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
-        <div class="subitem-box ${s.done?'checked':''}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')">
+        <button class="subitem-check" role="checkbox" aria-checked="${!!s.done}" aria-label="Complete: ${escapeAttr(s.text)}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')"><span class="subitem-box ${s.done?'checked':''}">
           <svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-        </div>
+        </span></button>
         <div class="subitem-text ${s.done?'checked':''}">${escapeHtml(s.text)}</div>
         <button class="subitem-del" onclick="event.stopPropagation(); deleteSubitem('${t.id}','${s.id}')" aria-label="Delete sub-item">${X_ICON}</button>
       </div>`).join("");
@@ -1030,10 +1096,10 @@ function renderHome(){
     const subDone = subs.filter(s => s.done).length;
     const expanded = expandedTodos.has(t.id);
     return `<div class="todo-wrap" data-todo-id="${t.id}">
-        <div class="item ${t.done?'checked':''}" onclick="toggleTodo('${t.id}')">
+        <div class="item ${t.done?'checked':''}">
           <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
-          <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
-          <div class="body"><div class="title">${escapeHtml(t.text)}</div></div>
+          <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
+          <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div></div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
           <button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="Sub-items">${SUBLIST_ICON}${subs.length?`<span class="todo-sub-badge">${subDone}/${subs.length}</span>`:''}</button>
           <button class="row-edit-btn" style="order:5;" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
@@ -1071,8 +1137,8 @@ function renderHome(){
   if (completedItems.length){
     const completedRows = completedItems.map(t => {
       const dateLabel = t.completedAt ? new Date(t.completedAt).toLocaleDateString('en-US',{month:'short', day:'numeric'}) : "";
-      return `<div class="item checked" onclick="toggleTodo('${t.id}')">
-          <div class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+      return `<div class="item checked">
+          <button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#161710" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></button>
           <div class="body"><div class="title">${escapeHtml(t.text)}</div>${dateLabel?`<div class="sub">Completed ${dateLabel}</div>`:""}</div>
           <button class="completed-actions" style="order:3;" onclick="event.stopPropagation(); duplicateTodo('${t.id}')" aria-label="Duplicate to-do">${DUPLICATE_ICON}</button>
           <button class="completed-actions" style="order:4;" onclick="event.stopPropagation(); deleteTodoPermanently('${t.id}')" aria-label="Delete to-do">${TRASH_ICON}</button>
@@ -1086,6 +1152,8 @@ function renderHome(){
         <div class="coll-body"><div class="coll-inner">
           ${completedRows}
           <button class="reset-btn" onclick="clearCompletedTodos()">Clear completed</button>
+          <p class="footnote">Completed to-dos are archived automatically after 7 days${
+            (loadContent("todo-archive-content", []).length ? ` · ${loadContent("todo-archive-content", []).length} archived so far` : "")}.</p>
         </div></div>
       </div>`;
   }
@@ -1195,6 +1263,20 @@ function toggleTodo(id){
   saveContent("todo-content", todoList);
   renderHome();
 }
+// Completing from the open list hides the row in the collapsed Completed card,
+// so offer a short undo window. Array position never changes on toggle, so
+// undoing puts the item back exactly where it was.
+function completeTodo(id){
+  toggleTodo(id);
+  showUndoToast("To-do completed", () => {
+    const t = todoList.find(x=>x.id===id);
+    if (!t || !t.done) return;
+    t.done = false;
+    t.completedAt = null;
+    saveContent("todo-content", todoList);
+    renderHome();
+  });
+}
 function toggleTodoStar(id){
   const t = todoList.find(x=>x.id===id);
   t.starred = !t.starred;
@@ -1286,6 +1368,37 @@ function clearCompletedTodos(){
   todoList = todoList.filter(t => !t.done);
   saveContent("todo-content", todoList);
   renderHome();
+}
+
+// Completed to-dos auto-move to a hidden archive (todo-archive-content, synced,
+// capped) once they're 7+ days old, keeping the Completed card short-term only.
+// Runs on load, after a sync pull, and on return to foreground; saves silently
+// (no "Saved" toast) since the user didn't do anything. Returns true if it
+// changed anything so callers know to re-render.
+const TODO_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const TODO_ARCHIVE_MAX = 200;
+function archiveOldTodos(){
+  let changed = false;
+  // done items missing a stamp (older data): stamp now so their 7 days start today
+  todoList.forEach(t => { if (t.done && !t.completedAt){ t.completedAt = Date.now(); changed = true; } });
+  const cutoff = Date.now() - TODO_RETENTION_MS;
+  const old = todoList.filter(t => t.done && t.completedAt < cutoff);
+  if (old.length){
+    const archive = loadContent("todo-archive-content", []);
+    archive.push(...old.map(t => ({
+      text:t.text, completedAt:t.completedAt, day:t.day || null,
+      subitems:(t.subitems || []).map(s => ({text:s.text, done:!!s.done}))
+    })));
+    archive.sort((a,b) => (b.completedAt||0) - (a.completedAt||0));
+    if (archive.length > TODO_ARCHIVE_MAX) archive.length = TODO_ARCHIVE_MAX;
+    todoList = todoList.filter(t => !old.includes(t));
+    try{ localStorage.setItem("todo-archive-content", JSON.stringify(archive)); }catch(e){ console.error(e); }
+    changed = true;
+  }
+  if (changed){
+    try{ localStorage.setItem("todo-content", JSON.stringify(todoList)); markDataChanged(); }catch(e){ console.error(e); }
+  }
+  return changed;
 }
 
 // ---------- RENDER: SKIN/HAIR ----------
@@ -2127,7 +2240,8 @@ async function hardRefresh(){
 // via the cloud button in the header. Token + gist id live in localStorage and
 // are never synced themselves.
 const SYNC_KEYS = ["skin-rules-content","skin-days-content","style-rules-content","sizes-content",
-                   "capsule-content","wants-content","todo-content","style-state","wants-state"];
+                   "capsule-content","wants-content","todo-content","todo-archive-content",
+                   "style-state","wants-state"];
 const GIST_FILENAME = "jazz2-data.json";
 let syncPushTimer = null;
 let syncBusy = false;
@@ -2168,6 +2282,7 @@ function applyRemote(payload){
   loadAllContent();
   try{ styleState = JSON.parse(localStorage.getItem("style-state")) || {}; }catch(e){ styleState = {}; }
   try{ wantsState = JSON.parse(localStorage.getItem("wants-state")) || {}; }catch(e){ wantsState = {}; }
+  archiveOldTodos(); // the other device may have carried expired completed items
   renderSkin(); renderStyle(); renderWants(); renderHome();
 }
 async function findOrCreateGist(){
@@ -2278,8 +2393,11 @@ function initSync(){
     setSyncStatus("off");
   }
   // Re-pull when the app regains foreground — the phone-edits-then-desktop case.
+  // Also a natural moment to expire old completed to-dos in long-lived sessions.
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) pullSync().catch(() => {});
+    if (document.hidden) return;
+    if (archiveOldTodos()) renderHome();
+    pullSync().catch(() => {});
   });
 }
 
@@ -2295,6 +2413,7 @@ function loadAllContent(){
 }
 (async function init(){
   loadAllContent();
+  archiveOldTodos();
 
   const now = new Date();
   document.getElementById("header-date").textContent =
