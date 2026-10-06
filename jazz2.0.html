@@ -211,6 +211,73 @@
   .home-more{display:block; border:none; background:none; padding:10px 0 6px; color:var(--link); font:inherit; font-size:12.5px; font-weight:700;}
   .home-all{margin:6px 2px 0;}
 
+  /* shopping: To buy | Closet switch */
+  .seg-switch{display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; margin:0 0 12px; background:var(--surface); border:1px solid var(--line); border-radius:14px;}
+  .seg-switch button{border:none; background:none; color:var(--text-dim); font:inherit; font-size:13.5px; font-weight:700; padding:9px 0; border-radius:10px;}
+  .seg-switch button.on{background:var(--surface-2); color:var(--text);}
+
+  /* budget */
+  .budget-month{display:flex; align-items:center; justify-content:space-between; margin:-6px -6px 6px; font-size:15px; font-weight:800;}
+  .budget-summary{padding:16px;}
+  .budget-left{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px;}
+  .budget-label{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em;}
+  .budget-left b{font-size:28px; font-weight:800; letter-spacing:-.01em; font-variant-numeric:tabular-nums;}
+  .budget-left b.over, .budget-cat-amt.over{color:var(--danger);}
+  .progress-fill.over{background:var(--danger);}
+  .progress-bar.thin{height:5px;}
+  .budget-stats{display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; margin-top:10px; font-size:12.5px; color:var(--text-dim);}
+  .budget-stats b{color:var(--text);}
+  .bill-row{align-items:center; padding:0; gap:0;}
+  .bill-row .todo-check, .bill-row .row-icon{order:1;}
+  .bill-row .body{order:2; flex:1; min-width:0; padding:11px 6px 11px 2px; cursor:pointer;}
+  .bill-amt{order:3; display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; padding-right:2px;}
+  .bill-pay{font-size:11.5px; font-weight:700; color:var(--link); text-decoration:none;}
+  .autopay{color:var(--olive); font-weight:700;}
+  .bill-row.checked .bill-amt{color:var(--text-dim); text-decoration:line-through;}
+  .bill-tag{color:var(--text); font-weight:700;}
+  .bill-icon{color:var(--gold);}
+  .budget-cat{padding:10px 0; border-bottom:1px solid var(--line);}
+  .budget-cat:last-child{border-bottom:none;}
+  .budget-cat-head{display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:0 0 7px; border:none; background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
+  .budget-cat-name{font-size:14px; font-weight:700; display:flex; align-items:center;}
+  .budget-cat-amt{font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .budget-cat-amt span{color:var(--text-dim); font-weight:600;}
+  .expense-list{margin-top:8px;}
+  .expense-row{display:flex; align-items:center; gap:10px; width:100%; padding:9px 2px; border:none; border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text); font:inherit; font-size:13px; text-align:left;}
+  .expense-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .expense-date{color:var(--text-dim); font-size:12px;}
+  .expense-row b{font-variant-numeric:tabular-nums;}
+  .budget-hint{text-align:center; margin:4px 12px 0;}
+  .budget-sub{display:flex; justify-content:space-between; align-items:baseline; margin:12px 2px 2px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim);}
+  .budget-sub:first-child{margin-top:0;}
+  .budget-sub span{text-transform:none; letter-spacing:0; font-weight:700;}
+  .budget-total{display:flex; justify-content:space-between; align-items:center; padding:10px 2px; border-top:1px solid var(--line); font-size:13px; font-weight:700; color:var(--text-dim);}
+  .budget-total b{color:var(--text); font-size:14.5px; font-variant-numeric:tabular-nums;}
+  .budget-total b.over, .paycheck-left.over b{color:var(--danger);}
+  .budget-actions{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .acct-pill{display:inline-flex; align-items:center; gap:5px; padding:1px 7px; border-radius:6px; font-size:11px; font-weight:700;
+    color:var(--acct); background:color-mix(in srgb, var(--acct) 16%, transparent);}
+  .acct-pill.big{border:none; font:inherit; font-size:12.5px; font-weight:700; padding:6px 10px; border-radius:10px; margin:0 6px 6px 0;}
+  .acct-pill.big svg{width:11px; height:11px;}
+  .acct-add{border:1px dashed var(--line); background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700; padding:5px 10px; border-radius:10px; margin:0 0 6px;}
+  .acct-editor{padding-bottom:6px; border-bottom:1px solid var(--line); margin-bottom:6px;}
+  .acct-editor .budget-sub{margin-bottom:8px;}
+  .income-srcs{margin-top:10px;}
+  .paycheck{padding:10px 0; border-bottom:1px solid var(--line);}
+  .paycheck-head, .plan-line{display:flex; justify-content:space-between; gap:12px; width:100%; border:none; background:none; color:var(--text); font:inherit; text-align:left; font-variant-numeric:tabular-nums;}
+  .paycheck-head{font-size:14px; padding:4px 2px 6px;}
+  .plan-line{font-size:13px; padding:7px 2px 7px 12px; color:var(--text); border-left:2px solid var(--line);}
+  .plan-line span:last-child{color:var(--text-dim);}
+  .plan-hint, .plan-add{display:block; border:none; background:none; font:inherit; font-size:12.5px; font-weight:700; padding:7px 2px 4px 12px; text-align:left;}
+  .plan-hint{color:var(--link);}
+  .plan-add{color:var(--text-dim);}
+  .paycheck-left{display:flex; justify-content:space-between; padding:6px 2px 0; font-size:13px; font-weight:700; color:var(--text-dim);}
+  .paycheck-left b{color:var(--olive); font-size:14.5px; font-variant-numeric:tabular-nums;}
+  .goal{display:block; width:100%; padding:10px 2px; border:none; border-bottom:1px solid var(--line); background:none; color:var(--text); font:inherit; text-align:left;}
+  .goal-head{display:flex; justify-content:space-between; gap:12px; margin-bottom:7px; font-size:14px;}
+  .goal-head span{color:var(--text-dim); font-size:12.5px; font-weight:700;}
+  .goal .progress-bar{display:block;}
+
   /* shopping */
   .want-card{display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line);}
   .want-card:last-child{border-bottom:none;}
@@ -538,8 +605,8 @@
     background:var(--olive); color:var(--on-accent); box-shadow:0 8px 24px rgba(0,0,0,.5);
   }
   .fab:active{transform:scale(.96);}
-  body[data-tab="home"] .fab, body[data-tab="todo"] .fab, body[data-tab="wants"] .fab, body[data-tab="style"] .fab{display:flex;}
-  body[data-tab="home"] main, body[data-tab="todo"] main,
+  body[data-tab="home"] .fab, body[data-tab="todo"] .fab, body[data-tab="wants"] .fab, body[data-tab="style"] .fab, body[data-tab="budget"] .fab{display:flex;}
+  body[data-tab="home"] main, body[data-tab="todo"] main, body[data-tab="budget"] main,
   body[data-tab="wants"] main, body[data-tab="style"] main{padding-bottom:170px;} /* last row clears the button */
   .composer-backdrop{
     position:fixed; inset:0; z-index:30; display:flex; align-items:flex-end; justify-content:center;
@@ -700,7 +767,7 @@
     }
     main{padding:24px max(24px, calc(50% - 380px)) 48px;}
     .fab{bottom:32px; right:32px;}
-    body[data-tab="home"] main, body[data-tab="todo"] main,
+    body[data-tab="home"] main, body[data-tab="todo"] main, body[data-tab="budget"] main,
     body[data-tab="wants"] main, body[data-tab="style"] main{padding-bottom:110px;}
     .composer-backdrop{align-items:center;}
     .composer-sheet{border-radius:18px; padding-bottom:18px;}
@@ -749,6 +816,8 @@
   <section class="tabpanel" id="panel-style">
     <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
   </section>
+  <!-- BUDGET -->
+  <section class="tabpanel" id="panel-budget"></section>
   <!-- WANTS -->
   <section class="tabpanel" id="panel-wants">
     <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
@@ -809,9 +878,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
     Shopping
   </button>
-  <button data-tab="style">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>
-    Wardrobe
+  <button data-tab="budget">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/></svg>
+    Budget
   </button>
   <button data-tab="skin">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
@@ -820,7 +889,7 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Wardrobe", wants:"Shopping"};
+const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Shopping", wants:"Shopping", budget:"Budget"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 const SKIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>';
@@ -913,7 +982,7 @@ let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "todo-recurring", "cap-owned-card", "wants-pending-card"]);
+let openPinned = new Set(["todo-card", "todo-recurring", "cap-owned-card", "wants-pending-card", "bills-card", "income-card", "goals-card", "spending-card"]);
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -1444,7 +1513,9 @@ function homeDueCounts(){
 }
 function homeCalDayHtml(d, counts, monthView){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
-  const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0) : 0;
+  const dayBills = iso >= today ? billsOnDay(iso) : null;
+  const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0)
+    + dayBills.open.length + dayBills.projected.length : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
   const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : ""].filter(Boolean).join(" ");
   const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
@@ -1519,6 +1590,26 @@ function washRowHtml(iso){
   return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
       ${check}
       <div class="body" onclick="activateTab('skin')"><div class="title">Wash hair</div><div class="todo-meta"><span class="wash-tag">Wash day</span>${products ? ` · ${escapeHtml(products)}` : ""}</div></div>
+    </div></div>`;
+}
+// A bill on Home's day list: payable when it's the bill's real due date,
+// read-only when it's a projected future due, struck through once paid
+function homeBillHtml(b, {projected = false, payment = null} = {}){
+  const today = addDaysIso(0);
+  const name = payment ? payment.name : b.name, amount = payment ? payment.amount : b.amount;
+  const meta = [`<span class="bill-tag">${money(amount)}</span>`];
+  if (b && !projected && b.due < today) meta.push(`<span class="overdue">${escapeHtml(dueLabel(b.due))}</span>`);
+  if (b && b.autopay) meta.push("Autopay");
+  if (payment) meta.push("Paid");
+  const lead = payment
+    ? `<button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not paid: ${escapeAttr(name)}" onclick="event.stopPropagation(); unpayBill('${payment.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`
+    : projected
+      ? `<span class="row-icon bill-icon" aria-hidden="true">${WALLET_ICON}</span>`
+      : `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="Mark paid: ${escapeAttr(name)}" onclick="event.stopPropagation(); payBill('${b.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`;
+  const open = b ? `editBill('${b.id}')` : "activateTab('budget')";
+  return `<div class="todo-wrap bill-home"><div class="item ${payment ? "checked" : ""}">
+      ${lead}
+      <div class="body" onclick="${open}"><div class="title">Pay ${escapeHtml(name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
     </div></div>`;
 }
 // A future repeat of a recurring to-do: shown on its date, ticked off only once
@@ -1684,8 +1775,10 @@ function renderHomePanel(){
 
   const washDone = day.wash && washHairDone(iso);
   const repeats = day.repeats || [];
-  const total = day.overdue.length + day.open.length + repeats.length + day.done.length + (day.wash ? 1 : 0);
-  const done = day.done.length + (washDone ? 1 : 0);
+  const dayBills = billsOnDay(iso);
+  const total = day.overdue.length + day.open.length + repeats.length + day.done.length + (day.wash ? 1 : 0)
+    + dayBills.open.length + dayBills.projected.length + dayBills.paid.length;
+  const done = day.done.length + (washDone ? 1 : 0) + dayBills.paid.length;
   const left = total - done;
   let sub;
   if (iso === today){
@@ -1704,11 +1797,15 @@ function renderHomePanel(){
     </div>`;
 
   const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
-  let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join(""), "overdue");
+  const lateBills = dayBills.open.filter(b => b.due < today), dueBills = dayBills.open.filter(b => b.due >= today);
+  let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join("")
+    + lateBills.map(b => homeBillHtml(b)).join(""), "overdue");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
   const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, pastOpen)).join("")
-    + repeats.map(repeatGhostHtml).join("")
-    + (washDone ? washRowHtml(iso) : "") + day.done.map(t => homeRowHtml(t)).join("");
+    + dueBills.map(b => homeBillHtml(b)).join("") + repeats.map(repeatGhostHtml).join("")
+    + dayBills.projected.map(b => homeBillHtml(b, {projected:true})).join("")
+    + (washDone ? washRowHtml(iso) : "") + day.done.map(t => homeRowHtml(t)).join("")
+    + dayBills.paid.map(p => homeBillHtml(null, {payment:p})).join("");
   const dayName = escapeHtml(dueLabel(iso));
   const emptyText = iso === today ? "Nothing due today — tap + to add one."
     : iso < today ? "Nothing was due or done this day."
@@ -1759,8 +1856,9 @@ const COMPOSER_MODES = {
   todo:   {title:"New to-do", add:"Add to-do", fab:"Add a to-do", placeholder:"What needs doing? Try “dentist fri”"},
   shop:   {title:"New item", add:"Add to list", fab:"Add to shopping list", placeholder:"What to buy? Try “helmet $250”"},
   closet: {title:"Add to wardrobe", add:"Add", fab:"Add to wardrobe", placeholder:"What is it? e.g. “Black crewneck”"},
+  money:  {title:"Add to budget", add:"Add", fab:"Add spending or a bill", placeholder:"What did you spend on? Try “groceries $54”"},
 };
-const FAB_MODE_BY_TAB = {home:"todo", todo:"todo", wants:"shop", style:"closet"};
+const FAB_MODE_BY_TAB = {home:"todo", todo:"todo", wants:"shop", style:"closet", budget:"money"};
 const CALENDAR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 let composer = null;
 function fabMode(){ return FAB_MODE_BY_TAB[currentTab] || "todo"; }
@@ -1777,6 +1875,13 @@ function composerFresh(mode, added, prev){
     const f = wantsFilter;
     return {...base, kind:f === "need" || f === "want" ? f : null,
       cat:f === "moto" ? "moto" : f === "wardrobe" ? "wardrobe" : "general", wcat:"Other", high:false};
+  }
+  if (mode === "money"){
+    // type, category and repeat stick for batches; the date goes back to today
+    const firstCat = budget.categories[0] ? budget.categories[0].id : null;
+    return {...base, type:prev ? prev.type : "expense", cat:prev && budgetCat(prev.cat) ? prev.cat : firstCat,
+      date:null, manual:false, repeat:prev ? prev.repeat : "monthly", autopay:false,
+      group:prev ? prev.group : "personal", account:prev ? prev.account : null};
   }
   return {...base, dest:prev ? prev.dest : "closet", cat:prev ? prev.cat : CAP_CATS[0], pending:false};
 }
@@ -1831,6 +1936,26 @@ function renderComposerChips(){
     row1 += cchip("High priority", c.high, "composer.high = !composer.high; renderComposerChips()", c.high ? STAR_FILLED_ICON : STAR_ICON);
     row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
     if (c.cat === "wardrobe") row2 = [...CAP_CATS, "Other"].map(w => cchip(w, c.wcat === w, `composer.wcat = '${w}'; renderComposerChips()`)).join("");
+  } else if (c.mode === "money"){
+    const amt = c.ignoreParse ? null : parsePrice(composerText()).price;
+    if (amt != null) row1 += cchip(`$${fmtMoney(amt)}`, true, "composer.ignoreParse = true; renderComposerChips()");
+    row1 += cchip("Expense", c.type === "expense", "composer.type = 'expense'; renderComposerChips()")
+      + cchip("Bill", c.type === "bill", "composer.type = 'bill'; renderComposerChips()");
+    const date = c.date || addDaysIso(0);
+    const presets = c.type === "bill" ? [["Due today", addDaysIso(0)]] : [["Today", addDaysIso(0)], ["Yesterday", addDaysIso(-1)]];
+    const hit = presets.some(([, iso]) => iso === date);
+    row1 += presets.map(([label, iso]) => cchip(label, date === iso, `composer.date = '${iso}'; renderComposerChips()`)).join("");
+    row1 += cchip(hit ? (c.type === "bill" ? "Pick due date" : "Pick date") : escapeHtml(dueLabel(date)), !hit, "composerOpenPicker()", CALENDAR_ICON);
+    if (c.type === "bill"){
+      row1 += cchip("Joint", c.group === "joint", "composer.group = composer.group === 'joint' ? 'personal' : 'joint'; renderComposerChips()")
+        + cchip("Autopay", c.autopay, "composer.autopay = !composer.autopay; renderComposerChips()");
+      // repeat, then which card/bank pays it
+      row2 = Object.entries(BILL_REPEATS).map(([k, r]) => cchip(r.label, c.repeat === k, `composer.repeat = '${k}'; renderComposerChips()`)).join("")
+        + budget.accounts.map((a, i) => cchip(escapeHtml(a), c.account === a, `composer.account = composer.account === budget.accounts[${i}] ? null : budget.accounts[${i}]; renderComposerChips()`)).join("");
+    } else {
+      row2 = budget.categories.map(cat => cchip(escapeHtml(cat.name), c.cat === cat.id, `composer.cat = '${cat.id}'; renderComposerChips()`)).join("");
+    }
+    document.getElementById("composer-text").placeholder = c.type === "bill" ? "Bill name — try “rent $1200”" : COMPOSER_MODES.money.placeholder;
   } else {
     row1 = cchip("In closet", c.dest === "closet", "composer.dest = 'closet'; renderComposerChips()")
       + cchip("To buy", c.dest === "buy", "composer.dest = 'buy'; renderComposerChips()");
@@ -1839,7 +1964,11 @@ function renderComposerChips(){
     row2 = CAP_CATS.map(w => cchip(w, c.cat === w, `composer.cat = '${w}'; renderComposerChips()`)).join("");
   }
   // Price and link stay in view whenever the item is headed for the shopping list
-  document.getElementById("composer-buy").hidden = !(c.mode === "shop" || (c.mode === "closet" && c.dest === "buy"));
+  document.getElementById("composer-buy").hidden = !(c.mode === "shop" || c.mode === "money" || (c.mode === "closet" && c.dest === "buy"));
+  document.getElementById("cx-price").placeholder = c.mode === "money" ? "Amount" : "Price";
+  document.getElementById("cx-link").hidden = c.mode === "money" && c.type !== "bill";
+  if (c.mode === "money") document.getElementById("cx-link").placeholder = "Pay link (optional)";
+  else document.getElementById("cx-link").placeholder = "Link";
   document.getElementById("composer-chips").innerHTML = row1;
   const r2 = document.getElementById("composer-chips2");
   r2.innerHTML = row2;
@@ -1910,7 +2039,9 @@ function composerAdd(){
   if (!raw){ textEl.focus(); return; }
   const note = composer.mode === "todo" ? addTodoFromComposer(raw)
     : composer.mode === "shop" ? addWantFromComposer(raw)
+    : composer.mode === "money" ? addMoneyFromComposer(raw)
     : addClosetFromComposer(raw);
+  if (note === false) return; // not saved; the sheet says why
   composer = composerFresh(composer.mode, composer.added + 1, composer);
   // Feedback stays in the sheet's header: a toast would sit on top of the sheet
   document.getElementById("composer-count").textContent = `${composer.added} added` + (note ? ` · last ${note}` : "");
@@ -1947,6 +2078,25 @@ function addWantFromComposer(raw){
   saveContent("wants-content", wantsList, {toast:false});
   renderWants(); renderStyle(); renderHomePanel();
   return price != null ? `$${fmtMoney(price)}` : "";
+}
+function addMoneyFromComposer(raw){
+  const parsed = composer.ignoreParse ? {text:raw, price:null} : parsePrice(raw);
+  const typed = composerField("cx-price") !== "" ? Number(composerField("cx-price")) : null;
+  const amount = typed != null && !isNaN(typed) ? typed : parsed.price;
+  if (amount == null){
+    document.getElementById("composer-count").textContent = "Add an amount — type “$54” or use the Amount box";
+    document.getElementById("cx-price").focus();
+    return false;
+  }
+  const date = composer.date || addDaysIso(0), name = parsed.text.slice(0, 120);
+  if (composer.type === "bill"){
+    bills.push({id:genId("bill"), name, amount:Math.max(0, amount), due:date, repeat:composer.repeat, autopay:composer.autopay,
+      link:composerField("cx-link") || null, group:composer.group, account:budget.accounts.includes(composer.account) ? composer.account : null});
+  } else {
+    budget.expenses.push({id:genId("exp"), name, amount:Math.max(0, amount), cat:composer.cat, date});
+  }
+  saveBudgetData();
+  return composer.type === "bill" ? `bill due ${dueLabel(date)}` : money(amount);
 }
 function addClosetFromComposer(raw){
   const sub = composer.showMore ? composerField("cx-sub") : "";
@@ -2543,7 +2693,7 @@ function renderStyle(){
   const toBuy = wardrobeShopping(), closetCount = closetItems().length;
   const total = closetCount + toBuy.length;
   const pct = total ? Math.round((closetCount / total) * 100) : 0;
-  let html = `<div class="card"><div class="progress-wrap">
+  let html = shopSwitchHtml("style") + `<div class="card"><div class="progress-wrap">
       <div class="progress-label"><span>Wardrobe built</span><b>${closetCount}/${total} · ${pct}%</b></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
     </div>
@@ -2720,6 +2870,11 @@ function wantsOrder(a, b){
     || ((wantKind(a) === "need" ? 0 : 1) - (wantKind(b) === "need" ? 0 : 1))
     || ((a.price ?? Infinity) - (b.price ?? Infinity));
 }
+// Shopping's two views: the shopping list and the closet (wardrobe)
+function shopSwitchHtml(on){
+  const b = (tab, label) => `<button class="${on === tab ? "on" : ""}" aria-pressed="${on === tab}" onclick="activateTab('${tab}')">${label}</button>`;
+  return `<div class="seg-switch" role="group" aria-label="Shopping view">${b("wants", "To buy")}${b("style", "Closet")}</div>`;
+}
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
@@ -2751,7 +2906,7 @@ function renderWants(){
   };
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
-  let html = "";
+  let html = shopSwitchHtml("wants");
   const chip = (key, label, n) => `<button class="filter-chip ${wantsFilter === key ? "on" : ""}" aria-pressed="${wantsFilter === key}" onclick="wantsFilter='${key}'; renderWants();"><span class="fc-label">${label}</span><span class="fc-count">${n}</span></button>`;
   html += `<div class="filter-chips">
       ${chip("all", "All", allPending.length)}
@@ -2815,8 +2970,564 @@ function editWant(id){
     }
   );
 }
+// ---------- BUDGET: bills + spending ----------
+// Bills are recurring payments with a due date (rent, phone, insurance). Paying
+// one logs a payment and moves the bill to its next due date; future dues are
+// projected, not stored, the same way recurring to-dos are. Spending is a
+// simple log of expenses against monthly category limits. Everything is per
+// calendar month, and the page can step back and forth through months.
+const BILL_REPEATS = {
+  monthly:   {label:"Monthly", months:1},
+  weekly:    {label:"Weekly"},
+  biweekly:  {label:"Every 2 weeks"},
+  quarterly: {label:"Quarterly", months:3},
+  yearly:    {label:"Yearly", months:12},
+  once:      {label:"One time"},
+};
+const DEFAULT_BUDGET = {categories:[
+  {id:"cat-groceries", name:"Groceries", limit:400},
+  {id:"cat-dining", name:"Dining out", limit:200},
+  {id:"cat-gas", name:"Gas", limit:150},
+  {id:"cat-fun", name:"Fun", limit:150},
+  {id:"cat-other", name:"Other", limit:100},
+], expenses:[], accounts:["Checking", "Credit card", "Joint card"], income:[], plans:{}, goals:[]};
+let bills = [], billPayments = [], budget = {categories:[], expenses:[], accounts:[], income:[], plans:{}, goals:[]};
+// Bills are split the way a household budget usually is: your own vs. shared
+const BILL_GROUPS = {personal:"Monthly", joint:"Joint"};
+let budgetMonthOffset = 0; // months from the current one shown on the Budget tab
+const openBudgetCats = new Set();
+const WALLET_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/></svg>';
+
+function addMonthsIso(iso, n){
+  const d = noonOf(iso), day = d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth() + n);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  return isoDate(d);
+}
+function nextBillIso(iso, repeat){
+  const r = BILL_REPEATS[repeat];
+  if (r && r.months) return addMonthsIso(iso, r.months);
+  if (repeat === "weekly" || repeat === "biweekly") return nextRepeatIso(iso, repeat);
+  return null; // one-time
+}
+function money(n){ return "$" + fmtMoney(Number(n) || 0); }
+function moneyShort(n){ n = Number(n) || 0; return "$" + (Number.isInteger(n) ? n.toLocaleString('en-US') : fmtMoney(n)); }
+function budgetMonthKey(){ return addMonthsIso(addDaysIso(0).slice(0, 8) + "01", budgetMonthOffset).slice(0, 7); }
+function monthEndIso(key){ const [y, m] = key.split("-").map(Number); return isoDate(new Date(y, m, 0, 12)); }
+// Every bill due in a month: payments already made for it, the bill's current
+// (unpaid) due date, and projected later dues
+function billsInMonth(key){
+  const start = key + "-01", end = monthEndIso(key), current = key === addDaysIso(0).slice(0, 7);
+  const rows = billPayments.filter(p => p.due >= start && p.due <= end)
+    .map(p => ({bill:bills.find(b => b.id === p.billId), name:p.name, amount:p.amount, due:p.due, payment:p}));
+  bills.forEach(b => {
+    if (b.done || !b.due) return;
+    let d = b.due, first = true;
+    for (let i = 0; i < 800 && d && d <= end; i++){
+      // the current month also carries the bill's unpaid due from before it
+      if (d >= start || (first && current)) rows.push({bill:b, name:b.name, amount:b.amount, due:d, current:first});
+      first = false;
+      d = nextBillIso(d, b.repeat);
+    }
+  });
+  const byDate = (a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+  return [...rows.filter(r => !r.payment).sort(byDate), ...rows.filter(r => r.payment).sort(byDate)];
+}
+// Bills that land on one day, for Home: the real due date (payable) or a projection
+function billsOnDay(iso){
+  const today = addDaysIso(0);
+  const open = bills.filter(b => !b.done && b.due && (b.due === iso || (iso === today && b.due < today)));
+  const projected = iso > today ? bills.filter(b => {
+    if (b.done || !b.due || b.due >= iso) return false;
+    let d = b.due;
+    for (let i = 0; i < 600 && d && d < iso; i++) d = nextBillIso(d, b.repeat);
+    return d === iso;
+  }) : [];
+  const paid = billPayments.filter(p => p.date === iso);
+  return {open, projected, paid};
+}
+function payBill(id){
+  const b = bills.find(x => x.id === id);
+  if (!b || b.done) return;
+  const p = {id:genId("pay"), billId:b.id, name:b.name, amount:b.amount, due:b.due, date:addDaysIso(0), group:b.group || "personal", account:b.account || null};
+  billPayments.push(p);
+  const prevDue = b.due, next = nextBillIso(b.due, b.repeat);
+  if (next) b.due = next; else b.done = true;
+  saveBudgetData();
+  showUndoToast(next ? `${b.name} paid · next ${dueLabel(next)}` : `${b.name} paid`, () => {
+    billPayments = billPayments.filter(x => x.id !== p.id);
+    b.due = prevDue; delete b.done;
+    saveBudgetData();
+  });
+}
+// Un-pay from a paid row: only the bill's latest payment can be taken back
+function unpayBill(paymentId){
+  const p = billPayments.find(x => x.id === paymentId);
+  if (!p) return;
+  const b = bills.find(x => x.id === p.billId);
+  const latest = billPayments.filter(x => x.billId === p.billId).sort((x, y) => (x.due < y.due ? 1 : -1))[0];
+  if (b && latest !== p){ showToast("Only the latest payment can be undone"); return; }
+  billPayments = billPayments.filter(x => x.id !== p.id);
+  if (b){ b.due = p.due; delete b.done; }
+  saveBudgetData();
+}
+function saveBudgetData(){
+  saveContent("bills-content", bills, {toast:false});
+  saveContent("bill-payments", billPayments, {toast:false});
+  saveContent("budget-content", budget, {toast:false});
+  renderBudget(); renderHomePanel();
+}
+function billFields(){
+  return [
+    {key:"name", label:"Bill", type:"text"},
+    {key:"amount", label:"Amount", type:"number", step:"0.01"},
+    {key:"due", label:"Next due date", type:"date"},
+    {key:"repeat", label:"Repeats", type:"select", options:Object.values(BILL_REPEATS).map(r => r.label)},
+    {key:"group", label:"Group", type:"select", options:Object.values(BILL_GROUPS)},
+    {key:"account", label:"Paid from (card / bank)", type:"select", options:["—", ...budget.accounts]},
+    {key:"autopay", label:"Autopay", type:"checkbox"},
+    {key:"link", label:"Pay link (optional)", type:"url"},
+  ];
+}
+function applyBillValues(b, v){
+  b.name = (v.name || "").trim().slice(0, 120) || b.name || "Bill";
+  b.amount = Math.max(0, Number(v.amount) || 0);
+  b.due = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : (b.due || addDaysIso(0));
+  b.repeat = Object.keys(BILL_REPEATS).find(k => BILL_REPEATS[k].label === v.repeat) || "monthly";
+  b.autopay = !!v.autopay;
+  b.link = (v.link || "").trim() || null;
+  b.group = v.group === BILL_GROUPS.joint ? "joint" : "personal";
+  b.account = budget.accounts.includes(v.account) ? v.account : null;
+}
+function editBill(id){
+  const b = bills.find(x => x.id === id);
+  if (!b) return;
+  openModal("Edit bill", billFields(), {name:b.name, amount:b.amount, due:b.due || "", repeat:(BILL_REPEATS[b.repeat] || BILL_REPEATS.monthly).label, autopay:!!b.autopay, link:b.link || "",
+    group:BILL_GROUPS[b.group] || BILL_GROUPS.personal, account:b.account || "—"},
+    v => { applyBillValues(b, v); delete b.done; saveBudgetData(); },
+    () => { bills = bills.filter(x => x.id !== id); saveBudgetData(); },
+    {confirm:"Delete this bill? Its past payments stay in your history."});
+}
+function addBill(){
+  openModal("Add bill", billFields(), {repeat:"Monthly", due:addDaysIso(0), group:BILL_GROUPS.personal, account:"—"},
+    v => { if (!(v.name || "").trim()) return; const b = {id:genId("bill")}; applyBillValues(b, v); bills.push(b); saveBudgetData(); });
+}
+function budgetCat(id){ return budget.categories.find(c => c.id === id); }
+function editExpense(id){
+  const e = budget.expenses.find(x => x.id === id);
+  if (!e) return;
+  const names = budget.categories.map(c => c.name);
+  openModal("Edit expense", [
+    {key:"name", label:"What", type:"text"},
+    {key:"amount", label:"Amount", type:"number", step:"0.01"},
+    {key:"cat", label:"Category", type:"select", options:names.length ? names : ["Other"]},
+    {key:"date", label:"Date", type:"date"},
+  ], {name:e.name, amount:e.amount, cat:(budgetCat(e.cat) || {}).name, date:e.date},
+    v => {
+      e.name = (v.name || "").trim().slice(0, 120) || e.name;
+      e.amount = Math.max(0, Number(v.amount) || 0);
+      const c = budget.categories.find(x => x.name === v.cat); if (c) e.cat = c.id;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v.date || "")) e.date = v.date;
+      saveBudgetData();
+    },
+    () => { budget.expenses = budget.expenses.filter(x => x.id !== id); saveBudgetData(); });
+}
+function editBudgetCat(id){
+  const c = id ? budgetCat(id) : null;
+  openModal(c ? "Edit category" : "Add category", [
+    {key:"name", label:"Category", type:"text"},
+    {key:"limit", label:"Monthly budget", type:"number", step:"0.01"},
+  ], c ? {name:c.name, limit:c.limit} : {},
+    v => {
+      const name = (v.name || "").trim().slice(0, 60);
+      if (!name) return;
+      const target = c || {id:genId("cat")};
+      target.name = name; target.limit = Math.max(0, Number(v.limit) || 0);
+      if (!c) budget.categories.push(target);
+      saveBudgetData();
+    },
+    c ? () => {
+      // spending logged under it moves to Other (or the first category left)
+      budget.categories = budget.categories.filter(x => x.id !== id);
+      const fallback = budget.categories.find(x => /^other$/i.test(x.name)) || budget.categories[0];
+      budget.expenses.forEach(e => { if (e.cat === id) e.cat = fallback ? fallback.id : null; });
+      saveBudgetData();
+    } : null,
+    {confirm:"Delete this category? Its spending moves to Other."});
+}
+function toggleBudgetCat(id){
+  if (openBudgetCats.has(id)) openBudgetCats.delete(id); else openBudgetCats.add(id);
+  renderBudget();
+}
+function shiftBudgetMonth(n){ budgetMonthOffset += n; renderBudget(); }
+function billRowHtml(r, today){
+  const b = r.bill, paid = !!r.payment;
+  const overdue = !paid && r.due < today;
+  const meta = [paid ? `Paid ${escapeHtml(dueLabel(r.payment.date))}` : `<span class="${overdue ? "overdue" : ""}">${overdue ? "Overdue · " : "Due "}${escapeHtml(dueLabel(r.due))}</span>`];
+  if (b && b.repeat && !paid) meta.push(escapeHtml(BILL_REPEATS[b.repeat] ? BILL_REPEATS[b.repeat].label : ""));
+  if (b && b.autopay && !paid) meta.push(`<span class="autopay">Autopay</span>`);
+  const acct = (b && b.account) || (r.payment && r.payment.account);
+  if (acct) meta.unshift(`<span class="acct-pill" style="--acct:${accountColor(acct)}">${escapeHtml(acct)}</span>`);
+  const check = paid
+    ? `<button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not paid: ${escapeAttr(r.name)}" onclick="event.stopPropagation(); unpayBill('${r.payment.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`
+    : r.current
+      ? `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="Mark paid: ${escapeAttr(r.name)}" onclick="event.stopPropagation(); payBill('${b.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`
+      : `<span class="row-icon" aria-hidden="true">${CALENDAR_ICON}</span>`;
+  return `<div class="item bill-row ${paid ? "checked" : ""}">
+      ${check}
+      <div class="body" ${b ? `onclick="editBill('${b.id}')"` : ""}><div class="title">${escapeHtml(r.name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
+      <div class="bill-amt">${money(r.amount)}${b && !paid ? linkHtml(b.link, 'class="bill-pay" onclick="event.stopPropagation()" aria-label="Pay online"', "Pay →") : ""}</div>
+    </div>`;
+}
+// Each card/bank gets its own pill color, by its place in the list (never red,
+// which reads as overdue)
+const ACCOUNT_HUES = [210, 170, 40, 270, 130, 300, 190, 25];
+function accountColor(name){
+  let i = budget.accounts.indexOf(name);
+  if (i < 0){ i = 0; for (const ch of String(name)) i = (i * 31 + ch.charCodeAt(0)) % ACCOUNT_HUES.length; }
+  return `hsl(${ACCOUNT_HUES[i % ACCOUNT_HUES.length]} 65% 66%)`;
+}
+// ---------- income + paycheck plans ----------
+// An income source (a paycheck) repeats from its start date. Each payday gets a
+// plan: lines that spend the check down (a share of the bills, a card payment,
+// fun money), and what's left over. Plans are keyed "sourceId|date".
+function incomeInMonth(key){
+  const start = key + "-01", end = monthEndIso(key), out = [];
+  budget.income.forEach(src => {
+    let d = src.start;
+    for (let i = 0; i < 800 && d && d <= end; i++){
+      if (d >= start) out.push(paycheckAt(src, d));
+      d = nextBillIso(d, src.repeat);
+    }
+  });
+  return out.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+}
+function paycheckAt(src, date){
+  const key = `${src.id}|${date}`, plan = budget.plans[key] || {lines:[]};
+  const amount = plan.amount != null ? plan.amount : src.amount;
+  const planned = plan.lines.reduce((s, l) => s + l.amount, 0);
+  return {src, date, key, amount, plan, planned, left:amount - planned};
+}
+// The next payday after `iso`, across every income source (for the bills hint)
+function nextPayday(iso){
+  const key = iso.slice(0, 7), nextKey = addMonthsIso(key + "-01", 1).slice(0, 7);
+  return [...incomeInMonth(key), ...incomeInMonth(nextKey)].map(p => p.date).filter(d => d > iso).sort()[0] || null;
+}
+function billsBetween(from, toExclusive){
+  const lastDay = isoDate(new Date(noonOf(toExclusive).getTime() - 864e5));
+  const months = [...new Set([from.slice(0, 7), lastDay.slice(0, 7)])];
+  let total = 0;
+  months.forEach(k => billsInMonth(k).forEach(r => { if (r.due >= from && r.due < toExclusive) total += Number(r.amount) || 0; }));
+  return Math.round(total * 100) / 100;
+}
+function planFor(key){ return budget.plans[key] || (budget.plans[key] = {lines:[]}); }
+function incomeFields(){
+  return [
+    {key:"name", label:"Income (e.g. Paycheck)", type:"text"},
+    {key:"amount", label:"Usual amount", type:"number", step:"0.01"},
+    {key:"start", label:"A payday (first one to count)", type:"date"},
+    {key:"repeat", label:"Repeats", type:"select", options:Object.values(BILL_REPEATS).map(r => r.label)},
+  ];
+}
+function applyIncomeValues(x, v){
+  x.name = (v.name || "").trim().slice(0, 60) || "Paycheck";
+  x.amount = Math.max(0, Number(v.amount) || 0);
+  x.start = /^\d{4}-\d{2}-\d{2}$/.test(v.start || "") ? v.start : (x.start || addDaysIso(0));
+  x.repeat = Object.keys(BILL_REPEATS).find(k => BILL_REPEATS[k].label === v.repeat) || "biweekly";
+}
+function addIncome(){
+  openModal("Add income", incomeFields(), {name:"Paycheck", repeat:BILL_REPEATS.biweekly.label, start:addDaysIso(0)},
+    v => { const x = {id:genId("inc")}; applyIncomeValues(x, v); budget.income.push(x); saveBudgetData(); });
+}
+function editIncome(id){
+  const x = budget.income.find(i => i.id === id);
+  if (!x) return;
+  openModal("Edit income", incomeFields(), {name:x.name, amount:x.amount, start:x.start, repeat:(BILL_REPEATS[x.repeat] || BILL_REPEATS.biweekly).label},
+    v => { applyIncomeValues(x, v); saveBudgetData(); },
+    () => { budget.income = budget.income.filter(i => i.id !== id); saveBudgetData(); },
+    {confirm:"Delete this income? Its paycheck plans are removed too."});
+}
+function editPaycheck(srcId, date){
+  const src = budget.income.find(i => i.id === srcId);
+  if (!src) return;
+  const p = paycheckAt(src, date);
+  openModal(`${src.name} · ${noonOf(date).toLocaleDateString('en-US', {month:'short', day:'numeric'})}`, [
+    {key:"amount", label:"Amount for this payday", type:"number", step:"0.01"},
+    {type:"note", label:`Usual amount: ${money(src.amount)}. Change the source itself from <b>Income</b> → Edit.`},
+  ], {amount:p.amount},
+    v => { const n = Number(v.amount); const plan = planFor(p.key); if (isFinite(n) && n >= 0 && n !== src.amount) plan.amount = n; else delete plan.amount; saveBudgetData(); });
+}
+function addPlanLine(key, name = "", amount = ""){
+  openModal("Add to this paycheck", [
+    {key:"name", label:"What (a bill share, card payment, fun money…)", type:"text"},
+    {key:"amount", label:"Amount", type:"number", step:"0.01"},
+  ], {name, amount},
+    v => { if (!(v.name || "").trim()) return; planFor(key).lines.push({id:genId("line"), name:v.name.trim().slice(0, 80), amount:Math.max(0, Number(v.amount) || 0)}); saveBudgetData(); });
+}
+function quickPlanLine(key, name, amount){
+  planFor(key).lines.push({id:genId("line"), name, amount});
+  saveBudgetData();
+}
+function editPlanLine(key, id){
+  const plan = budget.plans[key], l = plan && plan.lines.find(x => x.id === id);
+  if (!l) return;
+  openModal("Edit line", [
+    {key:"name", label:"What", type:"text"},
+    {key:"amount", label:"Amount", type:"number", step:"0.01"},
+  ], {name:l.name, amount:l.amount},
+    v => { l.name = (v.name || "").trim().slice(0, 80) || l.name; l.amount = Math.max(0, Number(v.amount) || 0); saveBudgetData(); },
+    () => { plan.lines = plan.lines.filter(x => x.id !== id); saveBudgetData(); });
+}
+// ---------- savings goals ----------
+function editGoal(id){
+  const g = id ? budget.goals.find(x => x.id === id) : null;
+  openModal(g ? "Edit goal" : "Add savings goal", [
+    {key:"name", label:"Goal (e.g. House savings)", type:"text"},
+    {key:"target", label:"Target", type:"number", step:"0.01"},
+    {key:"saved", label:"Saved so far", type:"number", step:"0.01"},
+    {key:"add", label:"Add to it now (optional)", type:"number", step:"0.01"},
+  ], g ? {name:g.name, target:g.target, saved:g.saved} : {},
+    v => {
+      const name = (v.name || "").trim().slice(0, 60);
+      if (!name) return;
+      const t = g || {id:genId("goal")};
+      t.name = name; t.target = Math.max(0, Number(v.target) || 0);
+      t.saved = Math.max(0, (Number(v.saved) || 0) + (Number(v.add) || 0));
+      if (!g) budget.goals.push(t);
+      saveBudgetData();
+    },
+    g ? () => { budget.goals = budget.goals.filter(x => x.id !== id); saveBudgetData(); } : null);
+}
+// ---------- cards / banks ----------
+function editAccount(i){
+  const name = i == null ? "" : budget.accounts[i];
+  openModal(i == null ? "Add card or bank" : "Edit card or bank", [{key:"name", label:"Name (e.g. Bank A, Citi CC)", type:"text"}], {name},
+    v => {
+      const n = (v.name || "").trim().slice(0, 40);
+      if (!n || (n !== name && budget.accounts.includes(n))) return;
+      if (i == null) budget.accounts.push(n);
+      else { budget.accounts[i] = n; bills.forEach(b => { if (b.account === name) b.account = n; }); }
+      saveBudgetData();
+    },
+    i == null ? null : () => { budget.accounts.splice(i, 1); bills.forEach(b => { if (b.account === name) b.account = null; }); saveBudgetData(); });
+}
+// ---------- import bills pasted from a spreadsheet ----------
+// Copying rows out of Google Sheets / Excel gives tab-separated text, e.g.
+// "Bank A	6th	Car Loan	$120.00". Each row becomes a monthly bill due
+// that day this month; header and Total rows are skipped.
+function parseBillRows(text){
+  const out = [];
+  String(text || "").split(/\r?\n/).forEach(line => {
+    if (!line.trim() || /^\s*(total|card\s*\/\s*bank|monthly|joint bills)\b/i.test(line)) return;
+    let cells = line.includes("\t") ? line.split("\t") : line.split(/\s{2,}|\s*,\s*(?=\$|\d|[A-Za-z])/);
+    cells = cells.map(c => c.trim()).filter(Boolean);
+    let amount = null, day = null, account = null; const rest = [];
+    cells.forEach(c => {
+      const money = c.match(/^\$?\s*([\d,]+(?:\.\d{1,2})?)$/);
+      const dayM = c.match(/^(\d{1,2})(?:st|nd|rd|th)?$/i), dateM = c.match(/^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?$/);
+      if (c === "-" || c === "—"){ if (amount == null) amount = 0; }
+      else if (money && c.includes("$")) amount = Number(money[1].replace(/,/g, ""));
+      else if (dayM && day == null) day = Number(dayM[1]);
+      else if (dateM && day == null) day = Number(dateM[2]);
+      else if (money && amount == null) amount = Number(money[1].replace(/,/g, ""));
+      else if (!account && budget.accounts.some(a => a.toLowerCase() === c.toLowerCase())) account = budget.accounts.find(a => a.toLowerCase() === c.toLowerCase());
+      else rest.push(c);
+    });
+    // four cells and no known account: the first one is the card/bank
+    if (!account && cells.length >= 4 && rest.length >= 2) account = rest.shift();
+    const name = rest.join(" ").slice(0, 120);
+    if (name && day >= 1 && day <= 31) out.push({name, amount:amount || 0, day, account});
+  });
+  return out;
+}
+function importBills(){
+  openModal("Import bills", [
+    {type:"note", label:"Copy the rows from your sheet (card/bank, date, expense, amount) and paste them here. Each becomes a monthly bill due that day."},
+    {key:"rows", label:"Rows", type:"textarea"},
+    {key:"group", label:"Group", type:"select", options:Object.values(BILL_GROUPS)},
+    {key:"paid", label:"Mark the ones due before today as paid this month", type:"checkbox"},
+  ], {group:BILL_GROUPS.personal, paid:true},
+    v => {
+      const rows = parseBillRows(v.rows);
+      if (!rows.length){ showToast("No bills found — paste rows with a date and a name", true); return; }
+      const today = addDaysIso(0), key = today.slice(0, 7);
+      const last = Number(monthEndIso(key).slice(8));
+      rows.forEach(r => {
+        if (r.account && !budget.accounts.includes(r.account)) budget.accounts.push(r.account.slice(0, 40));
+        const due = `${key}-${String(Math.min(r.day, last)).padStart(2, "0")}`;
+        const b = {id:genId("bill"), name:r.name, amount:r.amount, due, repeat:"monthly", autopay:false, link:null,
+          group:v.group === BILL_GROUPS.joint ? "joint" : "personal", account:r.account || null};
+        if (v.paid && due < today){
+          billPayments.push({id:genId("pay"), billId:b.id, name:b.name, amount:b.amount, due, date:due, group:b.group, account:b.account});
+          b.due = nextBillIso(due, "monthly");
+        }
+        bills.push(b);
+      });
+      saveBudgetData();
+      showToast(`Imported ${rows.length} bill${rows.length === 1 ? "" : "s"}`);
+    });
+}
+function renderBudget(){
+  const el = document.getElementById("panel-budget");
+  if (!el) return;
+  const key = budgetMonthKey(), today = addDaysIso(0);
+  const monthName = noonOf(key + "-01").toLocaleDateString('en-US', key.slice(0, 4) === today.slice(0, 4) ? {month:'long'} : {month:'long', year:'numeric'});
+  const shortMonth = noonOf(key + "-01").toLocaleDateString('en-US', {month:'short'});
+  const rows = billsInMonth(key);
+  const sum = list => list.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const billsTotal = sum(rows), billsPaid = sum(rows.filter(r => r.payment));
+  const spent = budget.expenses.filter(e => e.date && e.date.slice(0, 7) === key);
+  const spentTotal = sum(spent);
+  const limitTotal = budget.categories.reduce((s, c) => s + (Number(c.limit) || 0), 0);
+  const paychecks = incomeInMonth(key);
+  const incomeTotal = paychecks.reduce((s, p) => s + p.amount, 0);
+  const plannedTotal = paychecks.reduce((s, p) => s + p.planned, 0);
+  const hasIncome = budget.income.length > 0;
+  const big = hasIncome ? incomeTotal - plannedTotal : limitTotal - spentTotal;
+  const pct = hasIncome ? (incomeTotal ? Math.min(100, Math.round(plannedTotal / incomeTotal * 100)) : 0)
+    : (limitTotal ? Math.min(100, Math.round(spentTotal / limitTotal * 100)) : 0);
+
+  let html = `<div class="budget-month">
+      <button class="cal-nav" onclick="shiftBudgetMonth(-1)" aria-label="Previous month">‹</button>
+      <span>${monthName}</span>
+      <button class="cal-nav" onclick="shiftBudgetMonth(1)" aria-label="Next month">›</button>
+    </div>
+    <div class="card budget-summary">
+      <div class="budget-left"><span class="budget-label">${hasIncome ? (big >= 0 ? "Remaining" : "Over-planned") : (big >= 0 ? "Left to spend" : "Over budget")}</span><b class="${big < 0 ? "over" : ""}">${moneyShort(Math.abs(big))}</b></div>
+      <div class="progress-bar"><div class="progress-fill ${big < 0 ? "over" : ""}" style="width:${pct}%"></div></div>
+      <div class="budget-stats">
+        ${hasIncome ? `<span>Income <b>${moneyShort(incomeTotal)}</b> · planned ${moneyShort(plannedTotal)}</span>` : ""}
+        <span>Bills <b>${moneyShort(billsTotal)}</b> · ${moneyShort(billsPaid)} paid</span>
+        <span>Spent <b>${moneyShort(spentTotal)}</b> of ${moneyShort(limitTotal)}</span>
+      </div>
+    </div>`;
+
+  // Bills, split Monthly (yours) and Joint, each with a subtotal, then the total
+  const billEdit = editCards.has("bills-card");
+  let billBody = "";
+  if (billEdit){
+    billBody += `<div class="acct-editor"><div class="budget-sub">Cards &amp; banks</div>
+        ${budget.accounts.map((a, i) => `<button class="acct-pill big" style="--acct:${accountColor(a)}" onclick="editAccount(${i})">${escapeHtml(a)}${PENCIL_ICON}</button>`).join("")}
+        <button class="acct-add" onclick="editAccount()">+ Add</button></div>`;
+  }
+  const groupHtml = g => {
+    const list = rows.filter(r => ((r.bill && r.bill.group) || (r.payment && r.payment.group) || "personal") === g);
+    if (!list.length) return "";
+    return `<div class="budget-sub">${BILL_GROUPS[g]}<span>${moneyShort(sum(list))} · ${list.filter(r => r.payment).length}/${list.length} paid</span></div>`
+      + list.map(r => billRowHtml(r, today)).join("");
+  };
+  const grouped = groupHtml("personal") + groupHtml("joint");
+  billBody += grouped || `<div class="empty">No bills this month. Add rent, phone, subscriptions… or import them from your sheet.</div>`;
+  if (grouped) billBody += `<div class="budget-total"><span>Total bills</span><b>${money(billsTotal)}</b></div>`;
+  billBody += `<div class="budget-actions"><button class="add-row" onclick="addBill()">+ Add bill</button><button class="add-row" onclick="importBills()">Import from sheet</button></div>`;
+  html += collapsibleCard({id:"bills-card", title:"Bills", insight:rows.length ? `${moneyShort(billsTotal)} · ${rows.filter(r => r.payment).length}/${rows.length} paid` : "None", body:billBody});
+
+  // Income: each payday with its plan and what's left
+  let incBody = "";
+  paychecks.forEach(p => {
+    const next = nextPayday(p.date);
+    const billsDue = next ? billsBetween(p.date, next) : 0;
+    const label = next ? `Bills ${noonOf(p.date).toLocaleDateString('en-US', {month:'short', day:'numeric'})}–${noonOf(isoDate(new Date(noonOf(next).getTime() - 864e5))).toLocaleDateString('en-US', {month:'short', day:'numeric'})}` : "";
+    const hinted = label && billsDue > 0 && !p.plan.lines.some(l => l.name === label);
+    incBody += `<div class="paycheck">
+        <button class="paycheck-head" onclick="editPaycheck('${p.src.id}','${p.date}')">
+          <span><b>${escapeHtml(p.src.name)}</b> · ${escapeHtml(noonOf(p.date).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}))}</span>
+          <b>${money(p.amount)}</b>
+        </button>
+        ${p.plan.lines.map(l => `<button class="plan-line" onclick="editPlanLine('${p.key}','${l.id}')"><span>${escapeHtml(l.name)}</span><span>${money(l.amount)}</span></button>`).join("")}
+        ${hinted ? `<button class="plan-hint" onclick="quickPlanLine('${p.key}', '${escapeAttr(label)}', ${billsDue})">+ ${escapeHtml(label)} due before next payday · ${money(billsDue)}</button>` : ""}
+        <button class="plan-add" onclick="addPlanLine('${p.key}')">+ Add line</button>
+        <div class="paycheck-left ${p.left < 0 ? "over" : ""}"><span>Remaining</span><b>${money(p.left)}</b></div>
+      </div>`;
+  });
+  if (!budget.income.length) incBody = `<div class="empty">Add your paycheck to plan each payday: what it covers, and what's left.</div>`;
+  else if (!paychecks.length) incBody = `<div class="empty">No paydays in ${monthName}.</div>`;
+  if (paychecks.length) incBody += `<div class="budget-total"><span>${shortMonth} income</span><b>${money(incomeTotal)}</b></div>
+    <div class="budget-total"><span>Remaining after plans</span><b class="${incomeTotal - plannedTotal < 0 ? "over" : ""}">${money(incomeTotal - plannedTotal)}</b></div>`;
+  const srcs = budget.income.map(x => `<button class="acct-pill big" style="--acct:var(--olive)" onclick="editIncome('${x.id}')">${escapeHtml(x.name)} · ${moneyShort(x.amount)} · ${escapeHtml((BILL_REPEATS[x.repeat] || {}).label || "")}${PENCIL_ICON}</button>`).join("");
+  incBody += `<div class="income-srcs">${srcs}<button class="acct-add" onclick="addIncome()">+ Add income</button></div>`;
+  html += collapsibleCard({id:"income-card", title:"Income", editable:false, insight:paychecks.length ? `${moneyShort(incomeTotal)} · ${paychecks.length} payday${paychecks.length === 1 ? "" : "s"}` : "None", body:incBody});
+
+  // Savings goals
+  const goals = budget.goals.map(g => {
+    const p = g.target ? Math.min(100, Math.round(g.saved / g.target * 100)) : 0;
+    return `<button class="goal" onclick="editGoal('${g.id}')">
+        <span class="goal-head"><b>${escapeHtml(g.name)}</b><span>${moneyShort(g.saved)} of ${moneyShort(g.target)} · ${p}%</span></span>
+        <span class="progress-bar thin"><span class="progress-fill" style="width:${p}%; display:block"></span></span>
+      </button>`;
+  }).join("");
+  html += collapsibleCard({id:"goals-card", title:"Savings", editable:false, insight:budget.goals.length ? `${moneyShort(budget.goals.reduce((s, g) => s + g.saved, 0))} saved` : "None",
+    body:(goals || `<div class="empty">Set a goal, like house savings, and track it here.</div>`) + `<button class="add-row" onclick="editGoal()">+ Add goal</button>`});
+
+  // Spending by category
+  const catEdit = editCards.has("spending-card");
+  let cats = catEdit ? `<button class="add-row" onclick="editBudgetCat()">+ Add category</button>` : "";
+  const catRows = [...budget.categories.map(c => ({c, list:spent.filter(e => e.cat === c.id)}))];
+  const orphans = spent.filter(e => !budgetCat(e.cat));
+  if (orphans.length) catRows.push({c:{id:"none", name:"Uncategorized", limit:0}, list:orphans});
+  catRows.forEach(({c, list}) => {
+    const total = sum(list);
+    const p = c.limit ? Math.min(100, Math.round(total / c.limit * 100)) : (total ? 100 : 0);
+    const over = c.limit ? total > c.limit : total > 0 && c.id === "none";
+    const open = openBudgetCats.has(c.id);
+    const items = list.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map(e => `<button class="expense-row" onclick="editExpense('${e.id}')">
+        <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(noonOf(e.date).toLocaleDateString('en-US', {month:'short', day:'numeric'}))}</span><b>${money(e.amount)}</b>
+      </button>`).join("");
+    cats += `<div class="budget-cat ${open ? "open" : ""}">
+        <button class="budget-cat-head" onclick="${catEdit && c.id !== "none" ? `editBudgetCat('${c.id}')` : `toggleBudgetCat('${c.id}')`}" aria-expanded="${open}">
+          <span class="budget-cat-name">${escapeHtml(c.name)}${catEdit && c.id !== "none" ? `<span class="inline-pencil">${PENCIL_ICON}</span>` : ""}</span>
+          <span class="budget-cat-amt ${over ? "over" : ""}">${moneyShort(total)}${c.limit ? ` <span>of ${moneyShort(c.limit)}</span>` : ""}</span>
+        </button>
+        <div class="progress-bar thin"><div class="progress-fill ${over ? "over" : ""}" style="width:${p}%"></div></div>
+        ${open && !catEdit ? `<div class="expense-list">${items || '<div class="empty">Nothing spent here this month.</div>'}</div>` : ""}
+      </div>`;
+  });
+  html += collapsibleCard({id:"spending-card", title:"Spending", insight:`${moneyShort(spentTotal)} · ${spent.length} item${spent.length === 1 ? "" : "s"}`, body:cats});
+  html += `<p class="footnote budget-hint">Tap + to log spending (“groceries $54”) or add a bill. Tap a payday to change its amount.</p>`;
+  el.innerHTML = html;
+}
+function pruneBudgetHistory(){
+  const cutoff = addDaysIso(-400);
+  const p = billPayments.filter(x => x.date >= cutoff), e = budget.expenses.filter(x => x.date >= cutoff);
+  if (p.length !== billPayments.length){ billPayments = p; writeQuietly("bill-payments", billPayments); }
+  if (e.length !== budget.expenses.length){ budget.expenses = e; writeQuietly("budget-content", budget); }
+}
+// Stored budget data arrives from sync/backup too: coerce every field
+function normalizeBudgetData(){
+  const iso = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : null;
+  const amt = v => { const n = Number(v); return isFinite(n) && n >= 0 ? n : 0; };
+  const str = (v, max) => String(v == null ? "" : v).slice(0, max);
+  if (!Array.isArray(bills)) bills = [];
+  if (!Array.isArray(billPayments)) billPayments = [];
+  if (!budget || typeof budget !== "object") budget = {categories:[], expenses:[]};
+  if (!Array.isArray(budget.categories)) budget.categories = [];
+  if (!Array.isArray(budget.expenses)) budget.expenses = [];
+  bills = bills.filter(b => b && typeof b === "object").map(b => ({id:safeId(b.id, "bill"), name:str(b.name, 120) || "Bill", amount:amt(b.amount),
+    due:iso(b.due) || addDaysIso(0), repeat:BILL_REPEATS[b.repeat] ? b.repeat : "monthly", autopay:!!b.autopay, link:b.link ? str(b.link, 2000) : null, ...(b.done ? {done:true} : {})}));
+  billPayments = billPayments.filter(p => p && iso(p.due) && iso(p.date)).map(p => ({id:safeId(p.id, "pay"), billId:safeId(p.billId, "bill"), name:str(p.name, 120), amount:amt(p.amount), due:p.due, date:p.date}));
+  budget.categories = budget.categories.filter(c => c && typeof c === "object").map(c => ({id:safeId(c.id, "cat"), name:str(c.name, 60) || "Category", limit:amt(c.limit)}));
+  budget.expenses = budget.expenses.filter(e => e && iso(e.date)).map(e => ({id:safeId(e.id, "exp"), name:str(e.name, 120) || "Expense", amount:amt(e.amount), cat:e.cat ? safeId(e.cat, "cat") : null, date:e.date}));
+  budget.accounts = (Array.isArray(budget.accounts) ? budget.accounts : DEFAULT_BUDGET.accounts).map(a => str(a, 40).trim()).filter(Boolean)
+    .filter((a, i, all) => all.indexOf(a) === i);
+  bills.forEach(b => { b.group = b.group === "joint" ? "joint" : "personal"; b.account = budget.accounts.includes(b.account) ? b.account : null; });
+  billPayments.forEach(p => { p.group = p.group === "joint" ? "joint" : "personal"; p.account = p.account ? str(p.account, 40) : null; });
+  budget.income = (Array.isArray(budget.income) ? budget.income : []).filter(x => x && iso(x.start))
+    .map(x => ({id:safeId(x.id, "inc"), name:str(x.name, 60) || "Paycheck", amount:amt(x.amount), start:x.start, repeat:BILL_REPEATS[x.repeat] ? x.repeat : "biweekly"}));
+  const plans = budget.plans && typeof budget.plans === "object" && !Array.isArray(budget.plans) ? budget.plans : {};
+  budget.plans = {};
+  Object.entries(plans).forEach(([k, v]) => {
+    if (!/^[A-Za-z0-9_-]+\|\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== "object") return;
+    budget.plans[k] = {...(v.amount != null && isFinite(Number(v.amount)) ? {amount:amt(v.amount)} : {}),
+      lines:(Array.isArray(v.lines) ? v.lines : []).filter(l => l && typeof l === "object").map(l => ({id:safeId(l.id, "line"), name:str(l.name, 80) || "Item", amount:amt(l.amount)}))};
+  });
+  budget.goals = (Array.isArray(budget.goals) ? budget.goals : []).filter(g => g && typeof g === "object")
+    .map(g => ({id:safeId(g.id, "goal"), name:str(g.name, 60) || "Savings", target:amt(g.target), saved:amt(g.saved)}));
+}
+
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home","todo","wants","style","skin"]; // nav bar and swipe order
+const TAB_ORDER = ["home","todo","wants","budget","skin"]; // nav bar and swipe order
+// The closet (panel "style") lives inside Shopping, behind its To buy | Closet switch
+const NAV_TAB = tab => tab === "style" ? "wants" : tab;
 let currentTab = "home";
 
 function activateTab(tab){
@@ -2826,7 +3537,7 @@ function activateTab(tab){
   if (fabCfg) document.getElementById("fab").setAttribute("aria-label", fabCfg.fab);
   if (tab === "home") renderHome(); // picks up whatever changed on other tabs
   document.querySelectorAll("nav.tabbar button").forEach(b => {
-    const active = b.dataset.tab === tab;
+    const active = b.dataset.tab === NAV_TAB(tab);
     b.classList.toggle("active", active);
     if (active) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
@@ -2856,7 +3567,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    const idx = TAB_ORDER.indexOf(currentTab);
+    const idx = TAB_ORDER.indexOf(NAV_TAB(currentTab));
     if (dx < 0 && idx < TAB_ORDER.length - 1) activateTab(TAB_ORDER[idx + 1]);
     if (dx > 0 && idx > 0) activateTab(TAB_ORDER[idx - 1]);
   }, {passive:true});
@@ -3198,7 +3909,7 @@ async function hardRefresh(){
 // are never synced themselves.
 const SYNC_KEYS = ["skin-rules-content","skin-routine-content","routine-checks","skin-days-content","style-rules-content","sizes-content",
                    "capsule-content","wants-content","todo-content","todo-archive-content",
-                   "style-state","wants-state"];
+                   "style-state","wants-state","bills-content","bill-payments","budget-content"];
 const GIST_FILENAME = "jazz2-data.json";
 let syncPushTimer = null;
 let syncBusy = false;
@@ -3246,7 +3957,7 @@ function applyRemote(payload){
   try{ wantsState = JSON.parse(localStorage.getItem("wants-state")) || {}; }catch(e){ wantsState = {}; }
   migrateWardrobeNeeds(); // data from an older app version may still have a wardrobe "Still need" list
   archiveOldTodos(); // the other device may have carried expired completed items
-  renderSkin(); renderStyle(); renderWants(); renderHome();
+  renderSkin(); renderStyle(); renderWants(); renderBudget(); renderHome();
 }
 async function findOrCreateGist(){
   const gists = await gistApi("/gists?per_page=100");
@@ -3334,7 +4045,8 @@ async function downloadBackup(){
     "style-rules-content":styleRules,
     "sizes-content":sizes, "capsule-content":capsule, "wants-content":wantsList, "todo-content":todoList,
     "todo-archive-content":loadContent("todo-archive-content", []),
-    "style-state":styleState, "wants-state":wantsState
+    "style-state":styleState, "wants-state":wantsState,
+    "bills-content":bills, "bill-payments":billPayments, "budget-content":budget
   };
   const payload = {app:"jazz2", version:1, exportedAt:new Date().toISOString(), data};
   const name = `jazz2-backup-${isoDate(new Date())}.json`;
@@ -3375,7 +4087,7 @@ function restoreBackup(){
 function openSyncModal(){
   const connected = !!localStorage.getItem("sync-token");
   openModal("Sync & backup", [
-    {type:"note", label:`Syncs everything (to-dos, routines, wardrobe, wants) through a private gist on
+    {type:"note", label:`Syncs everything (to-dos, routines, shopping, closet, budget) through a private gist on
       your GitHub account. Create a <b>classic</b> personal access token with only the
       <b>gist</b> scope at github.com &rsaquo; Settings &rsaquo; Developer settings &rsaquo; Tokens (classic),
       then paste the same token into the app on each device. Newest change wins when
@@ -3434,6 +4146,11 @@ function loadAllContent(){
   wantsList = loadContent("wants-content", DEFAULT_WANTS);
   todoList = loadContent("todo-content", DEFAULT_TODO);
   if (migrateTodoDays(todoList)) writeQuietly("todo-content", todoList);
+  bills = loadContent("bills-content", []);
+  billPayments = loadContent("bill-payments", []);
+  budget = loadContent("budget-content", JSON.parse(JSON.stringify(DEFAULT_BUDGET)));
+  normalizeBudgetData();
+  pruneBudgetHistory();
   normalizeLoadedData(); // last: needs every list loaded
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
   const keptRules = skinRules.filter(r => !RETIRED_SKIN_RULES.includes(r));
@@ -3504,6 +4221,7 @@ function writeQuietly(key, value){
   wantsState = loadContent("wants-state", {});
   migrateWardrobeNeeds();
   renderStyle();
+  renderBudget();
   renderWants();
   renderHome();
   applyLaunchParams();
@@ -3519,7 +4237,7 @@ function applyLaunchParams(){
   const action = params.get("action");
   if (!tab && !action) return;
   if (action === "addtodo") activateTab("todo");
-  else if (tab && TAB_ORDER.includes(tab) && tab !== "home") activateTab(tab);
+  else if (tab && (TAB_ORDER.includes(tab) || tab === "style") && tab !== "home") activateTab(tab);
   if (action === "addtodo") openComposer("todo");
   history.replaceState(null, "", location.pathname);
 }
