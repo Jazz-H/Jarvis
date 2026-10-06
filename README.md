@@ -1,7 +1,7 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
-docs) into one place with five tabs: **Home, To-Do, Skin & Hair, Budget, Shopping** (daily habits first, the least-used tab last).
+docs) into one place with five tabs: **Home, To-Do, Budget, Shopping, Skin & Hair.**
 Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
 was removed; its data is still loaded, synced and backed up, just not shown.)
 
