@@ -1,7 +1,7 @@
 # Jazz 2.0 — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
-docs) into one place with five tabs: **Home, To-Do, Wants, Wardrobe, Skin & Hair.**
+docs) into one place with five tabs: **Home, To-Do, Shopping, Wardrobe, Skin & Hair.**
 
 Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main`).
 
@@ -10,7 +10,7 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 **Home** is a dashboard. It has:
 - a To-Do summary of overdue and due-today items (up to 3), which you can tick off in place;
 - today's skin routine progress ("AM 4/6 · PM 0/6"), the streak, and the next wash day;
-- Wardrobe and Wants stat tiles;
+- Wardrobe and Shopping stat tiles;
 - **Up next**: the top two items to buy, by priority then price.
 
 Tapping a card opens its tab.
@@ -54,14 +54,17 @@ fall back to the original cadence: every 2 weeks from Thu Jul 16 2026.
 - **In closet:** grouped by category, with "fit pending" badges.
 - **Reference cards:** Fit rules and the Sizing grid.
 
-**Wants** is the single shopping list, clothes included.
+**Shopping** (the `wants` tab in code; renamed from "Wants") is the single shopping list:
+clothes, moto gear, and everything else.
 - **Need or want.** Every item carries a **Need** or **Want** tag. Unless set in its form,
   wardrobe items count as needs and everything else as wants. Needs sort ahead of wants,
   after high-priority items.
-- **Filtering.** All / Needs / Wants / Wardrobe chips narrow the list. Quick-adding under
+- **Filtering.** All / Needs / Wants / Wardrobe / Moto chips narrow the list. They keep
+  their natural size and wrap to a second line rather than scrolling or clipping. Quick-adding under
   a filter keeps the new item in it.
-- **Categories.** Each item's form has a Category select: Not clothing, or a wardrobe
-  category. Clothing items show a "Wardrobe · Tops" tag.
+- **Categories.** Each item's form has a Category select: General, **Moto** (motorcycle
+  gear, `moto: true`, shown with a "Moto" tag), or a wardrobe category (`wardrobeCat`,
+  shown as "Wardrobe · Tops"). They're mutually exclusive.
 - **Buying.** Mark bought moves the item to Purchased. A bought wardrobe item also appears in
   the closet; un-buying takes it back out.
 - **Priority.** High-priority items get a badge and sort first.
@@ -76,7 +79,7 @@ a centered dialog on desktop. Esc closes them, Enter saves, and Delete always co
 - **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`).
 - **Hard refresh:** pull down from the top of a tab (or use the refresh button on
   desktop). It clears the service worker cache and reloads, but never touches your data.
-- **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Wants,
+- **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Shopping,
   Wardrobe, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.
 
@@ -120,7 +123,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (69 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (77 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - to-do date parsing, migration, and undo;
@@ -129,7 +132,7 @@ server. It covers:
 - routine equivalence with the legacy per-day data over 28 dates;
 - check-offs and streaks;
 - the wash-day calendar and frequency;
-- need/want tags;
+- need/want tags, the Moto category, and the Shopping rename;
 - the wardrobe → wants migration and buy-to-closet flow;
 - the totals rule;
 - backup and restore;
@@ -168,7 +171,7 @@ Everything lives in `localStorage` on the device:
 | `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about 60 days kept |
 | `skin-rules-content`, `style-rules-content`, `sizes-content` | Reference lists |
 | `capsule-content` | Owned closet items (`state: "owned" \| "pending"` for fit pending) |
-| `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?}` |
+| `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
 | `data-updated-at` | Last real edit, used for sync |
 | `sync-token`, `sync-gist-id` | Sync settings for this device (never synced) |

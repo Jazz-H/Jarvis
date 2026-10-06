@@ -501,19 +501,19 @@
     background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700;
   }
   .filter-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
-  /* Wants filters: always fit the screen — the old scrolling row overflowed on
-     phones with larger system text and showed a scrollbar. Chips size to their
-     content and share the spare width; when they can't all fit on one line
-     (narrow screen or large text) they wrap to a second line instead of clipping. */
+  /* Shopping filters: always fit the screen — a scrolling row overflowed on
+     phones with larger system text and showed a scrollbar. Chips keep their
+     natural size, left-aligned, and wrap to another line instead of clipping. */
   .filter-chips{display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 14px;}
   .filter-chips .filter-chip{
-    flex:1 1 auto; min-width:0; min-height:40px; padding:0 10px;
+    flex:0 1 auto; min-width:0; min-height:40px; padding:0 14px;
     display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
   }
   .fc-label{overflow:hidden; text-overflow:ellipsis;}
   .fc-count{flex-shrink:0; opacity:.7; font-variant-numeric:tabular-nums;}
   .want-tag{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--olive); margin-top:2px;}
   .want-tag svg{width:12px; height:12px;}
+  .want-tag.moto{color:var(--gold);}
   /* wash-day calendar */
   .wash-freq{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
   .cal-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700;}
@@ -746,7 +746,7 @@
   </button>
   <button data-tab="wants">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
-    Wants
+    Shopping
   </button>
   <button data-tab="style">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>
@@ -759,7 +759,7 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Wardrobe", wants:"Wants"};
+const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", style:"Wardrobe", wants:"Shopping"};
 const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const LINK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
@@ -771,6 +771,7 @@ const BAG_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
 const glanceArrow = size => `<svg class="glance-arrow" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>`;
+const MOTO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a9 9 0 0 1 18 0v3H3z"/><path d="M12 11h9"/><path d="M8 18v2"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const STAR_PATH = "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
 const STAR_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${STAR_PATH}"/></svg>`;
@@ -1479,7 +1480,7 @@ function renderHomePanel(){
           <div class="glance-icon" style="background:color-mix(in srgb, var(--navy) 15%, transparent); color:var(--navy);">${BAG_ICON}</div>
           ${glanceArrow(15)}
         </div>
-        <div class="tile-label">Wants</div>
+        <div class="tile-label">Shopping</div>
         <div class="tile-stat" style="color:var(--navy);">$${fmtMoney(pendingTotal)}${unpriced ? "+" : ""}</div>
         <div class="tile-caption">${pendingItems.length} still needed${unpriced ? ` · ${unpriced} unpriced` : ""}${boughtCount ? ` · ${boughtCount} bought` : ""}</div>
         ${boughtCount ? `<div class="progress-bar"><div class="progress-fill wants" style="width:${boughtPct}%"></div></div>` : ""}
@@ -1505,7 +1506,7 @@ function renderHomePanel(){
             w.wardrobeCat ? 'color-mix(in srgb, var(--olive) 15%, transparent)' : 'color-mix(in srgb, var(--navy) 15%, transparent)',
             w.wardrobeCat ? 'var(--olive)' : 'var(--navy)', w.wardrobeCat ? SHIRT_ICON : BAG_ICON, w.name,
             w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}` : '',
-            (wantKind(w) === 'need' ? 'Need' : 'Want') + (w.wardrobeCat ? ` · Wardrobe · ${w.wardrobeCat}` : '') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
+            (wantKind(w) === 'need' ? 'Need' : 'Want') + (w.wardrobeCat ? ` · Wardrobe · ${w.wardrobeCat}` : '') + (w.moto ? ' · Moto' : '') + (w.priority === 'high' ? ' · high priority' : ''), w.link,
             `toggleWant('${w.id}').then(renderHome);`, 'Mark bought')).join("")}
       </div>`;
   }
@@ -2070,7 +2071,7 @@ function renderStyle(){
 // (`wardrobeCat`). The closet is derived, not copied: owned capsule items plus
 // wardrobe wants marked bought. Buying a wardrobe item puts it in the closet;
 // un-buying takes it back out.
-const WANT_CAT_OPTIONS = ["Not clothing", ...CAP_CATS.map(c => "Wardrobe · " + c), "Wardrobe · Other"];
+const WANT_CAT_OPTIONS = ["General", "Moto", ...CAP_CATS.map(c => "Wardrobe · " + c), "Wardrobe · Other"];
 const DEFAULT_BELT_META = "Pending: merge with wardrobe belt? Price/link not locked in";
 function closetItems(){
   return [
@@ -2228,9 +2229,15 @@ function addCapsuleItem(){
 function fmtMoney(n){
   return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
+// Category is one of: General, Moto (motorcycle gear, `moto: true`), or a
+// wardrobe category (`wardrobeCat`) — mutually exclusive.
 function setWantCategory(w, choice){
-  if (choice && choice.startsWith("Wardrobe · ")) w.wardrobeCat = choice.slice("Wardrobe · ".length);
-  else delete w.wardrobeCat;
+  delete w.wardrobeCat; delete w.moto;
+  if (choice === "Moto") w.moto = true;
+  else if (choice && choice.startsWith("Wardrobe · ")) w.wardrobeCat = choice.slice("Wardrobe · ".length);
+}
+function wantCategoryChoice(w){
+  return w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : w.moto ? "Moto" : "General";
 }
 // Every item is a "need" or a "want". Unless set explicitly, wardrobe items
 // (which came from the old "still need" list) count as needs, everything else as wants.
@@ -2244,7 +2251,8 @@ function wantsOrder(a, b){
 function renderWants(){
   const el = document.getElementById("panel-wants");
   let pending = "", done = "";
-  const inFilter = w => wantsFilter === "all" || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : wantKind(w) === wantsFilter);
+  const inFilter = w => wantsFilter === "all"
+    || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : wantsFilter === "moto" ? !!w.moto : wantKind(w) === wantsFilter);
   const allPending = wantsList.filter(w => !wantsState[w.id]);
   const pendingItems = allPending.filter(inFilter).sort(wantsOrder);
   const doneItems = wantsList.filter(w => !!wantsState[w.id] && inFilter(w)).sort(wantsOrder);
@@ -2258,6 +2266,7 @@ function renderWants(){
         <div class="body">
           <div class="name">${escapeHtml(w.name)}<span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</div>
           ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}${isDone ? " · in closet" : ""}</div>` : ""}
+          ${w.moto ? `<div class="want-tag moto">${MOTO_ICON}Moto</div>` : ""}
           ${w.meta?`<div class="meta">${escapeHtml(w.meta)}</div>`:""}
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
           ${linkLine}
@@ -2271,7 +2280,7 @@ function renderWants(){
   pendingItems.forEach(w => { pending += wantRow(w, false); });
   doneItems.forEach(w => { done += wantRow(w, true); });
   let html = `<div class="quick-add">
-      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : wantsFilter === "need" ? "Add something you need" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
+      <input type="text" id="quick-add-input" placeholder="${wantsFilter === "wardrobe" ? "Add a wardrobe item" : wantsFilter === "moto" ? "Add moto gear" : wantsFilter === "need" ? "Add something you need" : "What do you want?"}" autocomplete="off" onkeydown="if(event.key==='Enter') quickAddWant();">
       <button onclick="quickAddWant()" aria-label="Add want">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -2282,6 +2291,7 @@ function renderWants(){
       ${chip("need", "Needs", allPending.filter(w => wantKind(w) === "need").length)}
       ${chip("want", "Wants", allPending.filter(w => wantKind(w) === "want").length)}
       ${chip("wardrobe", "Wardrobe", allPending.filter(w => w.wardrobeCat).length)}
+      ${chip("moto", "Moto", allPending.filter(w => w.moto).length)}
     </div>`;
   html += collapsibleCard({id:"wants-pending-card", title:"To buy", insight:`${pendingItems.length}${pendingSum.badge}`, body:`
         ${editCards.has('wants-pending-card')?`<button class="add-row" onclick="addWant()">+ Add want</button>`:""}
@@ -2299,6 +2309,7 @@ function quickAddWant(){
   const w = {id:genId("want"), name, meta:"", price:null, link:null};
   // stay visible under the active filter
   if (wantsFilter === "wardrobe") w.wardrobeCat = "Other";
+  if (wantsFilter === "moto") w.moto = true;
   if (wantsFilter === "need" || wantsFilter === "want") w.kind = wantsFilter;
   wantsList.push(w);
   saveContent("wants-content", wantsList);
@@ -2326,7 +2337,7 @@ function editWant(id){
     {key:"high",label:"High priority",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
   ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high",
-      kind: wantKind(w) === "need" ? "Need" : "Want", cat: w.wardrobeCat ? "Wardrobe · " + w.wardrobeCat : "Not clothing"},
+      kind: wantKind(w) === "need" ? "Need" : "Want", cat: wantCategoryChoice(w)},
     (v) => {
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
@@ -2353,7 +2364,7 @@ function addWant(){
     {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
     {key:"high",label:"High priority",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
-  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : "Not clothing",
+  ], {cat: wantsFilter === "wardrobe" ? "Wardrobe · Other" : wantsFilter === "moto" ? "Moto" : "General",
       kind: wantsFilter === "need" || wantsFilter === "wardrobe" ? "Need" : "Want"},
     (v) => {
       if(!v.name) return;
