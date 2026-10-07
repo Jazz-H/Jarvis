@@ -182,7 +182,27 @@
   .home-day .marks i.over{background:var(--danger);}
   .home-day .marks em.pay, .bcal-pay em.pay{font-style:normal; font-size:9.5px; font-weight:900; line-height:1; color:var(--olive);}
   .home-day.on .marks i.paid, .home-day.on .marks i.over, .home-day.on .marks em.pay{opacity:1;}
-  .bcal .home-day.past:not(.on){opacity:.8;} /* past days stay readable: they carry paid/overdue dots */
+  .bcal .home-day.past:not(.on){opacity:.8;}
+  .bcal .home-day.other:not(.on){opacity:.55;}
+  .bcal-wrap{touch-action:none;}
+  button.period-sec{width:100%; border:none; background:none; font-family:inherit; cursor:pointer; padding:0;}
+  button.period-sec .chev{width:13px; height:13px; margin-left:6px; vertical-align:-2px; transition:transform .2s;}
+  button.period-sec[aria-expanded="true"] .chev{transform:rotate(180deg);}
+  .period-row{display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; padding:13px 16px; margin-bottom:0;
+    border:1px solid var(--line); background:var(--surface); color:var(--text); font:inherit; text-align:left; cursor:pointer;}
+  .period-row b{font-size:16px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .period-row i{display:block; font-style:normal; font-size:12px; color:var(--text-dim); margin-top:2px;}
+  .period-row-left{text-align:right; font-weight:800; font-variant-numeric:tabular-nums; color:var(--olive);}
+  .period-row-left.over{color:var(--danger);}
+  .card.manage{padding:12px 16px 6px; margin-top:12px;}
+  .manage-row{display:flex; align-items:center; gap:10px; width:100%; padding:13px 2px; border:none; border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent);
+    background:none; color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left; cursor:pointer;}
+  .manage .budget-sub + .manage-row{border-top:none;}
+  .manage-row > span:first-child{flex:1; min-width:0;}
+  .manage-val{color:var(--text-dim); font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55%;}
+  .manage-row .chev-r{color:var(--text-dim); flex-shrink:0;}
+  .modal-note .goal-ideas{display:flex; flex-wrap:wrap; gap:6px; margin:0;}
+  .modal-note .goal-ideas .acct-add{margin:0;} /* past days stay readable: they carry paid/overdue dots */
   .bcal-detail{margin-top:6px; border-top:1px solid var(--line);}
   .bcal-pay{display:flex; justify-content:space-between; align-items:center; width:100%; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);
     background:none; color:var(--text); font:inherit; font-size:14px; font-weight:700; text-align:left;}
@@ -940,6 +960,7 @@ const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
 const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+const CHEVRON_RIGHT = '<svg class="chev-r" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
 const MOTO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a9 9 0 0 1 18 0v3H3z"/><path d="M12 11h9"/><path d="M8 18v2"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const REPEAT_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
@@ -1884,6 +1905,22 @@ function renderHomePanel(){
 
   el.innerHTML = strip + hero + list;
 }
+// Budget's calendar: swipe down for the month, up for the week
+(function(){
+  const panel = document.getElementById("panel-budget");
+  let sx = 0, sy = 0, on = false;
+  panel.addEventListener("touchstart", e => {
+    on = !!e.target.closest(".bcal-wrap");
+    if (on){ sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+  }, {passive:true});
+  panel.addEventListener("touchmove", e => { if (on) e.preventDefault(); }, {passive:false});
+  panel.addEventListener("touchend", e => {
+    if (!on) return;
+    on = false;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dy) > 35 && Math.abs(dy) > Math.abs(dx)) setBudgetCalMonth(dy > 0);
+  }, {passive:true});
+})();
 // The calendar strip's own gestures: down opens the month, up closes it, and
 // sideways pages weeks (or months). Touches that start on it are left out of
 // tab swiping and pull-to-refresh.
@@ -3284,7 +3321,10 @@ function goalStatus(g){
 }
 function editGoal(id, preset = ""){
   const g = id ? goalById(id) : null;
+  // a new goal offers one-tap names (app-authored, so safe as note HTML)
+  const ideas = g ? [] : GOAL_IDEAS.filter(n => !budget.goals.some(x => x.name.toLowerCase() === n.toLowerCase()));
   openModal(g ? "Edit goal" : "New goal", [
+    ...(ideas.length ? [{type:"note", label:`<span class="goal-ideas">${ideas.map(n => `<button type="button" class="acct-add" onclick="document.getElementById('modal-name').value='${n}'">${n}</button>`).join("")}</span>`}] : []),
     {key:"name", label:"Goal (e.g. Savings goal)", type:"text"},
     {key:"target", label:"Target amount", type:"number", step:"0.01"},
     {key:"date", label:"Target date (optional)", type:"date"},
@@ -3368,13 +3408,11 @@ function goalsCardHtml(){
         ${open ? `<div class="goal-entries">${hist}${g.saved ? `<div class="goal-entry"><span>Start</span><span class="goal-note">Already saved</span><b>${money(g.saved)}</b></div>` : ""}</div>` : ""}
       </div>`;
   }).join("");
-  const ideas = GOAL_IDEAS.filter(n => !budget.goals.some(g => g.name.toLowerCase() === n.toLowerCase()))
-    .map(n => `<button class="acct-add" onclick="editGoal(null, '${escapeAttr(n)}')">+ ${escapeHtml(n)}</button>`).join("");
   const totalSaved = budget.goals.reduce((s, g) => s + goalSaved(g), 0), totalTarget = budget.goals.reduce((s, g) => s + g.target, 0);
   return collapsibleCard({id:"goals-card", title:"Goals", editable:false,
     insight:budget.goals.length ? `${moneyShort(Math.round(totalSaved))} of ${moneyShort(totalTarget)}` : "None",
     body:(rows || `<div class="empty">Save toward the big things: a savings goal, an big purchase, an emergency fund.</div>`)
-      + `<button class="add-row" onclick="editGoal()">+ New goal</button>` + (ideas ? `<div class="goal-ideas">${ideas}</div>` : "")});
+      + `<button class="add-row" onclick="editGoal()">+ New goal</button>`});
 }
 // ---------- cards / banks ----------
 function editAccount(i){
@@ -3527,36 +3565,67 @@ function spendingCardHtml(spent, spentTotal){
 // earlier) get their own group on top. A period that runs into next month shows
 // those bills too; they're the same bills November's view will show.
 let showSpending = false;
+// Pay periods: the current one is open, the rest fold to a one-line summary;
+// a tap overrides either way (per session)
+const periodOpen = {};
+let periodDefaultKey = null;
+function openAccounts(){
+  editCards.add("bills-card"); openPinned.add("bills-card");
+  renderBudget();
+  const c = document.getElementById("bills-card");
+  if (c) c.scrollIntoView({behavior:"smooth", block:"start"});
+}
+function togglePeriod(key){
+  const open = key in periodOpen ? periodOpen[key] : key === periodDefaultKey;
+  periodOpen[key] = !open;
+  renderBudget();
+}
 // ---------- budget month calendar ----------
 // Like Home's month view, for money: each day shows a dot per bill due (red if
 // overdue, green once paid) and a $ on paydays. Tapping a day lists its bills
 // (tickable) and paycheck below the grid; it starts on today.
 let budgetCalDay = null;
+let budgetCalMonth = false; // false: just the selected day's week
+function setBudgetCalMonth(open){
+  if (open === budgetCalMonth) return;
+  budgetCalMonth = open;
+  renderBudget();
+}
 function selectBudgetDay(iso){
   budgetCalDay = iso;
+  const cur = addDaysIso(0).slice(0, 7), [y1, m1] = cur.split("-").map(Number), [y2, m2] = iso.slice(0, 7).split("-").map(Number);
+  budgetMonthOffset = (y2 - y1) * 12 + (m2 - m1); // a week can cross into the next/previous month
   renderBudget();
 }
 function budgetCalHtml(key, rows, paychecks, today){
-  const start = key + "-01", first = noonOf(start);
-  const lead = (first.getDay() + 6) % 7, days = Number(monthEndIso(key).slice(8));
-  const inMonth = rows.filter(r => r.due >= start && r.due.slice(0, 7) === key);
-  const byDay = {};
-  inMonth.forEach(r => { (byDay[r.due] = byDay[r.due] || []).push(r); });
-  const pays = {};
-  paychecks.forEach(p => { (pays[p.date] = pays[p.date] || []).push(p); });
-  const sel = budgetCalDay && budgetCalDay.slice(0, 7) === key ? budgetCalDay : (today.slice(0, 7) === key ? today : null);
+  const start = key + "-01", days = Number(monthEndIso(key).slice(8));
+  // per-day bills and paydays, for this month and (in week view) its neighbours
+  const byDay = {}, pays = {}, seen = new Set();
+  const addMonth = (k, list, pc) => {
+    if (seen.has(k)) return; seen.add(k);
+    list.filter(r => r.due.slice(0, 7) === k).forEach(r => { (byDay[r.due] = byDay[r.due] || []).push(r); });
+    pc.forEach(p => { (pays[p.date] = pays[p.date] || []).push(p); });
+  };
+  addMonth(key, rows, paychecks);
+  const sel = budgetCalDay && budgetCalDay.slice(0, 7) === key ? budgetCalDay : (today.slice(0, 7) === key ? today : start);
+  let first, count;
+  if (budgetCalMonth){ first = noonOf(start); first.setDate(1 - (first.getDay() + 6) % 7); count = Math.ceil(((noonOf(start).getDay() + 6) % 7 + days) / 7) * 7; }
+  else { first = noonOf(sel); first.setDate(first.getDate() - (first.getDay() + 6) % 7); count = 7; }
+  const cellIsos = [];
+  for (let n = 0; n < count; n++){ const d = new Date(first); d.setDate(first.getDate() + n); cellIsos.push(isoDate(d)); }
+  cellIsos.forEach(iso => { const k = iso.slice(0, 7); if (!seen.has(k)) addMonth(k, billsInMonth(k), incomeInMonth(k)); });
   let cells = ["M","T","W","T","F","S","S"].map(x => `<div class="cal-dow">${x}</div>`).join("");
-  for (let i = 0; i < lead; i++) cells += `<div class="home-day blank"></div>`;
-  for (let n = 1; n <= days; n++){
-    const iso = `${key}-${String(n).padStart(2, "0")}`, list = byDay[iso] || [], pay = pays[iso];
+  cellIsos.forEach(iso => {
+    if (budgetCalMonth && iso.slice(0, 7) !== key){ cells += `<div class="home-day blank"></div>`; return; }
+    const list = byDay[iso] || [], pay = pays[iso];
     const dots = list.slice(0, 3).map(r => `<i class="${r.payment ? "paid" : r.due < today ? "over" : ""}"></i>`).join("");
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const label = `${noonOf(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}`;
-    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : ""].filter(Boolean).join(" ");
+    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", iso.slice(0, 7) !== key ? "other" : ""].filter(Boolean).join(" ");
     cells += `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${escapeAttr(label)}" onclick="selectBudgetDay('${iso}')">
-        <b>${n}</b><span class="marks">${dots}${pay ? `<em class="pay">$</em>` : ""}</span>
+        <b>${Number(iso.slice(8))}</b><span class="marks">${dots}${pay ? `<em class="pay">$</em>` : ""}</span>
       </button>`;
-  }
+  });
   let detail = "";
   if (sel){
     const list = byDay[sel] || [], pay = pays[sel] || [];
@@ -3571,7 +3640,8 @@ function budgetCalHtml(key, rows, paychecks, today){
   const billDays = Object.keys(byDay).length, payDays = Object.keys(pays).length;
   return collapsibleCard({id:"budget-cal", title:"Calendar", editable:false,
     insight:[billDays && `${billDays} bill day${billDays === 1 ? "" : "s"}`, payDays && `${payDays} payday${payDays === 1 ? "" : "s"}`].filter(Boolean).join(" · ") || "Nothing due",
-    body:`<div class="home-month bcal">${cells}</div>${detail}`});
+    body:`<div class="bcal-wrap"><div class="home-month bcal">${cells}</div>
+      <button class="home-cal-grab" onclick="setBudgetCalMonth(${!budgetCalMonth})" aria-expanded="${budgetCalMonth}" aria-label="${budgetCalMonth ? "Show week" : "Show month"}"><span></span></button></div>${detail}`});
 }
 const openPaidGroups = new Set();
 function billRowsBetween(from, toExclusive){
@@ -3683,6 +3753,9 @@ function renderBudget(){
   if (lead.length) periods += `<div class="period-sec overdue"><span>Overdue</span><span>${money(sum(lead))}</span></div><div class="card period">${billListHtml(lead, "lead", today)}</div>`;
   if (pre.length) periods += `<div class="period-sec"><span>${shortDate(monthStart)} – ${shortDate(isoDate(new Date(noonOf(firstStart).getTime() - 864e5)))} · before payday</span><span>${money(sum(pre))}</span></div><div class="card period">${billListHtml(pre, "pre", today)}</div>`;
   const billedDates = new Set(); // two paychecks on one day: bills list under the first
+  // open by default: the period holding today; in a future month, its first one
+  const nowP = paychecks.find(p => p.date <= today && today < (nextPayday(p.date) || "9999"));
+  periodDefaultKey = nowP ? nowP.key : (monthStart > today && paychecks.length ? paychecks[0].key : null);
   paychecks.forEach(p => {
     const next = nextPayday(p.date) || isoDate(new Date(noonOf(monthEndIso(key)).getTime() + 864e5));
     const due = billedDates.has(p.date) ? [] : billRowsBetween(p.date, next);
@@ -3696,7 +3769,17 @@ function renderBudget(){
         <button class="todo-check" role="checkbox" aria-checked="${!!l.done}" aria-label="${l.done ? "Not done" : "Done"}: ${escapeAttr(l.name)}" onclick="togglePlanLine('${p.key}','${l.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
         <button class="plan-body" onclick="editPlanLine('${p.key}','${l.id}')"><span>${escapeHtml(l.name)}${goalById(l.goal) ? `<span class="goal-tag">→ ${escapeHtml(goalById(l.goal).name)}</span>` : ""}</span><b>${money(l.amount)}</b></button>
       </div>`).join("");
-    periods += `<div class="period-sec ${now ? "now" : ""}"><span>${shortDate(p.date)} – ${shortDate(end)}${now ? `<em>Now</em>` : ""}</span><span>${escapeHtml(p.src.name)}</span></div>
+    const open = p.key in periodOpen ? periodOpen[p.key] : p.key === periodDefaultKey;
+    const unpaid = due.filter(r => !r.payment);
+    periods += `<button class="period-sec ${now ? "now" : ""}" onclick="togglePeriod('${p.key}')" aria-expanded="${open}"><span>${shortDate(p.date)} – ${shortDate(end)}${now ? `<em>Now</em>` : ""}</span><span>${escapeHtml(p.src.name)}${CHEVRON_DOWN}</span></button>`;
+    if (!open){
+      periods += `<button class="card period-row ${now ? "now" : ""}" onclick="togglePeriod('${p.key}')">
+          <span><b>${money(p.amount)}</b><i>${unpaid.length ? `${unpaid.length} bill${unpaid.length === 1 ? "" : "s"} due · ${money(sum(unpaid))}` : due.length ? "Bills paid" : "No bills due"}</i></span>
+          <span class="period-row-left ${p.left < 0 ? "over" : ""}">${money(p.left)}<i>left</i></span>
+        </button>`;
+      return;
+    }
+    periods += `
       <div class="card period ${now ? "now" : ""}">
         <button class="period-head" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${money(p.amount)}</b><span>${money(p.planned)} planned</span></button>
         <div class="progress-bar thin"><div class="progress-fill ${p.left < 0 ? "over" : ""}" style="width:${pct}%"></div></div>
@@ -3715,8 +3798,6 @@ function renderBudget(){
     periods += `<div class="period-sec"><span>Bills this month</span><span>${money(sum(rest))}</span></div><div class="card period">${billListHtml(rest, "all", today)}</div>`;
     periods += `<div class="card period-empty">${hasIncome ? `No paydays in ${monthName}.` : `Add your paycheck to split the month by payday: the bills each check covers, its plan, and what's left.`}</div>`;
   }
-  const srcs = budget.income.map(x => `<button class="acct-pill big" style="--acct:var(--olive)" onclick="editIncome('${x.id}')">${escapeHtml(x.name)} · ${moneyShort(x.amount)} · ${escapeHtml((BILL_REPEATS[x.repeat] || {}).label || "")}${PENCIL_ICON}</button>`).join("");
-  periods += `<div class="income-srcs" id="income-card">${srcs}<button class="acct-add" onclick="addIncome()">+ Add income</button>${paychecks.length ? `<button class="acct-add" onclick="importPlans()">Import plans from sheet</button>` : ""}</div>`;
   html += `<div id="pay-periods">${periods}</div>`;
 
   // All bills: Monthly / Joint with subtotals, totals by card/bank, add + import
@@ -3740,15 +3821,23 @@ function renderBudget(){
     billBody += `<div class="budget-sub">By card / bank</div><div class="acct-totals">` + Object.entries(byAcct).sort((a, b) => b[1] - a[1]).map(([a, n]) =>
       `<div class="acct-total"><span class="acct-pill" style="--acct:${a === "No card set" ? "var(--text-dim)" : accountColor(a)}">${escapeHtml(a)}</span><b>${money(n)}</b></div>`).join("") + `</div>`;
   } else billBody += `<div class="empty">No bills this month. Add rent, phone, subscriptions… or import them from your sheet.</div>`;
-  billBody += `<div class="budget-actions"><button class="add-row" onclick="addBill()">+ Add bill</button><button class="add-row" onclick="importBills()">Import from sheet</button></div>`;
+  billBody += `<button class="add-row" onclick="addBill()">+ Add bill</button>`;
   html += collapsibleCard({id:"bills-card", title:"All bills", insight:monthRows.length ? `${moneyShort(Math.round(sum(monthRows) * 100) / 100)} · ${monthRows.filter(r => r.payment).length}/${monthRows.length} paid` : "None", body:billBody});
 
-  html += goalsCardHtml();
+  if (budget.goals.length) html += goalsCardHtml();
+  const spendingShown = spent.length || showSpending || editCards.has("spending-card");
+  if (spendingShown) html += spendingCardHtml(spent, spentTotal);
 
-  // Spending: tucked away until something's logged (or asked for)
-  if (spent.length || showSpending || editCards.has("spending-card")) html += spendingCardHtml(spent, spentTotal);
-  else html += `<button class="budget-goals-strip" onclick="showSpending = true; renderBudget()"><span>Spending by category</span><b>Nothing logged · <span class="strip-go">Show ›</span></b></button>`;
-  html += `<p class="footnote budget-hint">Tap + to log spending (“groceries $54”), add a bill, or put money toward a goal. Tap a payday to change its amount.</p>`;
+  // Manage: the set-up-once things, one line each
+  const mrow = (label, value, onclick) => `<button class="manage-row" onclick="${onclick}"><span>${label}</span><span class="manage-val">${value}</span>${CHEVRON_RIGHT}</button>`;
+  let manage = budget.income.map(x => mrow(escapeHtml(x.name), `${moneyShort(x.amount)} · ${escapeHtml(((BILL_REPEATS[x.repeat] || {}).label || "").toLowerCase())}`, `editIncome('${x.id}')`)).join("");
+  manage += mrow(budget.income.length ? "Add another income" : "Add your paycheck", budget.income.length ? "" : "Splits the month by payday", "addIncome()");
+  if (!budget.goals.length) manage += mrow("Goals", "House, ring, emergency fund…", "editGoal()");
+  if (!spendingShown) manage += mrow("Spending by category", "Nothing logged", "showSpending = true; renderBudget()");
+  manage += mrow("Cards &amp; banks", `${budget.accounts.length}`, "openAccounts()");
+  manage += mrow("Import bills from a sheet", "", "importBills()");
+  if (paychecks.length) manage += mrow("Import paycheck plans", "", "importPlans()");
+  html += `<div class="card manage" id="budget-manage"><div class="budget-sub">Manage</div>${manage}</div>`;
   el.innerHTML = html;
 }
 function pruneBudgetHistory(){
@@ -3833,7 +3922,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   const mainEl = document.querySelector("main");
   let startX = 0, startY = 0, tracking = false;
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal")){ tracking = false; return; }
+    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal, .bcal-wrap")){ tracking = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;
@@ -3863,7 +3952,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   let startY = 0, pulling = false, dragging = false;
 
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal")){ pulling = false; dragging = false; return; }
+    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal, .bcal-wrap")){ pulling = false; dragging = false; return; }
     pulling = mainEl.scrollTop <= 0;
     dragging = false;
     startY = e.touches[0].clientY;

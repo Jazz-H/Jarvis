@@ -75,30 +75,36 @@ clothes, moto gear, and everything else.
 
 **Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
 - **Top:** Remaining (this month's paychecks minus their plans; without income, category
-  budget minus spending) and Bills left (unpaid, N of M paid), plus a Goals progress strip.
-- **Pay periods:** each payday (e.g. Oct 1 – Oct 14, marked **Now**) shows the check (tap to
-  set this payday's amount), the **bills due** before the next payday, its **plan** lines
-  (tickable when done, optionally pointed at a goal), and **Remaining**. Paid bills fold
-  behind "Paid (N) · $X". If no line covers bills, "+ Add bills due · $X" adds one. Bills due
-  before the month's first payday, and overdue ones, get their own group on top. A period
-  that runs into next month shows those bills too.
+  budget minus spending) and Bills left (unpaid, N of M paid), plus a Goals strip once you
+  have goals.
+- **Calendar:** starts as the selected day's week (swipe down or tap the bar for the
+  month): a dot per bill due (red overdue, grey paid) and a $ on paydays. Tap a day to see
+  and tick off its bills or open its paycheck.
+- **Pay periods:** only the current one (marked **Now**) is open; the others fold to one
+  line ("$1,345.67 · 5 bills due · $2,000.00 left") and open with a tap. An open period
+  shows the check (tap to set this payday's amount), the **bills due** before the next
+  payday (paid ones folded behind "Paid (N) · $X"), its **plan** lines (tickable,
+  optionally pointed at a goal), and **Remaining**. "+ Add bills due · $X" appears when no
+  line covers bills. Overdue bills and those before the month's first payday get their own
+  group on top.
 - **Copy plans:** when a month's paydays are empty, one tap copies last month's lines,
   moving month names along ("1/2 of Oct Bills" → "1/2 of Nov Bills").
-- **Bills:** amount, due date, repeat (monthly, weekly, every 2 weeks, quarterly, yearly,
-  one time), Monthly or Joint, the card/bank that pays it, Autopay, a pay link, **your share
-  %** for joint bills, and **amount varies** (ticking it paid asks what it came to). Ticking
-  logs a payment and moves the bill to its next due date; tap a paid bill to fix the amount
-  or un-pay it. Bills also show on Home.
-- **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, **totals by
-  card/bank**, + Add bill, and **Import from sheet** (paste rows: card/bank, "6th", expense,
-  "$120.00" or "-"; header/Total rows skipped; earlier dues can be marked paid). Its Edit
-  chip manages the card/bank list.
-- **Income:** paycheck sources (every 2 weeks by default) sit under the periods, with
-  **Import plans from sheet** (blocks starting with a "Paycheck" row fill the paydays).
-- **Goals:** long-term savings goals (savings goal, big purchase…) with a target,
-  optional date ($/month needed, On pace / Behind), + Add money, and History. Plan lines
-  pointed at a goal count once their payday arrives.
-- **Spending** by category stays tucked away until something's logged (or Show ›).
+- **Bills:** amount, due date, repeat, Monthly or Joint, the card/bank that pays it,
+  Autopay, a pay link, **your share %** for joint bills, and **amount varies** (ticking it
+  paid asks what it came to). Ticking logs a payment and moves the bill to its next due date;
+  tap a paid bill to fix the amount or un-pay it. Bills also show on Home.
+- **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, totals by
+  card/bank, and + Add bill. Its Edit chip manages the card/bank list.
+- **Goals:** long-term savings goals with a target, optional date ($/month needed, On pace /
+  Behind), + Add money, and History. Plan lines pointed at a goal count once their payday
+  arrives. The card appears once there's a goal.
+- **Spending** by category appears once something's logged (or from Manage).
+- **Manage** (bottom, one line each): paychecks, add income, Goals and Spending until used,
+  Cards & banks, **Import bills from a sheet** (paste rows: card/bank, "6th", expense,
+  "$120.00" or "-"), and **Import paycheck plans** (blocks starting with a "Paycheck" row).
+- **Import link:** `jazz2.0.html#import=<base64url JSON>` adds bills, paychecks with plans,
+  and goals after a confirm, skipping anything already there. The data stays in the URL
+  fragment, so personal numbers never land in this repo.
 - Payments and expenses older than about 13 months are pruned automatically.
 
 **Adding things.** A floating **+** button on Home, To-Do, Shopping, and Budget opens one
@@ -172,7 +178,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (242 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (256 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
