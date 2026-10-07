@@ -140,7 +140,8 @@ only turning sync off still asks first.
   column (760px, or 920px at ≥1440px).
 - **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`).
 - **Hard refresh:** pull down from the top of a tab (or use the refresh button on
-  desktop). It clears the service worker cache and reloads, but never touches your data.
+  desktop). It clears the service worker cache and reloads back onto the same tab and scroll
+  position, and never touches your data.
 - **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Shopping,
   Budget, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.

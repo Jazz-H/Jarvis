@@ -1678,12 +1678,20 @@ function toggleWashHair(iso = addDaysIso(0)){
   const done = washHairDone(iso), ticked = (routineChecks[iso] && routineChecks[iso].pm) || [];
   washHairSteps().forEach(s => { if (ticked.includes(s.id) === done) toggleRoutineStep("pm", s.id, iso); });
 }
+// Tapping the row's title goes to the Wash day card (schedule + calendar)
+function openWashCard(){
+  openPinned.add("wash-card");
+  activateTab("skin");
+  renderSkin();
+  const card = document.getElementById("wash-card");
+  if (card) card.scrollIntoView({behavior:"smooth", block:"start"});
+}
 function washRowHtml(iso){
   const done = washHairDone(iso);
   const check = `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" onclick="event.stopPropagation(); toggleWashHair('${iso}')"><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
       ${check}
-      <div class="body" onclick="activateTab('skin')"><div class="title wash-title">Wash hair${DROPLET_ICON}</div></div>
+      <div class="body" onclick="openWashCard()"><div class="title wash-title">Wash hair${DROPLET_ICON}</div></div>
     </div></div>`;
 }
 // A bill on Home's day list: payable when it's the bill's real due date,
@@ -4321,13 +4329,23 @@ async function hardRefresh(){
       await Promise.all(regs.map(r => r.unregister()));
     }
   }catch(e){ console.error("hard refresh cleanup failed", e); }
+  // come back to the same tab and spot after the reload (this tab only)
+  try{ sessionStorage.setItem("resume-view", JSON.stringify({tab:currentTab, scroll:document.querySelector("main").scrollTop})); }catch(e){}
   location.reload();
+}
+function resumeView(){
+  let v = null;
+  try{ v = JSON.parse(sessionStorage.getItem("resume-view")); sessionStorage.removeItem("resume-view"); }catch(e){}
+  if (!v || !TAB_ORDER.includes(v.tab) || v.tab === currentTab) return;
+  activateTab(v.tab);
+  const y = Number(v.scroll) || 0;
+  if (y) requestAnimationFrame(() => { document.querySelector("main").scrollTop = y; });
 }
 
 // ---------- GIST SYNC ----------
 // Optional cross-device sync through a private GitHub Gist. The gist holds one
 // JSON file with every content/state key plus an updatedAt stamp; conflicts are
-// last-write-wins on that stamp. Requires a classic PAT with only the `gist`
+// merged per list (see syncNow). Requires a classic PAT with only the `gist`
 // scope (fine-grained tokens can't use the Gist API), pasted once per device
 // via the cloud button in the header. Token + gist id live in localStorage and
 // are never synced themselves.
@@ -4752,6 +4770,7 @@ function writeQuietly(key, value){
   renderWants();
   renderHome();
   applyLaunchParams();
+  if (!location.search) resumeView();
   initSync();
   importFromLink();
 })();
