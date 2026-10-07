@@ -501,8 +501,8 @@ await section("home: calendar strip picks any day", async () => {
   }, [dx, dy]);
   await swipe(0, 120);
   const opened = await page.evaluate(() => ({
-    month: !!document.querySelector(".home-month"),
-    cells: document.querySelectorAll(".home-month .home-day:not(.blank)").length,
+    month: !!document.querySelector("#panel-home .home-month"),
+    cells: document.querySelectorAll("#panel-home .home-month .home-day:not(.blank)").length,
     refreshing: document.getElementById("pull-indicator").classList.contains("refreshing"),
   }));
   check("swipe down opens the month", opened.month, opened);
@@ -513,7 +513,7 @@ await section("home: calendar strip picks any day", async () => {
   check("swipe left pages to the next month", (await page.textContent(".home-cal-title")) !== title0);
   check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Home");
   await swipe(0, -120);
-  check("swipe up closes back to the week", await page.evaluate(() => !document.querySelector(".home-month") && !!document.querySelector(".home-week")));
+  check("swipe up closes back to the week", await page.evaluate(() => !document.querySelector("#panel-home .home-month") && !!document.querySelector(".home-week")));
 
   // Pick a date 40 days out from the month view
   await page.click(".home-cal-grab");
@@ -1106,6 +1106,27 @@ await section("budget: import link adds data without replacing anything", async 
   check("bills marked paid are logged and moved to next month", r.pays.includes("Rent") && r.rentDue === addMonthsLocal(k), r.rentDue);
   check("paycheck and its plan come in", r.pay1 && r.pay1.amount === 2100 && r.pay1.plan.lines[0].name === "Card", r.pay1);
   check("goal added, link cleared, Budget opened", r.goals.includes("House") && r.hash === "" && r.tab === "budget", r);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: month calendar", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const k = await page.evaluate(() => {
+    const k = budgetMonthKey(), d = n => `${k}-${String(n).padStart(2, "0")}`;
+    budget.income = [{ id: "inc-1", name: "Paycheck", amount: 2000, start: d(1), repeat: "biweekly" }];
+    bills = [{ id: "bill-a", name: "Rent", amount: 900, due: d(28), repeat: "monthly", autopay: false, link: null, group: "personal", account: null }];
+    saveBudgetData();
+    return k;
+  });
+  const cells = await page.$$eval("#budget-cal .home-day:not(.blank)", els => els.length);
+  const days = await page.evaluate(k => Number(monthEndIso(k).slice(8)), k);
+  check("calendar shows every day of the month", cells === days, [cells, days]);
+  check("paydays and bill days are marked", (await page.$$("#budget-cal .marks em.pay")).length >= 2 && (await page.$$("#budget-cal .marks i")).length >= 1);
+  await page.click(`#budget-cal .home-day[aria-label^="${await page.evaluate(k => noonOf(k + "-28").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }), k)}"]`);
+  check("tapping a day lists its bills", (await page.textContent("#budget-cal .bcal-detail")).includes("Rent"));
+  await page.click('#budget-cal .bcal-detail .todo-check[aria-label="Mark paid: Rent"]');
+  check("bills can be paid from the calendar", await page.evaluate(() => billPayments.length === 1));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
