@@ -103,12 +103,17 @@ clothes, moto gear, and everything else.
 - **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, totals by
   card/bank, and + Add bill. Its Edit chip manages the card/bank list.
 - **Goals:** long-term savings goals with a target, optional date ($/month needed, On pace /
-  Behind), + Add money, and History. Plan lines pointed at a goal count once their payday
+  Behind), + Add money, and History. A milestone bar marks 25/50/75/100%, with the next
+  milestone and a finish date at the last 3 months' pace. Plan lines pointed at a goal count once their payday
   arrives. The card appears once there's a goal.
 - **Spending** by category appears once something's logged (or from Manage).
 - **Manage** (bottom, one line each): paychecks, add income, Goals and Spending until used,
   Cards & banks, **Import bills from a sheet** (paste rows: card/bank, "6th", expense,
-  "$120.00" or "-"), and **Import paycheck plans** (blocks starting with a "Paycheck" row).
+  "$120.00" or "-"), **Import paychecks** (date + amount rows set each payday's amount), and
+  **Import paycheck plans** (blocks starting with a "Paycheck" row).
+- **Pay that varies:** an income marked "Pay varies by check" shows unreceived checks as
+  `~expected`; tick a check Received with its real amount, and later checks are estimated
+  from the last 3 received.
 - **Import link:** `jazz2.0.html#import=<base64url JSON>` adds bills, paychecks with plans,
   and goals after a confirm, skipping anything already there. The data stays in the URL
   fragment, so personal numbers never land in this repo.
@@ -186,7 +191,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (265 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (287 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
