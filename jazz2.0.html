@@ -178,6 +178,15 @@
   .home-day.on b{color:var(--on-accent);}
   .home-day .marks{display:flex; align-items:center; gap:2px; height:9px;}
   .home-day .marks i{width:5px; height:5px; border-radius:50%; background:var(--gold);}
+  .home-day .marks i.paid{background:var(--olive);}
+  .home-day .marks i.over{background:var(--danger);}
+  .home-day .marks em.pay, .bcal-pay em.pay{font-style:normal; font-size:9.5px; font-weight:900; line-height:1; color:var(--olive);}
+  .home-day.on .marks i.paid, .home-day.on .marks i.over, .home-day.on .marks em.pay{opacity:1;}
+  .bcal .home-day.past:not(.on){opacity:.8;} /* past days stay readable: they carry paid/overdue dots */
+  .bcal-detail{margin-top:6px; border-top:1px solid var(--line);}
+  .bcal-pay{display:flex; justify-content:space-between; align-items:center; width:100%; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);
+    background:none; color:var(--text); font:inherit; font-size:14px; font-weight:700; text-align:left;}
+  .bcal-pay em.pay{font-size:12px; margin-right:8px;}
   .home-day .marks svg{width:9px; height:9px; color:var(--navy); stroke-width:2.6;}
   .home-day.on .marks i{background:var(--on-accent);}
   .home-day.on .marks svg{color:var(--on-accent);}
@@ -1020,7 +1029,7 @@ let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "todo-recurring", "wants-pending-card", "goals-card", "spending-card"]);
+let openPinned = new Set(["todo-card", "todo-recurring", "wants-pending-card", "budget-cal", "goals-card", "spending-card"]);
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -3518,6 +3527,52 @@ function spendingCardHtml(spent, spentTotal){
 // earlier) get their own group on top. A period that runs into next month shows
 // those bills too; they're the same bills November's view will show.
 let showSpending = false;
+// ---------- budget month calendar ----------
+// Like Home's month view, for money: each day shows a dot per bill due (red if
+// overdue, green once paid) and a $ on paydays. Tapping a day lists its bills
+// (tickable) and paycheck below the grid; it starts on today.
+let budgetCalDay = null;
+function selectBudgetDay(iso){
+  budgetCalDay = iso;
+  renderBudget();
+}
+function budgetCalHtml(key, rows, paychecks, today){
+  const start = key + "-01", first = noonOf(start);
+  const lead = (first.getDay() + 6) % 7, days = Number(monthEndIso(key).slice(8));
+  const inMonth = rows.filter(r => r.due >= start && r.due.slice(0, 7) === key);
+  const byDay = {};
+  inMonth.forEach(r => { (byDay[r.due] = byDay[r.due] || []).push(r); });
+  const pays = {};
+  paychecks.forEach(p => { (pays[p.date] = pays[p.date] || []).push(p); });
+  const sel = budgetCalDay && budgetCalDay.slice(0, 7) === key ? budgetCalDay : (today.slice(0, 7) === key ? today : null);
+  let cells = ["M","T","W","T","F","S","S"].map(x => `<div class="cal-dow">${x}</div>`).join("");
+  for (let i = 0; i < lead; i++) cells += `<div class="home-day blank"></div>`;
+  for (let n = 1; n <= days; n++){
+    const iso = `${key}-${String(n).padStart(2, "0")}`, list = byDay[iso] || [], pay = pays[iso];
+    const dots = list.slice(0, 3).map(r => `<i class="${r.payment ? "paid" : r.due < today ? "over" : ""}"></i>`).join("");
+    const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const label = `${noonOf(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}`;
+    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : ""].filter(Boolean).join(" ");
+    cells += `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${escapeAttr(label)}" onclick="selectBudgetDay('${iso}')">
+        <b>${n}</b><span class="marks">${dots}${pay ? `<em class="pay">$</em>` : ""}</span>
+      </button>`;
+  }
+  let detail = "";
+  if (sel){
+    const list = byDay[sel] || [], pay = pays[sel] || [];
+    const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    detail = `<div class="bcal-detail">
+        <div class="period-sub"><span>${escapeHtml(noonOf(sel).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}))}</span><span>${list.length ? (due ? `${money(due)} due` : "All paid") : ""}</span></div>
+        ${pay.map(p => `<button class="bcal-pay" onclick="editPaycheck('${p.src.id}','${p.date}')"><span><em class="pay">$</em>${escapeHtml(p.src.name)}</span><b>${money(p.amount)}</b></button>`).join("")}
+        ${list.map(r => billRowHtml(r, today)).join("")}
+        ${!list.length && !pay.length ? `<div class="empty">Nothing due this day.</div>` : ""}
+      </div>`;
+  }
+  const billDays = Object.keys(byDay).length, payDays = Object.keys(pays).length;
+  return collapsibleCard({id:"budget-cal", title:"Calendar", editable:false,
+    insight:[billDays && `${billDays} bill day${billDays === 1 ? "" : "s"}`, payDays && `${payDays} payday${payDays === 1 ? "" : "s"}`].filter(Boolean).join(" · ") || "Nothing due",
+    body:`<div class="home-month bcal">${cells}</div>${detail}`});
+}
 const openPaidGroups = new Set();
 function billRowsBetween(from, toExclusive){
   const lastKey = isoDate(new Date(noonOf(toExclusive).getTime() - 864e5)).slice(0, 7);
@@ -3611,6 +3666,7 @@ function renderBudget(){
         <i>${hasIncome ? `of ${moneyShort(incomeTotal)} paychecks` : `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)} spent`}</i></div>
       <div class="budget-kpi"><span>Bills left</span><b>${moneyShort(Math.round(sum(unpaid) * 100) / 100)}</b><i>${rows.length - unpaid.length} of ${rows.length} paid</i></div>
     </div>`;
+  html += budgetCalHtml(key, rows, paychecks, today);
   if (budget.goals.length) html += `<button class="budget-goals-strip" onclick="document.getElementById('goals-card').scrollIntoView({behavior:'smooth'})"><span>Goals</span><b>${moneyShort(Math.round(goalSavedTotal))} of ${moneyShort(goalTarget)}</b><span class="progress-bar thin"><span class="progress-fill" style="display:block; width:${goalTarget ? Math.min(100, goalSavedTotal / goalTarget * 100) : 0}%"></span></span></button>`;
 
   // Copy last month's plans when this month's paydays are still empty
