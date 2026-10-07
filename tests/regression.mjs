@@ -630,11 +630,15 @@ await section("wash day shows as a Wash hair to-do", async () => {
   await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(2), everyDays: 14 }; renderHome(); });
   const later = await page.evaluate(() => ({
     homeRow: !!document.querySelector("#panel-home .wash-row"),
-    todoRow: !!document.querySelector("#todo-list .wash-row .wash-icon"),
+    icons: document.querySelectorAll("#todo-list .wash-row svg:not(.box svg)").length,
     todoCheck: !!document.querySelector("#todo-list .wash-row .todo-check"),
   }));
   check("not on Home on a non-wash day", !later.homeRow);
-  check("upcoming wash day shows with the droplet, not a checkbox", later.todoRow && !later.todoCheck, later);
+  check("upcoming wash day is checkable with one droplet", later.todoCheck && later.icons === 1, later);
+  // ticking another day's row ticks that day's steps
+  await page.evaluate(() => activateTab("todo"));
+  await page.click("#todo-list .wash-row .todo-check");
+  check("a past or future wash day can be ticked", await page.evaluate(() => washHairDone(addDaysIso(2)) && !washHairSteps().some(s => todayChecks().pm.includes(s.id))));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
