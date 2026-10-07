@@ -1170,6 +1170,21 @@ await section("budget: autopay pays bills on their due date", async () => {
   await ctx.close();
 });
 
+await section("refresh stays on the same tab; Wash hair opens its card", async () => {
+  const { ctx, page, errors } = await openApp();
+  await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(0), everyDays: 14 }; activateTab("home"); renderHome(); });
+  await page.click("#panel-home .wash-row .body");
+  const w = await page.evaluate(() => ({ tab: currentTab, open: document.getElementById("wash-card").classList.contains("open") }));
+  check("tapping Wash hair opens the Wash day card on Skin & Hair", w.tab === "skin" && w.open, w);
+  // what hardRefresh leaves behind, then the reload
+  await page.evaluate(() => { activateTab("budget"); sessionStorage.setItem("resume-view", JSON.stringify({ tab: currentTab, scroll: 0 })); });
+  await page.reload(); await page.waitForTimeout(600);
+  const r = await page.evaluate(() => ({ tab: currentTab, panel: document.getElementById("panel-budget").classList.contains("active"), left: sessionStorage.getItem("resume-view") }));
+  check("pull-to-refresh comes back to the same tab", r.tab === "budget" && r.panel && r.left === null, r);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
