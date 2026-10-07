@@ -817,6 +817,58 @@ await section("budget: paycheck plans import from a sheet", async () => {
   await ctx.close();
 });
 
+await section("budget: pay that varies by check", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  // a biweekly check that started 4 weeks ago, so there are past and future paydays
+  await page.evaluate(() => { budget.income.push({ id: "inc-v", name: "Work", amount: 2000, start: addDaysIso(-28), repeat: "biweekly" }); saveBudgetData(); });
+  // the edit form's "Pay varies" switch
+  await page.evaluate(() => editIncome("inc-v"));
+  await page.check("#modal-varies");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("income can be marked as varying", await page.evaluate(() => budget.income[0].varies === true));
+  const est0 = await page.evaluate(() => paycheckAt(budget.income[0], addDaysIso(14)));
+  check("unreceived checks are expected, at the typical amount", est0.approx && est0.amount === 2000, est0);
+  // tick a past check Received with its real amount
+  const past = await page.evaluate(() => addDaysIso(-28));
+  await page.evaluate(d => editPaycheck("inc-v", d, true), past);
+  check("Received is prefilled when marking received", await page.isChecked("#modal-received"));
+  await page.fill("#modal-amount", "2100");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  await page.evaluate(d => editPaycheck("inc-v", d, true), await page.evaluate(() => addDaysIso(-14)));
+  await page.fill("#modal-amount", "2300");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const r = await page.evaluate(() => {
+    const src = budget.income[0];
+    return { got: paycheckAt(src, addDaysIso(-28)), next: paycheckAt(src, addDaysIso(14)), est: incomeEstimate(src) };
+  });
+  check("received check keeps its real amount, no ~", r.got.received && !r.got.approx && r.got.amount === 2100, r.got);
+  check("later checks are estimated from received ones", r.est === 2200 && r.next.amount === 2200 && r.next.approx, r);
+  // saving an expected check unchanged doesn't pin the estimate
+  await page.evaluate(() => editPaycheck("inc-v", addDaysIso(14)));
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("saving an expected check unchanged keeps it an estimate", await page.evaluate(() => budget.plans[`inc-v|${addDaysIso(14)}`].amount == null));
+  // the page shows ~ for expected checks and the KPI counts them
+  await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
+  const ui = await page.evaluate(() => ({ approx: document.querySelectorAll("#pay-periods .period-head .approx").length, recv: document.querySelectorAll("#pay-periods .pay-recv").length,
+    kpi: document.querySelector(".budget-kpi i").textContent, manage: document.querySelector("#budget-manage").textContent }));
+  check("periods mark expected checks with ~ and offer Received", ui.recv >= 1 && ui.approx >= 1 && /expected/.test(ui.kpi), ui);
+  check("Manage lists the income as varying and offers import", ui.manage.includes("varies · ~$2,000") && ui.manage.includes("Import paychecks"), ui.manage);
+  // pasting the sheet's Income rows
+  const rows = await page.evaluate(() => [addDaysIso(-28), addDaysIso(14), addDaysIso(3)].map(d => `${Number(d.slice(5, 7))}/${d.slice(8)}/${d.slice(0, 4)} - Work\t$1,234.56`).join("\n") + "\nTotal\t$9,999.00");
+  check("income rows parse dates and amounts", await page.evaluate(t => { const r = parseIncomeRows(t, 2026); return r.length === 3 && r[0].amount === 1234.56; }, rows));
+  await page.evaluate(() => importIncome());
+  await page.fill("#modal-rows", rows);
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const imp = await page.evaluate(() => { const src = budget.income[0]; return { past: paycheckAt(src, addDaysIso(-28)), fut: paycheckAt(src, addDaysIso(14)), toast: document.getElementById("toast").textContent }; });
+  check("imported rows set each payday's amount", imp.past.amount === 1234.56 && imp.fut.amount === 1234.56 && imp.past.received && !imp.fut.received, imp);
+  check("rows that aren't a payday are reported", imp.toast.includes("Set 2 paychecks") && imp.toast.includes("1 not on a payday"), imp.toast);
+  // varies + received survive a reload
+  await page.reload(); await page.waitForTimeout(300);
+  check("varies and received persist", await page.evaluate(() => budget.income[0].varies && budget.plans[`inc-v|${addDaysIso(-28)}`].received === true));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("budget: long-term goals", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   // quick-start idea chip prefills the name

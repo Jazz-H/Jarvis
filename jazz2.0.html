@@ -265,6 +265,10 @@
   .period-head{display:flex; justify-content:space-between; align-items:baseline; width:100%; padding:8px 2px 8px; border:none; background:none; color:var(--text); font:inherit; text-align:left;}
   .period-head b{font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;}
   .period-head span{font-size:12.5px; color:var(--text-dim); font-weight:600;}
+  .period-head .approx, .period-row .approx, .bcal-pay .approx{color:var(--text-dim); font-size:.85em; margin-right:1px;}
+  .pay-recv{display:inline-flex; align-items:center; gap:5px; margin:0 2px 8px; padding:5px 10px; border:1px dashed var(--line); border-radius:9px; background:none; color:var(--text-dim); font:inherit; font-size:12px; font-weight:700;}
+  .pay-recv.got{border-style:solid; color:var(--olive); border-color:color-mix(in srgb, var(--olive) 40%, transparent);}
+  .pay-recv svg{width:12px; height:12px;}
   .period-sub{display:flex; justify-content:space-between; margin:12px 2px 0; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim);}
   .period-sub span:last-child{text-transform:none; letter-spacing:0;}
   .period-empty{color:var(--text-dim); font-size:13px; text-align:center; padding:16px; margin-top:8px;}
@@ -3255,12 +3259,23 @@ function isPayday(srcId, date){
   for (let i = 0; i < 800 && d && d < date; i++) d = nextBillIso(d, src.repeat, dayOf(src.start));
   return d === date;
 }
+// Pay that varies: a check is "expected" (~) until it's ticked Received with
+// the real amount. Expected checks without their own amount use the average of
+// the last 3 received ones (or the typical amount before any arrive).
 function paycheckAt(src, date){
   const key = `${src.id}|${date}`, plan = budget.plans[key] || {lines:[]};
-  const amount = plan.amount != null ? plan.amount : src.amount;
+  const amount = plan.amount != null ? plan.amount : src.varies ? incomeEstimate(src) : src.amount;
   const planned = plan.lines.reduce((s, l) => s + l.amount, 0);
-  return {src, date, key, amount, plan, planned, left:Math.round((amount - planned) * 100) / 100}; // cents, so 0.1 + 0.2 isn't "−$0.00"
+  const received = !!plan.received, approx = !!src.varies && !received;
+  return {src, date, key, amount, plan, planned, received, approx, left:Math.round((amount - planned) * 100) / 100}; // cents, so 0.1 + 0.2 isn't "−$0.00"
 }
+function incomeEstimate(src){
+  const got = Object.entries(budget.plans)
+    .filter(([k, p]) => k.startsWith(src.id + "|") && p.received && p.amount != null)
+    .sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 3).map(([, p]) => p.amount);
+  return got.length ? Math.round(got.reduce((t, n) => t + n, 0) / got.length * 100) / 100 : src.amount;
+}
+function payAmt(p){ return `${p.approx ? `<span class="approx" title="Expected">~</span>` : ""}${money(p.amount)}`; }
 // The next payday after `iso`, across every income source (for the bills hint)
 function nextPayday(iso){
   const key = iso.slice(0, 7), nextKey = addMonthsIso(key + "-01", 1).slice(0, 7);
@@ -3270,9 +3285,10 @@ function planFor(key){ return budget.plans[key] || (budget.plans[key] = {lines:[
 function incomeFields(){
   return [
     {key:"name", label:"Income (e.g. Paycheck)", type:"text"},
-    {key:"amount", label:"Usual amount", type:"number", step:"0.01"},
+    {key:"amount", label:"Usual amount (typical, if it varies)", type:"number", step:"0.01"},
     {key:"start", label:"A payday (first one to count)", type:"date"},
     {key:"repeat", label:"Repeats", type:"select", options:Object.values(BILL_REPEATS).map(r => r.label)},
+    {key:"varies", label:"Pay varies by check (tick each one Received with the real amount; later checks are estimated from your last 3)", type:"checkbox"},
   ];
 }
 function applyIncomeValues(x, v){
@@ -3280,6 +3296,7 @@ function applyIncomeValues(x, v){
   x.amount = Math.max(0, Number(v.amount) || 0);
   x.start = /^\d{4}-\d{2}-\d{2}$/.test(v.start || "") ? v.start : (x.start || addDaysIso(0));
   x.repeat = Object.keys(BILL_REPEATS).find(k => BILL_REPEATS[k].label === v.repeat) || "biweekly";
+  if (v.varies) x.varies = true; else delete x.varies;
 }
 function addIncome(){
   openModal("Add income", incomeFields(), {name:"Paycheck", repeat:BILL_REPEATS.biweekly.label, start:addDaysIso(0)},
@@ -3288,7 +3305,7 @@ function addIncome(){
 function editIncome(id){
   const x = budget.income.find(i => i.id === id);
   if (!x) return;
-  openModal("Edit income", incomeFields(), {name:x.name, amount:x.amount, start:x.start, repeat:(BILL_REPEATS[x.repeat] || BILL_REPEATS.biweekly).label},
+  openModal("Edit income", incomeFields(), {name:x.name, amount:x.amount, start:x.start, repeat:(BILL_REPEATS[x.repeat] || BILL_REPEATS.biweekly).label, varies:!!x.varies},
     v => { applyIncomeValues(x, v); saveBudgetData(); },
     () => {
       budget.income = budget.income.filter(i => i.id !== id);
@@ -3296,19 +3313,70 @@ function editIncome(id){
       saveBudgetData();
     });
 }
-function editPaycheck(srcId, date){
+function editPaycheck(srcId, date, markReceived = false){
   const src = budget.income.find(i => i.id === srcId);
   if (!src) return;
-  const p = paycheckAt(src, date);
+  const p = paycheckAt(src, date), base = src.varies ? incomeEstimate(src) : src.amount;
   openModal(`${src.name} · ${noonOf(date).toLocaleDateString('en-US', {month:'short', day:'numeric'})}`, [
-    {key:"amount", label:"Amount for this payday", type:"number", step:"0.01"},
-    {type:"note", label:`Usual amount: ${money(src.amount)}. Change the source itself from <b>Income</b> → Edit.`},
-  ], {amount:p.amount},
+    {key:"amount", label:src.varies ? "Amount (the real one once it's in)" : "Amount for this payday", type:"number", step:"0.01"},
+    ...(src.varies ? [{key:"received", label:"Received", type:"checkbox"}] : []),
+    {type:"note", label:src.varies
+      ? `Typical: ${money(src.amount)} · recent average: ${money(incomeEstimate(src))}. Leave blank to go back to the estimate.`
+      : `Usual amount: ${money(src.amount)}. Change the source itself from <b>Income</b> → Edit.`},
+  ], {amount:p.amount, received:p.received || markReceived},
     v => {
       const n = Number(v.amount), plan = planFor(p.key);
-      // blank (or the usual amount) goes back to the usual amount
-      if (v.amount != null && v.amount !== "" && isFinite(n) && n >= 0 && n !== src.amount) plan.amount = n; else delete plan.amount;
+      const ok = v.amount != null && v.amount !== "" && isFinite(n) && n >= 0;
+      const received = !!(src.varies && v.received && ok);
+      // blank (or the usual/estimated amount) goes back to the default
+      if (ok && (received || n !== base)) plan.amount = n; else delete plan.amount;
+      if (received) plan.received = true; else delete plan.received;
       saveBudgetData();
+    });
+}
+// Paychecks pasted from a sheet's Income list: "10/01/2026 - Work  $1,234.56".
+// Each row sets that payday's amount; rows on past dates can count as received.
+function parseIncomeRows(text, year){
+  const out = [];
+  String(text || "").split(/\r?\n/).forEach(line => {
+    let date = null, m;
+    if ((m = line.match(/(\d{4})-(\d{1,2})-(\d{1,2})/))) date = [m[1], m[2], m[3]];
+    else if ((m = line.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))) date = [m[3] ? (m[3].length === 2 ? "20" + m[3] : m[3]) : String(year), m[1], m[2]];
+    if (!date) return;
+    const rest = line.slice(m.index + m[0].length);
+    const am = rest.match(/\$?\s*([\d,]+(?:\.\d{1,2})?)\s*$/) || rest.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/);
+    if (!am) return;
+    const amount = Number(am[1].replace(/,/g, ""));
+    const iso = `${date[0]}-${String(date[1]).padStart(2, "0")}-${String(date[2]).padStart(2, "0")}`;
+    if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) || !isFinite(amount)) return;
+    out.push({date:iso, amount:Math.round(amount * 100) / 100, label:rest.replace(am[0], "").replace(/^[\s\-–—|:]+|[\s\-–—|:]+$/g, "")});
+  });
+  return out;
+}
+function importIncome(){
+  if (!budget.income.length){ showToast("Add your paycheck under Income first", true); return; }
+  openModal("Import paychecks", [
+    {type:"note", label:"Copy your sheet's Income rows (a date and an amount on each, like <b>10/01/2026 - Work $1,234.56</b>) and paste them here. Each row sets that payday's amount."},
+    {key:"rows", label:"Rows", type:"textarea"},
+    {key:"received", label:"Count paydays up to today as received", type:"checkbox"},
+  ], {received:true},
+    v => {
+      const rows = parseIncomeRows(v.rows, budgetMonthKey().slice(0, 4));
+      if (!rows.length){ showToast("Nothing found — paste rows with a date and an amount", true); return; }
+      const today = addDaysIso(0);
+      let n = 0, miss = 0;
+      rows.forEach(r => {
+        // the source named on the row, else any source paid that day
+        const named = budget.income.filter(x => r.label.toLowerCase().includes(x.name.toLowerCase()));
+        const src = [...named, ...budget.income].find(x => isPayday(x.id, r.date));
+        if (!src){ miss++; return; }
+        const plan = planFor(`${src.id}|${r.date}`), received = !!(v.received && src.varies && r.date <= today);
+        if (received || src.varies || r.amount !== src.amount) plan.amount = r.amount; else delete plan.amount;
+        if (received) plan.received = true;
+        n++;
+      });
+      saveBudgetData();
+      showToast(`Set ${n} paycheck${n === 1 ? "" : "s"}` + (miss ? ` · ${miss} not on a payday` : ""), !n);
     });
 }
 function addPlanLine(key, name = "", amount = ""){
@@ -3731,7 +3799,7 @@ function budgetCalHtml(key, rows, paychecks, today){
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     detail = `<div class="bcal-detail">
         <div class="period-sub"><span>${escapeHtml(noonOf(sel).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}))}</span><span>${list.length ? (due ? `${money(due)} due` : "All paid") : ""}</span></div>
-        ${pay.map(p => `<button class="bcal-pay" onclick="editPaycheck('${p.src.id}','${p.date}')"><span><em class="pay">$</em>${escapeHtml(p.src.name)}</span><b>${money(p.amount)}</b></button>`).join("")}
+        ${pay.map(p => `<button class="bcal-pay" onclick="editPaycheck('${p.src.id}','${p.date}')"><span><em class="pay">$</em>${escapeHtml(p.src.name)}</span><b>${payAmt(p)}</b></button>`).join("")}
         ${list.map(r => billRowHtml(r, today)).join("")}
         ${!list.length && !pay.length ? `<div class="empty">Nothing due this day.</div>` : ""}
       </div>`;
@@ -3819,7 +3887,7 @@ function renderBudget(){
   const spentTotal = sum(spent);
   const limitTotal = budget.categories.reduce((s, c) => s + (Number(c.limit) || 0), 0);
   const paychecks = incomeInMonth(key);
-  const incomeTotal = paychecks.reduce((s, p) => s + p.amount, 0);
+  const incomeTotal = paychecks.reduce((s, p) => s + p.amount, 0), estN = paychecks.filter(p => p.approx).length;
   const plannedTotal = paychecks.reduce((s, p) => s + p.planned, 0);
   const hasIncome = budget.income.length > 0;
   const remaining = Math.round((hasIncome ? incomeTotal - plannedTotal : limitTotal - spentTotal) * 100) / 100;
@@ -3832,7 +3900,7 @@ function renderBudget(){
     </div>
     <div class="budget-kpis">
       <div class="budget-kpi"><span>${hasIncome ? "Remaining" : "Left to spend"}</span><b class="${remaining < 0 ? "over" : ""}">${remaining < 0 ? "−" : ""}${moneyShort(Math.abs(Math.round(remaining * 100) / 100))}</b>
-        <i>${hasIncome ? `of ${moneyShort(incomeTotal)} paychecks` : `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)} spent`}</i></div>
+        <i>${hasIncome ? `of ${estN ? "~" : ""}${moneyShort(Math.round(incomeTotal * 100) / 100)}${estN ? ` · ${estN} expected` : " paychecks"}` : `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)} spent`}</i></div>
       <div class="budget-kpi"><span>Bills left</span><b>${moneyShort(Math.round(sum(unpaid) * 100) / 100)}</b><i>${rows.length - unpaid.length} of ${rows.length} paid</i></div>
     </div>`;
   html += budgetCalHtml(key, rows, paychecks, today);
@@ -3873,14 +3941,17 @@ function renderBudget(){
     periods += `<button class="period-sec ${now ? "now" : ""}" onclick="togglePeriod('${p.key}')" aria-expanded="${open}"><span>${shortDate(p.date)} – ${shortDate(end)}${now ? `<em>Now</em>` : ""}</span><span>${escapeHtml(p.src.name)}${CHEVRON_DOWN}</span></button>`;
     if (!open){
       periods += `<button class="card period-row ${now ? "now" : ""}" onclick="togglePeriod('${p.key}')">
-          <span><b>${money(p.amount)}</b><i>${unpaid.length ? `${unpaid.length} bill${unpaid.length === 1 ? "" : "s"} due · ${money(sum(unpaid))}` : due.length ? "Bills paid" : "No bills due"}</i></span>
+          <span><b>${payAmt(p)}</b><i>${unpaid.length ? `${unpaid.length} bill${unpaid.length === 1 ? "" : "s"} due · ${money(sum(unpaid))}` : due.length ? "Bills paid" : "No bills due"}</i></span>
           <span class="period-row-left ${p.left < 0 ? "over" : ""}">${money(p.left)}<i>left</i></span>
         </button>`;
       return;
     }
     periods += `
       <div class="card period ${now ? "now" : ""}">
-        <button class="period-head" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${money(p.amount)}</b><span>${money(p.planned)} planned</span></button>
+        <button class="period-head" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${payAmt(p)}</b><span>${money(p.planned)} planned</span></button>
+        ${p.src.varies ? p.received
+          ? `<button class="pay-recv got" onclick="editPaycheck('${p.src.id}','${p.date}')">${BOX_CHECK_SVG}Received</button>`
+          : `<button class="pay-recv" onclick="editPaycheck('${p.src.id}','${p.date}', true)">${p.date <= today ? "Mark received" : `Expected · mark received`}</button>` : ""}
         <div class="progress-bar thin"><div class="progress-fill ${p.left < 0 ? "over" : ""}" style="width:${pct}%"></div></div>
         <div class="period-sub"><span>Bills due</span><span>${money(billsDue)}</span></div>
         ${billListHtml(due, p.key, today)}
@@ -3934,12 +4005,13 @@ function renderBudget(){
 
   // Manage: the set-up-once things, one line each
   const mrow = (label, value, onclick) => `<button class="manage-row" onclick="${onclick}"><span>${label}</span><span class="manage-val">${value}</span>${CHEVRON_RIGHT}</button>`;
-  let manage = budget.income.map(x => mrow(escapeHtml(x.name), `${moneyShort(x.amount)} · ${escapeHtml(((BILL_REPEATS[x.repeat] || {}).label || "").toLowerCase())}`, `editIncome('${x.id}')`)).join("");
+  let manage = budget.income.map(x => mrow(escapeHtml(x.name), `${x.varies ? "varies · ~" : ""}${moneyShort(x.amount)} · ${escapeHtml(((BILL_REPEATS[x.repeat] || {}).label || "").toLowerCase())}`, `editIncome('${x.id}')`)).join("");
   manage += mrow(budget.income.length ? "Add another income" : "Add your paycheck", budget.income.length ? "" : "Splits the month by payday", "addIncome()");
   if (!budget.goals.length) manage += mrow("Goals", "House, ring, emergency fund…", "editGoal()");
   if (!spendingShown) manage += mrow("Spending by category", "Nothing logged", "showSpending = true; renderBudget()");
   manage += mrow("Cards &amp; banks", `${budget.accounts.length}`, "openAccounts()");
   manage += mrow("Import bills from a sheet", "", "importBills()");
+  if (budget.income.length) manage += mrow("Import paychecks", "Dates and amounts", "importIncome()");
   if (paychecks.length) manage += mrow("Import paycheck plans", "", "importPlans()");
   html += `<div class="card manage" id="budget-manage"><div class="budget-sub">Manage</div>${manage}</div>`;
   el.innerHTML = html;
@@ -3978,12 +4050,12 @@ function normalizeBudgetData(){
   });
   billPayments.forEach(p => { p.group = p.group === "joint" ? "joint" : "personal"; p.account = p.account ? str(p.account, 40) : null; });
   budget.income = (Array.isArray(budget.income) ? budget.income : []).filter(x => x && iso(x.start))
-    .map(x => ({id:safeId(x.id, "inc"), name:str(x.name, 60) || "Paycheck", amount:amt(x.amount), start:x.start, repeat:BILL_REPEATS[x.repeat] ? x.repeat : "biweekly"}));
+    .map(x => ({id:safeId(x.id, "inc"), name:str(x.name, 60) || "Paycheck", amount:amt(x.amount), start:x.start, repeat:BILL_REPEATS[x.repeat] ? x.repeat : "biweekly", ...(x.varies ? {varies:true} : {})}));
   const plans = budget.plans && typeof budget.plans === "object" && !Array.isArray(budget.plans) ? budget.plans : {};
   budget.plans = {};
   Object.entries(plans).forEach(([k, v]) => {
     if (!/^[A-Za-z0-9_-]+\|\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== "object") return;
-    budget.plans[k] = {...(v.amount != null && isFinite(Number(v.amount)) ? {amount:amt(v.amount)} : {}),
+    budget.plans[k] = {...(v.amount != null && isFinite(Number(v.amount)) ? {amount:amt(v.amount)} : {}), ...(v.received ? {received:true} : {}),
       lines:(Array.isArray(v.lines) ? v.lines : []).filter(l => l && typeof l === "object").map(l => ({id:safeId(l.id, "line"), name:str(l.name, 80) || "Item", amount:amt(l.amount),
         ...(l.goal ? {goal:safeId(l.goal, "goal")} : {}), ...(l.done ? {done:true} : {})}))};
   });
@@ -4871,7 +4943,7 @@ function applyBudgetImport(data){
   incomes.forEach(x => {
     const repeat = BILL_REPEATS[x.repeat] ? x.repeat : "biweekly";
     let src = budget.income.find(i => i.name.toLowerCase() === String(x.name).toLowerCase() && i.start === x.start && i.repeat === repeat);
-    if (!src){ src = {id:genId("inc"), name:String(x.name).slice(0, 60), amount:num(x.amount), start:x.start, repeat}; budget.income.push(src); }
+    if (!src){ src = {id:genId("inc"), name:String(x.name).slice(0, 60), amount:num(x.amount), start:x.start, repeat, ...(x.varies ? {varies:true} : {})}; budget.income.push(src); }
     arr(x.plans).forEach(pl => {
       if (!pl || !/^\d{4}-\d{2}-\d{2}$/.test(pl.date || "")) return;
       const key = `${src.id}|${pl.date}`;
