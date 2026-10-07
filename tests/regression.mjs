@@ -865,6 +865,21 @@ await section("budget: long-term goals", async () => {
   await page.evaluate(() => closeComposer());
   // reaching the target
   await page.evaluate(() => { budget.goals[0].log.push({ id: "gl-big", date: addDaysIso(0), amount: 5000, note: "" }); saveBudgetData(); });
+  // milestone bar: quarter marks, next milestone and a finish date at this pace
+  const ms = await page.evaluate(() => {
+    budget.goals = [{ id: "goal-h", name: "House", target: 15000, saved: 2500, date: null, created: addDaysIso(-60), log: [{ id: "gl-1", date: addDaysIso(-10), amount: 1500, note: "" }] }];
+    saveBudgetData();
+    const s = goalStatus(budget.goals[0]);
+    return { marks: [...document.querySelectorAll("#goals-card .goal-mark em")].map(e => e.textContent), hit: document.querySelectorAll("#goals-card .goal-mark.hit").length,
+      outlook: document.querySelector("#goals-card .goal-outlook").textContent, insight: document.querySelector("#goals-card .insight").textContent, s };
+  });
+  check("milestone marks at each quarter", ms.marks.join() === "$3,750,$7,500,$11,250,$15,000" && ms.hit === 1, ms);
+  check("next milestone and finish date shown", ms.outlook.includes("Next: $7,500 (50%) · $3,500 away") && ms.outlook.includes("At this pace:") && !!ms.s.eta, ms.outlook);
+  check("collapsed insight: % and amount to go", ms.insight === "27% · $11,000 to go", ms.insight);
+  const behind = await page.evaluate(() => { budget.goals[0].date = addMonthsIso(addDaysIso(0), 10); saveBudgetData(); return document.querySelector("#goals-card .insight").textContent; });
+  check("collapsed insight flags a goal that's behind", /^Behind · needs \$[\d,]+\/mo$/.test(behind), behind);
+  await page.evaluate(() => { budget.goals.push({ id: "goal-r", name: "Ring", target: 100, saved: 100, date: null, created: addDaysIso(0), log: [] }); saveBudgetData(); });
+  check("several goals: overall % and how many are behind", (await page.textContent("#goals-card .insight")) === "27% · 1 behind", await page.textContent("#goals-card .insight"));
   check("reached goals say so", (await page.textContent("#goals-card")).includes("Reached"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();

@@ -343,6 +343,16 @@
   .goal-head{display:flex; justify-content:space-between; align-items:baseline; gap:12px; width:100%; padding:0 2px 8px; border:none; background:none; color:var(--text); font:inherit; font-size:15px; text-align:left;}
   .goal-head span{color:var(--text-dim); font-size:13px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums;}
   .goal.reached .progress-fill{background:var(--olive);}
+  .goal-track{position:relative; padding-bottom:20px;}
+  .goal-track .progress-bar{height:10px;}
+  .goal-mark{position:absolute; top:0; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; pointer-events:none;}
+  .goal-mark i{display:block; width:2px; height:10px; background:var(--surface); opacity:.9;}
+  .goal-mark.end i{opacity:0;}
+  .goal-mark em{font-style:normal; font-size:10.5px; font-weight:700; color:var(--text-dim); margin-top:4px; white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .goal-mark.hit em{color:var(--olive);}
+  .goal-mark.end{transform:translateX(-100%); align-items:flex-end;}
+  .goal-outlook{margin:8px 2px 0; font-size:12.5px; color:var(--text-dim); display:grid; gap:3px;}
+  .goal-outlook b{color:var(--text);}
   .goal-meta{margin:8px 2px 0; font-size:12.5px; color:var(--text-dim);}
   .goal-meta > span:first-child{color:var(--text); font-weight:800;}
   .goal-meta b{color:var(--text);}
@@ -3340,6 +3350,7 @@ function editPlanLine(key, id){
 // counts toward it automatically. With a date, the card shows what's needed
 // each month and whether the last 3 months kept pace.
 const GOAL_IDEAS = ["Savings goal", "Big purchase", "Emergency fund", "Vacation", "New car"];
+const GOAL_MILESTONES = [25, 50, 75, 100];
 const openGoals = new Set();
 function goalById(id){ return budget.goals.find(g => g.id === id); }
 function goalLinkedLines(g){
@@ -3355,20 +3366,34 @@ function goalEntries(g){
   return [...g.log.map(e => ({...e})), ...goalLinkedLines(g)].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
 }
 function goalSaved(g){ return Math.max(0, g.saved + goalEntries(g).reduce((s, e) => s + e.amount, 0)); }
+function monthYear(iso){ return noonOf(iso).toLocaleDateString('en-US', {month:'short', year:'numeric'}); }
+// one line for a collapsed card: done, past date, behind, on pace or how far
+function goalInsight(g, s = goalStatus(g)){
+  if (s.reached) return "Done";
+  if (s.late) return "Past date";
+  if (s.behind) return `Behind · needs ${moneyShort(Math.ceil(s.perMonth))}/mo`;
+  if (s.perMonth != null) return `On pace · ${s.pct}%`;
+  return `${s.pct}% · ${moneyShort(Math.round(s.left))} to go`;
+}
 function monthsUntil(iso){ return Math.max(0, (noonOf(iso) - noonOf(addDaysIso(0))) / (864e5 * 30.44)); }
 function goalStatus(g){
   const saved = goalSaved(g), left = Math.max(0, g.target - saved);
   const pct = g.target ? Math.min(100, Math.round(saved / g.target * 100)) : 0;
   const out = {saved, left, pct, reached:g.target > 0 && saved >= g.target};
-  if (g.date && !out.reached){
+  if (out.reached) return out;
+  if (g.date){
     const months = monthsUntil(g.date);
     out.perMonth = months >= 1 ? left / months : left; // due within a month: all of it
     out.late = g.date < addDaysIso(0);
-    // pace: what went in over the last 3 months, per month
-    const since = addMonthsIso(addDaysIso(0), -3);
-    const recent = goalEntries(g).filter(e => e.date >= since).reduce((s, e) => s + e.amount, 0) / 3;
-    if (goalEntries(g).some(e => e.date >= since)) out.pace = recent;
   }
+  // pace: what went in over the last 3 months, per month
+  const since = addMonthsIso(addDaysIso(0), -3), recent = goalEntries(g).filter(e => e.date >= since);
+  if (recent.length) out.pace = recent.reduce((s, e) => s + e.amount, 0) / 3;
+  if (out.pace > 0) out.eta = addDaysIso(Math.ceil(left / out.pace * 30.44)); // finish date at this pace
+  out.behind = out.perMonth != null && !out.late && !(out.pace >= out.perMonth);
+  // next milestone: the first quarter mark not yet passed
+  const m = GOAL_MILESTONES.find(q => saved < g.target * q / 100);
+  if (m) out.next = {pct:m, amount:g.target * m / 100, away:g.target * m / 100 - saved};
   return out;
 }
 function editGoal(id, preset = ""){
@@ -3435,13 +3460,22 @@ function goalsCardHtml(){
     if (s.reached) meta.push(`<span class="goal-done">${BOX_CHECK_SVG}Reached</span>`);
     else {
       meta.push(`${moneyShort(Math.round(s.left))} to go`);
-      if (g.date) meta.push(`by ${escapeHtml(noonOf(g.date).toLocaleDateString('en-US', {month:'short', year:'numeric'}))}`);
+      if (g.date) meta.push(`by ${escapeHtml(monthYear(g.date))}`);
       if (s.late) meta.push(`<span class="overdue">past date</span>`);
       else if (s.perMonth != null) meta.push(`<b>${moneyShort(Math.ceil(s.perMonth))}/mo</b> needed`);
     }
-    const pace = s.pace == null || s.late || s.reached ? "" : s.pace >= s.perMonth
+    const pace = s.pace == null || s.late || s.reached || s.perMonth == null ? "" : !s.behind
       ? `<span class="goal-pace on">On pace · ${moneyShort(Math.round(s.pace))}/mo lately</span>`
       : `<span class="goal-pace">Behind · ${moneyShort(Math.round(s.pace))}/mo lately</span>`;
+    // milestone bar: quarter marks, the ones passed light up
+    const marks = GOAL_MILESTONES.map(q => {
+      const hit = s.pct >= q || s.reached;
+      return `<span class="goal-mark ${hit ? "hit" : ""} ${q === 100 ? "end" : ""}" style="left:${q}%"><i></i><em>${moneyShort(Math.round(g.target * q / 100))}</em></span>`;
+    }).join("");
+    const outlook = s.reached ? "" : [
+      s.next ? `Next: <b>${moneyShort(Math.round(s.next.amount))}</b> (${s.next.pct}%) · ${moneyShort(Math.round(s.next.away))} away` : "",
+      s.eta ? `At this pace: <b>${escapeHtml(monthYear(s.eta))}</b>` : s.pace != null && s.pace <= 0 ? "No progress lately" : "Add money to see a finish date",
+    ].filter(Boolean).map(t => `<div>${t}</div>`).join("");
     const entries = goalEntries(g), open = openGoals.has(g.id);
     const hist = entries.map(e => `<${e.linked ? "div" : `button onclick="addToGoal('${g.id}','${e.id}')"`} class="goal-entry">
         <span>${escapeHtml(noonOf(e.date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:e.date.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric'}))}</span>
@@ -3450,9 +3484,10 @@ function goalsCardHtml(){
       </${e.linked ? "div" : "button"}>`).join("");
     return `<div class="goal ${s.reached ? "reached" : ""}">
         <button class="goal-head" onclick="editGoal('${g.id}')"><b>${escapeHtml(g.name)}</b><span>${moneyShort(Math.round(s.saved))} of ${moneyShort(g.target)}</span></button>
-        <div class="progress-bar"><div class="progress-fill" style="width:${s.pct}%"></div></div>
+        <div class="goal-track"><div class="progress-bar"><div class="progress-fill" style="width:${s.pct}%"></div></div>${marks}</div>
         <div class="goal-meta"><span>${s.pct}%</span> · ${meta.join(" · ")}</div>
         ${pace}
+        ${outlook ? `<div class="goal-outlook">${outlook}</div>` : ""}
         <div class="goal-actions">
           <button class="goal-add" onclick="addToGoal('${g.id}')">+ Add money</button>
           ${entries.length || g.saved ? `<button class="goal-hist" onclick="toggleGoal('${g.id}')" aria-expanded="${open}">History (${entries.length})${CHEVRON_DOWN}</button>` : ""}
@@ -3460,11 +3495,21 @@ function goalsCardHtml(){
         ${open ? `<div class="goal-entries">${hist}${g.saved ? `<div class="goal-entry"><span>Start</span><span class="goal-note">Already saved</span><b>${money(g.saved)}</b></div>` : ""}</div>` : ""}
       </div>`;
   }).join("");
-  const totalSaved = budget.goals.reduce((s, g) => s + goalSaved(g), 0), totalTarget = budget.goals.reduce((s, g) => s + g.target, 0);
   return collapsibleCard({id:"goals-card", title:"Goals", editable:false,
-    insight:budget.goals.length ? `${moneyShort(Math.round(totalSaved))} of ${moneyShort(totalTarget)}` : "None",
+    insight:escapeHtml(goalsInsight()),
     body:(rows || `<div class="empty">Save toward the big things: a savings goal, an big purchase, an emergency fund.</div>`)
       + `<button class="add-row" onclick="editGoal()">+ New goal</button>`});
+}
+// collapsed Goals card: one goal speaks for itself; several sum up
+function goalsInsight(){
+  const gs = budget.goals;
+  if (!gs.length) return "None";
+  if (gs.length === 1) return goalInsight(gs[0]);
+  const st = gs.map(g => goalStatus(g)), open = st.filter(x => !x.reached);
+  if (!open.length) return "All done";
+  const saved = gs.reduce((t, g) => t + goalSaved(g), 0), target = gs.reduce((t, g) => t + g.target, 0);
+  const behind = open.filter(x => x.behind || x.late).length;
+  return `${target ? Math.min(100, Math.round(saved / target * 100)) : 0}% · ${behind ? `${behind} behind` : `${moneyShort(Math.round(open.reduce((t, x) => t + x.left, 0)))} to go`}`;
 }
 // ---------- cards / banks ----------
 function editAccount(i){
