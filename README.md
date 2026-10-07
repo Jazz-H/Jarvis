@@ -75,8 +75,8 @@ clothes, moto gear, and everything else.
 
 **Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
 - **Top:** Remaining (this month's paychecks minus their plans; without income, category
-  budget minus spending) and Bills left (unpaid, N of M paid), plus a Goals strip once you
-  have goals.
+  budget minus spending) and Bills left (unpaid, N of M paid). A divider sets the pay
+  periods apart.
 - **Calendar:** starts as the selected day's week (swipe down or tap the bar for the
   month): a dot per bill due (red overdue, grey paid) and a $ on paydays. Tap a day to see
   and tick off its bills or open its paycheck.
@@ -112,7 +112,7 @@ clothes, moto gear, and everything else.
   "$120.00" or "-"), **Import paychecks** (date + amount rows set each payday's amount), and
   **Import paycheck plans** (blocks starting with a "Paycheck" row).
 - **Pay that varies:** an income marked "Pay varies by check" shows unreceived checks as
-  `~expected`; tick a check Received with its real amount, and later checks are estimated
+  `~expected`; tick a check's box (Received) with its real amount, and later checks are estimated
   from the last 3 received.
 - **Import link:** `jazz2.0.html#import=<base64url JSON>` adds bills, paychecks with plans,
   and goals after a confirm, skipping anything already there (a paycheck already there can be switched to "varies" and have its paydays' amounts set). The data stays in the URL
@@ -191,7 +191,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (291 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (296 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

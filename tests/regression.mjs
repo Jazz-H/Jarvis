@@ -849,9 +849,17 @@ await section("budget: pay that varies by check", async () => {
   check("saving an expected check unchanged keeps it an estimate", await page.evaluate(() => budget.plans[`inc-v|${addDaysIso(14)}`].amount == null));
   // the page shows ~ for expected checks and the KPI counts them
   await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
-  const ui = await page.evaluate(() => ({ approx: document.querySelectorAll("#pay-periods .period-head .approx").length, recv: document.querySelectorAll("#pay-periods .pay-recv").length,
+  const ui = await page.evaluate(() => ({ approx: document.querySelectorAll("#pay-periods .period-head .approx").length, recv: document.querySelectorAll("#pay-periods .period-head.recv .todo-check").length,
     kpi: document.querySelector(".budget-kpi i").textContent, manage: document.querySelector("#budget-manage").textContent }));
   check("periods mark expected checks with ~ and offer Received", ui.recv >= 1 && ui.approx >= 1 && /expected/.test(ui.kpi), ui);
+  // the period checkbox: unticking goes back to expected, ticking asks for the amount
+  const k1 = await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; Object.assign(planFor(p.key), { amount: 2050, received: true }); periodOpen[p.key] = true; saveBudgetData(); return p.key; });
+  await page.click(`#pay-periods .period-head.recv.got .todo-check`);
+  check("unticking Received returns the check to expected", await page.evaluate(k => !budget.plans[k].received && budget.plans[k].amount === 2050, k1));
+  await page.click(`#pay-periods .period-head.recv:not(.got) .todo-check >> nth=0`);
+  check("ticking Received opens the amount, prefilled as received", await page.isChecked("#modal-received"));
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("ticked check shows as received", await page.evaluate(k => budget.plans[k].received === true && !!document.querySelector("#pay-periods .period-head.recv.got"), k1));
   check("Manage lists the income as varying and offers import", ui.manage.includes("varies · ~$2,000") && ui.manage.includes("Import paychecks"), ui.manage);
   // pasting the sheet's Income rows
   const rows = await page.evaluate(() => [addDaysIso(-28), addDaysIso(14), addDaysIso(3)].map(d => `${Number(d.slice(5, 7))}/${d.slice(8)}/${d.slice(0, 4)} - Work\t$1,234.56`).join("\n") + "\nTotal\t$9,999.00");
@@ -864,6 +872,8 @@ await section("budget: pay that varies by check", async () => {
   check("rows that aren't a payday are reported", imp.toast.includes("Set 2 paychecks") && imp.toast.includes("1 not on a payday"), imp.toast);
   // varies + received survive a reload
   await page.reload(); await page.waitForTimeout(300);
+  check("goals aren't repeated above the pay periods", await page.evaluate(() => !document.querySelector(".budget-goals-strip")));
+  check("a divider sets the pay periods apart", await page.evaluate(() => { const hr = document.querySelector("#panel-budget .budget-divider"); return !!hr && !!hr.nextElementSibling && hr.compareDocumentPosition(document.getElementById("pay-periods")) & Node.DOCUMENT_POSITION_FOLLOWING; }));
   check("varies and received persist", await page.evaluate(() => budget.income[0].varies && budget.plans[`inc-v|${addDaysIso(-28)}`].received === true));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
