@@ -1190,6 +1190,24 @@ await section("budget: import link adds data without replacing anything", async 
   await ctx.close();
 });
 
+await section("budget: import link switches an existing paycheck to varying pay", async () => {
+  const k = isoOffset(0).slice(0, 7);
+  const payload = { app: "jazz2-budget", month: k, income: [{ name: "Paycheck", amount: 2000, start: k + "-01", repeat: "biweekly", varies: true,
+    plans: [{ date: k + "-01", amount: 2100, received: true }, { date: k + "-15", amount: 2000 }] }] };
+  const hash = "#import=" + Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const seed = { "budget-content": { categories: [], expenses: [], accounts: [], goals: [],
+    income: [{ id: "inc-x", name: "Paycheck", amount: 2000, start: k + "-01", repeat: "biweekly" }],
+    plans: { [`inc-x|${k}-01`]: { lines: [{ id: "line-a", name: "Bills", amount: 500 }] } } } };
+  const { ctx, page, errors } = await openApp({ query: hash, seed });
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(k => ({ n: budget.income.length, varies: budget.income[0].varies, p1: budget.plans[`inc-x|${k}-01`], p15: budget.plans[`inc-x|${k}-15`] }), k);
+  check("existing paycheck reused and set to vary", r.n === 1 && r.varies === true, r);
+  check("payday with lines keeps them; gets its amount and Received", r.p1.amount === 2100 && r.p1.received === true && r.p1.lines.length === 1, r.p1);
+  check("expected payday gets its exact amount", r.p15 && r.p15.amount === 2000 && !r.p15.received, r.p15);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("budget: month calendar", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const k = await page.evaluate(() => {

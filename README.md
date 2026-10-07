@@ -115,7 +115,7 @@ clothes, moto gear, and everything else.
   `~expected`; tick a check Received with its real amount, and later checks are estimated
   from the last 3 received.
 - **Import link:** `jazz2.0.html#import=<base64url JSON>` adds bills, paychecks with plans,
-  and goals after a confirm, skipping anything already there. The data stays in the URL
+  and goals after a confirm, skipping anything already there (a paycheck already there can be switched to "varies" and have its paydays' amounts set). The data stays in the URL
   fragment, so personal numbers never land in this repo.
 - Payments and expenses older than about 13 months are pruned automatically.
 
@@ -191,7 +191,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (287 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (291 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
