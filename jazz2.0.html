@@ -229,9 +229,7 @@
   .recurring-row{cursor:pointer; padding:0; gap:0; align-items:center;}
   .recurring-row .body{order:2; flex:1; min-width:0; padding:12px 6px 12px 2px;}
   .recurring-row .row-edit-btn{order:3;}
-  .wash-row .wash-icon{order:1; display:flex; align-items:center; justify-content:center; width:40px; height:44px; flex-shrink:0; color:var(--navy);}
   #todo-list .wash-row .item{padding-left:20px;} /* lines up with rows that have a drag handle */
-  .wash-row .wash-icon svg{width:18px; height:18px;}
   .wash-title{display:flex; align-items:center; gap:6px; color:var(--navy);} /* same color + droplet as wash days on Home's calendar */
   .wash-title svg{width:15px; height:15px; flex-shrink:0;}
   .home-star{display:inline-flex; vertical-align:-2px; margin-left:6px; color:var(--gold);}
@@ -1659,17 +1657,15 @@ function washHairDone(iso){
   const c = routineChecks[iso], steps = washHairSteps();
   return !!c && steps.length > 0 && steps.every(s => (c.pm || []).includes(s.id));
 }
-function toggleWashHair(){
-  const iso = addDaysIso(0);
+// Any wash day's row can be ticked (catching up on a past one, or washing early)
+function toggleWashHair(iso = addDaysIso(0)){
   if (!isWashDay(noonOf(iso))) return;
-  const done = washHairDone(iso), ticked = todayChecks().pm;
-  washHairSteps().forEach(s => { if (ticked.includes(s.id) === done) toggleRoutineStep("pm", s.id); });
+  const done = washHairDone(iso), ticked = (routineChecks[iso] && routineChecks[iso].pm) || [];
+  washHairSteps().forEach(s => { if (ticked.includes(s.id) === done) toggleRoutineStep("pm", s.id, iso); });
 }
 function washRowHtml(iso){
   const done = washHairDone(iso);
-  const check = iso === addDaysIso(0)
-    ? `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" onclick="event.stopPropagation(); toggleWashHair()"><span class="box">${BOX_CHECK_SVG}</span></button>`
-    : `<span class="wash-icon" aria-hidden="true">${DROPLET_ICON}</span>`;
+  const check = `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" onclick="event.stopPropagation(); toggleWashHair('${iso}')"><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
       ${check}
       <div class="body" onclick="activateTab('skin')"><div class="title wash-title">Wash hair${DROPLET_ICON}</div></div>
@@ -2469,14 +2465,14 @@ function todayChecks(){
   const c = routineChecks[isoDate(new Date())];
   return {am:(c && c.am) || [], pm:(c && c.pm) || [], amDone:!!(c && c.amDone), pmDone:!!(c && c.pmDone)};
 }
-function toggleRoutineStep(band, id){
-  const key = isoDate(new Date());
+// `key` defaults to today; the Wash hair row can also tick another day's steps
+function toggleRoutineStep(band, id, key = isoDate(new Date())){
   const day = routineChecks[key] || (routineChecks[key] = {am:[], pm:[]});
   const i = day[band].indexOf(id);
   if (i >= 0) day[band].splice(i, 1); else day[band].push(id);
   const wasDone = !!day[band + "Done"];
   // amDone/pmDone are recorded when ticking so the streak survives later routine edits
-  const r = routineForDate(new Date());
+  const r = routineForDate(noonOf(key));
   // a band with no steps that day counts as done, so it can't block the streak
   day.amDone = r.am.every(s => day.am.includes(s.id));
   day.pmDone = r.pm.every(s => day.pm.includes(s.id));
@@ -2486,7 +2482,7 @@ function toggleRoutineStep(band, id){
     localStorage.setItem("routine-checks", JSON.stringify(routineChecks));
     markDataChanged();
   }catch(e){ showToast("Save failed — storage may be full or disabled", true); }
-  if (!wasDone && day[band + "Done"]) showToast(band === "am" ? "Morning routine done" : "Evening routine done");
+  if (!wasDone && day[band + "Done"] && key === isoDate(new Date())) showToast(band === "am" ? "Morning routine done" : "Evening routine done");
   renderSkin();
   renderHome(); // both to-do views show the Wash hair row
 }
