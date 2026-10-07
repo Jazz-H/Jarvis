@@ -271,6 +271,14 @@
   .paid-toggle span{flex:1;}
   .pinned.open .paid-toggle .chev{transform:none;}
   .paid-toggle[aria-expanded="true"] .chev, .pinned.open .paid-toggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
+  .plan-toggle{display:flex; justify-content:space-between; align-items:center; width:100%; margin-top:6px; padding:12px 2px 8px; border:none;
+    border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text-dim); font:inherit;
+    font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; text-align:left; cursor:pointer;}
+  .plan-toggle span:last-child{display:inline-flex; align-items:center; gap:6px; text-transform:none; letter-spacing:0; font-size:12.5px; font-weight:700;}
+  .plan-toggle span:last-child > svg:first-child:not(.chev){width:13px; height:13px; color:var(--olive);}
+  .plan-toggle .chev{transition:transform .2s;}
+  .pinned.open .plan-toggle .chev, .plan-toggle .chev{transform:none;}
+  .plan-toggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
   .plan-row{display:flex; align-items:center; border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
   .plan-row:first-of-type{border-top:none;}
   .plan-body{order:2; flex:1; min-width:0; display:flex; justify-content:space-between; gap:12px; padding:11px 2px; border:none; background:none; color:var(--text); font:inherit; font-size:13.5px; text-align:left;}
@@ -288,7 +296,11 @@
   .bill-row .body{order:2; flex:1; min-width:0; padding:11px 6px 11px 2px; cursor:pointer;}
   .bill-amt{order:3; display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; padding-right:2px;}
   .bill-pay{font-size:11.5px; font-weight:700; color:var(--link); text-decoration:none;}
-  .autopay{color:var(--olive); font-weight:700;}
+  .autopay{display:inline-flex; align-items:center; gap:4px; color:var(--olive); font-weight:600;}
+  .bill-row .todo-meta{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .acct-tag{display:inline-flex; align-items:center; gap:5px;}
+  .acct-tag i{width:7px; height:7px; border-radius:50%; background:var(--acct); flex-shrink:0;}
+  .bill-amt .approx{color:var(--text-dim); font-weight:600; margin-right:1px;}
   .bill-row.checked .bill-amt{color:var(--text-dim); text-decoration:line-through;}
   .bill-tag{color:var(--text); font-weight:700;}
   .bill-icon{color:var(--gold);}
@@ -958,6 +970,7 @@ const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
 const BOX_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const CHEVRON_DOWN = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+const AUTOPAY_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
 const CHEVRON_RIGHT = '<svg class="chev-r" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
 const MOTO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a9 9 0 0 1 18 0v3H3z"/><path d="M12 11h9"/><path d="M8 18v2"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
@@ -3021,7 +3034,29 @@ function payBill(id){
   }
   recordPayment(b, billShare(b));
 }
+// Autopay bills pay themselves: once a due date arrives the payment is logged
+// (dated that day) and the bill moves to its next due date. Payment ids are
+// derived from bill + date, so every device logs the same payment and sync
+// never doubles it. Un-paying an autopaid bill holds that date (`hold`) so it
+// isn't re-paid straight away. Runs on load, at midnight, and on every save.
+function processAutopay(){
+  const today = addDaysIso(0);
+  let changed = false;
+  bills.forEach(b => {
+    if (!b.autopay || b.done || !b.due) return;
+    for (let i = 0; i < 60 && b.due && b.due <= today && b.due !== b.hold; i++){
+      const id = `pay-auto-${b.id}-${b.due}`;
+      if (!billPayments.some(p => p.id === id)) billPayments.push({id, billId:b.id, name:b.name, amount:billShare(b), due:b.due, date:b.due,
+        group:b.group || "personal", account:b.account || null, auto:true});
+      const next = nextBillIso(b.due, b.repeat, b.day);
+      changed = true;
+      if (next) b.due = next; else { b.done = true; break; }
+    }
+  });
+  return changed;
+}
 function recordPayment(b, amount){
+  delete b.hold;
   const p = {id:genId("pay"), billId:b.id, name:b.name, amount, due:b.due, date:addDaysIso(0), group:b.group || "personal", account:b.account || null};
   billPayments.push(p);
   const prevDue = b.due, next = nextBillIso(b.due, b.repeat, b.day);
@@ -3041,10 +3076,11 @@ function unpayBill(paymentId){
   const latest = billPayments.filter(x => x.billId === p.billId).sort((x, y) => (x.due < y.due ? 1 : -1))[0];
   if (b && latest !== p){ showToast("Only the latest payment can be undone"); return; }
   billPayments = billPayments.filter(x => x.id !== p.id);
-  if (b){ b.due = p.due; delete b.done; }
+  if (b){ b.due = p.due; delete b.done; if (b.autopay) b.hold = p.due; } // don't let autopay re-pay it right away
   saveBudgetData();
 }
 function saveBudgetData(){
+  processAutopay(); // e.g. Autopay just switched on for a bill that's already due
   saveContent("bills-content", bills, {toast:false});
   saveContent("bill-payments", billPayments, {toast:false});
   saveContent("budget-content", budget, {toast:false});
@@ -3060,7 +3096,7 @@ function billFields(){
     {key:"account", label:"Paid from (card / bank)", type:"select", options:["—", ...budget.accounts]},
     {key:"share", label:"Your share % (joint bills; blank = all of it)", type:"number", step:"1"},
     {key:"varies", label:"Amount varies (ask what it was when I tick it paid)", type:"checkbox"},
-    {key:"autopay", label:"Autopay", type:"checkbox"},
+    {key:"autopay", label:"Autopay (marked paid on its due date)", type:"checkbox"},
     {key:"link", label:"Pay link (optional)", type:"url"},
   ];
 }
@@ -3069,6 +3105,7 @@ function applyBillValues(b, v){
   b.amount = Math.max(0, Number(v.amount) || 0);
   const newDue = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : (b.due || addDaysIso(0));
   if (newDue !== b.due || !b.day) b.day = dayOf(newDue); // the series' day of month
+  if (newDue !== b.due || !v.autopay) delete b.hold;
   b.due = newDue;
   b.repeat = Object.keys(BILL_REPEATS).find(k => BILL_REPEATS[k].label === v.repeat) || "monthly";
   b.autopay = !!v.autopay;
@@ -3138,16 +3175,25 @@ function toggleBudgetCat(id){
   renderBudget();
 }
 function shiftBudgetMonth(n){ budgetMonthOffset += n; renderBudget(); }
+// One quiet line under each bill: when (red if overdue; "Autopays" when it will
+// pay itself), then the card/bank as a colored dot + name. Monthly is the
+// default, so only other repeats are named; shares and "varies" say so briefly.
+function billWhen(iso){
+  const n = daysFromToday(iso);
+  return n >= -1 && n <= 6 ? dueLabel(iso) : noonOf(iso).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
 function billRowHtml(r, today){
   const b = r.bill, paid = !!r.payment;
   const overdue = !paid && r.due < today;
-  const meta = [paid ? `Paid ${escapeHtml(dueLabel(r.payment.date))}` : `<span class="${overdue ? "overdue" : ""}">${overdue ? "Overdue · " : "Due "}${escapeHtml(dueLabel(r.due))}</span>`];
-  if (b && b.repeat && !paid) meta.push(escapeHtml(BILL_REPEATS[b.repeat] ? BILL_REPEATS[b.repeat].label : ""));
-  if (b && b.autopay && !paid) meta.push(`<span class="autopay">Autopay</span>`);
-  if (b && b.varies && !paid) meta.push("Varies");
-  if (b && b.share && b.group === "joint" && !paid) meta.push(`${b.share}% of ${money(b.amount)}`);
+  const meta = [];
+  if (paid) meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
+  else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(billWhen(r.due))}</span>`);
+  else if (b && b.autopay) meta.push(`<span class="autopay">${AUTOPAY_ICON}Autopays ${escapeHtml(billWhen(r.due))}</span>`);
+  else meta.push(`Due ${escapeHtml(billWhen(r.due))}`);
   const acct = (b && b.account) || (r.payment && r.payment.account);
-  if (acct) meta.unshift(`<span class="acct-pill" style="--acct:${accountColor(acct)}">${escapeHtml(acct)}</span>`);
+  if (acct) meta.push(`<span class="acct-tag"><i style="--acct:${accountColor(acct)}"></i>${escapeHtml(acct)}</span>`);
+  if (b && !paid && b.repeat && b.repeat !== "monthly") meta.push(escapeHtml((BILL_REPEATS[b.repeat] || {}).label || ""));
+  if (b && b.share && b.group === "joint" && !paid) meta.push(`${b.share}%`);
   const check = paid
     ? `<button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not paid: ${escapeAttr(r.name)}" onclick="event.stopPropagation(); unpayBill('${r.payment.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`
     : r.current
@@ -3156,7 +3202,7 @@ function billRowHtml(r, today){
   return `<div class="item bill-row ${paid ? "checked" : ""}">
       ${check}
       <div class="body" onclick="${paid ? `editPayment('${r.payment.id}')` : b ? `editBill('${b.id}')` : ""}"><div class="title">${escapeHtml(r.name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
-      <div class="bill-amt">${money(r.amount)}${b && !paid ? linkHtml(b.link, 'class="bill-pay" onclick="event.stopPropagation()" aria-label="Pay online"', "Pay →") : ""}</div>
+      <div class="bill-amt">${b && b.varies && !paid ? `<span class="approx" title="Amount varies">~</span>` : ""}${money(r.amount)}${b && !paid ? linkHtml(b.link, 'class="bill-pay" onclick="event.stopPropagation()" aria-label="Pay online"', "Pay →") : ""}</div>
     </div>`;
 }
 // Each card/bank gets its own pill color, by its place in the list (never red,
@@ -3571,6 +3617,8 @@ function openAccounts(){
   const c = document.getElementById("bills-card");
   if (c) c.scrollIntoView({behavior:"smooth", block:"start"});
 }
+const planOpen = {};
+function togglePlan(key, shown){ planOpen[key] = !shown; renderBudget(); }
 function togglePeriod(key){
   const open = key in periodOpen ? periodOpen[key] : key === periodDefaultKey;
   periodOpen[key] = !open;
@@ -3781,10 +3829,15 @@ function renderBudget(){
         <div class="progress-bar thin"><div class="progress-fill ${p.left < 0 ? "over" : ""}" style="width:${pct}%"></div></div>
         <div class="period-sub"><span>Bills due</span><span>${money(billsDue)}</span></div>
         ${billListHtml(due, p.key, today)}
-        <div class="period-sub"><span>Plan</span><span>${p.plan.lines.filter(l => l.done).length}/${p.plan.lines.length} done</span></div>
-        ${lines}
-        ${billsDue > 0 && !coversBills ? `<button class="plan-hint" onclick="quickPlanLine('${p.key}', 'Bills ${escapeAttr(shortDate(p.date))}–${escapeAttr(shortDate(end))}', ${billsDue})">+ Add bills due · ${money(billsDue)}</button>` : ""}
-        <button class="plan-add" onclick="addPlanLine('${p.key}')">+ Add line</button>
+        ${(() => {
+          // the plan folds like "Paid": closed by default once every line is done
+          const doneN = p.plan.lines.filter(l => l.done).length, allDone = p.plan.lines.length > 0 && doneN === p.plan.lines.length;
+          const planShown = p.key in planOpen ? planOpen[p.key] : !allDone;
+          return `<button class="plan-toggle" onclick="togglePlan('${p.key}', ${planShown})" aria-expanded="${planShown}"><span>Plan</span><span>${allDone ? `${BOX_CHECK_SVG}` : ""}${doneN}/${p.plan.lines.length} done · ${money(p.planned)}${CHEVRON_DOWN}</span></button>`
+            + (planShown ? lines
+              + (billsDue > 0 && !coversBills ? `<button class="plan-hint" onclick="quickPlanLine('${p.key}', 'Bills ${escapeAttr(shortDate(p.date))}–${escapeAttr(shortDate(end))}', ${billsDue})">+ Add bills due · ${money(billsDue)}</button>` : "")
+              + `<button class="plan-add" onclick="addPlanLine('${p.key}')">+ Add line</button>` : "");
+        })()}
         <div class="paycheck-left ${p.left < 0 ? "over" : ""}"><span>Remaining</span><b>${money(p.left)}</b></div>
       </div>`;
   });
@@ -3815,7 +3868,7 @@ function renderBudget(){
     const byAcct = {};
     monthRows.forEach(r => { const a = (r.bill && r.bill.account) || (r.payment && r.payment.account) || "No card set"; byAcct[a] = (byAcct[a] || 0) + (Number(r.amount) || 0); });
     billBody += `<div class="budget-sub">By card / bank</div><div class="acct-totals">` + Object.entries(byAcct).sort((a, b) => b[1] - a[1]).map(([a, n]) =>
-      `<div class="acct-total"><span class="acct-pill" style="--acct:${a === "No card set" ? "var(--text-dim)" : accountColor(a)}">${escapeHtml(a)}</span><b>${money(n)}</b></div>`).join("") + `</div>`;
+      `<div class="acct-total"><span class="acct-tag"><i style="--acct:${a === "No card set" ? "var(--text-dim)" : accountColor(a)}"></i>${escapeHtml(a)}</span><b>${money(n)}</b></div>`).join("") + `</div>`;
   } else billBody += `<div class="empty">No bills this month. Add rent, phone, subscriptions… or import them from your sheet.</div>`;
   billBody += `<button class="add-row" onclick="addBill()">+ Add bill</button>`;
   html += collapsibleCard({id:"bills-card", title:"All bills", insight:monthRows.length ? `${moneyShort(Math.round(sum(monthRows) * 100) / 100)} · ${monthRows.filter(r => r.payment).length}/${monthRows.length} paid` : "None", body:billBody});
@@ -3855,9 +3908,10 @@ function normalizeBudgetData(){
   bills = bills.filter(b => b && typeof b === "object").map(b => ({id:safeId(b.id, "bill"), name:str(b.name, 120) || "Bill", amount:amt(b.amount),
     due:iso(b.due) || addDaysIso(0), repeat:BILL_REPEATS[b.repeat] ? b.repeat : "monthly", autopay:!!b.autopay, link:b.link ? str(b.link, 2000) : null, ...(b.done ? {done:true} : {}),
     group:b.group, account:b.account == null ? null : str(b.account, 40), share:b.share, varies:!!b.varies,
-    day:Number.isInteger(b.day) && b.day >= 1 && b.day <= 31 ? b.day : dayOf(iso(b.due) || addDaysIso(0))}));
+    day:Number.isInteger(b.day) && b.day >= 1 && b.day <= 31 ? b.day : dayOf(iso(b.due) || addDaysIso(0)),
+    ...(iso(b.hold) ? {hold:b.hold} : {})}));
   billPayments = billPayments.filter(p => p && iso(p.due) && iso(p.date)).map(p => ({id:safeId(p.id, "pay"), billId:safeId(p.billId, "bill"), name:str(p.name, 120), amount:amt(p.amount), due:p.due, date:p.date,
-    group:p.group, account:p.account}));
+    group:p.group, account:p.account, ...(p.auto ? {auto:true} : {})}));
   budget.categories = budget.categories.filter(c => c && typeof c === "object").map(c => ({id:safeId(c.id, "cat"), name:str(c.name, 60) || "Category", limit:amt(c.limit)}));
   budget.expenses = budget.expenses.filter(e => e && iso(e.date)).map(e => ({id:safeId(e.id, "exp"), name:str(e.name, 120) || "Expense", amount:amt(e.amount), cat:e.cat ? safeId(e.cat, "cat") : null, date:e.date}));
   budget.accounts = (Array.isArray(budget.accounts) ? budget.accounts : DEFAULT_BUDGET.accounts).map(a => str(a, 40).trim()).filter(Boolean)
@@ -4564,6 +4618,7 @@ function loadAllContent(){
   budget = loadContent("budget-content", JSON.parse(JSON.stringify(DEFAULT_BUDGET)));
   normalizeBudgetData();
   pruneBudgetHistory();
+  if (processAutopay()){ writeQuietly("bills-content", bills); writeQuietly("bill-payments", billPayments); }
   normalizeLoadedData(); // last: needs every list loaded
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
   const keptRules = skinRules.filter(r => !RETIRED_SKIN_RULES.includes(r));
@@ -4674,6 +4729,7 @@ function checkDayChange(){
   homeAnchor = null;
   setHeaderDate();
   archiveOldTodos();
+  if (processAutopay()){ writeQuietly("bills-content", bills); writeQuietly("bill-payments", billPayments); }
   renderSkin(); renderBudget(); renderHome();
 }
 function writeQuietly(key, value){
