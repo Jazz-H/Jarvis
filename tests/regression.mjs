@@ -656,6 +656,7 @@ await section("to-do: recurring to-dos", async () => {
     next: [addDaysIso(1), addDaysIso(4), nextRepeatIso("2026-01-31", "monthly"), nextRepeatIso("2026-10-09", "weekdays")],
   }));
   check("unknown repeat rules are dropped", !r0.bad);
+  check("Recurring card starts closed", await page.evaluate(() => !document.getElementById("todo-recurring").classList.contains("open")));
   check("Recurring section lists repeating to-dos, soonest first", JSON.stringify(r0.rows) === '["Take out trash","Vitamins"]', r0.rows);
   check("row shows its rule", r0.meta.startsWith("Weekly · "), r0.meta);
   check("monthly clamps to the month's end; weekdays skip the weekend", r0.next[2] === "2026-02-28" && r0.next[3] === "2026-10-12", r0.next);

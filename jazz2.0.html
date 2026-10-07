@@ -1063,7 +1063,7 @@ let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "todo-recurring", "wants-pending-card", "budget-cal", "goals-card", "spending-card"]);
+let openPinned = new Set(["todo-card", "wants-pending-card", "budget-cal", "goals-card", "spending-card"]); // Recurring starts closed
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
