@@ -4925,7 +4925,7 @@ function applyBudgetImport(data){
     incomes.length && `${incomes.length} paycheck${incomes.length === 1 ? "" : "s"} with ${planCount} payday plan${planCount === 1 ? "" : "s"}`,
     newGoals.length && `${newGoals.length} goal${newGoals.length === 1 ? "" : "s"}`].filter(Boolean);
   if (!parts.length){ showToast("Everything in that link is already in your budget"); return; }
-  if (!confirm(`Add ${parts.join(", ")} to your budget? Nothing already there is changed.`)) return;
+  if (!confirm(`Add ${parts.join(", ")} to your budget? Bills, goals and plan lines already there aren't changed.`)) return;
   const month = data.month, last = Number(monthEndIso(month).slice(8));
   arr(data.accounts).forEach(a => { a = String(a).trim().slice(0, 40); if (a && !budget.accounts.includes(a)) budget.accounts.push(a); });
   newBills.forEach(b => {
@@ -4943,12 +4943,15 @@ function applyBudgetImport(data){
   incomes.forEach(x => {
     const repeat = BILL_REPEATS[x.repeat] ? x.repeat : "biweekly";
     let src = budget.income.find(i => i.name.toLowerCase() === String(x.name).toLowerCase() && i.start === x.start && i.repeat === repeat);
-    if (!src){ src = {id:genId("inc"), name:String(x.name).slice(0, 60), amount:num(x.amount), start:x.start, repeat, ...(x.varies ? {varies:true} : {})}; budget.income.push(src); }
+    if (!src){ src = {id:genId("inc"), name:String(x.name).slice(0, 60), amount:num(x.amount), start:x.start, repeat}; budget.income.push(src); }
+    if (x.varies) src.varies = true; // an existing paycheck can be switched to "varies"
     arr(x.plans).forEach(pl => {
       if (!pl || !/^\d{4}-\d{2}-\d{2}$/.test(pl.date || "")) return;
-      const key = `${src.id}|${pl.date}`;
-      if (budget.plans[key] && budget.plans[key].lines.length) return; // keep what's there
-      budget.plans[key] = {...(pl.amount != null && num(pl.amount) !== src.amount ? {amount:num(pl.amount)} : {}),
+      const key = `${src.id}|${pl.date}`, ex = budget.plans[key];
+      const amount = pl.amount != null && (src.varies || num(pl.amount) !== src.amount) ? {amount:num(pl.amount)} : {};
+      const received = pl.received && src.varies ? {received:true} : {};
+      if (ex && ex.lines.length){ Object.assign(ex, amount, received); return; } // keep its lines; just set the check
+      budget.plans[key] = {...amount, ...received,
         lines:arr(pl.lines).filter(l => l && l.name).map(l => ({id:genId("line"), name:String(l.name).slice(0, 80), amount:num(l.amount)}))};
     });
   });
