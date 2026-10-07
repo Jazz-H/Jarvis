@@ -248,6 +248,7 @@
   .budget-kpi b{display:block; font-size:22px; font-weight:800; letter-spacing:-.01em; margin-top:2px; font-variant-numeric:tabular-nums;}
   .budget-kpi i{display:block; font-style:normal; font-size:11.5px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .budget-kpi b.over, .budget-cat-amt.over{color:var(--danger);}
+  .budget-divider{border:none; border-top:1px solid var(--line); margin:14px 2px 16px;}
   .budget-goals-strip{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:4px 10px; width:100%; margin-bottom:8px; padding:11px 14px;
     background:var(--surface); border:1px solid var(--line); border-radius:14px; color:var(--text); font:inherit; font-size:13px; text-align:left;}
   .budget-goals-strip > span:first-child{font-weight:800;}
@@ -266,9 +267,13 @@
   .period-head b{font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;}
   .period-head span{font-size:12.5px; color:var(--text-dim); font-weight:600;}
   .period-head .approx, .period-row .approx, .bcal-pay .approx{color:var(--text-dim); font-size:.85em; margin-right:1px;}
-  .pay-recv{display:inline-flex; align-items:center; gap:5px; margin:0 2px 8px; padding:5px 10px; border:1px dashed var(--line); border-radius:9px; background:none; color:var(--text-dim); font:inherit; font-size:12px; font-weight:700;}
-  .pay-recv.got{border-style:solid; color:var(--olive); border-color:color-mix(in srgb, var(--olive) 40%, transparent);}
-  .pay-recv svg{width:12px; height:12px;}
+  .period-head.recv{align-items:center; gap:4px; padding:2px 2px 8px 0;}
+  .period-head.recv .todo-check{order:0; width:34px; margin-left:-6px;}
+  .period-head.recv.got .box{background:var(--olive); border-color:var(--olive);}
+  .period-head.recv.got .box svg{opacity:1;}
+  .period-amt{flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; padding:0; border:none; background:none; color:var(--text); font:inherit; text-align:left;}
+  .period-amt i{font-style:normal; font-size:11.5px; font-weight:600; color:var(--text-dim); margin-top:1px;}
+  .period-head.recv.got .period-amt i{color:var(--olive);}
   .period-sub{display:flex; justify-content:space-between; margin:12px 2px 0; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim);}
   .period-sub span:last-child{text-transform:none; letter-spacing:0;}
   .period-empty{color:var(--text-dim); font-size:13px; text-align:center; padding:16px; margin-top:8px;}
@@ -3840,6 +3845,12 @@ function billListHtml(list, groupId, today){
   }
   return h || `<div class="empty">No bills due.</div>`;
 }
+// tick: confirm the real amount; untick: back to expected (the amount stays)
+function toggleReceived(srcId, date){
+  const plan = budget.plans[`${srcId}|${date}`];
+  if (plan && plan.received){ delete plan.received; saveBudgetData(); return; }
+  editPaycheck(srcId, date, true);
+}
 function togglePlanLine(key, id){
   const plan = budget.plans[key], l = plan && plan.lines.find(x => x.id === id);
   if (!l) return;
@@ -3905,6 +3916,7 @@ function renderBudget(){
     </div>`;
   html += budgetCalHtml(key, rows, paychecks, today);
   if (budget.goals.length) html += `<button class="budget-goals-strip" onclick="document.getElementById('goals-card').scrollIntoView({behavior:'smooth'})"><span>Goals</span><b>${moneyShort(Math.round(goalSavedTotal))} of ${moneyShort(goalTarget)}</b><span class="progress-bar thin"><span class="progress-fill" style="display:block; width:${goalTarget ? Math.min(100, goalSavedTotal / goalTarget * 100) : 0}%"></span></span></button>`;
+  if (paychecks.length) html += `<hr class="budget-divider">`; // sets the pay periods apart from the overview
 
   // Copy last month's plans when this month's paydays are still empty
   const prevKey = addMonthsIso(monthStart, -1).slice(0, 7);
@@ -3948,10 +3960,14 @@ function renderBudget(){
     }
     periods += `
       <div class="card period ${now ? "now" : ""}">
-        <button class="period-head" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${payAmt(p)}</b><span>${money(p.planned)} planned</span></button>
-        ${p.src.varies ? p.received
-          ? `<button class="pay-recv got" onclick="editPaycheck('${p.src.id}','${p.date}')">${BOX_CHECK_SVG}Received</button>`
-          : `<button class="pay-recv" onclick="editPaycheck('${p.src.id}','${p.date}', true)">${p.date <= today ? "Mark received" : `Expected · mark received`}</button>` : ""}
+        ${p.src.varies
+          // pay that varies: a checkbox like a bill's, ticked once the check lands
+          ? `<div class="period-head recv ${p.received ? "got" : ""}">
+              <button class="todo-check" role="checkbox" aria-checked="${p.received}" aria-label="${p.received ? "Not received" : "Mark received"}: ${escapeAttr(p.src.name)} ${escapeAttr(shortDate(p.date))}" onclick="toggleReceived('${p.src.id}','${p.date}')"><span class="box">${BOX_CHECK_SVG}</span></button>
+              <button class="period-amt" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${payAmt(p)}</b><i>${p.received ? `Received ${escapeHtml(shortDate(p.date))}` : p.date <= today ? "Not marked received" : `Expected ${escapeHtml(shortDate(p.date))}`}</i></button>
+              <span>${money(p.planned)} planned</span>
+            </div>`
+          : `<button class="period-head" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${payAmt(p)}</b><span>${money(p.planned)} planned</span></button>`}
         <div class="progress-bar thin"><div class="progress-fill ${p.left < 0 ? "over" : ""}" style="width:${pct}%"></div></div>
         <div class="period-sub"><span>Bills due</span><span>${money(billsDue)}</span></div>
         ${billListHtml(due, p.key, today)}
