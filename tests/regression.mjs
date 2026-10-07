@@ -872,6 +872,7 @@ await section("budget: pay that varies by check", async () => {
   check("rows that aren't a payday are reported", imp.toast.includes("Set 2 paychecks") && imp.toast.includes("1 not on a payday"), imp.toast);
   // varies + received survive a reload
   await page.reload(); await page.waitForTimeout(300);
+  check("goals aren't repeated above the pay periods", await page.evaluate(() => !document.querySelector(".budget-goals-strip")));
   check("a divider sets the pay periods apart", await page.evaluate(() => { const hr = document.querySelector("#panel-budget .budget-divider"); return !!hr && !!hr.nextElementSibling && hr.compareDocumentPosition(document.getElementById("pay-periods")) & Node.DOCUMENT_POSITION_FOLLOWING; }));
   check("varies and received persist", await page.evaluate(() => budget.income[0].varies && budget.plans[`inc-v|${addDaysIso(-28)}`].received === true));
   check("no JS errors", errors.length === 0, errors);

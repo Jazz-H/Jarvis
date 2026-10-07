@@ -75,8 +75,8 @@ clothes, moto gear, and everything else.
 
 **Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
 - **Top:** Remaining (this month's paychecks minus their plans; without income, category
-  budget minus spending) and Bills left (unpaid, N of M paid), plus a Goals strip once you
-  have goals.
+  budget minus spending) and Bills left (unpaid, N of M paid). A divider sets the pay
+  periods apart.
 - **Calendar:** starts as the selected day's week (swipe down or tap the bar for the
   month): a dot per bill due (red overdue, grey paid) and a $ on paydays. Tap a day to see
   and tick off its bills or open its paycheck.
@@ -191,7 +191,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (295 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (296 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
