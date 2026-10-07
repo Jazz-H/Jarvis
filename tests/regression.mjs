@@ -656,6 +656,7 @@ await section("to-do: recurring to-dos", async () => {
     next: [addDaysIso(1), addDaysIso(4), nextRepeatIso("2026-01-31", "monthly"), nextRepeatIso("2026-10-09", "weekdays")],
   }));
   check("unknown repeat rules are dropped", !r0.bad);
+  check("Recurring card starts closed", await page.evaluate(() => !document.getElementById("todo-recurring").classList.contains("open")));
   check("Recurring section lists repeating to-dos, soonest first", JSON.stringify(r0.rows) === '["Take out trash","Vitamins"]', r0.rows);
   check("row shows its rule", r0.meta.startsWith("Weekly · "), r0.meta);
   check("monthly clamps to the month's end; weekdays skip the weekend", r0.next[2] === "2026-02-28" && r0.next[3] === "2026-10-12", r0.next);
@@ -697,7 +698,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   check("swipe order matches the nav", await page.evaluate(() => JSON.stringify(TAB_ORDER) === JSON.stringify([...document.querySelectorAll("nav.tabbar button")].map(b => b.dataset.tab))));
   const junk = await page.evaluate(() => bills[0]);
   check("bad bill data is coerced", /^bill-/.test(junk.id) && junk.amount === 0 && junk.repeat === "monthly" && /^\d{4}-/.test(junk.due), junk);
-  await page.evaluate(() => { bills = []; saveBudgetData(); });
+  await page.evaluate(() => { bills = []; billPayments = []; saveBudgetData(); }); // (the junk bill had autopay on, so it paid itself)
 
   // The closet view is gone: old links to it open Shopping
   await page.evaluate(() => activateTab("style"));
@@ -722,11 +723,10 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   await page.fill("#composer-text", "Rent $1200");
   await page.click("#composer-chips .filter-chip >> text=Bill");
   check("bill shows the link field", await page.isVisible("#cx-link"));
-  await page.click("#composer-chips .filter-chip >> text=Autopay");
-  await page.press("#composer-text", "Enter");
+  await page.press("#composer-text", "Enter"); // (autopay has its own section; an autopay bill due today would pay itself)
   await page.evaluate(() => closeComposer());
   const bill = await page.evaluate(() => bills[0]);
-  check("bill saved: monthly, due today, autopay", bill.name === "Rent" && bill.amount === 1200 && bill.repeat === "monthly" && bill.due === isoOffset(0) && bill.autopay, bill);
+  check("bill saved: monthly, due today", bill.name === "Rent" && bill.amount === 1200 && bill.repeat === "monthly" && bill.due === isoOffset(0) && !bill.autopay, bill);
   const sum = await page.textContent(".budget-kpis");
   check("summary shows spent and bills left", sum.includes("$54.25") && sum.includes("$1,200"), sum);
 
@@ -888,7 +888,7 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
   await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
   const periods = await page.evaluate(() => [...document.querySelectorAll("#pay-periods .card.period")].map(c => c.textContent.replace(/\s+/g, " ")));
   check("each payday is its own period with the bills due in it", periods.length >= 2 && periods[0].includes("Rent") && !periods[0].includes("Electric") && periods[1].includes("Electric"), periods);
-  check("joint share counts your part", periods[0].includes("$500.00") && periods[0].includes("50% of $1,000.00"), periods[0]);
+  check("joint share counts your part", periods[0].includes("$500.00") && periods[0].includes("50%"), periods[0]);
   check("spending hides until something's logged", !(await page.$("#spending-card")) && (await page.textContent("#panel-budget")).includes("Spending by category"));
   // by-card totals
   const acct = await page.$$eval("#bills-card .acct-total", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
@@ -909,6 +909,9 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
   await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; quickPlanLine(p.key, `1/2 of ${noonOf(budgetMonthKey() + "-01").toLocaleDateString("en-US", { month: "short" })} Bills`, 500); });
   await page.click("#pay-periods .plan-row .todo-check");
   check("plan lines can be checked off", await page.evaluate(() => incomeInMonth(budgetMonthKey())[0].plan.lines[0].done === true));
+  check("a fully done plan folds away", await page.evaluate(() => { const b = document.querySelector("#pay-periods .plan-toggle"); return b && b.getAttribute("aria-expanded") === "false" && !document.querySelector("#pay-periods .card.period .plan-row"); }));
+  await page.click("#pay-periods .plan-toggle");
+  check("and opens again with a tap", !!(await page.$("#pay-periods .plan-row")));
   // reload: joint group, account, share, varies and done all survive
   await page.reload(); await page.waitForTimeout(500);
   await page.evaluate(() => activateTab("budget")); // the launch param is gone after the first load
@@ -1139,6 +1142,30 @@ await section("budget: month calendar", async () => {
   check("tapping a day lists its bills", (await page.textContent("#budget-cal .bcal-detail")).includes("Rent"));
   await page.click('#budget-cal .bcal-detail .todo-check[aria-label="Mark paid: Rent"]');
   check("bills can be paid from the calendar", await page.evaluate(() => billPayments.length === 1));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: autopay pays bills on their due date", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "bills-content": [
+    { id: "bill-auto", name: "Phone", amount: 70, due: isoOffset(-3), repeat: "monthly", autopay: true, account: null },
+    { id: "bill-man", name: "Rent", amount: 900, due: isoOffset(-3), repeat: "monthly", autopay: false, account: null },
+    { id: "bill-soon", name: "Gym", amount: 20, due: isoOffset(2), repeat: "monthly", autopay: true, account: null },
+  ]}});
+  const r = await page.evaluate(() => ({
+    pays: billPayments.map(p => [p.name, p.date, !!p.auto]), phoneDue: bills.find(b => b.id === "bill-auto").due,
+    rentDue: bills.find(b => b.id === "bill-man").due, gymMeta: [...document.querySelectorAll("#panel-budget .bill-row")].map(e => e.textContent.replace(/\s+/g, " ")).find(t => t.includes("Gym")) }));
+  check("a due autopay bill is logged as paid on its due date", r.pays.length === 1 && r.pays[0][0] === "Phone" && r.pays[0][1] === isoOffset(-3) && r.pays[0][2], r.pays);
+  check("…and moves to next month; manual bills stay overdue", r.phoneDue > isoOffset(0) && r.rentDue === isoOffset(-3), r);
+  check("upcoming autopay bills say so", (r.gymMeta || "").includes("Autopays"), r.gymMeta);
+  // un-paying an autopaid bill holds it instead of re-paying it at once
+  await page.evaluate(() => unpayBill(billPayments[0].id));
+  check("un-paying an autopaid bill sticks", await page.evaluate(() => billPayments.length === 0 && bills.find(b => b.id === "bill-auto").due === addDaysIso(-3)));
+  // turning autopay on for an overdue bill pays it
+  await page.evaluate(() => editBill("bill-man"));
+  await page.check("#modal-autopay");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("switching Autopay on pays what's already due", await page.evaluate(() => billPayments.some(p => p.name === "Rent" && p.auto)));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

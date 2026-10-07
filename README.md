@@ -90,9 +90,16 @@ clothes, moto gear, and everything else.
 - **Copy plans:** when a month's paydays are empty, one tap copies last month's lines,
   moving month names along ("1/2 of Oct Bills" → "1/2 of Nov Bills").
 - **Bills:** amount, due date, repeat, Monthly or Joint, the card/bank that pays it,
-  Autopay, a pay link, **your share %** for joint bills, and **amount varies** (ticking it
-  paid asks what it came to). Ticking logs a payment and moves the bill to its next due date;
-  tap a paid bill to fix the amount or un-pay it. Bills also show on Home.
+  a pay link, **your share %** for joint bills, and **amount varies** (ticking it paid asks
+  what it came to). Ticking logs a payment and moves the bill to its next due date; tap a
+  paid bill to fix the amount or un-pay it. Bills also show on Home. Each row has one quiet
+  detail line: when ("Overdue · Oct 1" in red, "Due Mon", "Autopays Mon") and the card/bank
+  as a colored dot.
+- **Autopay:** an Autopay bill pays itself: when its due date arrives, the payment is logged
+  (dated that day, shown as "Autopaid") and the bill moves to its next due date. Switching
+  Autopay on for a bill that's already due pays it. Un-paying an autopaid bill holds that
+  date so it isn't re-paid. Payment ids come from bill + date, so devices never double it.
+- **Plan** sections fold like Paid: closed by default once every line is checked off.
 - **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, totals by
   card/bank, and + Add bill. Its Edit chip manages the card/bank list.
 - **Goals:** long-term savings goals with a target, optional date ($/month needed, On pace /
@@ -178,7 +185,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (256 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (265 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
