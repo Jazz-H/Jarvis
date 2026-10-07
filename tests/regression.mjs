@@ -799,7 +799,7 @@ await section("budget: paycheck plans import from a sheet", async () => {
   });
   const sheet = ["Paycheck\t$1,050.00", "Rent share\t$400.00", "Card\t$100.00", "", "Remaining\t$550.00", "",
     "Paycheck\t$1,000.00", "Groceries\t$150.25", "Contacts\t", "Remaining\t$849.75"].join("\n");
-  await page.click("#income-card >> text=Import plans from sheet");
+  await page.click("#budget-manage >> text=Import paycheck plans");
   await page.fill("#modal-rows", sheet);
   await page.click("#modal-backdrop .modal-btn.primary");
   const r = await page.evaluate(() => incomeInMonth(budgetMonthKey()).map(p => ({ amount: p.amount, lines: p.plan.lines.map(l => [l.name, l.amount]), left: p.left })));
@@ -816,7 +816,9 @@ await section("budget: paycheck plans import from a sheet", async () => {
 await section("budget: long-term goals", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   // quick-start idea chip prefills the name
-  await page.click("#goals-card >> text=+ Big purchase");
+  check("no goals: just a one-line Goals row", !(await page.$("#goals-card")) && !!(await page.$("#budget-manage >> text=Goals")));
+  await page.click("#budget-manage >> text=Goals");
+  await page.click("#modal-body >> text=Big purchase");
   check("idea chip prefills the goal name", (await page.inputValue("#modal-name")) === "Big purchase");
   await page.fill("#modal-target", "6000");
   await page.evaluate(() => { document.getElementById("modal-date").value = addMonthsIso(addDaysIso(0), 12); });
@@ -844,6 +846,7 @@ await section("budget: long-term goals", async () => {
     budget.income.push({ id: "inc-1", name: "Paycheck", amount: 2000, start: addDaysIso(-14), repeat: "biweekly" });
     planFor(`inc-1|${addDaysIso(-14)}`).lines.push({ id: "line-1", name: "Ring fund", amount: 300, goal: g.id });
     planFor(`inc-1|${addDaysIso(14)}`).lines.push({ id: "line-2", name: "Ring fund", amount: 300, goal: g.id });
+    incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); // show past periods too
     saveBudgetData();
     return { saved: goalStatus(g).saved, tag: !!document.querySelector("#pay-periods .goal-tag") };
   });
@@ -876,6 +879,9 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
     saveBudgetData();
     return { k };
   });
+  const folded = await page.evaluate(() => ({ open: document.querySelectorAll("#pay-periods .card.period").length, rows: document.querySelectorAll("#pay-periods .period-row").length }));
+  check("only the current pay period is open; the rest fold to a line", folded.open === 1 && folded.rows >= 1, folded);
+  await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
   const periods = await page.evaluate(() => [...document.querySelectorAll("#pay-periods .card.period")].map(c => c.textContent.replace(/\s+/g, " ")));
   check("each payday is its own period with the bills due in it", periods.length >= 2 && periods[0].includes("Rent") && !periods[0].includes("Electric") && periods[1].includes("Electric"), periods);
   check("joint share counts your part", periods[0].includes("$500.00") && periods[0].includes("50% of $1,000.00"), periods[0]);
@@ -1119,6 +1125,8 @@ await section("budget: month calendar", async () => {
     saveBudgetData();
     return k;
   });
+  check("calendar starts as one week", (await page.$$eval("#budget-cal .home-day:not(.blank)", els => els.length)) === 7);
+  await page.click("#budget-cal .home-cal-grab");
   const cells = await page.$$eval("#budget-cal .home-day:not(.blank)", els => els.length);
   const days = await page.evaluate(k => Number(monthEndIso(k).slice(8)), k);
   check("calendar shows every day of the month", cells === days, [cells, days]);
