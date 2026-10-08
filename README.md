@@ -191,7 +191,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (296 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (301 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
