@@ -788,6 +788,7 @@
     color:var(--text); font-size:14px; font-family:inherit; padding:10px 12px; resize:vertical;
   }
   .modal-field input:focus, .modal-field textarea:focus, .modal-field select:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  .modal-field.is-off{opacity:.45;}
   .modal-checkbox{display:flex; align-items:center; gap:8px;}
   .modal-checkbox span{margin:0; text-transform:none; font-size:13px; letter-spacing:0; color:var(--text);}
   .modal-checkbox input{width:auto;}
@@ -2371,15 +2372,16 @@ function editTodo(id){
   const t = todoList.find(x=>x.id===id);
   openModal("Edit to-do", [
     {key:"text",label:"To-do",type:"textarea",enterSaves:true,maxlength:TODO_MAX_LEN},
-    {key:"due",label:"Due date — clear it for Anytime",type:"date"},
+    {key:"due",label:"Due date",type:"date"},
+    {key:"anytime",label:"Anytime (no due date)",type:"checkbox"},
     {key:"repeat",label:"Repeat",type:"select",options:[NO_REPEAT, ...Object.values(REPEATS).map(r => r.label)]},
     {key:"subs",label:"Add sub-items — one per line",type:"textarea"}
-  ], {text:t.text, due:t.due||"", repeat:REPEATS[t.repeat] ? REPEATS[t.repeat].label : NO_REPEAT},
+  ], {text:t.text, due:t.due||"", anytime:!t.due, repeat:REPEATS[t.repeat] ? REPEATS[t.repeat].label : NO_REPEAT},
     (v) => {
       const text = (v.text || "").replace(/\s*\n\s*/g, " ").trim();
       if(!text) return;
       t.text = text;
-      t.due = /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : null;
+      t.due = !v.anytime && /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : null;
       const repeat = Object.keys(REPEATS).find(k => REPEATS[k].label === v.repeat);
       if (repeat){ t.repeat = repeat; if (!t.due) t.due = addDaysIso(0); t.repeatDay = dayOf(t.due); } // a repeat needs a start date
       else delete t.repeat;
@@ -2396,6 +2398,17 @@ function editTodo(id){
       saveContent("todo-content", todoList); renderHome();
     }
   );
+  linkAnytimeBox();
+}
+// Anytime is a box, not "clear the date" (phone date pickers often can't be
+// cleared): ticking it greys the date out, picking a date unticks it.
+function linkAnytimeBox(){
+  const box = document.getElementById("modal-anytime"), date = document.getElementById("modal-due");
+  if (!box || !date) return;
+  const sync = () => { date.disabled = box.checked; date.closest(".modal-field").classList.toggle("is-off", box.checked); };
+  box.addEventListener("change", sync);
+  date.addEventListener("change", () => { if (date.value){ box.checked = false; sync(); } });
+  sync();
 }
 function clearCompletedTodos(){
   if (!confirm("Clear all completed to-dos? This can't be undone.")) return;

@@ -121,6 +121,21 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
   const b = await page.evaluate(() => todoList.find(t => t.id === "b"));
   check("edit adds sub-items and Enter saves", !b.done && b.subitems.length === 2, b);
 
+  // Anytime is a box: ticking it greys the date and saves no date; picking a date unticks it
+  await page.evaluate(() => { const t = todoList.find(t => t.id === "b"); t.due = addDaysIso(3); editTodo("b"); });
+  check("dated to-do: Anytime unticked", !(await page.isChecked("#modal-anytime")) && !(await page.isDisabled("#modal-due")));
+  await page.check("#modal-anytime");
+  check("ticking Anytime greys out the date", await page.isDisabled("#modal-due"));
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("saved with Anytime ticked: no date", await page.evaluate(() => todoList.find(t => t.id === "b").due === null));
+  await page.evaluate(() => editTodo("b"));
+  check("undated to-do opens with Anytime ticked", await page.isChecked("#modal-anytime"));
+  await page.uncheck("#modal-anytime");
+  await page.fill("#modal-due", await page.evaluate(() => addDaysIso(2)));
+  await page.dispatchEvent("#modal-due", "change");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("unticking Anytime and picking a date saves it", await page.evaluate(() => todoList.find(t => t.id === "b").due === addDaysIso(2)));
+
   await page.tap('[data-todo-id="b"] .todo-check');
   check("checkbox completes", await page.evaluate(() => todoList.find(t => t.id === "b").done));
   await page.tap(".toast-action");
@@ -455,7 +470,8 @@ await section("home: day agenda completes in place", async () => {
   const { ctx, page } = await openApp({ seed: { "todo-content": [
     { id: "a", text: "Due today", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
   ]}});
-  await page.tap("#panel-home .todo-check");
+  await page.evaluate(() => { skinRoutine.washPm = []; renderHome(); }); // no Wash hair row, whatever day the suite runs
+  await page.tap('#panel-home .todo-check[aria-label="Complete: Due today"]');
   check("completed from Home", await page.evaluate(() => todoList[0].done));
   check("still on Home", (await page.textContent("#headline")) === "Home");
   const r = await page.evaluate(() => ({
