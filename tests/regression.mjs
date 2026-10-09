@@ -475,11 +475,11 @@ await section("home: day agenda completes in place", async () => {
   check("completed from Home", await page.evaluate(() => todoList[0].done));
   check("still on Home", (await page.textContent("#headline")) === "Home");
   const r = await page.evaluate(() => ({
-    struck: !!document.querySelector("#panel-home .item.checked"),
+    struck: !document.querySelector('#panel-home .todo-check[aria-label="Mark not done: Due today"]') && document.querySelector("#panel-home").textContent.includes("All done · 1 to-do finished"),
     ring: document.querySelector(".home-ring").getAttribute("aria-label"),
     sub: document.querySelector(".home-hero .sub").textContent,
   }));
-  check("done today stays visible, struck through", r.struck);
+  check("finished to-do leaves Home", r.struck, r);
   check("progress ring counts it", r.ring === "1 of 1 done", r.ring);
   check("hero says all done", r.sub.startsWith("All done for today"), r.sub);
   await ctx.close();
@@ -1112,7 +1112,8 @@ await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words 
   check("undo still restores the repeat after a sync", u.length === 1 && u[0][1] === isoOffset(0), u);
   // complete again, then un-tick the done copy on Home: the series comes back
   await page.click('#panel-home .todo-check[aria-label="Complete: Water plants"]');
-  await page.click('#panel-home .todo-check[aria-label="Mark not done: Water plants"]');
+  check("finished repeat leaves Home", !(await page.$('#panel-home .todo-check[aria-label="Mark not done: Water plants"]')));
+  await page.evaluate(() => toggleTodo(todoList.find(t => t.done && t.text === "Water plants").id));
   const back = await page.evaluate(() => todoList.map(t => [t.due, t.done]));
   check("un-ticking a repeat's done copy rolls the series back", back.length === 1 && back[0][0] === isoOffset(0) && !back[0][1], back);
   // a day word wins over Home's picked day

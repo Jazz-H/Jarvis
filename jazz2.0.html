@@ -1920,10 +1920,12 @@ function renderHomePanel(){
   const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, pastOpen)).join("")
     + dueBills.map(b => homeBillHtml(b)).join("") + repeats.map(repeatGhostHtml).join("")
     + dayBills.projected.map(b => homeBillHtml(b, {projected:true})).join("")
-    + (washDone ? washRowHtml(iso) : "") + day.done.map(t => homeRowHtml(t)).join("")
+    + (washDone ? washRowHtml(iso) : "") // finished to-dos leave Home (they still count in the ring; To-Do keeps them)
     + dayBills.paid.map(p => homeBillHtml(null, {payment:p})).join("");
   const dayName = escapeHtml(dueLabel(iso));
-  const emptyText = iso === today ? "Nothing due today — tap + to add one."
+  const doneN = day.done.length;
+  const emptyText = doneN ? `All done · ${doneN} to-do${doneN === 1 ? "" : "s"} finished.`
+    : iso === today ? "Nothing due today — tap + to add one."
     : iso < today ? "Nothing was due or done this day."
     : `Nothing planned — tap + to add one for ${dayName}.`;
   list += dayRows ? section(dayName, dayRows)
