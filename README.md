@@ -14,7 +14,8 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
 - **Day hero:** the date, a done/total progress ring, and what's left.
-- **Day list:** Overdue, the day's to-dos (starred first, finished ones struck through),
+- **Day list:** Overdue, the day's open to-dos (starred first; finished ones leave Home but
+  still count in the ring, and live on in To-Do's Completed),
   bills due ("Pay Rent · $1,450"), the Wash hair item on wash days, future repeats of
   recurring to-dos and bills, and an Anytime peek on today. Everything can be ticked in place.
 
@@ -191,7 +192,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (301 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (302 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
