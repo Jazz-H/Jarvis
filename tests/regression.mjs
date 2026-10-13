@@ -115,26 +115,32 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
 
   await page.tap('[data-todo-id="b"] .title');
   check("tapping text opens edit, does not complete", (await page.textContent("#modal-heading")) === "Edit to-do");
+  check("sub-items fold away until asked for", !(await page.isVisible("#modal-subs")));
+  await page.click("#modal-body .tde-subs-toggle");
   await page.fill("#modal-subs", "print label\ndrop off");
   await page.focus("#modal-text");
   await page.keyboard.press("Enter");
   const b = await page.evaluate(() => todoList.find(t => t.id === "b"));
   check("edit adds sub-items and Enter saves", !b.done && b.subitems.length === 2, b);
 
-  // Anytime is a box: ticking it greys the date and saves no date; picking a date unticks it
+  // When chips: Anytime / Today / Tomorrow / a date
   await page.evaluate(() => { const t = todoList.find(t => t.id === "b"); t.due = addDaysIso(3); editTodo("b"); });
-  check("dated to-do: Anytime unticked", !(await page.isChecked("#modal-anytime")) && !(await page.isDisabled("#modal-due")));
-  await page.check("#modal-anytime");
-  check("ticking Anytime greys out the date", await page.isDisabled("#modal-due"));
+  check("dated to-do: its date chip is on, Anytime off", await page.evaluate(() => !!document.querySelector("#tde .tde-date.on") && !document.querySelector('#tde .filter-chip.on[aria-pressed="true"]')?.textContent.includes("Anytime")));
+  await page.click("#tde .filter-chip >> text=Anytime");
+  check("Anytime hides the multi-day option", !(await page.$("#tde .tde-span")));
   await page.click("#modal-backdrop .modal-btn.primary");
-  check("saved with Anytime ticked: no date", await page.evaluate(() => todoList.find(t => t.id === "b").due === null));
+  check("saved as Anytime: no date", await page.evaluate(() => todoList.find(t => t.id === "b").due === null));
   await page.evaluate(() => editTodo("b"));
-  check("undated to-do opens with Anytime ticked", await page.isChecked("#modal-anytime"));
-  await page.uncheck("#modal-anytime");
+  check("undated to-do opens with Anytime on", (await page.textContent('#tde .filter-chip[aria-pressed="true"]')) === "Anytime");
+  await page.click("#tde .filter-chip >> text=Tomorrow");
+  check("summary reads the choice back", (await page.textContent("#tde .tde-sum")).length > 3);
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("Tomorrow chip saves tomorrow", await page.evaluate(() => todoList.find(t => t.id === "b").due === addDaysIso(1)));
+  await page.evaluate(() => editTodo("b"));
   await page.fill("#modal-due", await page.evaluate(() => addDaysIso(2)));
   await page.dispatchEvent("#modal-due", "change");
   await page.click("#modal-backdrop .modal-btn.primary");
-  check("unticking Anytime and picking a date saves it", await page.evaluate(() => todoList.find(t => t.id === "b").due === addDaysIso(2)));
+  check("picking a date saves it", await page.evaluate(() => todoList.find(t => t.id === "b").due === addDaysIso(2)));
 
   await page.tap('[data-todo-id="b"] .todo-check');
   check("checkbox completes", await page.evaluate(() => todoList.find(t => t.id === "b").done));
@@ -482,6 +488,33 @@ await section("home: day agenda completes in place", async () => {
   check("finished to-do leaves Home", r.struck, r);
   check("progress ring counts it", r.ring === "1 of 1 done", r.ring);
   check("hero says all done", r.sub.startsWith("All done for today"), r.sub);
+  await ctx.close();
+});
+
+await section("US holidays", async () => {
+  const { ctx, page, errors } = await openApp({});
+  const h = await page.evaluate(() => {
+    const names = iso => holidaysOn(iso).map(x => x.name);
+    return { thx26: names("2026-11-26"), obs4th: names("2026-07-03"), easter26: names("2026-04-05"), easter27: names("2027-03-28"),
+      jun27: names("2027-06-18"), nye27: names("2027-12-31"), mlk27: names("2027-01-18"), fedMom: holidaysOn("2026-05-10")[0].federal,
+      count26: Object.values(holidaysOf(2026)).flat().length };
+  });
+  check("federal holidays by rule (Thanksgiving, MLK Day)", h.thx26.includes("Thanksgiving") && h.mlk27.includes("Martin Luther King Jr. Day"), h);
+  check("weekend holidays get their observed weekday", h.obs4th.includes("Independence Day (observed)") && h.jun27.includes("Juneteenth (observed)") && h.nye27.includes("New Year's Day (observed)"), h);
+  check("Easter computed for 2026 and 2027", h.easter26.includes("Easter") && h.easter27.includes("Easter"), h);
+  check("observances aren't marked as bank holidays", h.fedMom === false && h.count26 === 21, h);
+  // Home: the day shows its holiday, and the calendar marks it
+  await page.evaluate(() => selectHomeDate("2026-11-26"));
+  const home = await page.evaluate(() => ({ chip: (document.querySelector("#panel-home .home-hero .holiday-chip") || {}).textContent || "",
+    cell: !!document.querySelector('#panel-home .home-day.holiday[aria-label*="Thanksgiving"]') }));
+  check("Home day shows the holiday", home.chip.includes("Thanksgiving") && home.chip.includes("banks closed"), home);
+  check("Home calendar marks the holiday", home.cell, home);
+  // Budget: federal holidays only
+  await page.evaluate(() => { activateTab("budget"); const t = addDaysIso(0);
+    budgetMonthOffset = (2026 - Number(t.slice(0, 4))) * 12 + (10 - Number(t.slice(5, 7))); renderBudget(); selectBudgetDay("2026-10-12"); });
+  const bud = await page.evaluate(() => ({ chip: (document.querySelector("#budget-cal .holiday-chip") || {}).textContent || "" }));
+  check("Budget calendar notes bank holidays", bud.chip.includes("Columbus Day"), bud);
+  check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
 
@@ -1103,6 +1136,50 @@ await section("dates: monthly repeats keep their day; Home follows midnight", as
   // pretend the date rolled over while the app stayed open
   const rolled = await page.evaluate(() => { renderedDay = "2000-01-01"; homeDate = "2000-01-01"; checkDayChange(); return { day: renderedDay, home: homeDate }; });
   check("a new day resets Home to today", rolled.day === await page.evaluate(() => addDaysIso(0)) && rolled.home === null, rolled);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("to-dos: custom repeat intervals and multi-day to-dos", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "w", text: "Filter change", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "m", text: "Trip", done: false, due: isoOffset(-1), starred: false, subitems: [], completedAt: null },
+  ]}});
+  // every 3 weeks
+  await page.evaluate(() => editTodo("w"));
+  check("interval stepper hidden until Custom is picked", !(await page.$("#tde .tde-every")));
+  await page.click("#tde .filter-chip >> text=Custom");
+  check("Custom shows the stepper, in weeks", !!(await page.$("#tde .tde-every")) && (await page.textContent("#tde .tde-seg button.on")) === "weeks");
+  await page.click('#tde .tde-step[aria-label="More"]');
+  check("stepper counts up", (await page.textContent("#modal-every")) === "3");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const w = await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); return { repeat: t.repeat, every: t.every, label: repeatLabel(t), on21: occursOn(t, addDaysIso(21)), on14: occursOn(t, addDaysIso(14)) }; });
+  check("every 3 weeks is saved and labeled", w.repeat === "weeks" && w.every === 3 && /^Every 3 weeks · /.test(w.label), w);
+  check("it lands 3 weeks out, not 2", w.on21 && !w.on14, w);
+  await page.evaluate(() => completeTodo("w"));
+  check("ticking it moves it 3 weeks on", await page.evaluate(() => todoList.find(x => x.id === "w").due === addDaysIso(21)));
+  // every 2 months
+  await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); t.repeat = "months"; t.every = 2; t.due = "2026-01-31"; t.repeatDay = 31; });
+  check("every 2 months keeps its day", await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); return todoNext("2026-01-31", t) === "2026-03-31" && todoNext("2026-03-31", t) === "2026-05-31"; }));
+  // multi-day: started yesterday, runs through tomorrow
+  await page.evaluate(() => editTodo("m"));
+  await page.click("#tde .filter-chip >> text=Multi-day");
+  await page.fill("#modal-end", await page.evaluate(() => addDaysIso(1)));
+  await page.dispatchEvent("#modal-end", "change");
+  check("summary shows the span", (await page.textContent("#tde .tde-sum")).includes("(3 days)"));
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const m = await page.evaluate(() => { const t = todoList.find(x => x.id === "m"); return { days: t.days, group: todoGroup(t), today: homeDayItems(addDaysIso(0)).open.some(x => x.id === "m"),
+    tomorrow: homeDayItems(addDaysIso(1)).open.some(x => x.id === "m"), after: homeDayItems(addDaysIso(2)).open.some(x => x.id === "m"), counts: homeDueCounts() }; });
+  check("last day sets a 3-day span", m.days === 3, m);
+  check("a running multi-day to-do isn't overdue", m.group === "today", m);
+  check("it shows on each of its days, not after", m.today && m.tomorrow && !m.after, m);
+  check("calendar dots count each day", m.counts[await page.evaluate(() => addDaysIso(1))] >= 1, m.counts);
+  await page.evaluate(() => { selectHomeDate(addDaysIso(0)); });
+  check("Home says which day of the span it is", (await page.textContent("#panel-home")).includes("Day 2 of 3"));
+  // once its last day has passed it's overdue
+  check("overdue once the last day passes", await page.evaluate(() => { const t = { id: "x", text: "x", due: addDaysIso(-5), days: 3 }; return todoGroup(t) === "overdue"; }));
+  // junk from sync is cleaned up
+  check("bad interval/span values are dropped", await page.evaluate(() => { todoList.push({ id: "j", text: "j", done: false, due: null, days: 9, every: "x", subitems: [] }); normalizeLoadedData(); const t = todoList.find(x => x.id === "j"); return !("days" in t) && !("every" in t); }));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

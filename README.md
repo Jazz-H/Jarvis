@@ -14,12 +14,22 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
 - **Day hero:** the date, a done/total progress ring, and what's left.
+- **US holidays:** worked out by rule for every year: the 11 federal holidays (plus the
+  weekday they're observed on; "banks closed") and common observances (Valentine's,
+  St. Patrick's, Easter, Mother's/Father's Day, Election Day, Halloween, Christmas Eve,
+  New Year's Eve). Holiday dates are colored on the calendar and named on the day;
+  Budget's calendar notes the bank holidays.
 - **Day list:** Overdue, the day's open to-dos (starred first; finished ones leave Home but
   still count in the ring, and live on in To-Do's Completed),
   bills due ("Pay Rent · $1,450"), the Wash hair item on wash days, future repeats of
   recurring to-dos and bills, and an Anytime peek on today. Everything can be ticked in place.
 
 **To-Do** is the full list.
+- **Editing:** one compact sheet of chips. **When:** Anytime, Today, Tomorrow, or a date;
+  **+ Multi-day** adds a last day so it spans several days (shown on each, "Day 2 of 3",
+  not overdue until the last). **Repeat:** Never, Daily, Weekdays, Weekly, 2 weeks, Monthly,
+  or **Custom** (an "every N weeks | months" stepper). A line underneath reads the choice
+  back; sub-items fold away behind **+ Add sub-items**.
 - **Adding.** Tap the floating **+** button (on Home and To-Do; see *Adding things* below).
   The **New to-do** form opens with the keyboard up:
   - **Text box:** a trailing day word sets the date ("dentist fri"), lighting up its pill;
@@ -192,7 +202,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (304 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (331 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

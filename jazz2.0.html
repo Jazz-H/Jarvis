@@ -174,6 +174,12 @@
   .home-day.today:not(.on){box-shadow:inset 0 0 0 1px var(--line);}
   .home-day.past:not(.on){opacity:.5;}
   .home-day.blank{visibility:hidden;}
+  .home-day.holiday:not(.on) b{color:var(--gold);}
+  .holiday-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .holiday-chip{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:700; color:var(--gold); padding:3px 9px; border-radius:9px; background:color-mix(in srgb, var(--gold) 14%, transparent);}
+  .holiday-chip svg{width:11px; height:11px;}
+  .holiday-chip em{font-style:normal; font-weight:600; opacity:.8;}
+  .bcal-detail .holiday-chips{margin:0 2px 8px;}
   .home-day.other:not(.on), .bcal .home-day.other{opacity:.28;}
   .home-day.on{background:var(--olive); color:var(--on-accent);}
   .home-day.on b{color:var(--on-accent);}
@@ -789,7 +795,27 @@
     color:var(--text); font-size:14px; font-family:inherit; padding:10px 12px; resize:vertical;
   }
   .modal-field input:focus, .modal-field textarea:focus, .modal-field select:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  .tde{margin:2px 0 6px;}
+  .tde-sec{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); margin:12px 0 7px;}
+  .tde-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .tde-chips .filter-chip{display:inline-flex; align-items:center; gap:5px; min-height:38px; padding:0 13px;}
+  .tde-chips .filter-chip svg{width:13px; height:13px;}
+  .tde-span{margin-top:8px; align-items:center;}
+  .tde-through{font-size:12.5px; font-weight:700; color:var(--text-dim); margin-right:2px;}
+  .tde-date{position:relative; overflow:hidden; cursor:pointer;}
+  .tde-date input{position:absolute; inset:0; width:100%; height:100%; opacity:0; border:none; padding:0; margin:0; cursor:pointer;}
+  .tde-x{width:34px; height:34px; border:none; border-radius:17px; background:var(--surface-2); color:var(--text-dim); font:inherit; font-size:13px;}
+  .tde-every{display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; border-radius:14px; background:var(--surface-2); font-size:13.5px; font-weight:700;}
+  .tde-every b{min-width:22px; text-align:center; font-size:16px; font-variant-numeric:tabular-nums;}
+  .tde-step{width:32px; height:32px; border:1px solid var(--line); border-radius:16px; background:none; color:var(--text); font:inherit; font-size:17px; line-height:1;}
+  .tde-seg{display:inline-flex; margin-left:auto; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .tde-seg button{border:none; background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:700; padding:7px 11px;}
+  .tde-seg button.on{background:var(--olive); color:var(--on-accent);}
+  .tde-sum{margin-top:12px; padding:9px 12px; border-radius:12px; background:color-mix(in srgb, var(--olive) 10%, transparent); color:var(--text); font-size:12.5px; font-weight:600;}
+  .tde-subs-toggle{display:inline-flex; align-items:center; gap:5px; margin:4px 0 10px; padding:6px 2px; border:none; background:none; color:var(--link); font:inherit; font-size:13px; font-weight:700;}
+  .tde-subs-toggle svg{width:13px; height:13px;}
   .modal-field.is-off{opacity:.45;}
+  .modal-field[hidden]{display:none;}
   .modal-checkbox{display:flex; align-items:center; gap:8px;}
   .modal-checkbox span{margin:0; text-transform:none; font-size:13px; letter-spacing:0; color:var(--text);}
   .modal-checkbox input{width:auto;}
@@ -1332,6 +1358,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
     if (f.type === "note"){
       return `<p class="modal-note">${f.label}</p>`; // f.label is trusted app-authored HTML
     }
+    if (f.type === "html") return f.label; // app-authored block with its own controls
     if (f.type === "days"){
       const sel = Array.isArray(val) ? val : [];
       const chips = [0,1,2,3,4,5,6].map(d => `<label class="day-chip"><input type="checkbox" value="${d}" ${sel.includes(d)?"checked":""}><span>${DAY_SHORT[d]}</span></label>`).join("");
@@ -1428,6 +1455,7 @@ function editChipHtml(id){
 // data stored `day` (a bare weekday name with no real date); migrateTodoDays()
 // converts that to the next occurrence of the weekday, today included.
 // Date math runs at local noon so DST shifts can't push a day over a boundary.
+const STAR_ICON_SMALL = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>`;
 // calendars run Sunday → Saturday
 const WEEK_LETTERS = ["S","M","T","W","T","F","S"];
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -1455,6 +1483,7 @@ function dueLabel(iso){
 function todoGroup(t){
   if (!t.due) return "anytime";
   const n = daysFromToday(t.due);
+  if (n < 0 && t.days > 1 && daysFromToday(todoEnd(t)) >= 0) return "today"; // multi-day, still running
   if (n < 0) return "overdue";
   if (n === 0) return "today";
   return n < 7 ? "d" + n : "later";
@@ -1511,17 +1540,36 @@ const REPEATS = {
   weekly:   {label:"Every week", short:"Weekly"},
   biweekly: {label:"Every 2 weeks", short:"Every 2 weeks"},
   monthly:  {label:"Every month", short:"Monthly"},
+  weeks:    {label:"Every N weeks…", short:"Every N weeks"},  // custom: t.every weeks
+  months:   {label:"Every N months…", short:"Every N months"}, // custom: t.every months
 };
+const CUSTOM_REPEATS = {weeks:"weeks", months:"months"};
+function todoEvery(t){ return CUSTOM_REPEATS[t.repeat] ? Math.max(1, Math.min(99, parseInt(t.every, 10) || 2)) : 1; }
+// the next date in a to-do's series
+function todoNext(iso, t){ return nextRepeatIso(iso, t.repeat, todoRepeatDay(t), todoEvery(t)); }
+// Multi-day to-dos: `days` (2–60) runs from the due date. Its last day:
+function todoEnd(t){ return t.due && t.days > 1 ? isoDate(new Date(noonOf(t.due).getTime() + (t.days - 1) * 864e5)) : t.due; }
+function spansOn(t, iso){ return !!t.due && t.due <= iso && iso <= todoEnd(t); }
+function spanMeta(t, iso){
+  if (!(t.days > 1) || !spansOn(t, iso)) return [];
+  return [`Day ${Math.round((noonOf(iso) - noonOf(t.due)) / 864e5) + 1} of ${t.days}`];
+}
+function spanRange(t){
+  const f = iso => noonOf(iso).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  return t.days > 1 ? `${f(t.due)} – ${f(todoEnd(t))}` : "";
+}
 const NO_REPEAT = "Doesn't repeat";
 // `day` is the series' own day of month, so a repeat on the 31st lands on the
 // 30th in a 30-day month and goes back to the 31st after (no drift to the 28th)
-function nextRepeatIso(iso, repeat, day){
+function nextRepeatIso(iso, repeat, day, every = 1){
   if (repeat === "monthly") return addMonthsIso(iso, 1, day);
+  if (repeat === "months") return addMonthsIso(iso, every, day);
   const d = noonOf(iso);
   if (repeat === "daily") d.setDate(d.getDate() + 1);
   else if (repeat === "weekdays"){ do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6); }
   else if (repeat === "weekly") d.setDate(d.getDate() + 7);
   else if (repeat === "biweekly") d.setDate(d.getDate() + 14);
+  else if (repeat === "weeks") d.setDate(d.getDate() + 7 * every);
   return isoDate(d);
 }
 function dayOf(iso){ return iso ? Number(iso.slice(8, 10)) : undefined; }
@@ -1533,14 +1581,20 @@ function repeatLabel(t){
   if (!t.due || t.repeat === "daily" || t.repeat === "weekdays") return r.short;
   const d = noonOf(t.due);
   if (t.repeat === "monthly") return `Monthly on the ${ordinal(todoRepeatDay(t))}`;
+  if (t.repeat === "months") return `Every ${todoEvery(t)} months on the ${ordinal(todoRepeatDay(t))}`;
+  if (t.repeat === "weeks") return `Every ${todoEvery(t)} weeks · ${WEEKDAYS[d.getDay()]}s`;
   return `${r.short} · ${WEEKDAYS[d.getDay()]}s`;
 }
 // Does a repeating to-do land on `iso`, after its current (stored) date?
 function occursOn(t, iso){
-  if (!t.repeat || t.done || !t.due || iso <= t.due) return false;
+  if (!t.repeat || t.done || !t.due || iso <= todoEnd(t)) return false;
+  const len = t.days > 1 ? t.days : 1;
   let d = t.due;
-  for (let i = 0; i < 800 && d < iso; i++) d = nextRepeatIso(d, t.repeat, todoRepeatDay(t));
-  return d === iso;
+  for (let i = 0; i < 800 && d <= iso; i++){
+    d = todoNext(d, t);
+    if (d <= iso && iso < isoDate(new Date(noonOf(d).getTime() + len * 864e5))) return true; // within a later run
+  }
+  return false;
 }
 function completeRepeating(t){
   const today = addDaysIso(0);
@@ -1549,9 +1603,9 @@ function completeRepeating(t){
   const copy = {id:genId("todo"), text:t.text, done:true, due:occurrence, starred:false, seriesId:t.id,
     subitems:prev.subitems.map(s => ({...s, id:genId("sub")})), completedAt:Date.now()};
   const day = todoRepeatDay(t);
-  if (t.repeat === "monthly" && !t.repeatDay) t.repeatDay = day; // pin it before the first clamp
-  let next = nextRepeatIso(occurrence, t.repeat, day);
-  if (occurrence <= today) while (next <= today) next = nextRepeatIso(next, t.repeat, day);
+  if ((t.repeat === "monthly" || t.repeat === "months") && !t.repeatDay) t.repeatDay = day; // pin it before the first clamp
+  let next = todoNext(occurrence, t);
+  if (occurrence <= today) while (next <= today) next = todoNext(next, t);
   t.due = next;
   (t.subitems || []).forEach(s => { s.done = false; }); // fresh checklist each time
   todoList.splice(todoList.indexOf(t) + 1, 0, copy);
@@ -1603,7 +1657,7 @@ function starredFirst(list){ return [...list.filter(t => t.starred), ...list.fil
 const byDue = (a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
 function homeDayItems(iso){
   const today = addDaysIso(0);
-  const open = starredFirst(todoList.filter(t => !t.done && t.due === iso));
+  const open = starredFirst(todoList.filter(t => !t.done && spansOn(t, iso)));
   const wash = isWashDay(noonOf(iso));
   if (iso > today) return {wash, overdue:[], anytime:[], open, done:todoList.filter(t => t.done && t.due === iso),
     repeats:todoList.filter(t => occursOn(t, iso))};
@@ -1620,23 +1674,75 @@ function homeDueCounts(){
   const today = addDaysIso(0), counts = {};
   todoList.forEach(t => {
     if (t.done || !t.due) return;
-    const key = t.due < today ? today : t.due;
-    counts[key] = (counts[key] || 0) + 1;
+    const end = todoEnd(t);
+    if (end < today){ counts[today] = (counts[today] || 0) + 1; return; } // overdue counts on today
+    // a multi-day to-do counts on each of its days
+    for (let d = t.due < today ? today : t.due, i = 0; d <= end && i < 60; d = isoDate(new Date(noonOf(d).getTime() + 864e5)), i++) counts[d] = (counts[d] || 0) + 1;
   });
   return counts;
 }
+// ---------- US holidays ----------
+// Worked out by rule, so every year is covered: the 11 federal holidays (with
+// the weekday they're observed on when they land on a weekend; banks close)
+// plus common observances.
+const holidayCache = {};
+function holidaysOf(year){
+  if (holidayCache[year]) return holidayCache[year];
+  const out = {}, add = (d, name, federal = false) => { const iso = isoDate(d); (out[iso] = out[iso] || []).push({name, federal}); };
+  const on = (m, day) => new Date(year, m, day, 12);
+  const nth = (m, dow, n) => { const d = on(m, 1); d.setDate(1 + (dow - d.getDay() + 7) % 7 + 7 * (n - 1)); return d; };
+  const last = (m, dow) => { const d = new Date(year, m + 1, 0, 12); d.setDate(d.getDate() - (d.getDay() - dow + 7) % 7); return d; };
+  // fixed-date federal holidays move to Friday/Monday when they fall on a weekend
+  const fixed = (d, name) => {
+    add(d, name, true);
+    const dow = d.getDay();
+    if (dow === 6 || dow === 0){ const o = new Date(d); o.setDate(d.getDate() + (dow === 6 ? -1 : 1)); if (o.getFullYear() === year) add(o, `${name} (observed)`, true); }
+  };
+  fixed(on(0, 1), "New Year's Day");
+  if (new Date(year + 1, 0, 1, 12).getDay() === 6) add(on(11, 31), "New Year's Day (observed)", true);
+  add(nth(0, 1, 3), "Martin Luther King Jr. Day", true);
+  add(on(1, 14), "Valentine's Day");
+  add(nth(1, 1, 3), "Presidents' Day", true);
+  add(on(2, 17), "St. Patrick's Day");
+  // Easter (anonymous Gregorian computus)
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const em = Math.floor((h + l - 7 * m + 114) / 31) - 1, ed = (h + l - 7 * m + 114) % 31 + 1;
+  add(on(em, ed), "Easter");
+  add(nth(4, 0, 2), "Mother's Day");
+  add(last(4, 1), "Memorial Day", true);
+  add(nth(5, 0, 3), "Father's Day");
+  fixed(on(5, 19), "Juneteenth");
+  fixed(on(6, 4), "Independence Day");
+  add(nth(8, 1, 1), "Labor Day", true);
+  add(nth(9, 1, 2), "Columbus Day", true);
+  add(on(9, 31), "Halloween");
+  const elect = nth(10, 1, 1); elect.setDate(elect.getDate() + 1); add(elect, "Election Day");
+  fixed(on(10, 11), "Veterans Day");
+  add(nth(10, 4, 4), "Thanksgiving", true);
+  add(on(11, 24), "Christmas Eve");
+  fixed(on(11, 25), "Christmas Day");
+  add(on(11, 31), "New Year's Eve");
+  return holidayCache[year] = out;
+}
+function holidaysOn(iso){ return holidaysOf(Number(iso.slice(0, 4)))[iso] || []; }
 function homeCalDayHtml(d, counts, monthView, other = false){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
   const dayBills = iso >= today ? billsOnDay(iso) : null;
   const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0)
     + dayBills.open.length + dayBills.projected.length : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
-  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : ""].filter(Boolean).join(" ");
-  const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
+  const hol = holidaysOn(iso);
+  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : "", hol.length ? "holiday" : ""].filter(Boolean).join(" ");
+  const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}${hol.map(h => `, ${h.name}`).join("")}`;
   return `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${label}" onclick="selectHomeDate('${iso}')">
       ${monthView ? "" : `<span class="dow">${iso === today ? "Today" : d.toLocaleDateString('en-US', {weekday:'short'})}</span>`}<b>${d.getDate()}</b>
       <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${wash ? DROPLET_ICON : ""}</span>
     </button>`;
+}
+function holidayChips(iso){
+  const hol = holidaysOn(iso);
+  return hol.length ? `<div class="holiday-chips">${hol.map(h => `<span class="holiday-chip ${h.federal ? "fed" : ""}">${STAR_ICON_SMALL}${escapeHtml(h.name)}${h.federal ? `<em> · banks closed</em>` : ""}</span>`).join("")}</div>` : "";
 }
 function homeCalHtml(){
   const counts = homeDueCounts();
@@ -1799,6 +1905,7 @@ function renderTodoPanel(){
     const meta = [];
     if (group === "overdue") meta.push(`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`);
     else if (group === "later") meta.push(escapeHtml(dueLabel(t.due)));
+    if (t.days > 1) meta.push(escapeHtml(spanRange(t)));
     if (subs.length) meta.push(`${subDone}/${subs.length} sub-items`);
     if (t.repeat) meta.push(`<span class="repeat-meta">${REPEAT_ICON}${escapeHtml(repeatLabel(t))}</span>`);
     return `<div class="todo-wrap" data-todo-id="${t.id}">
@@ -1913,7 +2020,7 @@ function renderHomePanel(){
   const dateOpt = date.getFullYear() === new Date().getFullYear() ? {weekday:'long', month:'short', day:'numeric'} : {weekday:'short', month:'short', day:'numeric', year:'numeric'};
   const hero = `<div class="home-hero">
       ${homeRingHtml(done, total)}
-      <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div></div>
+      <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div>${holidayChips(iso)}</div>
     </div>`;
 
   const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
@@ -1921,7 +2028,7 @@ function renderHomePanel(){
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join("")
     + lateBills.map(b => homeBillHtml(b)).join(""), "overdue");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
-  const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, pastOpen)).join("")
+  const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])).join("")
     + dueBills.map(b => homeBillHtml(b)).join("") + repeats.map(repeatGhostHtml).join("")
     + dayBills.projected.map(b => homeBillHtml(b, {projected:true})).join("")
     + (washDone ? washRowHtml(iso) : "") // finished to-dos leave Home (they still count in the ring; To-Do keeps them)
@@ -2061,7 +2168,7 @@ function renderComposerChips(){
       due && !presetHit ? `composerPickDate('${due}')` : "composerOpenPicker()", CALENDAR_ICON);
     row1 += cchip("Star", c.star, "composer.star = !composer.star; renderComposerChips()", c.star ? STAR_FILLED_ICON : STAR_ICON);
     row1 += cchip(c.repeat ? REPEATS[c.repeat].short : "Repeat", !!c.repeat, "composer.repeat = composer.repeat ? null : 'weekly'; renderComposerChips()", REPEAT_ICON);
-    if (c.repeat) row2 = Object.entries(REPEATS).map(([k, r]) => cchip(r.label, c.repeat === k, `composer.repeat = '${k}'; renderComposerChips()`)).join("");
+    if (c.repeat) row2 = Object.entries(REPEATS).filter(([k]) => !CUSTOM_REPEATS[k]).map(([k, r]) => cchip(r.label, c.repeat === k, `composer.repeat = '${k}'; renderComposerChips()`)).join("");
     row1 += cchip("Sub-items", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
   } else if (c.mode === "shop"){
     const price = c.ignoreParse ? null : parsePrice(composerText()).price;
@@ -2374,23 +2481,32 @@ function deleteTodoPermanently(id){
   saveContent("todo-content", todoList);
   renderHome();
 }
+// Edit to-do: one compact sheet. When (Anytime / Today / Tomorrow / a date, and
+// an optional last day) and Repeat are chip rows; a custom repeat adds an
+// "every N weeks|months" stepper; sub-items fold away until asked for.
+let tde = null; // the sheet's working copy: {due, end, repeat, every}
+const TDE_REPEATS = [[null, "Never"], ["daily", "Daily"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["biweekly", "2 weeks"], ["monthly", "Monthly"]];
 function editTodo(id){
   const t = todoList.find(x=>x.id===id);
+  if (!t) return;
+  tde = {due:t.due || null, end:t.days > 1 ? todoEnd(t) : null, repeat:REPEATS[t.repeat] ? t.repeat : null, every:CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2};
   openModal("Edit to-do", [
     {key:"text",label:"To-do",type:"textarea",enterSaves:true,maxlength:TODO_MAX_LEN},
-    {key:"due",label:"Due date",type:"date"},
-    {key:"anytime",label:"Anytime (no due date)",type:"checkbox"},
-    {key:"repeat",label:"Repeat",type:"select",options:[NO_REPEAT, ...Object.values(REPEATS).map(r => r.label)]},
-    {key:"subs",label:"Add sub-items — one per line",type:"textarea"}
-  ], {text:t.text, due:t.due||"", anytime:!t.due, repeat:REPEATS[t.repeat] ? REPEATS[t.repeat].label : NO_REPEAT},
+    {type:"html", label:`<div class="tde" id="tde">${tdeHtml()}</div>`},
+    {type:"html", label:`<button type="button" class="tde-subs-toggle" onclick="this.remove(); const f = document.getElementById('modal-subs').closest('.modal-field'); f.hidden = false; document.getElementById('modal-subs').focus()">${SMALL_PLUS_ICON} Add sub-items</button>`},
+    {key:"subs",label:"Sub-items — one per line",type:"textarea"}
+  ], {text:t.text},
     (v) => {
       const text = (v.text || "").replace(/\s*\n\s*/g, " ").trim();
       if(!text) return;
       t.text = text;
-      t.due = !v.anytime && /^\d{4}-\d{2}-\d{2}$/.test(v.due || "") ? v.due : null;
-      const repeat = Object.keys(REPEATS).find(k => REPEATS[k].label === v.repeat);
-      if (repeat){ t.repeat = repeat; if (!t.due) t.due = addDaysIso(0); t.repeatDay = dayOf(t.due); } // a repeat needs a start date
+      t.due = tde.due;
+      if (tde.repeat){ t.repeat = tde.repeat; if (!t.due) t.due = addDaysIso(0); t.repeatDay = dayOf(t.due); } // a repeat needs a start date
       else delete t.repeat;
+      if (CUSTOM_REPEATS[tde.repeat]) t.every = Math.max(1, Math.min(99, tde.every)); else delete t.every;
+      // a last day after the due date makes it multi-day (up to 60 days)
+      const days = t.due && tde.end ? Math.round((noonOf(tde.end) - noonOf(t.due)) / 864e5) + 1 : 0;
+      if (days > 1) t.days = Math.min(60, days); else delete t.days;
       const newSubs = (v.subs || "").split("\n").map(s => s.trim()).filter(Boolean);
       if (newSubs.length){
         if (!t.subitems) t.subitems = [];
@@ -2404,17 +2520,56 @@ function editTodo(id){
       saveContent("todo-content", todoList); renderHome();
     }
   );
-  linkAnytimeBox();
+  document.getElementById("modal-subs").closest(".modal-field").hidden = true;
 }
-// Anytime is a box, not "clear the date" (phone date pickers often can't be
-// cleared): ticking it greys the date out, picking a date unticks it.
-function linkAnytimeBox(){
-  const box = document.getElementById("modal-anytime"), date = document.getElementById("modal-due");
-  if (!box || !date) return;
-  const sync = () => { date.disabled = box.checked; date.closest(".modal-field").classList.toggle("is-off", box.checked); };
-  box.addEventListener("change", sync);
-  date.addEventListener("change", () => { if (date.value){ box.checked = false; sync(); } });
-  sync();
+function tdeSet(patch){
+  Object.assign(tde, patch);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tde.due || "")) tde.due = null;
+  if (!tde.due){ tde.end = null; if ("due" in patch) tde.repeat = null; } // Anytime: no span, no repeat
+  if (tde.repeat && !tde.due) tde.due = addDaysIso(0); // picking a repeat on an Anytime to-do starts it today
+  if (tde.end && (!/^\d{4}-\d{2}-\d{2}$/.test(tde.end) || tde.end <= tde.due)) tde.end = null;
+  if (tde.end && Math.round((noonOf(tde.end) - noonOf(tde.due)) / 864e5) > 59) tde.end = isoDate(new Date(noonOf(tde.due).getTime() + 59 * 864e5));
+  tde.every = Math.max(1, Math.min(99, parseInt(tde.every, 10) || 1));
+  const el = document.getElementById("tde");
+  if (el) el.innerHTML = tdeHtml();
+}
+function tdeDateChip(id, value, label, onchange){
+  // a chip with a native date input laid over it, so a tap opens the picker
+  return `<label class="filter-chip tde-date ${value ? "on" : ""}">${CALENDAR_ICON}<span>${label}</span>
+      <input type="date" id="${id}" value="${value || ""}" onchange="${onchange}" onclick="try{this.showPicker()}catch(e){}" aria-label="${label}"></label>`;
+}
+function tdeHtml(){
+  const today = addDaysIso(0), tomorrow = addDaysIso(1), d = tde.due;
+  const short = iso => noonOf(iso).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+  const chip = (label, on, click) => `<button type="button" class="filter-chip ${on ? "on" : ""}" aria-pressed="${on}" onclick="${click}">${label}</button>`;
+  const custom = !!CUSTOM_REPEATS[tde.repeat];
+  let html = `<div class="tde-sec">When</div><div class="tde-chips">
+      ${chip("Anytime", !d, "tdeSet({due:null})")}
+      ${chip("Today", d === today, `tdeSet({due:'${today}'})`)}
+      ${chip("Tomorrow", d === tomorrow, `tdeSet({due:'${tomorrow}'})`)}
+      ${tdeDateChip("modal-due", d && d !== today && d !== tomorrow ? d : "", d && d !== today && d !== tomorrow ? short(d) : "Pick date", "tdeSet({due:this.value})")}
+    </div>`;
+  if (d) html += `<div class="tde-chips tde-span">${tde.end
+      ? `<span class="tde-through">Through</span>${tdeDateChip("modal-end", tde.end, short(tde.end), "tdeSet({end:this.value})")}<button type="button" class="tde-x" aria-label="Just one day" onclick="tdeSet({end:null})">✕</button>`
+      : chip(`${SMALL_PLUS_ICON} Multi-day`, false, `tdeSet({end:'${isoDate(new Date(noonOf(d).getTime() + 864e5))}'})`)}</div>`;
+  html += `<div class="tde-sec">Repeat</div><div class="tde-chips">
+      ${TDE_REPEATS.map(([k, l]) => chip(l, tde.repeat === k, `tdeSet({repeat:${k ? `'${k}'` : "null"}})`)).join("")}
+      ${chip("Custom", custom, `tdeSet({repeat:'${custom ? tde.repeat : "weeks"}'})`)}
+    </div>`;
+  if (custom) html += `<div class="tde-every"><span>Every</span>
+      <button type="button" class="tde-step" aria-label="Fewer" onclick="tdeSet({every:tde.every - 1})">−</button>
+      <b id="modal-every">${tde.every}</b>
+      <button type="button" class="tde-step" aria-label="More" onclick="tdeSet({every:tde.every + 1})">+</button>
+      <span class="tde-seg">${["weeks", "months"].map(u => `<button type="button" class="${tde.repeat === u ? "on" : ""}" aria-pressed="${tde.repeat === u}" onclick="tdeSet({repeat:'${u}'})">${tde.every === 1 ? u.slice(0, -1) : u}</button>`).join("")}</span>
+    </div>`;
+  // one line that reads back the choice
+  const sum = [];
+  if (!d) sum.push("No date · it sits under Anytime");
+  else {
+    sum.push(tde.end ? `${short(d)} – ${short(tde.end)} (${Math.round((noonOf(tde.end) - noonOf(d)) / 864e5) + 1} days)` : short(d));
+    if (tde.repeat) sum.push(repeatLabel({repeat:tde.repeat, every:tde.every, due:d}));
+  }
+  return html + `<div class="tde-sum">${escapeHtml(sum.join(" · "))}</div>`;
 }
 function clearCompletedTodos(){
   if (!confirm("Clear all completed to-dos? This can't be undone.")) return;
@@ -3806,8 +3961,9 @@ function budgetCalHtml(key, rows, paychecks, today){
     const list = byDay[iso] || [], pay = pays[iso];
     const dots = list.slice(0, 3).map(r => `<i class="${r.payment ? "paid" : r.due < today ? "over" : ""}"></i>`).join("");
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const label = `${noonOf(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}`;
-    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", iso.slice(0, 7) !== key ? "other" : ""].filter(Boolean).join(" ");
+    const fed = holidaysOn(iso).filter(h => h.federal);
+    const label = `${noonOf(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}${fed.map(h => `, ${h.name} (banks closed)`).join("")}`;
+    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", iso.slice(0, 7) !== key ? "other" : "", fed.length ? "holiday" : ""].filter(Boolean).join(" ");
     cells += `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${escapeAttr(label)}" onclick="selectBudgetDay('${iso}')">
         <b>${Number(iso.slice(8))}</b><span class="marks">${dots}${pay ? `<em class="pay">$</em>` : ""}</span>
       </button>`;
@@ -3818,6 +3974,7 @@ function budgetCalHtml(key, rows, paychecks, today){
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     detail = `<div class="bcal-detail">
         <div class="period-sub"><span>${escapeHtml(noonOf(sel).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}))}</span><span>${list.length ? (due ? `${money(due)} due` : "All paid") : ""}</span></div>
+        ${(() => { const fed = holidaysOn(sel).filter(h => h.federal); return fed.length ? `<div class="holiday-chips">${fed.map(h => `<span class="holiday-chip fed">${STAR_ICON_SMALL}${escapeHtml(h.name)}<em> · banks closed</em></span>`).join("")}</div>` : ""; })()}
         ${pay.map(p => `<button class="bcal-pay" onclick="editPaycheck('${p.src.id}','${p.date}')"><span><em class="pay">$</em>${escapeHtml(p.src.name)}</span><b>${payAmt(p)}</b></button>`).join("")}
         ${list.map(r => billRowHtml(r, today)).join("")}
         ${!list.length && !pay.length ? `<div class="empty">Nothing due this day.</div>` : ""}
@@ -4871,6 +5028,10 @@ function normalizeLoadedData(){
   wantsList.forEach(w => { w.id = safeId(w.id, "want"); w.name = decodeEntities(w.name); if (w.meta) w.meta = decodeEntities(w.meta); });
   todoList.forEach(t => { t.id = safeId(t.id, "todo"); (t.subitems || []).forEach(st => { st.id = safeId(st.id, "sub"); }); });
   todoList.forEach(t => { if ("repeat" in t && !REPEATS[t.repeat]) delete t.repeat; }); // unknown rules from sync/backup
+  todoList.forEach(t => {
+    if ("every" in t){ const n = parseInt(t.every, 10); if (CUSTOM_REPEATS[t.repeat] && n >= 1) t.every = Math.min(99, n); else delete t.every; }
+    if ("days" in t){ const n = parseInt(t.days, 10); if (t.due && n > 1) t.days = Math.min(60, n); else delete t.days; }
+  });
   ["am", "pm", "washPm"].forEach(b => (skinRoutine[b] || []).forEach(st => { st.id = safeId(st.id, b); }));
 }
 // Persists housekeeping (format migrations, auto-archive) WITHOUT bumping
