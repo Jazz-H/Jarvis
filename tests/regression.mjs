@@ -494,6 +494,13 @@ await section("home: calendar strip picks any day", async () => {
     { id: "n", text: "Whenever", done: false, due: null, starred: false, subitems: [], completedAt: null },
   ]}});
   const titles = () => page.$$eval("#panel-home .todo-wrap .title", els => els.map(e => e.textContent.trim()));
+  const wk = await page.evaluate(() => { const first = document.querySelector("#panel-home .home-week .home-day"); return first && first.getAttribute("aria-label"); });
+  check("week strip starts on Sunday", /^Sunday/.test(wk || ""), wk);
+  const lead = await page.evaluate(() => { setHomeCalOpen(true); const first = noonOf(homeSelected().slice(0, 8) + "01");
+    const other = [...document.querySelectorAll("#panel-home .home-month .home-day.other")].map(e => e.textContent.trim().split(/\s/)[0]);
+    const r = { n: other.length, want: first.getDay(), lastPrev: other[other.length - 1], prevEnd: String(new Date(first.getFullYear(), first.getMonth(), 0).getDate()) };
+    setHomeCalOpen(false); return r; });
+  check("month view fills the first week with last month's days, greyed", lead.n === lead.want && (lead.n === 0 || lead.lastPrev === lead.prevEnd), lead);
   const today = await page.evaluate(() => ({
     days: document.querySelectorAll(".home-week .home-day").length,
     secs: [...document.querySelectorAll(".home-sec")].map(e => e.textContent),
@@ -518,7 +525,7 @@ await section("home: calendar strip picks any day", async () => {
   await swipe(0, 120);
   const opened = await page.evaluate(() => ({
     month: !!document.querySelector("#panel-home .home-month"),
-    cells: document.querySelectorAll("#panel-home .home-month .home-day:not(.blank)").length,
+    cells: document.querySelectorAll("#panel-home .home-month .home-day:not(.blank):not(.other)").length,
     refreshing: document.getElementById("pull-indicator").classList.contains("refreshing"),
   }));
   check("swipe down opens the month", opened.month, opened);
@@ -1246,7 +1253,7 @@ await section("budget: month calendar", async () => {
   });
   check("calendar starts as one week", (await page.$$eval("#budget-cal .home-day:not(.blank)", els => els.length)) === 7);
   await page.click("#budget-cal .home-cal-grab");
-  const cells = await page.$$eval("#budget-cal .home-day:not(.blank)", els => els.length);
+  const cells = await page.$$eval("#budget-cal .home-day:not(.blank):not(.other)", els => els.length);
   const days = await page.evaluate(k => Number(monthEndIso(k).slice(8)), k);
   check("calendar shows every day of the month", cells === days, [cells, days]);
   check("paydays and bill days are marked", (await page.$$("#budget-cal .marks em.pay")).length >= 2 && (await page.$$("#budget-cal .marks i")).length >= 1);

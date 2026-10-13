@@ -10,7 +10,7 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 ## Using the app
 
 **Home** is a day planner.
-- **Calendar strip:** a Monday-first week with dots for what's due and a droplet on wash
+- **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
 - **Day hero:** the date, a done/total progress ring, and what's left.
@@ -44,13 +44,13 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 - **Today:** a checklist of AM and PM steps with done/total counts, the wash-day badge, and
   an N-day streak (days with both AM and PM finished). Check-offs reset daily and sync
   across devices.
-- **This week:** Mon–Sun rows showing only what differs from the base routine
+- **This week:** Sun–Sat rows showing only what differs from the base routine
   ("Exfoliate", "Wash day"). Tap a day for its full list.
 - **Wash day:** pick a frequency (every week, 10 days, 2, 3, or 4 weeks) and tap any date
   on the month calendar to make it a wash day. The schedule repeats from that date, and
   wash days are highlighted. Each change shows an Undo.
 - **Routine:** the one place to edit the AM, PM, and wash-day PM steps. A step can be
-  limited to certain days with a Mon–Sun chip picker. New steps go before any
+  limited to certain days with a Sun–Sat chip picker. New steps go before any
   "… — last step" entry, so SPF and lash serum stay last.
 - **Key rules:** the routine's ground rules. The card is hidden while the list is empty.
 
@@ -192,7 +192,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (302 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (304 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
