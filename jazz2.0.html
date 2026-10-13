@@ -174,6 +174,12 @@
   .home-day.today:not(.on){box-shadow:inset 0 0 0 1px var(--line);}
   .home-day.past:not(.on){opacity:.5;}
   .home-day.blank{visibility:hidden;}
+  .home-day.holiday:not(.on) b{color:var(--gold);}
+  .holiday-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .holiday-chip{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:700; color:var(--gold); padding:3px 9px; border-radius:9px; background:color-mix(in srgb, var(--gold) 14%, transparent);}
+  .holiday-chip svg{width:11px; height:11px;}
+  .holiday-chip em{font-style:normal; font-weight:600; opacity:.8;}
+  .bcal-detail .holiday-chips{margin:0 2px 8px;}
   .home-day.other:not(.on), .bcal .home-day.other{opacity:.28;}
   .home-day.on{background:var(--olive); color:var(--on-accent);}
   .home-day.on b{color:var(--on-accent);}
@@ -1428,6 +1434,7 @@ function editChipHtml(id){
 // data stored `day` (a bare weekday name with no real date); migrateTodoDays()
 // converts that to the next occurrence of the weekday, today included.
 // Date math runs at local noon so DST shifts can't push a day over a boundary.
+const STAR_ICON_SMALL = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>`;
 // calendars run Sunday → Saturday
 const WEEK_LETTERS = ["S","M","T","W","T","F","S"];
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -1625,18 +1632,68 @@ function homeDueCounts(){
   });
   return counts;
 }
+// ---------- US holidays ----------
+// Worked out by rule, so every year is covered: the 11 federal holidays (with
+// the weekday they're observed on when they land on a weekend; banks close)
+// plus common observances.
+const holidayCache = {};
+function holidaysOf(year){
+  if (holidayCache[year]) return holidayCache[year];
+  const out = {}, add = (d, name, federal = false) => { const iso = isoDate(d); (out[iso] = out[iso] || []).push({name, federal}); };
+  const on = (m, day) => new Date(year, m, day, 12);
+  const nth = (m, dow, n) => { const d = on(m, 1); d.setDate(1 + (dow - d.getDay() + 7) % 7 + 7 * (n - 1)); return d; };
+  const last = (m, dow) => { const d = new Date(year, m + 1, 0, 12); d.setDate(d.getDate() - (d.getDay() - dow + 7) % 7); return d; };
+  // fixed-date federal holidays move to Friday/Monday when they fall on a weekend
+  const fixed = (d, name) => {
+    add(d, name, true);
+    const dow = d.getDay();
+    if (dow === 6 || dow === 0){ const o = new Date(d); o.setDate(d.getDate() + (dow === 6 ? -1 : 1)); if (o.getFullYear() === year) add(o, `${name} (observed)`, true); }
+  };
+  fixed(on(0, 1), "New Year's Day");
+  if (new Date(year + 1, 0, 1, 12).getDay() === 6) add(on(11, 31), "New Year's Day (observed)", true);
+  add(nth(0, 1, 3), "Martin Luther King Jr. Day", true);
+  add(on(1, 14), "Valentine's Day");
+  add(nth(1, 1, 3), "Presidents' Day", true);
+  add(on(2, 17), "St. Patrick's Day");
+  // Easter (anonymous Gregorian computus)
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const em = Math.floor((h + l - 7 * m + 114) / 31) - 1, ed = (h + l - 7 * m + 114) % 31 + 1;
+  add(on(em, ed), "Easter");
+  add(nth(4, 0, 2), "Mother's Day");
+  add(last(4, 1), "Memorial Day", true);
+  add(nth(5, 0, 3), "Father's Day");
+  fixed(on(5, 19), "Juneteenth");
+  fixed(on(6, 4), "Independence Day");
+  add(nth(8, 1, 1), "Labor Day", true);
+  add(nth(9, 1, 2), "Columbus Day", true);
+  add(on(9, 31), "Halloween");
+  const elect = nth(10, 1, 1); elect.setDate(elect.getDate() + 1); add(elect, "Election Day");
+  fixed(on(10, 11), "Veterans Day");
+  add(nth(10, 4, 4), "Thanksgiving", true);
+  add(on(11, 24), "Christmas Eve");
+  fixed(on(11, 25), "Christmas Day");
+  add(on(11, 31), "New Year's Eve");
+  return holidayCache[year] = out;
+}
+function holidaysOn(iso){ return holidaysOf(Number(iso.slice(0, 4)))[iso] || []; }
 function homeCalDayHtml(d, counts, monthView, other = false){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
   const dayBills = iso >= today ? billsOnDay(iso) : null;
   const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0)
     + dayBills.open.length + dayBills.projected.length : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
-  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : ""].filter(Boolean).join(" ");
-  const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
+  const hol = holidaysOn(iso);
+  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : "", hol.length ? "holiday" : ""].filter(Boolean).join(" ");
+  const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}${hol.map(h => `, ${h.name}`).join("")}`;
   return `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${label}" onclick="selectHomeDate('${iso}')">
       ${monthView ? "" : `<span class="dow">${iso === today ? "Today" : d.toLocaleDateString('en-US', {weekday:'short'})}</span>`}<b>${d.getDate()}</b>
       <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${wash ? DROPLET_ICON : ""}</span>
     </button>`;
+}
+function holidayChips(iso){
+  const hol = holidaysOn(iso);
+  return hol.length ? `<div class="holiday-chips">${hol.map(h => `<span class="holiday-chip ${h.federal ? "fed" : ""}">${STAR_ICON_SMALL}${escapeHtml(h.name)}${h.federal ? `<em> · banks closed</em>` : ""}</span>`).join("")}</div>` : "";
 }
 function homeCalHtml(){
   const counts = homeDueCounts();
@@ -1913,7 +1970,7 @@ function renderHomePanel(){
   const dateOpt = date.getFullYear() === new Date().getFullYear() ? {weekday:'long', month:'short', day:'numeric'} : {weekday:'short', month:'short', day:'numeric', year:'numeric'};
   const hero = `<div class="home-hero">
       ${homeRingHtml(done, total)}
-      <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div></div>
+      <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div>${holidayChips(iso)}</div>
     </div>`;
 
   const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
@@ -3806,8 +3863,9 @@ function budgetCalHtml(key, rows, paychecks, today){
     const list = byDay[iso] || [], pay = pays[iso];
     const dots = list.slice(0, 3).map(r => `<i class="${r.payment ? "paid" : r.due < today ? "over" : ""}"></i>`).join("");
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const label = `${noonOf(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}`;
-    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", iso.slice(0, 7) !== key ? "other" : ""].filter(Boolean).join(" ");
+    const fed = holidaysOn(iso).filter(h => h.federal);
+    const label = `${noonOf(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}${fed.map(h => `, ${h.name} (banks closed)`).join("")}`;
+    const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", iso.slice(0, 7) !== key ? "other" : "", fed.length ? "holiday" : ""].filter(Boolean).join(" ");
     cells += `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${escapeAttr(label)}" onclick="selectBudgetDay('${iso}')">
         <b>${Number(iso.slice(8))}</b><span class="marks">${dots}${pay ? `<em class="pay">$</em>` : ""}</span>
       </button>`;
@@ -3818,6 +3876,7 @@ function budgetCalHtml(key, rows, paychecks, today){
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     detail = `<div class="bcal-detail">
         <div class="period-sub"><span>${escapeHtml(noonOf(sel).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}))}</span><span>${list.length ? (due ? `${money(due)} due` : "All paid") : ""}</span></div>
+        ${(() => { const fed = holidaysOn(sel).filter(h => h.federal); return fed.length ? `<div class="holiday-chips">${fed.map(h => `<span class="holiday-chip fed">${STAR_ICON_SMALL}${escapeHtml(h.name)}<em> · banks closed</em></span>`).join("")}</div>` : ""; })()}
         ${pay.map(p => `<button class="bcal-pay" onclick="editPaycheck('${p.src.id}','${p.date}')"><span><em class="pay">$</em>${escapeHtml(p.src.name)}</span><b>${payAmt(p)}</b></button>`).join("")}
         ${list.map(r => billRowHtml(r, today)).join("")}
         ${!list.length && !pay.length ? `<div class="empty">Nothing due this day.</div>` : ""}

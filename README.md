@@ -14,6 +14,11 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
 - **Day hero:** the date, a done/total progress ring, and what's left.
+- **US holidays:** worked out by rule for every year: the 11 federal holidays (plus the
+  weekday they're observed on; "banks closed") and common observances (Valentine's,
+  St. Patrick's, Easter, Mother's/Father's Day, Election Day, Halloween, Christmas Eve,
+  New Year's Eve). Holiday dates are colored on the calendar and named on the day;
+  Budget's calendar notes the bank holidays.
 - **Day list:** Overdue, the day's open to-dos (starred first; finished ones leave Home but
   still count in the ring, and live on in To-Do's Completed),
   bills due ("Pay Rent · $1,450"), the Wash hair item on wash days, future repeats of
@@ -192,7 +197,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (304 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (312 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

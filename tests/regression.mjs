@@ -485,6 +485,33 @@ await section("home: day agenda completes in place", async () => {
   await ctx.close();
 });
 
+await section("US holidays", async () => {
+  const { ctx, page, errors } = await openApp({});
+  const h = await page.evaluate(() => {
+    const names = iso => holidaysOn(iso).map(x => x.name);
+    return { thx26: names("2026-11-26"), obs4th: names("2026-07-03"), easter26: names("2026-04-05"), easter27: names("2027-03-28"),
+      jun27: names("2027-06-18"), nye27: names("2027-12-31"), mlk27: names("2027-01-18"), fedMom: holidaysOn("2026-05-10")[0].federal,
+      count26: Object.values(holidaysOf(2026)).flat().length };
+  });
+  check("federal holidays by rule (Thanksgiving, MLK Day)", h.thx26.includes("Thanksgiving") && h.mlk27.includes("Martin Luther King Jr. Day"), h);
+  check("weekend holidays get their observed weekday", h.obs4th.includes("Independence Day (observed)") && h.jun27.includes("Juneteenth (observed)") && h.nye27.includes("New Year's Day (observed)"), h);
+  check("Easter computed for 2026 and 2027", h.easter26.includes("Easter") && h.easter27.includes("Easter"), h);
+  check("observances aren't marked as bank holidays", h.fedMom === false && h.count26 === 21, h);
+  // Home: the day shows its holiday, and the calendar marks it
+  await page.evaluate(() => selectHomeDate("2026-11-26"));
+  const home = await page.evaluate(() => ({ chip: (document.querySelector("#panel-home .home-hero .holiday-chip") || {}).textContent || "",
+    cell: !!document.querySelector('#panel-home .home-day.holiday[aria-label*="Thanksgiving"]') }));
+  check("Home day shows the holiday", home.chip.includes("Thanksgiving") && home.chip.includes("banks closed"), home);
+  check("Home calendar marks the holiday", home.cell, home);
+  // Budget: federal holidays only
+  await page.evaluate(() => { activateTab("budget"); const t = addDaysIso(0);
+    budgetMonthOffset = (2026 - Number(t.slice(0, 4))) * 12 + (10 - Number(t.slice(5, 7))); renderBudget(); selectBudgetDay("2026-10-12"); });
+  const bud = await page.evaluate(() => ({ chip: (document.querySelector("#budget-cal .holiday-chip") || {}).textContent || "" }));
+  check("Budget calendar notes bank holidays", bud.chip.includes("Columbus Day"), bud);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("home: calendar strip picks any day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "o", text: "Late thing", done: false, due: isoOffset(-2), starred: false, subitems: [], completedAt: null },
