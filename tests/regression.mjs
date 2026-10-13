@@ -494,6 +494,8 @@ await section("home: calendar strip picks any day", async () => {
     { id: "n", text: "Whenever", done: false, due: null, starred: false, subitems: [], completedAt: null },
   ]}});
   const titles = () => page.$$eval("#panel-home .todo-wrap .title", els => els.map(e => e.textContent.trim()));
+  const wk = await page.evaluate(() => { const first = document.querySelector("#panel-home .home-week .home-day"); return first && first.getAttribute("aria-label"); });
+  check("week strip starts on Sunday", /^Sunday/.test(wk || ""), wk);
   const today = await page.evaluate(() => ({
     days: document.querySelectorAll(".home-week .home-day").length,
     secs: [...document.querySelectorAll(".home-sec")].map(e => e.textContent),

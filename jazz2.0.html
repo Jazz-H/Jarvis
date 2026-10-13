@@ -154,8 +154,8 @@
   .glance-head h3{margin:0;}
 
   /* home: week strip + day agenda */
-  .home-cal{margin:-4px 0 12px; touch-action:none;}
-  .home-cal-head{display:flex; align-items:center; gap:2px; margin:0 -8px 2px 2px;}
+  .home-cal{margin:0 0 18px; padding:12px 10px 2px; touch-action:none; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 6px 18px rgba(0,0,0,.18);}
+  .home-cal-head{display:flex; align-items:center; gap:2px; margin:0 -2px 2px 6px;}
   .home-cal-title{flex:1; font-size:15px; font-weight:800;}
   .home-cal-today{border:1px solid var(--line); background:none; color:var(--text); font:inherit; font-size:12px; font-weight:700; padding:5px 11px; border-radius:14px; margin-right:4px;}
   .home-cal .cal-nav{width:38px; height:38px;}
@@ -680,7 +680,7 @@
   .cal-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700;}
   .cal-nav{width:44px; height:44px; border:none; background:none; color:var(--text); font:inherit; font-size:20px; border-radius:10px;}
   .cal-grid{display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; text-align:center;}
-  .cal-dow{font-size:10.5px; font-weight:700; color:var(--text-dim); padding:4px 0;}
+  .cal-dow{font-size:10.5px; font-weight:700; color:var(--text-dim); padding:4px 0; text-align:center;}
   .cal-day{
     min-height:42px; border:none; border-radius:10px; background:none; padding:0;
     color:var(--text); font:inherit; font-size:13px; font-variant-numeric:tabular-nums;
@@ -1333,7 +1333,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts){
     }
     if (f.type === "days"){
       const sel = Array.isArray(val) ? val : [];
-      const chips = [1,2,3,4,5,6,0].map(d => `<label class="day-chip"><input type="checkbox" value="${d}" ${sel.includes(d)?"checked":""}><span>${DAY_SHORT[d]}</span></label>`).join("");
+      const chips = [0,1,2,3,4,5,6].map(d => `<label class="day-chip"><input type="checkbox" value="${d}" ${sel.includes(d)?"checked":""}><span>${DAY_SHORT[d]}</span></label>`).join("");
       return `<div class="modal-field"><span>${f.label}</span><div class="day-chips" id="modal-${f.key}">${chips}</div></div>`;
     }
     if (f.type === "select"){
@@ -1427,6 +1427,8 @@ function editChipHtml(id){
 // data stored `day` (a bare weekday name with no real date); migrateTodoDays()
 // converts that to the next occurrence of the weekday, today included.
 // Date math runs at local noon so DST shifts can't push a day over a boundary.
+// calendars run Sunday → Saturday
+const WEEK_LETTERS = ["S","M","T","W","T","F","S"];
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 function isoDate(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -1564,7 +1566,7 @@ function completeRepeating(t){
 }
 
 // ---------- HOME: calendar strip + day agenda ----------
-// Home is a day planner. A Monday-first week strip picks the day; swiping it
+// Home is a day planner. A Sunday-first week strip picks the day; swiping it
 // sideways pages weeks, and swiping it down (or the chevron) opens the full
 // month, so any date can be picked. The list below shows everything due that
 // day; today also carries Overdue and a short Anytime peek. To-dos finished
@@ -1642,16 +1644,16 @@ function homeCalHtml(){
   let body, period, showsToday;
   if (homeCalOpen){
     const first = new Date(anchor); first.setDate(1);
-    const lead = (first.getDay() + 6) % 7; // Monday-first, like the wash-day calendar
+    const lead = first.getDay(); // Sunday-first
     const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-    body = ["M","T","W","T","F","S","S"].map(x => `<div class="cal-dow">${x}</div>`).join("");
+    body = WEEK_LETTERS.map(x => `<div class="cal-dow">${x}</div>`).join("");
     for (let i = 0; i < lead; i++) body += `<div class="home-day blank"></div>`;
     for (let n = 1; n <= days; n++) body += homeCalDayHtml(new Date(first.getFullYear(), first.getMonth(), n, 12), counts, true);
     body = `<div class="home-month">${body}</div>`;
     period = first;
     showsToday = today.slice(0, 7) === isoDate(first).slice(0, 7);
   } else {
-    const start = new Date(anchor); start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+    const start = new Date(anchor); start.setDate(start.getDate() - start.getDay());
     body = "";
     for (let n = 0; n < 7; n++){ const d = new Date(start); d.setDate(start.getDate() + n); body += homeCalDayHtml(d, counts, false); }
     body = `<div class="home-week">${body}</div>`;
@@ -2601,9 +2603,9 @@ function renderSkin(){
       ${band("pm", r.wash ? "PM · wash day" : "PM", r.pm)}
     </div>`;
 
-  // 2. This week, Mon–Sun: only what differs from the base routine; tap a day for its full list
+  // 2. This week, Sun–Sat: only what differs from the base routine; tap a day for its full list
   const monday = new Date(now); monday.setHours(12, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  monday.setDate(monday.getDate() - monday.getDay()); // (the week's Sunday)
   let week = "";
   for (let i = 0; i < 7; i++){
     const d = new Date(monday); d.setDate(monday.getDate() + i);
@@ -2754,9 +2756,9 @@ function shiftWashMonth(delta){ washCalOffset += delta; renderSkin(); }
 function washCalendarHtml(){
   const first = new Date(); first.setHours(12, 0, 0, 0); first.setDate(1); first.setMonth(first.getMonth() + washCalOffset);
   const month = first.getMonth(), todayKey = isoDate(new Date());
-  const lead = (first.getDay() + 6) % 7; // Monday-first grid
+  const lead = first.getDay(); // Sunday-first grid
   const daysInMonth = new Date(first.getFullYear(), month + 1, 0).getDate();
-  let cells = ["M","T","W","T","F","S","S"].map(d => `<div class="cal-dow">${d}</div>`).join("");
+  let cells = WEEK_LETTERS.map(d => `<div class="cal-dow">${d}</div>`).join("");
   for (let i = 0; i < lead; i++) cells += `<div class="cal-day blank"></div>`;
   for (let n = 1; n <= daysInMonth; n++){
     const d = new Date(first.getFullYear(), month, n, 12);
@@ -3790,12 +3792,12 @@ function budgetCalHtml(key, rows, paychecks, today){
   addMonth(key, rows, paychecks);
   const sel = budgetCalDay && budgetCalDay.slice(0, 7) === key ? budgetCalDay : (today.slice(0, 7) === key ? today : start);
   let first, count;
-  if (budgetCalMonth){ first = noonOf(start); first.setDate(1 - (first.getDay() + 6) % 7); count = Math.ceil(((noonOf(start).getDay() + 6) % 7 + days) / 7) * 7; }
-  else { first = noonOf(sel); first.setDate(first.getDate() - (first.getDay() + 6) % 7); count = 7; }
+  if (budgetCalMonth){ first = noonOf(start); first.setDate(1 - first.getDay()); count = Math.ceil((noonOf(start).getDay() + days) / 7) * 7; }
+  else { first = noonOf(sel); first.setDate(first.getDate() - first.getDay()); count = 7; }
   const cellIsos = [];
   for (let n = 0; n < count; n++){ const d = new Date(first); d.setDate(first.getDate() + n); cellIsos.push(isoDate(d)); }
   cellIsos.forEach(iso => { const k = iso.slice(0, 7); if (!seen.has(k)) addMonth(k, billsInMonth(k), incomeInMonth(k)); });
-  let cells = ["M","T","W","T","F","S","S"].map(x => `<div class="cal-dow">${x}</div>`).join("");
+  let cells = WEEK_LETTERS.map(x => `<div class="cal-dow">${x}</div>`).join("");
   cellIsos.forEach(iso => {
     if (budgetCalMonth && iso.slice(0, 7) !== key){ cells += `<div class="home-day blank"></div>`; return; }
     const list = byDay[iso] || [], pay = pays[iso];
