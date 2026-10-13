@@ -25,9 +25,11 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
   recurring to-dos and bills, and an Anytime peek on today. Everything can be ticked in place.
 
 **To-Do** is the full list.
-- **Editing:** a due date or **Anytime**; a **Last day** makes it span several days (it shows
-  on each one, "Day 2 of 3", and isn't overdue until the last); and a repeat: every day,
-  weekdays, week, 2 weeks, month, or a custom **every N weeks / every N months**.
+- **Editing:** one compact sheet of chips. **When:** Anytime, Today, Tomorrow, or a date;
+  **+ Multi-day** adds a last day so it spans several days (shown on each, "Day 2 of 3",
+  not overdue until the last). **Repeat:** Never, Daily, Weekdays, Weekly, 2 weeks, Monthly,
+  or **Custom** (an "every N weeks | months" stepper). A line underneath reads the choice
+  back; sub-items fold away behind **+ Add sub-items**.
 - **Adding.** Tap the floating **+** button (on Home and To-Do; see *Adding things* below).
   The **New to-do** form opens with the keyboard up:
   - **Text box:** a trailing day word sets the date ("dentist fri"), lighting up its pill;
@@ -200,7 +202,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (326 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (331 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
