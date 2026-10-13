@@ -1134,6 +1134,46 @@ await section("dates: monthly repeats keep their day; Home follows midnight", as
   await ctx.close();
 });
 
+await section("to-dos: custom repeat intervals and multi-day to-dos", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "w", text: "Filter change", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "m", text: "Trip", done: false, due: isoOffset(-1), starred: false, subitems: [], completedAt: null },
+  ]}});
+  // every 3 weeks
+  await page.evaluate(() => editTodo("w"));
+  check("interval box hidden until a custom repeat is picked", await page.evaluate(() => document.getElementById("modal-every").closest(".modal-field").style.display === "none"));
+  await page.selectOption("#modal-repeat", { label: "Every N weeks…" });
+  check("interval box shows, labeled in weeks", await page.evaluate(() => { const f = document.getElementById("modal-every").closest(".modal-field"); return f.style.display === "" && f.textContent.includes("how many weeks"); }));
+  await page.fill("#modal-every", "3");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const w = await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); return { repeat: t.repeat, every: t.every, label: repeatLabel(t), on21: occursOn(t, addDaysIso(21)), on14: occursOn(t, addDaysIso(14)) }; });
+  check("every 3 weeks is saved and labeled", w.repeat === "weeks" && w.every === 3 && /^Every 3 weeks · /.test(w.label), w);
+  check("it lands 3 weeks out, not 2", w.on21 && !w.on14, w);
+  await page.evaluate(() => completeTodo("w"));
+  check("ticking it moves it 3 weeks on", await page.evaluate(() => todoList.find(x => x.id === "w").due === addDaysIso(21)));
+  // every 2 months
+  await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); t.repeat = "months"; t.every = 2; t.due = "2026-01-31"; t.repeatDay = 31; });
+  check("every 2 months keeps its day", await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); return todoNext("2026-01-31", t) === "2026-03-31" && todoNext("2026-03-31", t) === "2026-05-31"; }));
+  // multi-day: started yesterday, runs through tomorrow
+  await page.evaluate(() => editTodo("m"));
+  await page.fill("#modal-end", await page.evaluate(() => addDaysIso(1)));
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const m = await page.evaluate(() => { const t = todoList.find(x => x.id === "m"); return { days: t.days, group: todoGroup(t), today: homeDayItems(addDaysIso(0)).open.some(x => x.id === "m"),
+    tomorrow: homeDayItems(addDaysIso(1)).open.some(x => x.id === "m"), after: homeDayItems(addDaysIso(2)).open.some(x => x.id === "m"), counts: homeDueCounts() }; });
+  check("last day sets a 3-day span", m.days === 3, m);
+  check("a running multi-day to-do isn't overdue", m.group === "today", m);
+  check("it shows on each of its days, not after", m.today && m.tomorrow && !m.after, m);
+  check("calendar dots count each day", m.counts[await page.evaluate(() => addDaysIso(1))] >= 1, m.counts);
+  await page.evaluate(() => { selectHomeDate(addDaysIso(0)); });
+  check("Home says which day of the span it is", (await page.textContent("#panel-home")).includes("Day 2 of 3"));
+  // once its last day has passed it's overdue
+  check("overdue once the last day passes", await page.evaluate(() => { const t = { id: "x", text: "x", due: addDaysIso(-5), days: 3 }; return todoGroup(t) === "overdue"; }));
+  // junk from sync is cleaned up
+  check("bad interval/span values are dropped", await page.evaluate(() => { todoList.push({ id: "j", text: "j", done: false, due: null, days: 9, every: "x", subitems: [] }); normalizeLoadedData(); const t = todoList.find(x => x.id === "j"); return !("days" in t) && !("every" in t); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words on a picked day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "r", text: "Water plants", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "weekly" },
