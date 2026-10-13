@@ -1184,6 +1184,37 @@ await section("to-dos: custom repeat intervals and multi-day to-dos", async () =
   await ctx.close();
 });
 
+await section("to-do types get icons", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "a", text: "Therapy @ 10am", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "b", text: "Gym", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "c", text: "WWC @ 9am", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "d", text: "Something vague", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+  ]}});
+  const k = await page.evaluate(() => ["Therapy @ 10am", "Gym", "WWC @ 9am", "Get eyebrows done", "Mom's birthday dinner", "Clean the kitchen", "Pick up dry cleaning", "Flight to Atlanta", "Oil change", "Something vague", "Update resume"].map(detectKind));
+  check("types are guessed from the words", JSON.stringify(k) === JSON.stringify(["health", "fitness", "appointment", "appointment", "birthday", "chores", "errand", "travel", "car", null, null]), k);
+  const icons = await page.evaluate(() => [...document.querySelectorAll("#todo-list .todo-wrap")].map(w => [w.dataset.todoId, (w.querySelector(".kind-ic") || {}).title || ""]));
+  check("rows show the type's icon (none when nothing fits)", JSON.stringify(icons.sort()) === JSON.stringify([["a", "Health"], ["b", "Fitness"], ["c", "Appointment"], ["d", ""]]), icons);
+  // pick a type by hand, then None
+  await page.evaluate(() => editTodo("d"));
+  check("Type row offers Automatic plus each type", (await page.$$("#tde .kind-chip")).length === 14);
+  await page.click("#tde .kind-chip >> text=Work");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("picked type is saved and shown", await page.evaluate(() => todoList.find(t => t.id === "d").kind === "work" && document.querySelector('[data-todo-id="d"] .kind-ic').title === "Work"));
+  await page.evaluate(() => editTodo("b"));
+  await page.click("#tde .kind-chip >> text=None");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("None hides the icon", await page.evaluate(() => !document.querySelector('[data-todo-id="b"] .kind-ic')));
+  // the Auto chip follows the text as it's typed
+  await page.evaluate(() => editTodo("a"));
+  await page.fill("#modal-text", "Flight home");
+  check("Auto chip follows the text", (await page.textContent("#tde .kind-chip.on")).includes("Travel"));
+  await page.evaluate(() => closeModal());
+  check("bad types from sync are dropped", await page.evaluate(() => { todoList[0].kind = "<x>"; normalizeLoadedData(); return !("kind" in todoList[0]); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words on a picked day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "r", text: "Water plants", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "weekly" },

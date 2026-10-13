@@ -799,6 +799,15 @@
     color:var(--text); font-size:14px; font-family:inherit; padding:10px 12px; resize:vertical;
   }
   .modal-field input:focus, .modal-field textarea:focus, .modal-field select:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  .kind-ic{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; vertical-align:-5px; border-radius:7px;
+    color:hsl(var(--k) 75% 70%); background:hsl(var(--k) 60% 55% / .16); flex-shrink:0;}
+  .kind-ic svg{width:13px; height:13px;}
+  .item.checked .kind-ic{opacity:.5;}
+  .kind-chip[style] svg{color:hsl(var(--k) 75% 70%);}
+  .kind-chip.on[style] svg{color:inherit;}
+  .tde-chips.tde-kinds{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; margin:0 -18px; padding:0 18px;}
+  .tde-kinds::-webkit-scrollbar{display:none;}
+  .tde-kinds .filter-chip{flex:0 0 auto;}
   .tde{margin:2px 0 6px;}
   .tde-sec{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); margin:12px 0 7px;}
   .tde-chips{display:flex; flex-wrap:wrap; gap:6px;}
@@ -1838,7 +1847,7 @@ function homeBillHtml(b, {projected = false, payment = null} = {}){
 function repeatGhostHtml(t){
   return `<div class="todo-wrap repeat-ghost"><div class="item">
       <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
-      <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))}</div></div>
+      <div class="body" onclick="editTodo('${t.id}')"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))}</div></div>
     </div></div>`;
 }
 function homeRowHtml(t, meta = []){
@@ -1850,7 +1859,7 @@ function homeRowHtml(t, meta = []){
     : `aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"`;
   return `<div class="todo-wrap"><div class="item ${t.done ? 'checked' : ''}">
       <button class="todo-check" role="checkbox" ${check}><span class="box">${BOX_CHECK_SVG}</span></button>
-      <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
+      <div class="body" onclick="editTodo('${t.id}')"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
     </div></div>`;
 }
 function homeRingHtml(done, total){
@@ -1907,7 +1916,7 @@ function renderTodoPanel(){
         <div class="item ${t.done?'checked':''}">
           <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
           <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
-          <div class="body" onclick="editTodo('${t.id}')"><div class="title">${escapeHtml(t.text)}</div>${meta.length?`<div class="todo-meta">${meta.join(" · ")}</div>`:""}</div>
+          <div class="body" onclick="editTodo('${t.id}')"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length?`<div class="todo-meta">${meta.join(" · ")}</div>`:""}</div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
           ${subs.length ? `<button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="${expanded?'Hide':'Show'} sub-items" aria-expanded="${expanded}">${SUBLIST_ICON}</button>` : ""}
           <button class="row-edit-btn" style="order:5;" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
@@ -1956,7 +1965,7 @@ function renderTodoPanel(){
       const dateLabel = t.completedAt ? new Date(t.completedAt).toLocaleDateString('en-US',{month:'short', day:'numeric'}) : "";
       return `<div class="item checked">
           <button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
-          <div class="body"><div class="title">${escapeHtml(t.text)}</div>${dateLabel?`<div class="sub">Completed ${dateLabel}</div>`:""}</div>
+          <div class="body"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${dateLabel?`<div class="sub">Completed ${dateLabel}</div>`:""}</div>
           <button class="completed-actions" style="order:3;" onclick="event.stopPropagation(); duplicateTodo('${t.id}')" aria-label="Duplicate to-do">${DUPLICATE_ICON}</button>
           <button class="completed-actions" style="order:4;" onclick="event.stopPropagation(); deleteTodoPermanently('${t.id}')" aria-label="Delete to-do">${TRASH_ICON}</button>
         </div>`;
@@ -1980,7 +1989,7 @@ function renderTodoPanel(){
   const recurring = todoList.filter(t => t.repeat && !t.done).sort(byDue);
   const recRows = recurring.map(t => `<div class="item recurring-row" onclick="editTodo('${t.id}')">
       <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
-      <div class="body"><div class="title">${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))} · next ${escapeHtml(t.due ? dueLabel(t.due).replace(/^(Today|Tomorrow|Yesterday)$/, w => w.toLowerCase()) : "today")}</div></div>
+      <div class="body"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))} · next ${escapeHtml(t.due ? dueLabel(t.due).replace(/^(Today|Tomorrow|Yesterday)$/, w => w.toLowerCase()) : "today")}</div></div>
       <span class="row-edit-btn" aria-hidden="true">${PENCIL_ICON}</span>
     </div>`).join("");
   html += collapsibleCard({id:"todo-recurring", title:"Recurring", insight:recurring.length ? `${recurring.length}` : "None",
@@ -2476,6 +2485,53 @@ function deleteTodoPermanently(id){
   saveContent("todo-content", todoList);
   renderHome();
 }
+// ---------- to-do types ----------
+// Each to-do gets a small colored icon for its kind, guessed from its words
+// ("Therapy @ 10am" → health, "Gym" → fitness). Edit to-do can pick another
+// type, or None; `kind` is stored only when picked by hand.
+const KIND_SVG = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const TODO_KINDS = {
+  health:      {label:"Health", hue:350, icon:KIND_SVG('<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/><path d="M3.5 12h4l1.5-3 2 6 1.5-3h4"/>'),
+    words:/\b(therap(y|ist)|doctor|dr\.?|dentist|derm(atologist)?|ob-?gyn|physical|pharmacy|meds|medicine|prescription|refill|contacts|eye exam|checkup|check-up|labs?|blood work|vaccine|shot|clinic|hospital|counsel(ing|or))\b/i},
+  appointment: {label:"Appointment", hue:275, icon:KIND_SVG('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15.5 2 2 4-4"/>'),
+    words:/\b(appt|appointment|eyebrows?|brows?|lashes|nails?|mani(cure)?|pedi(cure)?|hair ?cut|haircut|salon|barber|spa|massage|wax(ing)?|facial|braids?|retwist|silk press)\b/i},
+  fitness:     {label:"Fitness", hue:25, icon:KIND_SVG('<path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/>'),
+    words:/\b(gym|work ?out|workout|yoga|pilates|run|running|jog|hike|swim|lift(ing)?|spin|cycling|bootcamp|stretch|peloton|steps)\b/i},
+  birthday:    {label:"Birthday", hue:320, icon:KIND_SVG('<path d="M4 21h16M5 21v-8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8"/><path d="M5 16c2 0 2-1.5 3.5-1.5S10 16 12 16s2-1.5 3.5-1.5S17 16 19 16M12 11V7"/><path d="M12 3.5c.8.8.8 1.7 0 2.5-.8-.8-.8-1.7 0-2.5Z"/>'),
+    words:/\b(birthday|bday|b-day|anniversary)\b|\b\w+'s (birthday|bday)\b/i},
+  social:      {label:"Social", hue:195, icon:KIND_SVG('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'),
+    words:/\b(party|dinner|brunch|lunch with|drinks|happy hour|wedding|shower|concert|show|game night|date night|date|movie|hang ?out|bbq|cookout|visit|church|game)\b/i},
+  travel:      {label:"Travel", hue:210, icon:KIND_SVG('<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2Z"/>'),
+    words:/\b(flight|fly|trip|travel|airport|hotel|vacation|cruise|road ?trip|pack(ing)?|passport|airbnb|beach)\b/i},
+  car:         {label:"Car", hue:180, icon:KIND_SVG('<path d="M5 17H3v-4l2-5.5A2 2 0 0 1 6.9 6h10.2a2 2 0 0 1 1.9 1.5L21 13v4h-2"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M9.5 17h5"/>'),
+    words:/\b(cars?|oil change|tires?|registration|inspection|car wash|smog|mechanic|moto(rcycle)?|gas|dmv|emissions)\b/i},
+  pet:         {label:"Pet", hue:35, icon:KIND_SVG('<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/>'),
+    words:/\b(dog|dogs|puppy|cat|cats|kitten|vet|groomer|grooming|walk the dog|litter|flea)\b/i},
+  work:        {label:"Work", hue:230, icon:KIND_SVG('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>'),
+    words:/\b(work|meeting|interview|deadline|shift|presentation|report|client|standup|1:1|one on one|timesheet|email)\b/i},
+  call:        {label:"Call", hue:160, icon:KIND_SVG('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/>'),
+    words:/\b(call|phone|facetime|zoom|text (back|mom|dad))\b/i},
+  chores:      {label:"Chores", hue:130, icon:KIND_SVG('<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>'),
+    words:/\b(clean(ing)?|laundry|dishes|vacuum|mop|trash|garbage|recycling|mow|organi[sz]e|declutter|tidy|dust|wash (the )?(sheets|towels)|change sheets|meal prep|cook)\b/i},
+  errand:      {label:"Errand", hue:48, icon:KIND_SVG('<path d="M6 7h12l1 14H5L6 7Z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>'),
+    words:/\b(pick ?up|pickup|drop ?off|return|groceries|grocery|store|target|costco|walmart|mail|post office|ship|package|bank|deposit|buy|order|shopping)\b/i},
+};
+// order matters: the more specific kinds win ("dinner for mom's birthday" → birthday)
+const KIND_ORDER = ["birthday", "travel", "health", "appointment", "pet", "fitness", "car", "work", "call", "social", "errand", "chores"];
+function detectKind(text){
+  const s = String(text || "");
+  const k = KIND_ORDER.find(k => TODO_KINDS[k].words.test(s));
+  if (k) return k;
+  return /@\s*\d{1,2}(:\d{2})?\s*(am|pm)?\b|\b\d{1,2}(:\d{2})?\s*(am|pm)\b/i.test(s) ? "appointment" : null; // a time of day reads as an appointment
+}
+function todoKind(t){
+  if (t.kind === "none") return null;
+  return TODO_KINDS[t.kind] ? t.kind : detectKind(t.text);
+}
+function kindIconHtml(t){
+  const k = todoKind(t);
+  return k ? `<span class="kind-ic" style="--k:${TODO_KINDS[k].hue}" title="${TODO_KINDS[k].label}" aria-label="${TODO_KINDS[k].label}">${TODO_KINDS[k].icon}</span>` : "";
+}
 // Edit to-do: one compact sheet. When (Anytime / Today / Tomorrow / a date, and
 // an optional last day) and Repeat are chip rows; a custom repeat adds an
 // "every N weeks|months" stepper; sub-items fold away until asked for.
@@ -2484,7 +2540,8 @@ const TDE_REPEATS = [[null, "Never"], ["daily", "Daily"], ["weekdays", "Weekdays
 function editTodo(id){
   const t = todoList.find(x=>x.id===id);
   if (!t) return;
-  tde = {due:t.due || null, end:t.days > 1 ? todoEnd(t) : null, repeat:REPEATS[t.repeat] ? t.repeat : null, every:CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2};
+  tde = {due:t.due || null, end:t.days > 1 ? todoEnd(t) : null, repeat:REPEATS[t.repeat] ? t.repeat : null, every:CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2,
+    kind:TODO_KINDS[t.kind] || t.kind === "none" ? t.kind : null}; // null = pick automatically
   openModal("Edit to-do", [
     {key:"text",label:"To-do",type:"textarea",enterSaves:true,maxlength:TODO_MAX_LEN},
     {type:"html", label:`<div class="tde" id="tde">${tdeHtml()}</div>`},
@@ -2499,6 +2556,7 @@ function editTodo(id){
       if (tde.repeat){ t.repeat = tde.repeat; if (!t.due) t.due = addDaysIso(0); t.repeatDay = dayOf(t.due); } // a repeat needs a start date
       else delete t.repeat;
       if (CUSTOM_REPEATS[tde.repeat]) t.every = Math.max(1, Math.min(99, tde.every)); else delete t.every;
+      if (tde.kind) t.kind = tde.kind; else delete t.kind;
       // a last day after the due date makes it multi-day (up to 60 days)
       const days = t.due && tde.end ? Math.round((noonOf(tde.end) - noonOf(t.due)) / 864e5) + 1 : 0;
       if (days > 1) t.days = Math.min(60, days); else delete t.days;
@@ -2516,6 +2574,8 @@ function editTodo(id){
     }
   );
   document.getElementById("modal-subs").closest(".modal-field").hidden = true;
+  document.getElementById("modal-text").addEventListener("input", () => { if (!tde.kind) tdeSet({}); });
+  tdeSet({}); // now the text box exists, the Auto chip can show its guess
 }
 function tdeSet(patch){
   Object.assign(tde, patch);
@@ -2564,6 +2624,14 @@ function tdeHtml(){
     sum.push(tde.end ? `${short(d)} – ${short(tde.end)} (${Math.round((noonOf(tde.end) - noonOf(d)) / 864e5) + 1} days)` : short(d));
     if (tde.repeat) sum.push(repeatLabel({repeat:tde.repeat, every:tde.every, due:d}));
   }
+  // Type: Automatic (shows what it guessed from the text), a type, or None
+  const textEl = document.getElementById("modal-text"), guess = detectKind(textEl ? textEl.value : "");
+  const kchip = (k, label, on, icon = "", hue = null) => `<button type="button" class="filter-chip kind-chip ${on ? "on" : ""}" aria-pressed="${on}" ${hue != null ? `style="--k:${hue}"` : ""} onclick="tdeSet({kind:${k ? `'${k}'` : "null"}})">${icon}${label}</button>`;
+  html += `<div class="tde-sec">Type</div><div class="tde-chips tde-kinds">
+      ${kchip(null, `Auto${guess ? ` · ${TODO_KINDS[guess].label}` : ""}`, !tde.kind, guess ? TODO_KINDS[guess].icon : "", guess ? TODO_KINDS[guess].hue : null)}
+      ${KIND_ORDER.map(k => kchip(k, TODO_KINDS[k].label, tde.kind === k, TODO_KINDS[k].icon, TODO_KINDS[k].hue)).join("")}
+      ${kchip("none", "None", tde.kind === "none")}
+    </div>`;
   return html + `<div class="tde-sum">${escapeHtml(sum.join(" · "))}</div>`;
 }
 function clearCompletedTodos(){
@@ -5011,6 +5079,7 @@ function normalizeLoadedData(){
   todoList.forEach(t => {
     if ("every" in t){ const n = parseInt(t.every, 10); if (CUSTOM_REPEATS[t.repeat] && n >= 1) t.every = Math.min(99, n); else delete t.every; }
     if ("days" in t){ const n = parseInt(t.days, 10); if (t.due && n > 1) t.days = Math.min(60, n); else delete t.days; }
+    if ("kind" in t && !TODO_KINDS[t.kind] && t.kind !== "none") delete t.kind;
   });
   ["am", "pm", "washPm"].forEach(b => (skinRoutine[b] || []).forEach(st => { st.id = safeId(st.id, b); }));
 }
