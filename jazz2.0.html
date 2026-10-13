@@ -799,6 +799,13 @@
     color:var(--text); font-size:14px; font-family:inherit; padding:10px 12px; resize:vertical;
   }
   .modal-field input:focus, .modal-field textarea:focus, .modal-field select:focus{outline:2px solid var(--olive); outline-offset:1px;}
+  .bill-logo{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:8px; vertical-align:-5px; border-radius:6px;
+    background:#fff; object-fit:contain; padding:2px; box-sizing:border-box; flex-shrink:0;}
+  .bill-logo.letter{padding:0; background:hsl(var(--h) 45% 30%); color:hsl(var(--h) 80% 85%); font-size:12px; font-weight:800;}
+  .bill-logo-link{display:inline-flex; vertical-align:-5px; margin-right:8px; border-radius:6px; text-decoration:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--link) 45%, transparent);}
+  .bill-row .title, .bill-home .title{display:flex; align-items:center;}
+  .bill-logo-link .bill-logo{margin-right:0; vertical-align:0;}
+  .item.checked .bill-logo{opacity:.55;}
   .kind-ic{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; vertical-align:-5px; border-radius:7px;
     color:hsl(var(--k) 75% 70%); background:hsl(var(--k) 60% 55% / .16); flex-shrink:0;}
   .kind-ic svg{width:13px; height:13px;}
@@ -1842,7 +1849,7 @@ function homeBillHtml(b, {projected = false, payment = null} = {}){
   const open = b ? `editBill('${b.id}')` : "activateTab('budget')";
   return `<div class="todo-wrap bill-home"><div class="item ${payment ? "checked" : ""}">
       ${lead}
-      <div class="body" onclick="${open}"><div class="title">Pay ${escapeHtml(name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
+      <div class="body" onclick="${open}"><div class="title">${billLogoHtml(b || bills.find(x => payment && x.id === payment.billId), name)}Pay ${escapeHtml(name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
     </div></div>`;
 }
 // A future repeat of a recurring to-do: shown on its date, ticked off only once
@@ -3352,7 +3359,8 @@ function billFields(){
     {key:"share", label:"Your share % (joint bills; blank = all of it)", type:"number", step:"1"},
     {key:"varies", label:"Amount varies (ask what it was when I tick it paid)", type:"checkbox"},
     {key:"autopay", label:"Autopay (marked paid on its due date)", type:"checkbox"},
-    {key:"link", label:"Pay link (optional)", type:"url"},
+    {key:"link", label:"Pay link (optional — tap the logo to pay)", type:"url"},
+    {key:"site", label:"Company website, for its logo (e.g. att.com)", type:"text"},
   ];
 }
 function applyBillValues(b, v){
@@ -3365,6 +3373,8 @@ function applyBillValues(b, v){
   b.repeat = Object.keys(BILL_REPEATS).find(k => BILL_REPEATS[k].label === v.repeat) || "monthly";
   b.autopay = !!v.autopay;
   b.link = (v.link || "").trim() || null;
+  const site = cleanDomain(v.site);
+  if (site && site !== billDomain({link:b.link}, b.name)) b.site = site; else delete b.site; // only kept when it adds something
   b.group = v.group === BILL_GROUPS.joint ? "joint" : "personal";
   b.account = budget.accounts.includes(v.account) ? v.account : null;
   const share = Number(v.share);
@@ -3374,7 +3384,7 @@ function applyBillValues(b, v){
 function editBill(id){
   const b = bills.find(x => x.id === id);
   if (!b) return;
-  openModal("Edit bill", billFields(), {name:b.name, amount:b.amount, due:b.due || "", repeat:(BILL_REPEATS[b.repeat] || BILL_REPEATS.monthly).label, autopay:!!b.autopay, link:b.link || "",
+  openModal("Edit bill", billFields(), {name:b.name, amount:b.amount, due:b.due || "", repeat:(BILL_REPEATS[b.repeat] || BILL_REPEATS.monthly).label, autopay:!!b.autopay, link:b.link || "", site:billDomain(b),
     group:BILL_GROUPS[b.group] || BILL_GROUPS.personal, account:b.account || "—", share:b.share || "", varies:!!b.varies},
     v => { applyBillValues(b, v); delete b.done; saveBudgetData(); },
     () => { bills = bills.filter(x => x.id !== id); saveBudgetData(); });
@@ -3437,6 +3447,49 @@ function billWhen(iso){
   const n = daysFromToday(iso);
   return n >= -1 && n <= 6 ? dueLabel(iso) : noonOf(iso).toLocaleDateString('en-US', {month:'short', day:'numeric'});
 }
+// ---------- bill logos ----------
+// A bill shows its company's logo (the site's icon, via DuckDuckGo's icon
+// service) from: the website set on the bill, else its pay link, else a guess
+// from well-known names. No logo found: a colored first letter. With a pay
+// link, tapping the logo opens it.
+const BILLER_DOMAINS = [
+  [/netflix/i, "netflix.com"], [/hulu/i, "hulu.com"], [/disney/i, "disneyplus.com"], [/\b(hbo|max)\b/i, "max.com"], [/peacock/i, "peacocktv.com"],
+  [/paramount/i, "paramountplus.com"], [/youtube/i, "youtube.com"], [/spotify/i, "spotify.com"], [/apple|icloud/i, "apple.com"], [/audible/i, "audible.com"],
+  [/amazon|\bprime\b/i, "amazon.com"], [/\boura\b/i, "ouraring.com"], [/claude|anthropic/i, "claude.ai"], [/chatgpt|openai/i, "openai.com"],
+  [/google|\bgoogle one\b/i, "google.com"], [/microsoft|xbox|office 365/i, "microsoft.com"], [/playstation|\bpsn\b/i, "playstation.com"], [/nintendo/i, "nintendo.com"],
+  [/adobe/i, "adobe.com"], [/dropbox/i, "dropbox.com"], [/crunch/i, "crunch.com"], [/planet fitness/i, "planetfitness.com"], [/la fitness/i, "lafitness.com"],
+  [/equinox/i, "equinox.com"], [/orangetheory/i, "orangetheory.com"], [/peloton/i, "onepeloton.com"], [/public storage/i, "publicstorage.com"],
+  [/extra space/i, "extraspace.com"], [/cubesmart/i, "cubesmart.com"], [/\bduke\b/i, "duke-energy.com"], [/dominion/i, "dominionenergy.com"],
+  [/pg&e|pge\b/i, "pge.com"], [/con ?ed/i, "coned.com"], [/xfinity|comcast/i, "xfinity.com"], [/spectrum/i, "spectrum.com"], [/\bcox\b/i, "cox.com"],
+  [/verizon/i, "verizon.com"], [/at&t|\batt\b/i, "att.com"], [/t-?mobile/i, "t-mobile.com"], [/mint mobile/i, "mintmobile.com"], [/visible/i, "visible.com"],
+  [/cricket/i, "cricketwireless.com"], [/geico/i, "geico.com"], [/progressive/i, "progressive.com"], [/state farm/i, "statefarm.com"], [/allstate/i, "allstate.com"],
+  [/usaa/i, "usaa.com"], [/liberty mutual/i, "libertymutual.com"], [/nationwide/i, "nationwide.com"], [/lemonade/i, "lemonade.com"], [/chase/i, "chase.com"],
+  [/\bciti/i, "citi.com"], [/capital one/i, "capitalone.com"], [/discover/i, "discover.com"], [/amex|american express/i, "americanexpress.com"],
+  [/\bally\b/i, "ally.com"], [/wells fargo/i, "wellsfargo.com"], [/bank of america|\bbofa\b/i, "bankofamerica.com"], [/sofi/i, "sofi.com"],
+  [/navient/i, "navient.com"], [/nelnet/i, "nelnet.com"], [/mohela/i, "mohela.com"], [/affirm/i, "affirm.com"], [/klarna/i, "klarna.com"], [/paypal/i, "paypal.com"],
+  [/doordash|dashpass/i, "doordash.com"], [/\buber\b/i, "uber.com"], [/instacart/i, "instacart.com"], [/costco/i, "costco.com"], [/walmart/i, "walmart.com"],
+  [/\bring\b/i, "ring.com"], [/\badt\b/i, "adt.com"], [/simplisafe/i, "simplisafe.com"], [/\baaa\b/i, "aaa.com"], [/tesla/i, "tesla.com"],
+];
+function cleanDomain(v){
+  let d = String(v || "").trim().toLowerCase();
+  try{ if (/^[a-z]+:\/\//.test(d)) d = new URL(d).hostname; }catch(e){ return ""; }
+  d = d.replace(/^www\./, "").replace(/\/.*$/, "");
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(d) ? d : "";
+}
+function billDomain(b, name){
+  if (b && b.site) return b.site;
+  if (b && safeUrl(b.link)){ const d = cleanDomain(safeUrl(b.link)); if (d) return d; }
+  const hit = BILLER_DOMAINS.find(([re]) => re.test(name || (b && b.name) || ""));
+  return hit ? hit[1] : "";
+}
+function billLogoHtml(b, name){
+  name = name || (b && b.name) || "?";
+  let hue = 0; for (const ch of name) hue = (hue * 31 + ch.charCodeAt(0)) % 360;
+  const letter = `<span class="bill-logo letter" style="--h:${hue}" aria-hidden="true">${escapeHtml((name.trim()[0] || "?").toUpperCase())}</span>`;
+  const d = billDomain(b, name);
+  const logo = d ? `<img class="bill-logo" src="https://icons.duckduckgo.com/ip3/${d}.ico" alt="" loading="lazy" referrerpolicy="no-referrer" data-fb="${escapeAttr(letter)}" onerror="this.outerHTML = this.dataset.fb">` : letter;
+  return b && safeUrl(b.link) ? linkHtml(b.link, `class="bill-logo-link" onclick="event.stopPropagation()" aria-label="Pay ${escapeAttr(name)} online"`, logo) : logo;
+}
 function billRowHtml(r, today){
   const b = r.bill, paid = !!r.payment;
   const overdue = !paid && r.due < today;
@@ -3456,7 +3509,7 @@ function billRowHtml(r, today){
       : `<span class="row-icon" aria-hidden="true">${CALENDAR_ICON}</span>`;
   return `<div class="item bill-row ${paid ? "checked" : ""}">
       ${check}
-      <div class="body" onclick="${paid ? `editPayment('${r.payment.id}')` : b ? `editBill('${b.id}')` : ""}"><div class="title">${escapeHtml(r.name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
+      <div class="body" onclick="${paid ? `editPayment('${r.payment.id}')` : b ? `editBill('${b.id}')` : ""}"><div class="title">${billLogoHtml(b, r.name)}${escapeHtml(r.name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
       <div class="bill-amt">${b && b.varies && !paid ? `<span class="approx" title="Amount varies">~</span>` : ""}${money(r.amount)}${b && !paid ? linkHtml(b.link, 'class="bill-pay" onclick="event.stopPropagation()" aria-label="Pay online"', "Pay →") : ""}</div>
     </div>`;
 }
@@ -4272,7 +4325,7 @@ function normalizeBudgetData(){
     due:iso(b.due) || addDaysIso(0), repeat:BILL_REPEATS[b.repeat] ? b.repeat : "monthly", autopay:!!b.autopay, link:b.link ? str(b.link, 2000) : null, ...(b.done ? {done:true} : {}),
     group:b.group, account:b.account == null ? null : str(b.account, 40), share:b.share, varies:!!b.varies,
     day:Number.isInteger(b.day) && b.day >= 1 && b.day <= 31 ? b.day : dayOf(iso(b.due) || addDaysIso(0)),
-    ...(iso(b.hold) ? {hold:b.hold} : {})}));
+    ...(iso(b.hold) ? {hold:b.hold} : {}), ...(cleanDomain(b.site) ? {site:cleanDomain(b.site)} : {})}));
   billPayments = billPayments.filter(p => p && iso(p.due) && iso(p.date)).map(p => ({id:safeId(p.id, "pay"), billId:safeId(p.billId, "bill"), name:str(p.name, 120), amount:amt(p.amount), due:p.due, date:p.date,
     group:p.group, account:p.account, ...(p.auto ? {auto:true} : {})}));
   budget.categories = budget.categories.filter(c => c && typeof c === "object").map(c => ({id:safeId(c.id, "cat"), name:str(c.name, 60) || "Category", limit:amt(c.limit)}));
