@@ -1367,6 +1367,33 @@ await section("budget: import link switches an existing paycheck to varying pay"
   await ctx.close();
 });
 
+await section("bill logos", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const r = await page.evaluate(() => ({
+    guess: [billDomain({ name: "Spotify" }), billDomain({ name: "Prime Membership" }), billDomain({ name: "AT&T" }), billDomain({ name: "Duke" }), billDomain({ name: "Rent" })],
+    link: billDomain({ name: "Phone", link: "https://www.verizon.com/pay" }),
+    site: billDomain({ name: "Phone", site: "mint.com", link: "https://www.verizon.com/pay" }),
+    clean: [cleanDomain("https://www.att.com/pay"), cleanDomain("ATT.com"), cleanDomain("not a site"), cleanDomain("javascript:alert(1)")],
+    letter: billLogoHtml({ name: "Rent" }), withLink: billLogoHtml({ name: "Spotify", link: "https://spotify.com/account" }) }));
+  check("logos guessed from well-known names", JSON.stringify(r.guess) === JSON.stringify(["spotify.com", "amazon.com", "att.com", "duke-energy.com", ""]), r.guess);
+  check("pay link's site wins over the guess; a set website wins over both", r.link === "verizon.com" && r.site === "mint.com", r);
+  check("websites are cleaned and junk refused", JSON.stringify(r.clean) === JSON.stringify(["att.com", "att.com", "", ""]), r.clean);
+  check("no logo: a colored first letter", r.letter.includes("bill-logo letter") && r.letter.includes(">R<"), r.letter);
+  check("with a pay link, the logo is the pay button", r.withLink.includes('class="bill-logo-link"') && r.withLink.includes("https://spotify.com/account") && r.withLink.includes("icons.duckduckgo.com/ip3/spotify.com.ico"), r.withLink);
+  // editing a bill: the website field shows the guess, and only a real override is stored
+  await page.evaluate(() => { bills = [{ id: "bill-s", name: "Spotify", amount: 12, due: addDaysIso(3), repeat: "monthly", autopay: false, link: null, group: "personal", account: null }]; saveBudgetData(); editBill("bill-s"); });
+  check("website field prefilled with the guess", (await page.inputValue("#modal-site")) === "spotify.com");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("an unchanged guess isn't stored", await page.evaluate(() => !("site" in bills[0])));
+  await page.evaluate(() => editBill("bill-s"));
+  await page.fill("#modal-site", "https://www.tidal.com/");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("a typed website is cleaned and stored", await page.evaluate(() => bills[0].site === "tidal.com"));
+  check("bad site values from sync are dropped", await page.evaluate(() => { bills[0].site = "<x>"; normalizeBudgetData(); return !("site" in bills[0]); }));
+  check("no JS errors", errors.filter(e => !/Failed to load resource/.test(e)).length === 0, errors);
+  await ctx.close();
+});
+
 await section("budget: month calendar", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const k = await page.evaluate(() => {

@@ -110,6 +110,10 @@ clothes, moto gear, and everything else.
   paid bill to fix the amount or un-pay it. Bills also show on Home. Each row has one quiet
   detail line: when ("Overdue · Oct 1" in red, "Due Mon", "Autopays Mon") and the card/bank
   as a colored dot.
+- **Bill logos:** each bill shows its company's logo: from a **Company website** set on the
+  bill, else its pay link's site, else a guess from well-known names (Spotify, AT&T, Duke…);
+  otherwise a colored first letter. With a pay link, tapping the logo opens it. Logos come
+  from DuckDuckGo's icon service, which sees only the company's domain.
 - **Autopay:** an Autopay bill pays itself: when its due date arrives, the payment is logged
   (dated that day, shown as "Autopaid") and the bill moves to its next due date. Switching
   Autopay on for a bill that's already due pays it. Un-paying an autopaid bill holds that
@@ -208,7 +212,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (346 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (356 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
