@@ -112,7 +112,7 @@ clothes, moto gear, and everything else.
   date so it isn't re-paid. Payment ids come from bill + date, so devices never double it.
 - **Plan** sections fold like Paid: closed by default once every line is checked off.
 - **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, totals by
-  card/bank, and + Add bill. Its Edit chip manages the card/bank list.
+  card/bank, and + Add bill. Cards & banks (in Manage) opens its own sheet.
 - **Goals:** long-term savings goals with a target, optional date ($/month needed, On pace /
   Behind), + Add money, and History. A milestone bar marks 25/50/75/100%, with the next
   milestone and a finish date at the last 3 months' pace. Plan lines pointed at a goal count once their payday
@@ -144,9 +144,11 @@ shared bottom sheet whose fields fit the tab:
 Every mode adds several in a row: Enter saves and clears, and the header counts the adds.
 Skin & Hair has no + because adding routine steps is a rare edit there.
 
-**Editing.** Each editable card has its own **Edit** chip. With it on, rows become tappable
-to edit or delete, and "+ Add …" rows appear for rules, sizes, sub-items, and routine steps
-(new to-dos, shopping items, and budget entries come from the + button). Edit forms are a bottom sheet on phones and
+**Editing.** Like Android apps: tap an item to edit it (to-dos, bills, routine steps, rules,
+Shopping items, plan lines…), tap its checkbox to tick it off. There are no Edit modes;
+"+ Add …" rows sit at the bottom of each card (routine steps, rules, categories), and
+spending categories have an Edit link inside when opened (new to-dos, shopping items, and
+budget entries come from the + button). Edit forms are a bottom sheet on phones and
 a centered dialog on desktop. Esc closes them and Enter saves. **Delete** happens right away
 with a 5-second **Undo** (it restores a snapshot of every list, so linked data comes back too);
 only turning sync off still asks first.
@@ -202,7 +204,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (331 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (335 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

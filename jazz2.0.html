@@ -529,6 +529,10 @@
   .edit-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
 
   .editable{cursor:pointer;}
+  button.step, button.rule{width:100%; border:none; background:none; color:var(--text); font-family:inherit; text-align:left; padding-top:2px; padding-bottom:2px; padding-right:4px;}
+  button.step{padding-left:2px;}
+  .want-card .body{cursor:pointer;}
+  .cat-edit{display:block; margin:6px 0 2px; padding:6px 2px; border:none; background:none; color:var(--link); font:inherit; font-size:12.5px; font-weight:700;}
   .editable:active{background:var(--surface-2); border-radius:6px;}
   .inline-pencil{display:inline-flex; vertical-align:middle; margin-left:6px; color:var(--text-dim); opacity:.7; flex-shrink:0;}
   .inline-pencil svg{display:block;}
@@ -1100,7 +1104,6 @@ let styleState = {};
 let wantsState = {};
 // Per-card edit state: a card id in this set shows its pencils and add-rows.
 // Toggled by the Edit chip in each card's header; intentionally not persisted.
-let editCards = new Set();
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
@@ -1440,14 +1443,6 @@ function modalDelete(){
   showUndoToast(/delete/i.test(label) ? "Deleted" : "Done", () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
 }
 
-function toggleCardEdit(id){
-  if (editCards.has(id)) editCards.delete(id); else { editCards.add(id); openPinned.add(id); } // editing a closed card opens it
-  renderSkin(); renderWants(); renderBudget();
-}
-function editChipHtml(id){
-  const on = editCards.has(id);
-  return `<button class="edit-chip ${on?'on':''}" onclick="event.stopPropagation(); toggleCardEdit('${id}')" aria-label="${on?'Finish editing':'Edit this card'}">${on?'Done':PENCIL_ICON+' Edit'}</button>`;
-}
 
 // ---------- RENDER: HOME ----------
 // ---------- to-do dates ----------
@@ -1988,7 +1983,7 @@ function renderTodoPanel(){
       <div class="body"><div class="title">${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))} · next ${escapeHtml(t.due ? dueLabel(t.due).replace(/^(Today|Tomorrow|Yesterday)$/, w => w.toLowerCase()) : "today")}</div></div>
       <span class="row-edit-btn" aria-hidden="true">${PENCIL_ICON}</span>
     </div>`).join("");
-  html += collapsibleCard({id:"todo-recurring", title:"Recurring", insight:recurring.length ? `${recurring.length}` : "None", editable:false,
+  html += collapsibleCard({id:"todo-recurring", title:"Recurring", insight:recurring.length ? `${recurring.length}` : "None",
     body:recRows || `<div class="empty">Set <b>Repeat</b> on a to-do (tap it to edit, or use the Repeat chip when adding) and it shows up here.</div>`});
   el.innerHTML = html;
 }
@@ -2790,36 +2785,30 @@ function renderSkin(){
   const nextWash = nextWashDate();
   const nextLabel = daysUntilWashDay() === 0 ? "today"
     : nextWash.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
-  html += collapsibleCard({id:"wash-card", title:"Wash day", editable:false,
+  html += collapsibleCard({id:"wash-card", title:"Wash day",
     insight:`${washFrequencyLabel()} · next ${nextLabel}`, body:washCalendarHtml()});
 
   // 4. The routine itself, edited in one place
-  const edit = editCards.has('routine-card');
   const editorBand = key => {
     const steps = skinRoutine[key];
     const head = key === "washPm"
       ? `Wash-day PM<span class="routine-sub">replaces PM on wash days</span>`
       : key.toUpperCase();
-    const rows = steps.map((s, n) => `<div class="step ${edit ? 'editable' : ''}" ${edit ? `onclick="editRoutineStep('${key}','${s.id}')"` : ''}>
-        <span class="n">${n+1}.</span><div>${routineStepText(s)}${s.days ? `<span class="note">${daysText(s.days)} only</span>` : ''}${edit ? `<span class="inline-pencil">${PENCIL_ICON}</span>` : ''}</div>
-      </div>`).join("");
+    const rows = steps.map((s, n) => `<button class="step editable" onclick="editRoutineStep('${key}','${s.id}')">
+        <span class="n">${n+1}.</span><div>${routineStepText(s)}${s.days ? `<span class="note">${daysText(s.days)} only</span>` : ''}</div>
+      </button>`).join("");
     return `<div class="band ${key === 'am' ? 'am' : 'pm'}"><div class="label">${head}</div>
-        ${edit ? `<button class="add-row" onclick="addRoutineStep('${key}')">+ Add step</button>` : ''}
         ${rows || '<div class="empty">No steps.</div>'}
+        <button class="add-row" onclick="addRoutineStep('${key}')">+ Add step</button>
       </div>`;
   };
   html += collapsibleCard({id:"routine-card", title:"Routine", insight:`${skinRoutine.am.length} AM · ${skinRoutine.pm.length} PM`,
-    wrapBody:false, body:`${editorBand('am')}${editorBand('pm')}${skinRoutine.washPm.length || edit ? editorBand('washPm') : ''}`});
+    wrapBody:false, body:`${editorBand('am')}${editorBand('pm')}${editorBand('washPm')}`});
 
   // 5. Key rules (only shown once there are some)
   if (!skinRules.length){ el.innerHTML = html; return; }
-  const rulesEdit = editCards.has('rules-skin');
-  let rules = rulesEdit ? `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>` : "";
-  skinRules.forEach((r,i) => {
-    rules += rulesEdit
-      ? `<p class="rule editable" onclick="editSkinRule(${i})">${escapeHtml(r)}<span class="inline-pencil">${PENCIL_ICON}</span></p>`
-      : `<p class="rule">${escapeHtml(r)}</p>`;
-  });
+  let rules = skinRules.map((r, i) => `<button class="rule editable" onclick="editSkinRule(${i})">${escapeHtml(r)}</button>`).join("")
+    + `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>`;
   html += collapsibleCard({id:"rules-skin", title:"Key rules", insight:`${skinRules.length} rules`, body:rules});
   el.innerHTML = html;
 }
@@ -2938,12 +2927,13 @@ function washCalendarHtml(){
 }
 // Collapsible card used across tabs: the header (title, insight badge, optional
 // Edit chip, chevron) toggles the body; open state lives in openPinned.
-function collapsibleCard({id, title, insight = "", insightId = "", editable = true, body = "", wrapBody = true, innerId = ""}){
+// No Edit mode: tapping an item opens its editor, and "+ Add" rows sit at the
+// bottom of each card (the way Android apps do it)
+function collapsibleCard({id, title, insight = "", insightId = "", body = "", wrapBody = true, innerId = ""}){
   return `<div class="card pinned ${openPinned.has(id) ? 'open' : ''}" id="${id}">
     <div class="coll-head" onclick="toggleRules('${id}')">
       <div style="display:flex;align-items:center;gap:8px;"><h3>${title}</h3><span class="insight"${insightId ? ` id="${insightId}"` : ""}>${insight}</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
-        ${editable ? editChipHtml(id) : ""}
         ${CHEVRON_DOWN}
       </div>
     </div>
@@ -3060,10 +3050,8 @@ function renderWants(){
   const wantRow = (w, isDone) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
     const linkLine = linkHtml(w.link, 'class="link"', "View product →");
-    const editBtn = editCards.has(isDone ? 'wants-purchased-card' : 'wants-pending-card')
-      ? `<button class="row-edit-btn" onclick="event.stopPropagation(); editWant('${w.id}')" aria-label="Edit ${escapeAttr(w.name)}">${PENCIL_ICON}</button>` : "";
     return `<div class="want-card">
-        <div class="body">
+        <div class="body" role="button" tabindex="0" aria-label="Edit ${escapeAttr(w.name)}" onclick="if (!event.target.closest('a')) editWant('${w.id}')">
           <div class="name">${escapeHtml(w.name)} <span class="badges"><span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</span></div>
           ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}</div>` : ""}
           ${w.moto ? `<div class="want-tag moto">${MOTO_ICON}Moto</div>` : ""}
@@ -3073,7 +3061,6 @@ function renderWants(){
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
           <button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
-          ${editBtn}
         </div>
       </div>`;
   };
@@ -3736,7 +3723,7 @@ function goalsCardHtml(){
         ${open ? `<div class="goal-entries">${hist}${g.saved ? `<div class="goal-entry"><span>Start</span><span class="goal-note">Already saved</span><b>${money(g.saved)}</b></div>` : ""}</div>` : ""}
       </div>`;
   }).join("");
-  return collapsibleCard({id:"goals-card", title:"Goals", editable:false,
+  return collapsibleCard({id:"goals-card", title:"Goals",
     insight:escapeHtml(goalsInsight()),
     body:(rows || `<div class="empty">Save toward the big things: a savings goal, an big purchase, an emergency fund.</div>`)
       + `<button class="add-row" onclick="editGoal()">+ New goal</button>`});
@@ -3872,8 +3859,7 @@ function importBills(){
 }
 function spendingCardHtml(spent, spentTotal){
   const sum = list => list.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  const catEdit = editCards.has("spending-card");
-  let cats = catEdit ? `<button class="add-row" onclick="editBudgetCat()">+ Add category</button>` : "";
+  let cats = "";
   const catRows = [...budget.categories.map(c => ({c, list:spent.filter(e => e.cat === c.id)}))];
   const orphans = spent.filter(e => !budgetCat(e.cat));
   if (orphans.length) catRows.push({c:{id:"none", name:"Uncategorized", limit:0}, list:orphans});
@@ -3886,15 +3872,15 @@ function spendingCardHtml(spent, spentTotal){
         <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(noonOf(e.date).toLocaleDateString('en-US', {month:'short', day:'numeric'}))}</span><b>${money(e.amount)}</b>
       </button>`).join("");
     cats += `<div class="budget-cat ${open ? "open" : ""}">
-        <button class="budget-cat-head" onclick="${catEdit && c.id !== "none" ? `editBudgetCat('${c.id}')` : `toggleBudgetCat('${c.id}')`}" aria-expanded="${open}">
-          <span class="budget-cat-name">${escapeHtml(c.name)}${catEdit && c.id !== "none" ? `<span class="inline-pencil">${PENCIL_ICON}</span>` : ""}</span>
+        <button class="budget-cat-head" onclick="toggleBudgetCat('${c.id}')" aria-expanded="${open}">
+          <span class="budget-cat-name">${escapeHtml(c.name)}</span>
           <span class="budget-cat-amt ${over ? "over" : ""}">${moneyShort(total)}${c.limit ? ` <span>of ${moneyShort(c.limit)}</span>` : ""}</span>
         </button>
         <div class="progress-bar thin"><div class="progress-fill ${over ? "over" : ""}" style="width:${p}%"></div></div>
-        ${open && !catEdit ? `<div class="expense-list">${items || '<div class="empty">Nothing spent here this month.</div>'}</div>` : ""}
+        ${open ? `<div class="expense-list">${items || '<div class="empty">Nothing spent here this month.</div>'}${c.id !== "none" ? `<button class="cat-edit" onclick="editBudgetCat('${c.id}')">Edit ${escapeHtml(c.name)}</button>` : ""}</div>` : ""}
       </div>`;
   });
-  return collapsibleCard({id:"spending-card", title:"Spending", insight:`${moneyShort(spentTotal)} · ${spent.length} item${spent.length === 1 ? "" : "s"}`, body:cats});
+  return collapsibleCard({id:"spending-card", title:"Spending", insight:`${moneyShort(spentTotal)} · ${spent.length} item${spent.length === 1 ? "" : "s"}`, body:cats + `<button class="add-row" onclick="editBudgetCat()">+ Add category</button>`});
 }
 // ---------- pay-period view ----------
 // The Budget tab is laid out by pay period, the way the paycheck-split sheet
@@ -3907,11 +3893,11 @@ let showSpending = false;
 // a tap overrides either way (per session)
 const periodOpen = {};
 let periodDefaultKey = null;
+// Cards & banks: a sheet of pills; tap one to rename or delete it
 function openAccounts(){
-  editCards.add("bills-card"); openPinned.add("bills-card");
-  renderBudget();
-  const c = document.getElementById("bills-card");
-  if (c) c.scrollIntoView({behavior:"smooth", block:"start"});
+  openModal("Cards & banks", [{type:"html", label:`<div class="acct-editor">
+      ${budget.accounts.map((a, i) => `<button type="button" class="acct-pill big" style="--acct:${accountColor(a)}" onclick="editAccount(${i})">${escapeHtml(a)}</button>`).join("") || '<div class="empty">None yet.</div>'}
+      <button type="button" class="acct-add" onclick="editAccount()">+ Add</button></div>`}], {}, () => {});
 }
 const planOpen = {};
 function togglePlan(key, shown){ planOpen[key] = !shown; renderBudget(); }
@@ -3981,7 +3967,7 @@ function budgetCalHtml(key, rows, paychecks, today){
       </div>`;
   }
   const billDays = Object.keys(byDay).length, payDays = Object.keys(pays).length;
-  return collapsibleCard({id:"budget-cal", title:"Calendar", editable:false,
+  return collapsibleCard({id:"budget-cal", title:"Calendar",
     insight:[billDays && `${billDays} bill day${billDays === 1 ? "" : "s"}`, payDays && `${payDays} payday${payDays === 1 ? "" : "s"}`].filter(Boolean).join(" · ") || "Nothing due",
     body:`<div class="bcal-wrap"><div class="home-month bcal">${cells}</div>
       <button class="home-cal-grab" onclick="setBudgetCalMonth(${!budgetCalMonth})" aria-expanded="${budgetCalMonth}" aria-label="${budgetCalMonth ? "Show week" : "Show month"}"><span></span></button></div>${detail}`});
@@ -4161,13 +4147,7 @@ function renderBudget(){
   html += `<div id="pay-periods">${periods}</div>`;
 
   // All bills: Monthly / Joint with subtotals, totals by card/bank, add + import
-  const billEdit = editCards.has("bills-card");
   let billBody = "";
-  if (billEdit){
-    billBody += `<div class="acct-editor"><div class="budget-sub">Cards &amp; banks</div>
-        ${budget.accounts.map((a, i) => `<button class="acct-pill big" style="--acct:${accountColor(a)}" onclick="editAccount(${i})">${escapeHtml(a)}${PENCIL_ICON}</button>`).join("")}
-        <button class="acct-add" onclick="editAccount()">+ Add</button></div>`;
-  }
   const monthRows = rows.filter(r => r.due >= monthStart);
   ["personal", "joint"].forEach(g => {
     const list = monthRows.filter(r => ((r.bill && r.bill.group) || (r.payment && r.payment.group) || "personal") === g);
@@ -4185,7 +4165,7 @@ function renderBudget(){
   html += collapsibleCard({id:"bills-card", title:"All bills", insight:monthRows.length ? `${moneyShort(Math.round(sum(monthRows) * 100) / 100)} · ${monthRows.filter(r => r.payment).length}/${monthRows.length} paid` : "None", body:billBody});
 
   if (budget.goals.length) html += goalsCardHtml();
-  const spendingShown = spent.length || showSpending || editCards.has("spending-card");
+  const spendingShown = spent.length || showSpending;
   if (spendingShown) html += spendingCardHtml(spent, spentTotal);
 
   // Manage: the set-up-once things, one line each

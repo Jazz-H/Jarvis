@@ -1254,15 +1254,26 @@ await section("budget: fixes from the review", async () => {
   await page.evaluate(() => closeModal());
   // a bill named "Monthly gym" imports
   check("import keeps bills whose name starts with a heading word", await page.evaluate(() => parseBillRows("Card\t3rd\tMonthly gym\t$30").length === 1));
-  // Edit on a Budget card actually switches the card into edit mode
-  await page.evaluate(() => toggleCardEdit("bills-card"));
-  check("Edit chip works on Budget cards", !!(await page.$("#bills-card .acct-editor")));
+  // no Edit modes: cards carry no Edit chip; Cards & banks opens its own sheet
+  check("cards have no Edit chip", !(await page.$(".edit-chip")));
+  // tapping things edits them
+  await page.evaluate(() => { activateTab("skin"); openPinned.add("routine-card"); renderSkin(); });
+  await page.click("#routine-card .band .step.editable >> nth=0");
+  check("tapping a routine step opens its editor", (await page.textContent("#modal-heading")).length > 0 && await page.isVisible("#modal-backdrop.open"));
+  await page.evaluate(() => closeModal());
+  check("+ Add step is always there", (await page.$$("#routine-card .add-row")).length === 3);
+  await page.evaluate(() => openAccounts());
+  check("Cards & banks opens as a sheet", (await page.textContent("#modal-heading")) === "Cards & banks" && !!(await page.$("#modal-body .acct-add")));
+  await page.evaluate(() => closeModal());
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
 
 await section("shopping + backup: review fixes", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  await page.click("#panel-wants .want-card .body >> nth=0");
+  check("tapping a Shopping item opens its editor", await page.isVisible("#modal-backdrop.open"));
+  await page.evaluate(() => closeModal());
   // deleting by id never removes a different item when the id is already gone
   const kept = await page.evaluate(() => { const n = wantsList.length; editWant(wantsList[0].id); wantsList = wantsList.slice(1); modalDelete(); return wantsList.length === n - 1; });
   check("delete of an already-gone item removes nothing else", kept);
