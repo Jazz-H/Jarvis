@@ -30,6 +30,10 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
   not overdue until the last). **Repeat:** Never, Daily, Weekdays, Weekly, 2 weeks, Monthly,
   or **Custom** (an "every N weeks | months" stepper). A line underneath reads the choice
   back; sub-items fold away behind **+ Add sub-items**.
+- **Types:** each to-do shows a small colored icon for its type, guessed from its words
+  (health, appointment, fitness, birthday, social, travel, car, pet, work, call, errand,
+  chores; a time like "@ 9am" reads as an appointment). Edit's **Type** row shows the
+  guess (**Auto**), lets you pick another, or **None**.
 - **Adding.** Tap the floating **+** button (on Home and To-Do; see *Adding things* below).
   The **New to-do** form opens with the keyboard up:
   - **Text box:** a trailing day word sets the date ("dentist fri"), lighting up its pill;
@@ -204,7 +208,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (335 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (343 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
