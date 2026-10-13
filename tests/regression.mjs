@@ -1306,6 +1306,38 @@ await section("budget: fixes from the review", async () => {
   await ctx.close();
 });
 
+await section("shopping: Later list", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  const first = await page.evaluate(() => { const w = wantsList.find(x => !wantsState[x.id]); return { id: w.id, name: w.name, n: document.querySelectorAll("#wants-pending-card .want-card").length }; });
+  check("no Later card until something's saved for later", !(await page.$("#wants-later-card")));
+  await page.click(`#wants-pending-card .later-chip[aria-label="Save ${first.name} for later"]`);
+  const r = await page.evaluate(id => ({ later: wantsList.find(w => w.id === id).later, n: document.querySelectorAll("#wants-pending-card .want-card").length,
+    card: !!document.getElementById("wants-later-card"), open: document.getElementById("wants-later-card").classList.contains("open"), all: document.querySelector(".filter-chips .fc-count").textContent }), first.id);
+  check("Later moves it off To buy", r.later === true && r.n === first.n - 1, r);
+  check("Later card appears, folded (hidden list)", r.card && !r.open, r);
+  check("filter counts leave Later items out", Number(r.all) === first.n - 1, r);
+  await page.click(".toast-action");
+  check("Undo brings it back", await page.evaluate(id => !wantsList.find(w => w.id === id).later, first.id));
+  await page.evaluate(id => setWantLater(id, true), first.id);
+  await page.evaluate(() => { openPinned.add("wants-later-card"); renderWants(); });
+  await page.click("#wants-later-card .later-btn");
+  check("Back to list returns it", await page.evaluate(id => !wantsList.find(w => w.id === id).later && !document.getElementById("wants-later-card"), first.id));
+  // edit modal + composer
+  await page.evaluate(id => editWant(id), first.id);
+  await page.check("#modal-later");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("Edit's Later box saves it for later", await page.evaluate(id => wantsList.find(w => w.id === id).later === true, first.id));
+  await page.click("#fab");
+  await page.click("#composer-chips .filter-chip >> text=Later");
+  await page.fill("#composer-text", "Someday lamp");
+  await page.press("#composer-text", "Enter");
+  check("composer's Later chip adds it straight to Later", await page.evaluate(() => wantsList.find(w => w.name === "Someday lamp").later === true));
+  await page.evaluate(() => closeComposer());
+  check("junk later values are dropped", await page.evaluate(() => { wantsList[0].later = "yes"; sanitizeCoreData(); return !("later" in wantsList[0]); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("shopping + backup: review fixes", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
   await page.click("#panel-wants .want-card .body >> nth=0");

@@ -407,6 +407,10 @@
     background:none; color:var(--olive); font-size:11px; font-weight:700; font-family:inherit;
     letter-spacing:.03em; white-space:nowrap;
   }
+  .want-actions{display:flex; flex-direction:column; align-items:stretch; gap:6px; flex-shrink:0;}
+  .later-chip{display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:5px 10px; border-radius:20px; border:none; background:none; color:var(--text-dim); font-size:11px; font-weight:700; font-family:inherit; white-space:nowrap;}
+  .later-chip svg{width:12px; height:12px;}
+  .later-note{margin:0 0 6px; font-size:12px; color:var(--text-dim);}
   .toggle.done{background:var(--olive); color:var(--on-accent); border-color:var(--olive);}
   .cat-title{font-size:11.5px; font-weight:700; color:var(--olive); margin:12px 0 2px;}
   .cat-title:first-child{margin-top:0;}
@@ -2117,6 +2121,7 @@ const COMPOSER_MODES = {
   money:  {title:"Add to budget", add:"Add", fab:"Add spending or a bill", placeholder:"What did you spend on? Try “groceries $54”"},
 };
 const FAB_MODE_BY_TAB = {home:"todo", todo:"todo", wants:"shop", budget:"money"};
+const LATER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 const CALENDAR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 let composer = null;
 function fabMode(){ return FAB_MODE_BY_TAB[currentTab] || "todo"; }
@@ -2129,11 +2134,11 @@ function composerFresh(mode, added, prev){
     return {...base, date:null, manual:false, preset, star:false, repeat:null};
   }
   if (mode === "shop"){
-    if (prev) return {...base, kind:prev.kind, cat:prev.cat, wcat:prev.wcat, high:false}; // categories stick for batches
+    if (prev) return {...base, kind:prev.kind, cat:prev.cat, wcat:prev.wcat, high:false, later:false}; // categories stick for batches
     // start in whatever the Shopping filter shows, so new items stay visible
     const f = wantsFilter;
     return {...base, kind:f === "need" || f === "want" ? f : null,
-      cat:f === "moto" ? "moto" : f === "wardrobe" ? "wardrobe" : "general", wcat:"Other", high:false};
+      cat:f === "moto" ? "moto" : f === "wardrobe" ? "wardrobe" : "general", wcat:"Other", high:false, later:false};
   }
   if (mode === "money"){
     // type, category and repeat stick for batches; the date goes back to today
@@ -2194,6 +2199,7 @@ function renderComposerChips(){
       + cchip("Moto", c.cat === "moto", "composer.cat = 'moto'; renderComposerChips()", MOTO_ICON)
       + cchip("Wardrobe", c.cat === "wardrobe", "composer.cat = 'wardrobe'; renderComposerChips()", SHIRT_ICON);
     row1 += cchip("High priority", c.high, "composer.high = !composer.high; renderComposerChips()", c.high ? STAR_FILLED_ICON : STAR_ICON);
+    row1 += cchip("Later", c.later, "composer.later = !composer.later; renderComposerChips()", LATER_ICON);
     row1 += cchip("Notes", c.showMore, "composerToggleMore()", SMALL_PLUS_ICON);
     if (c.cat === "wardrobe") row2 = [...CAP_CATS, "Other"].map(w => cchip(w, c.wcat === w, `composer.wcat = '${w}'; renderComposerChips()`)).join("");
   } else if (c.mode === "money"){
@@ -2330,6 +2336,7 @@ function addWantFromComposer(raw){
     price:price ?? null, link:composerField("cx-link") || null};
   if (composer.kind) w.kind = composer.kind;
   if (composer.high) w.priority = "high";
+  if (composer.later) w.later = true;
   setWantCategory(w, composer.cat === "moto" ? "Moto" : composer.cat === "wardrobe" ? "Wardrobe · " + composer.wcat : "General");
   wantsList.push(w);
   saveContent("wants-content", wantsList, {toast:false});
@@ -3121,11 +3128,13 @@ function renderWants(){
   let pending = "", done = "";
   const inFilter = w => wantsFilter === "all"
     || (wantsFilter === "wardrobe" ? !!w.wardrobeCat : wantsFilter === "moto" ? !!w.moto : wantKind(w) === wantsFilter);
-  const allPending = wantsList.filter(w => !wantsState[w.id]);
+  // "Later" items leave To buy (and its counts) for a folded Later card
+  const allPending = wantsList.filter(w => !wantsState[w.id] && !w.later);
+  const laterItems = wantsList.filter(w => !wantsState[w.id] && w.later).sort(wantsOrder);
   const pendingItems = allPending.filter(inFilter).sort(wantsOrder);
   const doneItems = wantsList.filter(w => !!wantsState[w.id] && inFilter(w)).sort(wantsOrder);
   const pendingSum = priceSummary(pendingItems), doneSum = priceSummary(doneItems);
-  const wantRow = (w, isDone) => {
+  const wantRow = (w, isDone, isLater = false) => {
     const priceStr = w.price != null ? `${w.estimated?'~':''}$${fmtMoney(w.price)}${w.estimated?' (est.)':''}` : "—";
     const linkLine = linkHtml(w.link, 'class="link"', "View product →");
     return `<div class="want-card">
@@ -3137,8 +3146,10 @@ function renderWants(){
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
           ${linkLine}
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-          <button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
+        <div class="want-actions">
+          ${isLater ? `<button class="toggle later-btn" onclick="setWantLater('${w.id}', false)">Back to list</button>`
+            : `<button class="toggle ${isDone?'done':''}" onclick="toggleWant('${w.id}')">${isDone?'Purchased':'Mark bought'}</button>
+               ${isDone ? "" : `<button class="later-chip" onclick="setWantLater('${w.id}', true)" aria-label="Save ${escapeAttr(w.name)} for later">${LATER_ICON}Later</button>`}`}
         </div>
       </div>`;
   };
@@ -3157,6 +3168,13 @@ function renderWants(){
         ${pending || (wantsFilter === "all" ? '<div class="empty">All caught up.</div>'
           : `<div class="empty">Nothing here in this filter. <button class="link-btn" onclick="wantsFilter='all'; renderWants()">Show all</button></div>`)}
         ${pendingSum.row}`});
+  if (laterItems.length){
+    const laterSum = priceSummary(laterItems);
+    html += collapsibleCard({id:"wants-later-card", title:"Later", insight:`${laterItems.length}${laterSum.badge}`, body:`
+        <p class="later-note">Saved for later. They're off To buy until you bring them back.</p>
+        ${laterItems.map(w => wantRow(w, false, true)).join("")}
+        ${laterSum.row}`});
+  }
   html += collapsibleCard({id:"wants-purchased-card", title:"Purchased", insight:doneItems.length ? doneItems.length + doneSum.badge : "None yet", body:`
         ${done||'<div class="empty">Nothing marked yet.</div>'}
         ${doneSum.row}`});
@@ -3171,6 +3189,19 @@ function renderWants(){
       else if (a.right > r.right - 28) row.scrollLeft += a.right - (r.right - 28);
     }
   }
+}
+function setWantLater(id, on){
+  const w = wantsList.find(x => x.id === id);
+  if (!w) return;
+  if (on) w.later = true; else delete w.later;
+  saveContent("wants-content", wantsList, {toast:false});
+  renderWants(); renderHomePanel();
+  showUndoToast(on ? `${w.name} saved for later` : `${w.name} is back on the list`, () => {
+    const cur = wantsList.find(x => x.id === id);
+    if (!cur) return;
+    if (on) delete cur.later; else cur.later = true;
+    saveContent("wants-content", wantsList, {toast:false}); renderWants(); renderHomePanel();
+  });
 }
 async function toggleWant(id){
   wantsState[id] = !wantsState[id];
@@ -3188,13 +3219,15 @@ function editWant(id){
     {key:"estimated",label:"Estimated price",type:"checkbox"},
     {key:"kind",label:"Need or want",type:"select",options:["Need","Want"]},
     {key:"high",label:"High priority",type:"checkbox"},
+    {key:"later",label:"Later (hide it from To buy for now)",type:"checkbox"},
     {key:"cat",label:"Category",type:"select",options:WANT_CAT_OPTIONS}
-  ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high",
+  ], {name:w.name, meta:w.meta||"", price:w.price, link:w.link||"", estimated:!!w.estimated, high:w.priority==="high", later:!!w.later,
       kind: wantKind(w) === "need" ? "Need" : "Want", cat: wantCategoryChoice(w)},
     (v) => {
       if(!v.name) return;
       w.name=v.name; w.meta=v.meta||""; w.price=v.price; w.link=v.link||null; w.estimated=v.estimated;
       if (v.high) w.priority = "high"; else delete w.priority;
+      if (v.later) w.later = true; else delete w.later;
       setWantCategory(w, v.cat);
       w.kind = v.kind === "Need" ? "need" : "want";
       saveContent("wants-content", wantsList); renderWants(); renderHomePanel();
@@ -5121,8 +5154,8 @@ function sanitizeCoreData(){
   styleRules = arr(styleRules).filter(r => typeof r === "string");
   sizes = arr(sizes).filter(x => Array.isArray(x) && x.length >= 2).map(([k, v]) => [str(k, 60), str(v, 120)]);
   capsule = arr(capsule).filter(isObj).map(i => ({...i, title:str(i.title, 200)}));
-  wantsList = arr(wantsList).filter(isObj).map(w => ({...w, name:str(w.name, 200),
-    price:w.price == null || !isFinite(Number(w.price)) ? null : Math.max(0, Number(w.price))}));
+  wantsList = arr(wantsList).filter(isObj).map(w => { const x = {...w, name:str(w.name, 200),
+    price:w.price == null || !isFinite(Number(w.price)) ? null : Math.max(0, Number(w.price))}; if (x.later !== true) delete x.later; return x; });
 }
 function normalizeLoadedData(){
   skinRules = skinRules.map(decodeEntities);
