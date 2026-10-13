@@ -174,6 +174,7 @@
   .home-day.today:not(.on){box-shadow:inset 0 0 0 1px var(--line);}
   .home-day.past:not(.on){opacity:.5;}
   .home-day.blank{visibility:hidden;}
+  .home-day.other:not(.on), .bcal .home-day.other{opacity:.28;}
   .home-day.on{background:var(--olive); color:var(--on-accent);}
   .home-day.on b{color:var(--on-accent);}
   .home-day .marks{display:flex; align-items:center; gap:2px; height:9px;}
@@ -1624,13 +1625,13 @@ function homeDueCounts(){
   });
   return counts;
 }
-function homeCalDayHtml(d, counts, monthView){
+function homeCalDayHtml(d, counts, monthView, other = false){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
   const dayBills = iso >= today ? billsOnDay(iso) : null;
   const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0)
     + dayBills.open.length + dayBills.projected.length : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
-  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : ""].filter(Boolean).join(" ");
+  const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : ""].filter(Boolean).join(" ");
   const label = `${d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}`;
   return `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${label}" onclick="selectHomeDate('${iso}')">
       ${monthView ? "" : `<span class="dow">${iso === today ? "Today" : d.toLocaleDateString('en-US', {weekday:'short'})}</span>`}<b>${d.getDate()}</b>
@@ -1647,7 +1648,8 @@ function homeCalHtml(){
     const lead = first.getDay(); // Sunday-first
     const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
     body = WEEK_LETTERS.map(x => `<div class="cal-dow">${x}</div>`).join("");
-    for (let i = 0; i < lead; i++) body += `<div class="home-day blank"></div>`;
+    // the previous month's last days fill the first week, greyed out
+    for (let i = lead; i > 0; i--) body += homeCalDayHtml(new Date(first.getFullYear(), first.getMonth(), 1 - i, 12), counts, true, true);
     for (let n = 1; n <= days; n++) body += homeCalDayHtml(new Date(first.getFullYear(), first.getMonth(), n, 12), counts, true);
     body = `<div class="home-month">${body}</div>`;
     period = first;
@@ -3799,7 +3801,8 @@ function budgetCalHtml(key, rows, paychecks, today){
   cellIsos.forEach(iso => { const k = iso.slice(0, 7); if (!seen.has(k)) addMonth(k, billsInMonth(k), incomeInMonth(k)); });
   let cells = WEEK_LETTERS.map(x => `<div class="cal-dow">${x}</div>`).join("");
   cellIsos.forEach(iso => {
-    if (budgetCalMonth && iso.slice(0, 7) !== key){ cells += `<div class="home-day blank"></div>`; return; }
+    if (budgetCalMonth && iso.slice(0, 7) !== key){ // last month's tail shows greyed; next month's stays blank
+      cells += iso < key ? `<div class="home-day other" aria-hidden="true"><b>${Number(iso.slice(8))}</b></div>` : `<div class="home-day blank"></div>`; return; }
     const list = byDay[iso] || [], pay = pays[iso];
     const dots = list.slice(0, 3).map(r => `<i class="${r.payment ? "paid" : r.due < today ? "over" : ""}"></i>`).join("");
     const due = list.filter(r => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
