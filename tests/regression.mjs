@@ -1160,7 +1160,13 @@ await section("to-dos: custom repeat intervals and multi-day to-dos", async () =
   check("ticking it moves it 3 weeks on", await page.evaluate(() => todoList.find(x => x.id === "w").due === addDaysIso(21)));
   // every 2 months
   await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); t.repeat = "months"; t.every = 2; t.due = "2026-01-31"; t.repeatDay = 31; });
-  check("every 2 months keeps its day", await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); return todoNext("2026-01-31", t) === "2026-03-31" && todoNext("2026-03-31", t) === "2026-05-31"; }));
+  check("yearly repeats a year on, keeping Feb 29 in leap years", await page.evaluate(() => { const t = { repeat: "yearly", due: "2028-02-29", repeatDay: 29 };
+    return todoNext("2026-02-19", { repeat: "yearly", due: "2026-02-19" }) === "2027-02-19" && todoNext("2028-02-29", t) === "2029-02-28" && todoNext("2031-02-28", t) === "2032-02-29" && repeatLabel({ repeat: "yearly", due: "2027-02-19" }) === "Yearly on Feb 19"; }));
+  await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); t.repeat = "months"; t.every = 12; t.due = "2027-02-19"; editTodo("w"); });
+  check("an every-12-months repeat opens as Yearly", await page.evaluate(() => tde.repeat === "yearly" && [...document.querySelectorAll('#tde .filter-chip[aria-pressed="true"]')].some(b => b.textContent === "Yearly")));
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("…and saves as yearly", await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); return t.repeat === "yearly" && !("every" in t); }));
+  check("every 2 months keeps its day", await page.evaluate(() => { const t = todoList.find(x => x.id === "w"); Object.assign(t, { repeat: "months", every: 2, due: "2026-01-31", repeatDay: 31 }); return todoNext("2026-01-31", t) === "2026-03-31" && todoNext("2026-03-31", t) === "2026-05-31"; }));
   // multi-day: started yesterday, runs through tomorrow
   await page.evaluate(() => editTodo("m"));
   await page.click("#tde .filter-chip >> text=Multi-day");

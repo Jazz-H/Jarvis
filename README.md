@@ -28,7 +28,7 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 - **Editing:** one compact sheet of chips. **When:** Anytime, Today, Tomorrow, or a date;
   **+ Multi-day** adds a last day so it spans several days (shown on each, "Day 2 of 3",
   not overdue until the last). **Repeat:** Never, Daily, Weekdays, Weekly, 2 weeks, Monthly,
-  or **Custom** (an "every N weeks | months" stepper). A line underneath reads the choice
+  Yearly, or **Custom** (an "every N weeks | months" stepper). A line underneath reads the choice
   back; sub-items fold away behind **+ Add sub-items**.
 - **Types:** each to-do shows a small colored icon for its type, guessed from its words
   (health, appointment, fitness, birthday, social, travel, car, pet, work, call, errand,
@@ -208,7 +208,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (343 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (346 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

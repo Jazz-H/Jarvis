@@ -1544,6 +1544,7 @@ const REPEATS = {
   weekly:   {label:"Every week", short:"Weekly"},
   biweekly: {label:"Every 2 weeks", short:"Every 2 weeks"},
   monthly:  {label:"Every month", short:"Monthly"},
+  yearly:   {label:"Every year", short:"Yearly"},
   weeks:    {label:"Every N weeks…", short:"Every N weeks"},  // custom: t.every weeks
   months:   {label:"Every N months…", short:"Every N months"}, // custom: t.every months
 };
@@ -1568,6 +1569,7 @@ const NO_REPEAT = "Doesn't repeat";
 function nextRepeatIso(iso, repeat, day, every = 1){
   if (repeat === "monthly") return addMonthsIso(iso, 1, day);
   if (repeat === "months") return addMonthsIso(iso, every, day);
+  if (repeat === "yearly") return addMonthsIso(iso, 12, day); // Feb 29 → Feb 28, back to the 29th in a leap year
   const d = noonOf(iso);
   if (repeat === "daily") d.setDate(d.getDate() + 1);
   else if (repeat === "weekdays"){ do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6); }
@@ -1585,6 +1587,7 @@ function repeatLabel(t){
   if (!t.due || t.repeat === "daily" || t.repeat === "weekdays") return r.short;
   const d = noonOf(t.due);
   if (t.repeat === "monthly") return `Monthly on the ${ordinal(todoRepeatDay(t))}`;
+  if (t.repeat === "yearly") return `Yearly on ${noonOf(t.due).toLocaleDateString('en-US', {month:'short'})} ${todoRepeatDay(t)}`;
   if (t.repeat === "months") return `Every ${todoEvery(t)} months on the ${ordinal(todoRepeatDay(t))}`;
   if (t.repeat === "weeks") return `Every ${todoEvery(t)} weeks · ${WEEKDAYS[d.getDay()]}s`;
   return `${r.short} · ${WEEKDAYS[d.getDay()]}s`;
@@ -1607,7 +1610,7 @@ function completeRepeating(t){
   const copy = {id:genId("todo"), text:t.text, done:true, due:occurrence, starred:false, seriesId:t.id,
     subitems:prev.subitems.map(s => ({...s, id:genId("sub")})), completedAt:Date.now()};
   const day = todoRepeatDay(t);
-  if ((t.repeat === "monthly" || t.repeat === "months") && !t.repeatDay) t.repeatDay = day; // pin it before the first clamp
+  if ((t.repeat === "monthly" || t.repeat === "months" || t.repeat === "yearly") && !t.repeatDay) t.repeatDay = day; // pin it before the first clamp
   let next = todoNext(occurrence, t);
   if (occurrence <= today) while (next <= today) next = todoNext(next, t);
   t.due = next;
@@ -2536,11 +2539,11 @@ function kindIconHtml(t){
 // an optional last day) and Repeat are chip rows; a custom repeat adds an
 // "every N weeks|months" stepper; sub-items fold away until asked for.
 let tde = null; // the sheet's working copy: {due, end, repeat, every}
-const TDE_REPEATS = [[null, "Never"], ["daily", "Daily"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["biweekly", "2 weeks"], ["monthly", "Monthly"]];
+const TDE_REPEATS = [[null, "Never"], ["daily", "Daily"], ["weekdays", "Weekdays"], ["weekly", "Weekly"], ["biweekly", "2 weeks"], ["monthly", "Monthly"], ["yearly", "Yearly"]];
 function editTodo(id){
   const t = todoList.find(x=>x.id===id);
   if (!t) return;
-  tde = {due:t.due || null, end:t.days > 1 ? todoEnd(t) : null, repeat:REPEATS[t.repeat] ? t.repeat : null, every:CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2,
+  tde = {due:t.due || null, end:t.days > 1 ? todoEnd(t) : null, repeat:t.repeat === "months" && todoEvery(t) === 12 ? "yearly" : REPEATS[t.repeat] ? t.repeat : null, every:CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2,
     kind:TODO_KINDS[t.kind] || t.kind === "none" ? t.kind : null}; // null = pick automatically
   openModal("Edit to-do", [
     {key:"text",label:"To-do",type:"textarea",enterSaves:true,maxlength:TODO_MAX_LEN},
