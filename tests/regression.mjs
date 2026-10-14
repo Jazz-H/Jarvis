@@ -859,6 +859,7 @@ await section("budget: paycheck plans import from a sheet", async () => {
   });
   const sheet = ["Paycheck\t$1,050.00", "Rent share\t$400.00", "Card\t$100.00", "", "Remaining\t$550.00", "",
     "Paycheck\t$1,000.00", "Groceries\t$150.25", "Contacts\t", "Remaining\t$849.75"].join("\n");
+  await page.evaluate(() => openBudgetManage());
   await page.click("#budget-manage >> text=Import paycheck plans");
   await page.fill("#modal-rows", sheet);
   await page.click("#modal-backdrop .modal-btn.primary");
@@ -906,7 +907,8 @@ await section("budget: pay that varies by check", async () => {
   // the page shows ~ for expected checks and the KPI counts them
   await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
   const ui = await page.evaluate(() => ({ approx: document.querySelectorAll("#pay-periods .period-head .approx").length, recv: document.querySelectorAll("#pay-periods .period-head.recv .todo-check").length,
-    kpi: document.querySelector(".budget-kpi i").textContent, manage: document.querySelector("#budget-manage").textContent }));
+    kpi: document.querySelector(".budget-kpi i").textContent, manage: (openBudgetManage(), document.querySelector("#budget-manage").textContent) }));
+  await page.evaluate(() => closeModal());
   check("periods mark expected checks with ~ and offer Received", ui.recv >= 1 && ui.approx >= 1 && /expected/.test(ui.kpi), ui);
   // the period checkbox: unticking goes back to expected, ticking asks for the amount
   const k1 = await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; Object.assign(planFor(p.key), { amount: 2050, received: true }); periodOpen[p.key] = true; saveBudgetData(); return p.key; });
@@ -938,8 +940,12 @@ await section("budget: pay that varies by check", async () => {
 await section("budget: long-term goals", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   // quick-start idea chip prefills the name
+  check("Manage is a quiet link, not a card", !(await page.$("#panel-budget #budget-manage")) && !!(await page.$("#panel-budget .budget-manage-link")));
+  await page.click("#panel-budget .budget-manage-link");
+  check("…that opens a Manage sheet with a Done button", (await page.textContent("#modal-heading")) === "Manage budget" && (await page.textContent("#modal-backdrop .modal-btn.primary")) === "Done");
   check("no goals: just a one-line Goals row", !(await page.$("#goals-card")) && !!(await page.$("#budget-manage >> text=Goals")));
   await page.click("#budget-manage >> text=Goals");
+  check("other sheets still say Save", (await page.textContent("#modal-backdrop .modal-btn.primary")) === "Save");
   await page.click("#modal-body >> text=Big purchase");
   check("idea chip prefills the goal name", (await page.inputValue("#modal-name")) === "Big purchase");
   await page.fill("#modal-target", "6000");
@@ -1022,7 +1028,7 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
   const periods = await page.evaluate(() => [...document.querySelectorAll("#pay-periods .card.period")].map(c => c.textContent.replace(/\s+/g, " ")));
   check("each payday is its own period with the bills due in it", periods.length >= 2 && periods[0].includes("Rent") && !periods[0].includes("Electric") && periods[1].includes("Electric"), periods);
   check("joint share counts your part", periods[0].includes("$500.00") && periods[0].includes("50%"), periods[0]);
-  check("spending hides until something's logged", !(await page.$("#spending-card")) && (await page.textContent("#panel-budget")).includes("Spending by category"));
+  check("spending hides until something's logged", !(await page.$("#spending-card")) && await page.evaluate(() => budgetManageHtml.includes("Spending by category")));
   // by-card totals
   const acct = await page.$$eval("#bills-card .acct-total", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
   check("totals by card/bank", acct.some(a => a.startsWith("Bank A") && a.includes("$500.00")) && acct.some(a => a.startsWith("Card B") && a.includes("$80.00")), acct);
