@@ -202,7 +202,55 @@
   .period-row-left{text-align:right; font-weight:800; font-variant-numeric:tabular-nums; color:var(--olive);}
   .period-row-left.over{color:var(--danger);}
   .card.manage{padding:12px 16px 6px; margin-top:12px;}
-  #pay-periods{margin-bottom:12px;} /* breathing room before All bills */
+  .budget-kpis.four{grid-template-columns:1fr 1fr;}
+  .budget-kpis.four button.budget-kpi{font:inherit; color:inherit; text-align:left; cursor:pointer; padding:12px 14px;}
+  .coll-head .insight:empty{display:none;}
+  .budget-kpi.good b{color:var(--olive);}
+  .budget-kpi.goal b{color:var(--link);}
+  .btab-head{display:grid; grid-template-columns:44px 1fr auto 40px; gap:6px; padding:0 2px 6px; border-bottom:1px solid var(--line);
+    font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--text-dim);}
+  .btab-head span:nth-child(3){text-align:right;}
+  .btab-head span:nth-child(4){text-align:center;}
+  .btab-row{display:grid; grid-template-columns:44px 1fr auto 40px; gap:6px; align-items:center; min-height:52px; padding:4px 2px;
+    border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
+  .btab-due{font-size:12.5px; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums;}
+  .btab-row.over .btab-due{color:var(--danger);}
+  .btab-name{min-width:0; cursor:pointer; padding:0 !important;}
+  .btab-name .title{display:flex; align-items:center; font-size:14px; font-weight:600;}
+  .btab-text{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .btab-name .todo-meta{margin-top:2px;}
+  .btab-amt{font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+  .btab-row .todo-check{width:40px; height:44px;}
+  .btab-row > *, .pp-head > *{order:0 !important;} /* the shared checkbox styles reorder flex items */
+  .btab-row.checked .box{background:var(--olive); border-color:var(--olive);}
+  .btab-row.checked .box svg{opacity:1;}
+  .btab-row.checked .bill-logo{opacity:.55;}
+  .btab-row.checked .btab-text, .btab-row.checked .btab-amt, .btab-row.checked .btab-due{text-decoration:line-through; color:var(--text-dim);}
+  .btab-row.checked .btab-text{opacity:.8;}
+  .btab-later{display:block; width:40px;}
+  .btab-total{display:flex; justify-content:space-between; padding:10px 2px 4px; font-weight:800;}
+  .btab-total b{font-variant-numeric:tabular-nums;}
+  .pp{padding:4px 0 10px; border-bottom:1px solid var(--line); margin-bottom:8px;}
+  .pp:last-child{border-bottom:none; margin-bottom:0;}
+  .pp-head{display:flex; align-items:center; gap:6px; padding:4px 2px 6px;}
+  .pp-head .todo-check{width:34px; margin-left:-6px;}
+  .pp-head.got .box{background:var(--olive); border-color:var(--olive);}
+  .pp-head.got .box svg{opacity:1;}
+  .pp-title{flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; padding:0; border:none; background:none; color:var(--olive); font:inherit; text-align:left; cursor:pointer;}
+  .pp-title span{font-size:14.5px; font-weight:800; display:flex; align-items:center; gap:6px; text-transform:none;}
+  .pp-title span::first-letter{text-transform:uppercase;}
+  .pp-title em{font-style:normal; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:7px; background:var(--text); color:var(--bg);}
+  .pp-title i{font-style:normal; font-size:11.5px; font-weight:600; color:var(--text-dim);}
+  .pp-head.got .pp-title i{color:var(--olive);}
+  .pp-head > b{font-size:15px; font-weight:800; color:var(--olive); font-variant-numeric:tabular-nums;}
+  .pp-left{display:flex; justify-content:space-between; margin-top:6px; padding:8px 10px; border-radius:10px; background:var(--surface-2); font-weight:800; font-size:13.5px;}
+  .pp-left b{font-variant-numeric:tabular-nums;}
+  .pp-left.over b{color:var(--danger);}
+  .glance > div{display:flex; justify-content:space-between; padding:9px 2px; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); font-size:14px;}
+  .glance > div b{font-variant-numeric:tabular-nums; font-weight:700;}
+  .glance .glance-total{border-bottom:none; font-weight:800; font-size:15px;}
+  .glance .glance-total b{color:var(--olive); font-weight:800;}
+  .glance .glance-total.over b{color:var(--danger);}
   #bills-card .coll-head h3{color:var(--text);}
   .manage-row{display:flex; align-items:center; gap:10px; width:100%; padding:13px 2px; border:none; border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent);
     background:none; color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left; cursor:pointer;}
@@ -259,7 +307,6 @@
   .budget-kpi b{display:block; font-size:22px; font-weight:800; letter-spacing:-.01em; margin-top:2px; font-variant-numeric:tabular-nums;}
   .budget-kpi i{display:block; font-style:normal; font-size:11.5px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .budget-kpi b.over, .budget-cat-amt.over{color:var(--danger);}
-  .budget-divider{border:none; height:2px; border-radius:1px; background:color-mix(in srgb, var(--text) 28%, transparent); margin:16px 2px 18px;}
   .copy-plans{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin:4px 0 8px; padding:12px; border-radius:14px;
     border:1px dashed var(--link); background:color-mix(in srgb, var(--link) 8%, transparent); color:var(--link); font:inherit; font-size:13.5px; font-weight:700;}
   .period-sec{display:flex; justify-content:space-between; align-items:center; margin:16px 2px 6px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim);}
@@ -1114,7 +1161,7 @@ let wantsState = {};
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "wants-pending-card", "budget-cal", "goals-card", "spending-card"]); // Recurring starts closed
+let openPinned = new Set(["todo-card", "wants-pending-card", "bills-mine", "bills-joint", "pay-plan", "glance", "goals-card", "spending-card"]); // Recurring and Budget's calendar start closed
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -4033,26 +4080,15 @@ function spendingCardHtml(spent, spentTotal){
 // earlier) get their own group on top. A period that runs into next month shows
 // those bills too; they're the same bills November's view will show.
 let showSpending = false;
-// Pay periods: the current one is open, the rest fold to a one-line summary;
-// a tap overrides either way (per session)
-const periodOpen = {};
-let periodDefaultKey = null;
-// Cards & banks: a sheet of pills; tap one to rename or delete it
 let budgetManageHtml = "";
 function openBudgetManage(){
   openModal("Manage budget", [{type:"html", label:`<div class="manage" id="budget-manage">${budgetManageHtml}</div>`}], {}, () => {}, null, {saveLabel:"Done"});
 }
+// Cards & banks: a sheet of pills; tap one to rename or delete it
 function openAccounts(){
   openModal("Cards & banks", [{type:"html", label:`<div class="acct-editor">
       ${budget.accounts.map((a, i) => `<button type="button" class="acct-pill big" style="--acct:${accountColor(a)}" onclick="editAccount(${i})">${escapeHtml(a)}</button>`).join("") || '<div class="empty">None yet.</div>'}
       <button type="button" class="acct-add" onclick="editAccount()">+ Add</button></div>`}], {}, () => {});
-}
-const planOpen = {};
-function togglePlan(key, shown){ planOpen[key] = !shown; renderBudget(); }
-function togglePeriod(key){
-  const open = key in periodOpen ? periodOpen[key] : key === periodDefaultKey;
-  periodOpen[key] = !open;
-  renderBudget();
 }
 // ---------- budget month calendar ----------
 // Like Home's month view, for money: each day shows a dot per bill due (red if
@@ -4120,7 +4156,6 @@ function budgetCalHtml(key, rows, paychecks, today){
     body:`<div class="bcal-wrap"><div class="home-month bcal">${cells}</div>
       <button class="home-cal-grab" onclick="setBudgetCalMonth(${!budgetCalMonth})" aria-expanded="${budgetCalMonth}" aria-label="${budgetCalMonth ? "Show week" : "Show month"}"><span></span></button></div>${detail}`});
 }
-const openPaidGroups = new Set();
 function billRowsBetween(from, toExclusive){
   const lastKey = isoDate(new Date(noonOf(toExclusive).getTime() - 864e5)).slice(0, 7);
   const months = [];
@@ -4134,21 +4169,27 @@ function billRowsBetween(from, toExclusive){
   }));
   return out;
 }
-function togglePaidGroup(id){
-  if (openPaidGroups.has(id)) openPaidGroups.delete(id); else openPaidGroups.add(id);
-  renderBudget();
-}
 // Bills for one group: unpaid rows, then the paid ones folded behind a toggle
-function billListHtml(list, groupId, today){
-  const unpaid = list.filter(r => !r.payment), paid = list.filter(r => r.payment);
-  const sum = l => l.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  let h = unpaid.map(r => billRowHtml(r, today)).join("");
-  if (paid.length){
-    const open = openPaidGroups.has(groupId);
-    h += `<button class="paid-toggle" onclick="togglePaidGroup('${groupId}')" aria-expanded="${open}">${BOX_CHECK_SVG}<span>Paid (${paid.length}) · ${money(sum(paid))}</span>${CHEVRON_DOWN}</button>`;
-    if (open) h += paid.map(r => billRowHtml(r, today)).join("");
-  }
-  return h || `<div class="empty">No bills due.</div>`;
+// One bill as a table row, like the sheet: due day · logo + name (and the card
+// that pays it) · amount · paid box. Paid rows are struck through.
+function billTableRowHtml(r, today, monthStart){
+  const b = r.bill, paid = !!r.payment, overdue = !paid && r.due < today;
+  const due = r.due < monthStart ? noonOf(r.due).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : ordinal(Number(r.due.slice(8)));
+  const acct = (b && b.account) || (r.payment && r.payment.account);
+  const sub = [acct ? `<span class="acct-tag"><i style="--acct:${accountColor(acct)}"></i>${escapeHtml(acct)}</span>` : "",
+    b && b.autopay && !paid ? `<span class="autopay">${AUTOPAY_ICON}Autopay</span>` : "",
+    b && b.share && b.group === "joint" ? `${b.share}%` : ""].filter(Boolean).join(" · ");
+  const box = paid
+    ? `<button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not paid: ${escapeAttr(r.name)}" onclick="unpayBill('${r.payment.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`
+    : r.current
+      ? `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="Mark paid: ${escapeAttr(r.name)}" onclick="payBill('${b.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`
+      : `<span class="btab-later" aria-hidden="true"></span>`;
+  return `<div class="btab-row ${paid ? "checked" : ""} ${overdue ? "over" : ""}">
+      <span class="btab-due">${escapeHtml(due)}</span>
+      <div class="btab-name" onclick="${paid ? `editPayment('${r.payment.id}')` : b ? `editBill('${b.id}')` : ""}"><div class="title">${billLogoHtml(b, r.name)}<span class="btab-text">${escapeHtml(r.name)}</span></div>${sub ? `<div class="todo-meta">${sub}</div>` : ""}</div>
+      <b class="btab-amt">${b && b.varies && !paid ? `<span class="approx" title="Amount varies">~</span>` : ""}${money(r.amount)}</b>
+      ${box}
+    </div>`;
 }
 // tick: confirm the real amount; untick: back to expected (the amount stays)
 function toggleReceived(srcId, date){
@@ -4208,113 +4249,96 @@ function renderBudget(){
   const hasIncome = budget.income.length > 0;
   const remaining = Math.round((hasIncome ? incomeTotal - plannedTotal : limitTotal - spentTotal) * 100) / 100;
 
+  // Laid out like the budget sheet: four totals, My Bills and Joint Bills as
+  // tables, each paycheck's plan, Month at a Glance, then goals; the calendar
+  // and the set-up-once things sit folded at the bottom.
+  const r2 = n => Math.round(n * 100) / 100;
+  const monthRows = rows.filter(r => r.due >= monthStart);
+  const toGoals = r2(paychecks.reduce((s, p) => s + p.plan.lines.filter(l => goalById(l.goal)).reduce((t, l) => t + l.amount, 0), 0));
+  const hasPlan = paychecks.some(p => p.plan.lines.length);
+  const billsSpend = r2(hasPlan ? plannedTotal - toGoals : sum(monthRows) + spentTotal);
+  const leftOver = r2(incomeTotal - billsSpend - toGoals);
+  const goalNames = [...new Set(paychecks.flatMap(p => p.plan.lines.map(l => goalById(l.goal)).filter(Boolean).map(g => g.name)))];
+  const signed = n => `${n < 0 ? "−" : ""}${moneyShort(Math.abs(n))}`;
+  const tile = (label, value, sub = "", cls = "", click = "") => `<${click ? `button onclick="${click}"` : "div"} class="budget-kpi ${cls}"><span>${label}</span><b class="${cls.includes("neg") ? "over" : ""}">${value}</b>${sub ? `<i>${sub}</i>` : ""}</${click ? "button" : "div"}>`;
+  const g0 = budget.goals[0], g0s = g0 && goalStatus(g0);
   let html = `<div class="budget-month">
       <button class="cal-nav" onclick="shiftBudgetMonth(-1)" aria-label="Previous month">‹</button>
       <span>${monthName}</span>
       <button class="cal-nav" onclick="shiftBudgetMonth(1)" aria-label="Next month">›</button>
     </div>
-    <div class="budget-kpis">
-      <div class="budget-kpi"><span>${hasIncome ? "Remaining" : "Left to spend"}</span><b class="${remaining < 0 ? "over" : ""}">${remaining < 0 ? "−" : ""}${moneyShort(Math.abs(Math.round(remaining * 100) / 100))}</b>
-        <i>${hasIncome ? `of ${estN ? "~" : ""}${moneyShort(Math.round(incomeTotal * 100) / 100)}${estN ? ` · ${estN} expected` : " paychecks"}` : `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)} spent`}</i></div>
-      <div class="budget-kpi"><span>Bills left</span><b>${moneyShort(Math.round(sum(unpaid) * 100) / 100)}</b><i>${rows.length - unpaid.length} of ${rows.length} paid</i></div>
+    <div class="budget-kpis four">
+      ${hasIncome ? `${tile("Income", `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`)}
+      ${tile("Bills &amp; spending", moneyShort(billsSpend), `${monthRows.filter(r => r.payment).length} of ${monthRows.length} bills paid`)}
+      ${tile("Left over", signed(leftOver), toGoals ? `after ${moneyShort(toGoals)} to ${goalNames.length === 1 ? escapeHtml(goalNames[0]) : "goals"}` : "", leftOver < 0 ? "neg" : "good")}`
+      // no paycheck yet: bills and spending against the category budgets
+      : `${tile("Bills left", moneyShort(r2(sum(unpaid))), `${monthRows.filter(r => r.payment).length} of ${monthRows.length} paid`)}
+      ${tile("Spent", moneyShort(r2(spentTotal)), limitTotal ? `of ${moneyShort(limitTotal)} budgeted` : "")}
+      ${tile("Income", "—", "Add your paycheck", "", "addIncome()")}`}
+      ${g0 ? tile(escapeHtml(g0.name), moneyShort(Math.round(g0s.saved)), `of ${moneyShort(g0.target)} · ${g0s.pct}%`, "goal", "document.getElementById('goals-card').scrollIntoView({behavior:'smooth'})")
+        : hasIncome ? tile("Bills left", moneyShort(r2(sum(unpaid))), `${unpaid.length} unpaid`) : tile("Left to spend", signed(r2(limitTotal - spentTotal)), "")}
     </div>`;
-  html += budgetCalHtml(key, rows, paychecks, today);
-  if (paychecks.length) html += `<hr class="budget-divider">`; // sets the pay periods apart from the overview
 
-  // Copy last month's plans when this month's paydays are still empty
+  // My Bills / Joint Bills: one table each, like the sheet (paid rows struck)
+  ["personal", "joint"].forEach(g => {
+    const list = rows.filter(r => ((r.bill && r.bill.group) || (r.payment && r.payment.group) || "personal") === g)
+      .sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+    if (!list.length && g === "joint") return;
+    const paidN = list.filter(r => r.payment).length;
+    const body = list.length
+      ? `<div class="btab-head"><span>Due</span><span>Expense</span><span>Amount</span><span>Paid</span></div>${list.map(r => billTableRowHtml(r, today, monthStart)).join("")}
+         <div class="btab-total"><span>Total</span><b>${money(sum(list))}</b></div>`
+      : `<div class="empty">No bills this month. Add rent, phone, subscriptions… or import them from your sheet.</div>`;
+    html += collapsibleCard({id:g === "joint" ? "bills-joint" : "bills-mine", title:g === "joint" ? "Joint Bills" : "My Bills",
+      insight:list.length ? `${paidN}/${list.length} paid` : "None",
+      body:body + (g === "personal" ? `<button class="add-row" onclick="addBill()">+ Add bill</button>` : "")});
+  });
+
+  // Paycheck Plan: each check, its lines, and what's left of it
+  let plan = "";
   const prevKey = addMonthsIso(monthStart, -1).slice(0, 7);
   if (paychecks.length && paychecks.every(p => !p.plan.lines.length) && incomeInMonth(prevKey).some(p => p.plan.lines.length)){
-    html += `<button class="copy-plans" onclick="copyPrevPlans()">${DUPLICATE_ICON}<span>Copy ${escapeHtml(noonOf(prevKey + "-01").toLocaleDateString('en-US', {month:'long'}))}'s paycheck plans</span></button>`;
+    plan += `<button class="copy-plans" onclick="copyPrevPlans()">${DUPLICATE_ICON}<span>Copy ${escapeHtml(noonOf(prevKey + "-01").toLocaleDateString('en-US', {month:'long'}))}'s paycheck plans</span></button>`;
   }
-
-  let periods = "";
-  const firstStart = paychecks.length ? paychecks[0].date : null;
-  // Overdue from before this month (current month only), then anything due before the first payday
-  const lead = rows.filter(r => r.due < monthStart && !r.payment);
-  const pre = hasIncome && paychecks.length ? billRowsBetween(monthStart, firstStart) : [];
-  if (lead.length) periods += `<div class="period-sec overdue"><span>Overdue</span><span>${money(sum(lead))}</span></div><div class="card period">${billListHtml(lead, "lead", today)}</div>`;
-  if (pre.length) periods += `<div class="period-sec"><span>${shortDate(monthStart)} – ${shortDate(isoDate(new Date(noonOf(firstStart).getTime() - 864e5)))} · before payday</span><span>${money(sum(pre))}</span></div><div class="card period">${billListHtml(pre, "pre", today)}</div>`;
-  const billedDates = new Set(); // two paychecks on one day: bills list under the first
-  // open by default: the period holding today; in a future month, its first one
-  const nowP = paychecks.find(p => p.date <= today && today < (nextPayday(p.date) || "9999"));
-  periodDefaultKey = nowP ? nowP.key : (monthStart > today && paychecks.length ? paychecks[0].key : null);
+  const billedDates = new Set(); // two checks on one day: only the first offers its bills
   paychecks.forEach(p => {
     const next = nextPayday(p.date) || isoDate(new Date(noonOf(monthEndIso(key)).getTime() + 864e5));
-    const due = billedDates.has(p.date) ? [] : billRowsBetween(p.date, next);
-    billedDates.add(p.date);
     const end = isoDate(new Date(noonOf(next).getTime() - 864e5));
+    const billsDue = billedDates.has(p.date) ? 0 : r2(sum(billRowsBetween(p.date, next)));
+    billedDates.add(p.date);
     const now = p.date <= today && today < next;
-    const billsDue = Math.round(sum(due) * 100) / 100;
-    const coversBills = p.plan.lines.some(l => /bill/i.test(l.name));
-    const pct = p.amount ? Math.min(100, Math.round(p.planned / p.amount * 100)) : 0;
     const lines = p.plan.lines.map(l => `<div class="plan-row ${l.done ? "done" : ""}">
         <button class="todo-check" role="checkbox" aria-checked="${!!l.done}" aria-label="${l.done ? "Not done" : "Done"}: ${escapeAttr(l.name)}" onclick="togglePlanLine('${p.key}','${l.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
         <button class="plan-body" onclick="editPlanLine('${p.key}','${l.id}')"><span>${escapeHtml(l.name)}${goalById(l.goal) ? `<span class="goal-tag">→ ${escapeHtml(goalById(l.goal).name)}</span>` : ""}</span><b>${money(l.amount)}</b></button>
       </div>`).join("");
-    const open = p.key in periodOpen ? periodOpen[p.key] : p.key === periodDefaultKey;
-    const unpaid = due.filter(r => !r.payment);
-    periods += `<button class="period-sec ${now ? "now" : ""}" onclick="togglePeriod('${p.key}')" aria-expanded="${open}"><span>${shortDate(p.date)} – ${shortDate(end)}${now ? `<em>Now</em>` : ""}</span><span>${escapeHtml(p.src.name)}${CHEVRON_DOWN}</span></button>`;
-    if (!open){
-      periods += `<button class="card period-row ${now ? "now" : ""}" onclick="togglePeriod('${p.key}')">
-          <span><b>${payAmt(p)}</b><i>${unpaid.length ? `${unpaid.length} bill${unpaid.length === 1 ? "" : "s"} due · ${money(sum(unpaid))}` : due.length ? "Bills paid" : "No bills due"}</i></span>
-          <span class="period-row-left ${p.left < 0 ? "over" : ""}">${money(p.left)}<i>left</i></span>
-        </button>`;
-      return;
-    }
-    periods += `
-      <div class="card period ${now ? "now" : ""}">
-        ${p.src.varies
-          // pay that varies: a checkbox like a bill's, ticked once the check lands
-          ? `<div class="period-head recv ${p.received ? "got" : ""}">
-              <button class="todo-check" role="checkbox" aria-checked="${p.received}" aria-label="${p.received ? "Not received" : "Mark received"}: ${escapeAttr(p.src.name)} ${escapeAttr(shortDate(p.date))}" onclick="toggleReceived('${p.src.id}','${p.date}')"><span class="box">${BOX_CHECK_SVG}</span></button>
-              <button class="period-amt" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${payAmt(p)}</b><i>${p.received ? `Received ${escapeHtml(shortDate(p.date))}` : p.date <= today ? "Not marked received" : `Expected ${escapeHtml(shortDate(p.date))}`}</i></button>
-              <span>${money(p.planned)} planned</span>
-            </div>`
-          : `<button class="period-head" onclick="editPaycheck('${p.src.id}','${p.date}')"><b>${payAmt(p)}</b><span>${money(p.planned)} planned</span></button>`}
-        <div class="progress-bar thin"><div class="progress-fill ${p.left < 0 ? "over" : ""}" style="width:${pct}%"></div></div>
-        <div class="period-sub"><span>Bills due</span><span>${money(billsDue)}</span></div>
-        ${billListHtml(due, p.key, today)}
-        ${(() => {
-          // the plan folds like "Paid": closed by default once every line is done
-          const doneN = p.plan.lines.filter(l => l.done).length, allDone = p.plan.lines.length > 0 && doneN === p.plan.lines.length;
-          const planShown = p.key in planOpen ? planOpen[p.key] : !allDone;
-          return `<button class="plan-toggle" onclick="togglePlan('${p.key}', ${planShown})" aria-expanded="${planShown}"><span>Plan</span><span>${allDone ? `${BOX_CHECK_SVG}` : ""}${doneN}/${p.plan.lines.length} done · ${money(p.planned)}${CHEVRON_DOWN}</span></button>`
-            + (planShown ? lines
-              + (billsDue > 0 && !coversBills ? `<button class="plan-hint" onclick="quickPlanLine('${p.key}', 'Bills ${escapeAttr(shortDate(p.date))}–${escapeAttr(shortDate(end))}', ${billsDue})">+ Add bills due · ${money(billsDue)}</button>` : "")
-              + `<button class="plan-add" onclick="addPlanLine('${p.key}')">+ Add line</button>` : "");
-        })()}
-        <div class="paycheck-left ${p.left < 0 ? "over" : ""}"><span>Remaining</span><b>${money(p.left)}</b></div>
+    plan += `<div class="pp ${now ? "now" : ""}">
+        <div class="pp-head ${p.src.varies ? "recv" : ""} ${p.received ? "got" : ""}">
+          ${p.src.varies ? `<button class="todo-check" role="checkbox" aria-checked="${p.received}" aria-label="${p.received ? "Not received" : "Mark received"}: ${escapeAttr(p.src.name)} ${escapeAttr(shortDate(p.date))}" onclick="toggleReceived('${p.src.id}','${p.date}')"><span class="box">${BOX_CHECK_SVG}</span></button>` : ""}
+          <button class="pp-title" onclick="editPaycheck('${p.src.id}','${p.date}')"><span>${escapeHtml(shortDate(p.date))} ${escapeHtml(p.src.name.toLowerCase())}${now ? `<em>Now</em>` : ""}</span>
+            <i>${p.src.varies ? (p.received ? "Received" : p.date <= today ? "Not marked received" : "Expected") : `${escapeHtml(shortDate(p.date))} – ${escapeHtml(shortDate(end))}`}</i></button>
+          <b>${payAmt(p)}</b>
+        </div>
+        ${lines}
+        ${billsDue > 0 && !p.plan.lines.some(l => /bill/i.test(l.name)) ? `<button class="plan-hint" onclick="quickPlanLine('${p.key}', 'Bills due ${escapeAttr(shortDate(p.date))}–${escapeAttr(shortDate(end))}', ${billsDue})">+ Bills due ${escapeHtml(shortDate(p.date))}–${escapeHtml(shortDate(end))} · ${money(billsDue)}</button>` : ""}
+        <button class="plan-add" onclick="addPlanLine('${p.key}')">+ Add line</button>
+        <div class="pp-left ${p.left < 0 ? "over" : ""}"><span>Remaining</span><b>${p.left < 0 ? "−" : ""}${money(Math.abs(p.left))}</b></div>
       </div>`;
   });
-  if (!hasIncome || !paychecks.length){
-    // No paydays to hang bills on: one plain list for the month
-    const rest = rows.filter(r => r.due >= monthStart);
-    periods += `<div class="period-sec"><span>Bills this month</span><span>${money(sum(rest))}</span></div><div class="card period">${billListHtml(rest, "all", today)}</div>`;
-    periods += `<div class="card period-empty">${hasIncome ? `No paydays in ${monthName}.` : `Add your paycheck to split the month by payday: the bills each check covers, its plan, and what's left.`}</div>`;
-  }
-  html += `<div id="pay-periods">${periods}</div>`;
+  if (paychecks.length) html += collapsibleCard({id:"pay-plan", title:"Paycheck Plan", insight:`${paychecks.length} check${paychecks.length === 1 ? "" : "s"}`, body:`<div id="pay-periods">${plan}</div>`});
+  else html += `<div class="card period-empty">${hasIncome ? `No paydays in ${monthName}.` : `Add your paycheck to plan each check: what it covers and what's left.`}</div>`;
 
-  // All bills: Monthly / Joint with subtotals, totals by card/bank, add + import
-  let billBody = "";
-  const monthRows = rows.filter(r => r.due >= monthStart);
-  ["personal", "joint"].forEach(g => {
-    const list = monthRows.filter(r => ((r.bill && r.bill.group) || (r.payment && r.payment.group) || "personal") === g);
-    if (!list.length) return;
-    billBody += `<div class="budget-sub">${BILL_GROUPS[g]}<span>${moneyShort(sum(list))} · ${list.filter(r => r.payment).length}/${list.length} paid</span></div>` + billListHtml(list, "all-" + g, today);
-  });
-  if (monthRows.length){
-    billBody += `<div class="budget-total"><span>Total bills</span><b>${money(sum(monthRows))}</b></div>`;
-    const byAcct = {};
-    monthRows.forEach(r => { const a = (r.bill && r.bill.account) || (r.payment && r.payment.account) || "No card set"; byAcct[a] = (byAcct[a] || 0) + (Number(r.amount) || 0); });
-    billBody += `<div class="budget-sub">By card / bank</div><div class="acct-totals">` + Object.entries(byAcct).sort((a, b) => b[1] - a[1]).map(([a, n]) =>
-      `<div class="acct-total"><span class="acct-tag"><i style="--acct:${a === "No card set" ? "var(--text-dim)" : accountColor(a)}"></i>${escapeHtml(a)}</span><b>${money(n)}</b></div>`).join("") + `</div>`;
-  } else billBody += `<div class="empty">No bills this month. Add rent, phone, subscriptions… or import them from your sheet.</div>`;
-  billBody += `<button class="add-row" onclick="addBill()">+ Add bill</button>`;
-  html += collapsibleCard({id:"bills-card", title:"All bills", insight:monthRows.length ? `${moneyShort(Math.round(sum(monthRows) * 100) / 100)} · ${monthRows.filter(r => r.payment).length}/${monthRows.length} paid` : "None", body:billBody});
+  // Month at a Glance
+  if (hasIncome) html += collapsibleCard({id:"glance", title:"Month at a Glance", body:`<div class="glance">
+      <div><span>Income</span><b>${money(r2(incomeTotal))}</b></div>
+      <div><span>Bills &amp; spending</span><b>${money(billsSpend)}</b></div>
+      ${toGoals ? `<div><span>To ${goalNames.length === 1 ? escapeHtml(goalNames[0]) : "goals"}</span><b>${money(toGoals)}</b></div>` : ""}
+      <div class="glance-total ${leftOver < 0 ? "over" : ""}"><span>Left over</span><b>${leftOver < 0 ? "−" : ""}${money(Math.abs(leftOver))}</b></div>
+    </div>`});
 
   if (budget.goals.length) html += goalsCardHtml();
   const spendingShown = spent.length || showSpending;
   if (spendingShown) html += spendingCardHtml(spent, spentTotal);
+  html += budgetCalHtml(key, rows, paychecks, today); // folded by default
 
   // Manage: the set-up-once things, one line each
   const mrow = (label, value, onclick) => `<button class="manage-row" onclick="${onclick}"><span>${label}</span><span class="manage-val">${value}</span>${CHEVRON_RIGHT}</button>`;

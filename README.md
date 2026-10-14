@@ -91,28 +91,27 @@ clothes, moto gear, and everything else.
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
-- **Top:** Remaining (this month's paychecks minus their plans; without income, category
-  budget minus spending) and Bills left (unpaid, N of M paid). A divider sets the pay
-  periods apart.
-- **Calendar:** starts as the selected day's week (swipe down or tap the bar for the
-  month): a dot per bill due (red overdue, grey paid) and a $ on paydays. Tap a day to see
-  and tick off its bills or open its paycheck.
-- **Pay periods:** only the current one (marked **Now**) is open; the others fold to one
-  line ("$1,345.67 · 5 bills due · $2,000.00 left") and open with a tap. An open period
-  shows the check (tap to set this payday's amount), the **bills due** before the next
-  payday (paid ones folded behind "Paid (N) · $X"), its **plan** lines (tickable,
-  optionally pointed at a goal), and **Remaining**. "+ Add bills due · $X" appears when no
-  line covers bills. Overdue bills and those before the month's first payday get their own
-  group on top.
+**Budget** is laid out like the budget sheet, one calendar month at a time (‹ › to step months).
+- **Top:** four tiles: **Income** (this month's checks; ~ when some are expected),
+  **Bills & spending** (the paycheck plans' lines, less what goes to goals; without plans,
+  bills plus spending), **Left over**, and the first goal (saved, of target, %). Without a
+  paycheck: Bills left, Spent, an Add-your-paycheck tile, and the goal or Left to spend.
+- **My Bills / Joint Bills:** tables like the sheet: Due · Expense (logo, name, and the
+  card/bank under it) · Amount · Paid. Paid rows stay, struck through; overdue due days are
+  red; each table ends in a Total. Tap a bill to edit it (or a paid one to fix the payment).
+- **Paycheck Plan:** every check this month, its lines (tickable, optionally pointed at a
+  goal) and **Remaining**. Tap the check to set its amount; with pay that varies, its box
+  marks it Received. "+ Bills due Oct 15–28 · $X" adds that check's bills as a line.
+- **Month at a Glance:** Income, Bills & spending, To <goal>, Left over.
+- **Calendar** (folded at the bottom): starts as the selected day's week (swipe down or tap
+  the bar for the month): a dot per bill due (red overdue, grey paid) and a $ on paydays.
+  Tap a day to see and tick off its bills or open its paycheck.
 - **Copy plans:** when a month's paydays are empty, one tap copies last month's lines,
   moving month names along ("1/2 of Oct Bills" → "1/2 of Nov Bills").
 - **Bills:** amount, due date, repeat, Monthly or Joint, the card/bank that pays it,
   a pay link, **your share %** for joint bills, and **amount varies** (ticking it paid asks
   what it came to). Ticking logs a payment and moves the bill to its next due date; tap a
-  paid bill to fix the amount or un-pay it. Bills also show on Home. Each row has one quiet
-  detail line: when ("Overdue · Oct 1" in red, "Due Mon", "Autopays Mon") and the card/bank
-  as a colored dot.
+  paid bill to fix the amount or un-pay it. Bills also show on Home.
 - **Bill logos:** each bill shows its company's logo: from a **Company website** set on the
   bill, else its pay link's site, else a guess from well-known names (Spotify, AT&T, Duke…);
   otherwise a colored first letter. With a pay link, tapping the logo opens it. Logos come
@@ -121,9 +120,6 @@ clothes, moto gear, and everything else.
   (dated that day, shown as "Autopaid") and the bill moves to its next due date. Switching
   Autopay on for a bill that's already due pays it. Un-paying an autopaid bill holds that
   date so it isn't re-paid. Payment ids come from bill + date, so devices never double it.
-- **Plan** sections fold like Paid: closed by default once every line is checked off.
-- **All bills** (collapsed): Monthly and Joint lists with subtotals, Total bills, totals by
-  card/bank, and + Add bill. Cards & banks (in Manage) opens its own sheet.
 - **Goals:** long-term savings goals with a target, optional date ($/month needed, On pace /
   Behind), + Add money, and History. A milestone bar marks 25/50/75/100%, with the next
   milestone and a finish date at the last 3 months' pace. Plan lines pointed at a goal count once their payday
