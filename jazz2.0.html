@@ -237,7 +237,6 @@
   .repeat-meta svg{width:11px; height:11px;}
   .recurring-row{cursor:pointer; padding:0; gap:0; align-items:center;}
   .recurring-row .body{order:2; flex:1; min-width:0; padding:12px 6px 12px 2px;}
-  .recurring-row .row-edit-btn{order:3;}
   #todo-list .wash-row .item{padding-left:20px;} /* lines up with rows that have a drag handle */
   .wash-title{display:flex; align-items:center; gap:6px; color:var(--navy);} /* same color + droplet as wash days on Home's calendar */
   .wash-title svg{width:15px; height:15px; flex-shrink:0;}
@@ -523,14 +522,7 @@
     #pull-indicator.refreshing .pull-spinner{animation:none;}
   }
 
-  /* ---------- editing (per-card, toggled by the Edit chip in each card head) ---------- */
-  .edit-chip{
-    flex-shrink:0; border:1px solid var(--line); background:none; color:var(--text-dim); font-family:inherit;
-    font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:4px 10px; border-radius:14px;
-    display:inline-flex; align-items:center; gap:5px;
-  }
-  .edit-chip svg{width:11px; height:11px;}
-  .edit-chip.on{background:var(--olive); border-color:var(--olive); color:var(--on-accent);}
+  /* ---------- editing: tap an item to edit it ---------- */
 
   .editable{cursor:pointer;}
   button.step, button.rule{width:100%; border:none; background:none; color:var(--text); font-family:inherit; text-align:left; padding-top:2px; padding-bottom:2px; padding-right:4px;}
@@ -538,14 +530,7 @@
   .want-card .body{cursor:pointer;}
   .cat-edit{display:block; margin:6px 0 2px; padding:6px 2px; border:none; background:none; color:var(--link); font:inherit; font-size:12.5px; font-weight:700;}
   .editable:active{background:var(--surface-2); border-radius:6px;}
-  .inline-pencil{display:inline-flex; vertical-align:middle; margin-left:6px; color:var(--text-dim); opacity:.7; flex-shrink:0;}
-  .inline-pencil svg{display:block;}
 
-  .row-edit-btn{
-    flex-shrink:0; width:26px; height:26px; border-radius:8px; border:1px solid var(--line);
-    background:var(--surface-2); color:var(--text-dim); display:flex; align-items:center; justify-content:center;
-  }
-  .item .row-edit-btn{order:3;}
 
   .add-row{
     width:100%; margin:0 0 10px; padding:10px; border-radius:10px; border:1.5px dashed var(--olive-dim);
@@ -757,10 +742,10 @@
   }
   .modal-field input[type=date]{min-height:44px; -webkit-appearance:none; appearance:none;}
   /* boxed buttons: the visible 26px box is drawn by ::before inside a 36×44 hit area */
-  .todo-wrap .row-edit-btn, #todo-completed .completed-actions{
+  #todo-completed .completed-actions{
     width:36px; height:44px; border:none; background:none; position:relative; isolation:isolate;
   }
-  .todo-wrap .row-edit-btn::before, #todo-completed .completed-actions::before{
+  #todo-completed .completed-actions::before{
     content:""; position:absolute; inset:9px 5px; z-index:-1;
     border:1px solid var(--line); background:var(--surface-2); border-radius:8px;
   }
@@ -866,23 +851,23 @@
     .home-more:hover{text-decoration:underline;}
     .week-day-head:hover .week-day-name, .routine-step:hover .routine-text{color:var(--text);}
     .routine-step:not(.done):hover .box{border-color:var(--olive);}
-    .toggle:hover:not(.done), .edit-chip:hover:not(.on),
-    .row-edit-btn:hover, .todo-icon-btn:hover, .completed-actions:hover,
+    .toggle:hover:not(.done),
+    .todo-icon-btn:hover, .completed-actions:hover,
     .subitem-del:hover, .modal-x:hover, .hard-refresh-btn:hover{background:var(--surface-2); color:var(--text);}
     .sync-btn:hover{background:var(--surface-2);} /* keeps its state color */
     .cal-day:not(.blank):hover, .cal-nav:hover{background:var(--surface-2);}
     .cal-day.wash:hover{background:color-mix(in srgb, var(--navy) 32%, transparent);}
     .todo-icon-btn.starred:hover{color:var(--gold);}
     .toggle:hover:not(.done){color:var(--olive);}
-    .toggle.done:hover, .edit-chip.on:hover, .fab:hover,
+    .toggle.done:hover, .fab:hover,
     .modal-btn.primary:hover, .subitem-add button:hover{opacity:.85;}
     .add-row:hover, .subitem-add-toggle:hover{background:color-mix(in srgb, var(--olive) 12%, transparent);}
     .reset-btn:hover, .modal-btn.danger:hover{background:color-mix(in srgb, var(--danger) 12%, transparent);}
     .box:hover, .subitem-box:not(.checked):hover{border-color:var(--olive);}
     .link:hover{text-decoration:underline;}
     .drag-handle:hover, .sub-drag-handle:hover{opacity:1; color:var(--text);}
-    .todo-wrap .row-edit-btn:hover, #todo-completed .completed-actions:hover{background:none;}
-    .todo-wrap .row-edit-btn:hover::before, #todo-completed .completed-actions:hover::before{border-color:var(--text-dim);}
+    #todo-completed .completed-actions:hover{background:none;}
+    #todo-completed .completed-actions:hover::before{border-color:var(--text-dim);}
     .todo-check:hover .box, .subitem-check:hover .subitem-box:not(.checked){border-color:var(--olive);}
   }
   body.todo-dragging .drag-handle, body.todo-dragging .sub-drag-handle{cursor:grabbing;}
@@ -1031,7 +1016,6 @@
 
 <script>
 const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", wants:"Shopping", budget:"Budget"};
-const PENCIL_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
@@ -1122,8 +1106,6 @@ function linkHtml(u, attrs, inner){
 
 let styleState = {};
 let wantsState = {};
-// Per-card edit state: a card id in this set shows its pencils and add-rows.
-// Toggled by the Edit chip in each card's header; intentionally not persisted.
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
@@ -1933,7 +1915,6 @@ function renderTodoPanel(){
           <div class="body" onclick="editTodo('${t.id}')"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length?`<div class="todo-meta">${meta.join(" · ")}</div>`:""}</div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
           ${subs.length ? `<button class="todo-icon-btn ${expanded?'active':''}" style="order:4;" onclick="event.stopPropagation(); toggleTodoExpand('${t.id}')" aria-label="${expanded?'Hide':'Show'} sub-items" aria-expanded="${expanded}">${SUBLIST_ICON}</button>` : ""}
-          <button class="row-edit-btn" style="order:5;" onclick="event.stopPropagation(); editTodo('${t.id}')" aria-label="Edit to-do">${PENCIL_ICON}</button>
         </div>
         ${expanded && subs.length ? renderSubitems(t) : ""}
       </div>`;
@@ -2004,7 +1985,6 @@ function renderTodoPanel(){
   const recRows = recurring.map(t => `<div class="item recurring-row" onclick="editTodo('${t.id}')">
       <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
       <div class="body"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))} · next ${escapeHtml(t.due ? dueLabel(t.due).replace(/^(Today|Tomorrow|Yesterday)$/, w => w.toLowerCase()) : "today")}</div></div>
-      <span class="row-edit-btn" aria-hidden="true">${PENCIL_ICON}</span>
     </div>`).join("");
   html += collapsibleCard({id:"todo-recurring", title:"Recurring", insight:recurring.length ? `${recurring.length}` : "None",
     body:recRows || `<div class="empty">Set <b>Repeat</b> on a to-do (tap it to edit, or use the Repeat chip when adding) and it shows up here.</div>`});
@@ -3010,8 +2990,8 @@ function washCalendarHtml(){
     <div class="cal-grid">${cells}</div>
     <p class="footnote">Tap a date to make it a wash day — the schedule repeats from there.</p>`;
 }
-// Collapsible card used across tabs: the header (title, insight badge, optional
-// Edit chip, chevron) toggles the body; open state lives in openPinned.
+// Collapsible card used across tabs: the header (title, insight badge, chevron)
+// toggles the body; open state lives in openPinned.
 // No Edit mode: tapping an item opens its editor, and "+ Add" rows sit at the
 // bottom of each card (the way Android apps do it)
 function collapsibleCard({id, title, insight = "", insightId = "", body = "", wrapBody = true, innerId = ""}){

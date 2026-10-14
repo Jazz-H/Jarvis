@@ -1293,6 +1293,7 @@ await section("budget: fixes from the review", async () => {
   check("import keeps bills whose name starts with a heading word", await page.evaluate(() => parseBillRows("Card\t3rd\tMonthly gym\t$30").length === 1));
   // no Edit modes: cards carry no Edit chip; Cards & banks opens its own sheet
   check("cards have no Edit chip", !(await page.$(".edit-chip")));
+  check("no pencil buttons anywhere", await page.evaluate(() => { renderHome(); return !document.querySelector(".row-edit-btn, .inline-pencil"); }));
   // tapping things edits them
   await page.evaluate(() => { activateTab("skin"); openPinned.add("routine-card"); renderSkin(); });
   await page.click("#routine-card .band .step.editable >> nth=0");
