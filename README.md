@@ -129,7 +129,7 @@ clothes, moto gear, and everything else.
   milestone and a finish date at the last 3 months' pace. Plan lines pointed at a goal count once their payday
   arrives. The card appears once there's a goal.
 - **Spending** by category appears once something's logged (or from Manage).
-- **Manage** (bottom, one line each): paychecks, add income, Goals and Spending until used,
+- **Manage** (a quiet "⚙ Manage budget" link at the bottom opens it as a sheet): paychecks, add income, Goals and Spending until used,
   Cards & banks, **Import bills from a sheet** (paste rows: card/bank, "6th", expense,
   "$120.00" or "-"), **Import paychecks** (date + amount rows set each payday's amount), and
   **Import paycheck plans** (blocks starting with a "Paycheck" row).
@@ -215,7 +215,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (367 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (370 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
