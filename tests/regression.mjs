@@ -931,6 +931,7 @@ await section("budget: pay that varies by check", async () => {
   // varies + received survive a reload
   await page.reload(); await page.waitForTimeout(300);
   check("goals aren't repeated above the pay periods", await page.evaluate(() => !document.querySelector(".budget-goals-strip")));
+  check("no Month at a Glance in a month without paydays", await page.evaluate(() => { shiftBudgetMonth(-3); const none = !incomeInMonth(budgetMonthKey()).length; const ok = !none || !document.getElementById("glance"); shiftBudgetMonth(3); return ok; }));
   check("the calendar starts folded at the bottom", await page.evaluate(() => { const c = document.getElementById("budget-cal"); return !!c && !c.classList.contains("open") && !!(c.compareDocumentPosition(document.getElementById("pay-periods")) & Node.DOCUMENT_POSITION_PRECEDING); }));
   check("varies and received persist", await page.evaluate(() => budget.income[0].varies && budget.plans[`inc-v|${addDaysIso(-28)}`].received === true));
   check("no JS errors", errors.length === 0, errors);
@@ -1044,6 +1045,9 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
   await page.click("#pay-periods .plan-row .todo-check");
   check("plan lines can be checked off", await page.evaluate(() => incomeInMonth(budgetMonthKey())[0].plan.lines[0].done === true));
   check("done plan lines are struck through", !!(await page.$("#pay-periods .plan-row.done")));
+  const half = await page.evaluate(() => { const ps = incomeInMonth(budgetMonthKey()); return { tile: [...document.querySelectorAll(".budget-kpi")].map(e => e.textContent.replace(/\s+/g, " ")).find(t => t.startsWith("Bills")), n: ps.filter(p => !p.plan.lines.length).length }; });
+  check("half-planned month: unplanned checks count their bills due (marked ~)", half.n === 0 || (half.tile.includes("~") && half.tile.includes("not planned yet")), half);
+  check("income names keep their case in the plan", await page.evaluate(() => { budget.income[0].name = "CCCI"; renderBudget(); const t = document.querySelector("#pay-periods .pp-title span").textContent; budget.income[0].name = "Paycheck"; renderBudget(); return t.includes("CCCI"); }));
   check("Month at a Glance adds it up", await page.evaluate(() => { const t = document.querySelector("#glance").textContent; return t.includes("Income") && t.includes("Bills & spending") && t.includes("Left over"); }));
   // reload: joint group, account, share, varies and done all survive
   await page.reload(); await page.waitForTimeout(500);
