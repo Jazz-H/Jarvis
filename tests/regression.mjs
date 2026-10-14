@@ -511,7 +511,7 @@ await section("US holidays", async () => {
   check("Home calendar marks the holiday", home.cell, home);
   // Budget: federal holidays only
   await page.evaluate(() => { activateTab("budget"); const t = addDaysIso(0);
-    budgetMonthOffset = (2026 - Number(t.slice(0, 4))) * 12 + (10 - Number(t.slice(5, 7))); renderBudget(); selectBudgetDay("2026-10-12"); });
+    budgetMonthOffset = (2026 - Number(t.slice(0, 4))) * 12 + (10 - Number(t.slice(5, 7))); openPinned.add("budget-cal"); renderBudget(); selectBudgetDay("2026-10-12"); });
   const bud = await page.evaluate(() => ({ chip: (document.querySelector("#budget-cal .holiday-chip") || {}).textContent || "" }));
   check("Budget calendar notes bank holidays", bud.chip.includes("Columbus Day"), bud);
   check("no JS errors", errors.length === 0, errors);
@@ -800,7 +800,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   await page.evaluate(() => { activateTab("budget"); budget.expenses.push({ id: "exp-big", name: "Big shop", amount: 500, cat: "cat-groceries", date: addDaysIso(0) }); renderBudget(); });
   check("over-limit category is flagged", !!(await page.$(".budget-cat-amt.over")));
   await page.click('.budget-month .cal-nav[aria-label="Next month"]');
-  check("next month projects the bill", (await page.textContent("#bills-card")).includes("Rent"));
+  check("next month projects the bill", (await page.textContent("#bills-mine")).includes("Rent"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -819,12 +819,12 @@ await section("budget: sheet import, joint bills, paychecks, savings", async () 
     bills: bills.map(b => [b.name, b.amount, b.account, b.group, Number(b.due.slice(8))]),
     accts: budget.accounts,
     total: billsInMonth(budgetMonthKey()).reduce((s, x) => s + x.amount, 0),
-    subs: [...document.querySelectorAll("#bills-card .budget-sub")].map(e => e.textContent).filter(t => /^(Monthly|Joint)/.test(t)),
+    subs: [document.querySelector("#bills-mine h3"), document.querySelector("#bills-joint h3")].map(e => e ? e.textContent : ""),
   }));
   check("rows import with account, amount ('-' = 0) and day; header and Total skipped", r.bills.length === 4
     && JSON.stringify(r.bills[0].slice(0, 4)) === '["Phone",70,"Bank A","personal"]' && r.bills[1][1] === 0 && r.bills[2][1] === 1200.5, r.bills);
   check("new cards/banks are added to the list", r.accts.includes("Bank A") && r.accts.includes("Card B"), r.accts);
-  check("joint bills group separately with subtotals", r.bills[3][3] === "joint" && r.subs.length === 2 && r.subs[1].startsWith("Joint"), r.subs);
+  check("joint bills group separately with subtotals", r.bills[3][3] === "joint" && r.subs[0] === "My Bills" && r.subs[1] === "Joint Bills" && (await page.textContent("#bills-joint")).includes("Storage"), r.subs);
   check("month total covers both groups", Math.abs(r.total - 1330.5) < 0.001, r.total);
   // Paychecks
   const p = await page.evaluate(() => {
@@ -838,7 +838,7 @@ await section("budget: sheet import, joint bills, paychecks, savings", async () 
   check("a biweekly paycheck lands 2–3 times a month", p.n >= 2 && p.n <= 3, p.n);
   check("paycheck remaining = amount minus its lines", p.left === 1500, p.left);
   check("bills-before-next-payday hint offered", p.hint);
-  check("summary switches to Remaining once there's income", p.head === "Remaining", p.head);
+  check("summary leads with Income once there's a paycheck", p.head === "Income" && (await page.textContent(".budget-kpis")).includes("Left over"), p.head);
   // Savings goal
   await page.evaluate(() => editGoal());
   await page.fill("#modal-name", "House");
@@ -905,19 +905,19 @@ await section("budget: pay that varies by check", async () => {
   await page.click("#modal-backdrop .modal-btn.primary");
   check("saving an expected check unchanged keeps it an estimate", await page.evaluate(() => budget.plans[`inc-v|${addDaysIso(14)}`].amount == null));
   // the page shows ~ for expected checks and the KPI counts them
-  await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
-  const ui = await page.evaluate(() => ({ approx: document.querySelectorAll("#pay-periods .period-head .approx").length, recv: document.querySelectorAll("#pay-periods .period-head.recv .todo-check").length,
+  await page.evaluate(() => renderBudget());
+  const ui = await page.evaluate(() => ({ approx: document.querySelectorAll("#pay-periods .pp-head .approx").length, recv: document.querySelectorAll("#pay-periods .pp-head.recv .todo-check").length,
     kpi: document.querySelector(".budget-kpi i").textContent, manage: (openBudgetManage(), document.querySelector("#budget-manage").textContent) }));
   await page.evaluate(() => closeModal());
   check("periods mark expected checks with ~ and offer Received", ui.recv >= 1 && ui.approx >= 1 && /expected/.test(ui.kpi), ui);
   // the period checkbox: unticking goes back to expected, ticking asks for the amount
-  const k1 = await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; Object.assign(planFor(p.key), { amount: 2050, received: true }); periodOpen[p.key] = true; saveBudgetData(); return p.key; });
-  await page.click(`#pay-periods .period-head.recv.got .todo-check`);
+  const k1 = await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; Object.assign(planFor(p.key), { amount: 2050, received: true }); saveBudgetData(); return p.key; });
+  await page.click(`#pay-periods .pp-head.recv.got .todo-check`);
   check("unticking Received returns the check to expected", await page.evaluate(k => !budget.plans[k].received && budget.plans[k].amount === 2050, k1));
-  await page.click(`#pay-periods .period-head.recv:not(.got) .todo-check >> nth=0`);
+  await page.click(`#pay-periods .pp-head.recv:not(.got) .todo-check >> nth=0`);
   check("ticking Received opens the amount, prefilled as received", await page.isChecked("#modal-received"));
   await page.click("#modal-backdrop .modal-btn.primary");
-  check("ticked check shows as received", await page.evaluate(k => budget.plans[k].received === true && !!document.querySelector("#pay-periods .period-head.recv.got"), k1));
+  check("ticked check shows as received", await page.evaluate(k => budget.plans[k].received === true && !!document.querySelector("#pay-periods .pp-head.recv.got"), k1));
   check("Manage lists the income as varying and offers import", ui.manage.includes("varies · ~$2,000") && ui.manage.includes("Import paychecks"), ui.manage);
   // pasting the sheet's Income rows
   const rows = await page.evaluate(() => [addDaysIso(-28), addDaysIso(14), addDaysIso(3)].map(d => `${Number(d.slice(5, 7))}/${d.slice(8)}/${d.slice(0, 4)} - Work\t$1,234.56`).join("\n") + "\nTotal\t$9,999.00");
@@ -931,7 +931,21 @@ await section("budget: pay that varies by check", async () => {
   // varies + received survive a reload
   await page.reload(); await page.waitForTimeout(300);
   check("goals aren't repeated above the pay periods", await page.evaluate(() => !document.querySelector(".budget-goals-strip")));
-  check("a divider sets the pay periods apart", await page.evaluate(() => { const hr = document.querySelector("#panel-budget .budget-divider"); return !!hr && !!hr.nextElementSibling && hr.compareDocumentPosition(document.getElementById("pay-periods")) & Node.DOCUMENT_POSITION_FOLLOWING; }));
+  const od = await page.evaluate(() => {
+    const k = budgetMonthKey(), prev = addMonthsIso(k + "-20", -1);
+    bills.push({ id: "bill-od", name: "Late one", amount: 100, due: prev, day: 20, repeat: "once", autopay: false, link: null, group: "personal", account: null }); saveBudgetData();
+    const tiles = [...document.querySelectorAll(".budget-kpi")].map(e => [...e.children].map(c => c.textContent).join(" | "));
+    const rowsN = document.querySelectorAll("#panel-budget .btab-row").length;
+    bills = bills.filter(b => b.id !== "bill-od"); saveBudgetData();
+    const after = [...document.querySelectorAll(".budget-kpi")].map(e => [...e.children].map(c => c.textContent).join(" | "));
+    return { tiles, after, rowsN };
+  });
+  const amt = t => Number((t.match(/\$([\d,]+\.?\d*)/) || [0, "0"])[1].replace(/,/g, ""));
+  check("a bill overdue from last month counts in Bills & spending", Math.abs(amt(od.tiles[1]) - amt(od.after[1]) - 100) < 0.01, od);
+  check("paid counts cover every row in the tables", od.tiles[1].includes(`of ${od.rowsN} bills`), od);
+  check("a month before the paycheck starts shows no red Left over", await page.evaluate(() => { shiftBudgetMonth(-3); const t = document.querySelector(".budget-kpis").textContent; const ok = incomeInMonth(budgetMonthKey()).length || (!t.includes("Left over") && t.includes("No paydays")); shiftBudgetMonth(3); return !!ok; }));
+  check("no Month at a Glance in a month without paydays", await page.evaluate(() => { shiftBudgetMonth(-3); const none = !incomeInMonth(budgetMonthKey()).length; const ok = !none || !document.getElementById("glance"); shiftBudgetMonth(3); return ok; }));
+  check("the calendar starts folded at the bottom", await page.evaluate(() => { const c = document.getElementById("budget-cal"); return !!c && !c.classList.contains("open") && !!(c.compareDocumentPosition(document.getElementById("pay-periods")) & Node.DOCUMENT_POSITION_PRECEDING); }));
   check("varies and received persist", await page.evaluate(() => budget.income[0].varies && budget.plans[`inc-v|${addDaysIso(-28)}`].received === true));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
@@ -974,7 +988,6 @@ await section("budget: long-term goals", async () => {
     budget.income.push({ id: "inc-1", name: "Paycheck", amount: 2000, start: addDaysIso(-14), repeat: "biweekly" });
     planFor(`inc-1|${addDaysIso(-14)}`).lines.push({ id: "line-1", name: "Ring fund", amount: 300, goal: g.id });
     planFor(`inc-1|${addDaysIso(14)}`).lines.push({ id: "line-2", name: "Ring fund", amount: 300, goal: g.id });
-    incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); // show past periods too
     saveBudgetData();
     return { saved: goalStatus(g).saved, tag: !!document.querySelector("#pay-periods .goal-tag") };
   });
@@ -1022,25 +1035,21 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
     saveBudgetData();
     return { k };
   });
-  const folded = await page.evaluate(() => ({ open: document.querySelectorAll("#pay-periods .card.period").length, rows: document.querySelectorAll("#pay-periods .period-row").length }));
-  check("only the current pay period is open; the rest fold to a line", folded.open === 1 && folded.rows >= 1, folded);
-  await page.evaluate(() => { incomeInMonth(budgetMonthKey()).forEach(p => { periodOpen[p.key] = true; }); renderBudget(); });
-  const periods = await page.evaluate(() => [...document.querySelectorAll("#pay-periods .card.period")].map(c => c.textContent.replace(/\s+/g, " ")));
-  check("each payday is its own period with the bills due in it", periods.length >= 2 && periods[0].includes("Rent") && !periods[0].includes("Electric") && periods[1].includes("Electric"), periods);
-  check("joint share counts your part", periods[0].includes("$500.00") && periods[0].includes("50%"), periods[0]);
+  const plan = await page.evaluate(() => ({ checks: [...document.querySelectorAll("#pay-periods .pp")].length, pays: incomeInMonth(budgetMonthKey()).length,
+    mine: document.querySelector("#bills-mine").textContent.replace(/\s+/g, " "), joint: document.querySelector("#bills-joint").textContent.replace(/\s+/g, " ") }));
+  check("Paycheck Plan lists every check", plan.checks === plan.pays && plan.pays >= 2, plan);
+  check("My Bills and Joint Bills tables split the bills", plan.mine.includes("Electric") && !plan.mine.includes("Rent") && plan.joint.includes("Rent"), plan);
+  check("joint share counts your part", plan.joint.includes("$500.00") && plan.joint.includes("50%"), plan.joint);
+  check("each check offers its bills due as a plan line", await page.evaluate(() => [...document.querySelectorAll("#pay-periods .plan-hint")].some(b => b.textContent.includes("$500.00"))));
   check("spending hides until something's logged", !(await page.$("#spending-card")) && await page.evaluate(() => budgetManageHtml.includes("Spending by category")));
-  // by-card totals
-  const acct = await page.$$eval("#bills-card .acct-total", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
-  check("totals by card/bank", acct.some(a => a.startsWith("Bank A") && a.includes("$500.00")) && acct.some(a => a.startsWith("Card B") && a.includes("$80.00")), acct);
   // variable bill asks for the amount
   await page.evaluate(() => payBill("bill-b"));
   await page.fill("#modal-amount", "93.40");
   await page.click("#modal-backdrop .modal-btn.primary");
   check("a bill that varies records what it came to", await page.evaluate(() => billPayments[0] && billPayments[0].amount === 93.4));
-  // paid rows fold away; open them and edit the payment
-  check("paid bills fold behind a toggle", !!(await page.$("#pay-periods .paid-toggle")));
-  await page.click("#pay-periods .paid-toggle");
-  await page.click("#pay-periods .bill-row.checked .body");
+  // paid rows stay in the table, struck through; tap one to edit the payment
+  check("paid bills stay listed, struck through", !!(await page.$("#bills-mine .btab-row.checked")));
+  await page.click("#bills-mine .btab-row.checked .btab-name");
   await page.fill("#modal-amount", "95");
   await page.click("#modal-backdrop .modal-btn.primary");
   check("tapping a paid bill edits the payment", await page.evaluate(() => billPayments[0].amount === 95));
@@ -1048,9 +1057,11 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
   await page.evaluate(() => { const p = incomeInMonth(budgetMonthKey())[0]; quickPlanLine(p.key, `1/2 of ${noonOf(budgetMonthKey() + "-01").toLocaleDateString("en-US", { month: "short" })} Bills`, 500); });
   await page.click("#pay-periods .plan-row .todo-check");
   check("plan lines can be checked off", await page.evaluate(() => incomeInMonth(budgetMonthKey())[0].plan.lines[0].done === true));
-  check("a fully done plan folds away", await page.evaluate(() => { const b = document.querySelector("#pay-periods .plan-toggle"); return b && b.getAttribute("aria-expanded") === "false" && !document.querySelector("#pay-periods .card.period .plan-row"); }));
-  await page.click("#pay-periods .plan-toggle");
-  check("and opens again with a tap", !!(await page.$("#pay-periods .plan-row")));
+  check("done plan lines are struck through", !!(await page.$("#pay-periods .plan-row.done")));
+  const half = await page.evaluate(() => { const ps = incomeInMonth(budgetMonthKey()); return { tile: [...document.querySelectorAll(".budget-kpi")].map(e => e.textContent.replace(/\s+/g, " ")).find(t => t.startsWith("Bills")), n: ps.filter(p => !p.plan.lines.length).length }; });
+  check("half-planned month: unplanned checks count their bills due (marked ~)", half.n === 0 || (half.tile.includes("~") && half.tile.includes("not planned yet")), half);
+  check("income names keep their case in the plan", await page.evaluate(() => { budget.income[0].name = "CCCI"; renderBudget(); const t = document.querySelector("#pay-periods .pp-title span").textContent; budget.income[0].name = "Paycheck"; renderBudget(); return t.includes("CCCI"); }));
+  check("Month at a Glance adds it up", await page.evaluate(() => { const t = document.querySelector("#glance").textContent; return t.includes("Income") && t.includes("Bills & spending") && t.includes("Left over"); }));
   // reload: joint group, account, share, varies and done all survive
   await page.reload(); await page.waitForTimeout(500);
   await page.evaluate(() => activateTab("budget")); // the launch param is gone after the first load
@@ -1266,9 +1277,9 @@ await section("budget: fixes from the review", async () => {
     planFor(pa.key).lines.push({ id: "l3", name: "to trip", amount: 10, goal: "goal-1" });
     saveBudgetData();
     const left = incomeInMonth(k).find(p => p.src.id === "inc-a").left;
-    // the first two periods are both the 2nd (A and B); only the first lists the bills
-    const cards = [...document.querySelectorAll("#pay-periods .card.period")].slice(0, 2);
-    const rentListed = cards.filter(c => c.textContent.includes("Rent")).length;
+    // A and B are both paid on the 2nd: only the first offers the bills due as a line
+    const second = noonOf(k + "-02").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const rentListed = [...document.querySelectorAll("#pay-periods .plan-hint")].filter(b => b.textContent.includes(`due ${second}–`)).length;
     return { left, rentListed, k };
   });
   check("paycheck remaining rounds to cents (no −$0.00)", r.left === -10, r.left);
@@ -1439,6 +1450,7 @@ await section("budget: month calendar", async () => {
     const k = budgetMonthKey(), d = n => `${k}-${String(n).padStart(2, "0")}`;
     budget.income = [{ id: "inc-1", name: "Paycheck", amount: 2000, start: d(1), repeat: "biweekly" }];
     bills = [{ id: "bill-a", name: "Rent", amount: 900, due: d(28), repeat: "monthly", autopay: false, link: null, group: "personal", account: null }];
+    openPinned.add("budget-cal"); // it starts folded
     saveBudgetData();
     return k;
   });
@@ -1464,10 +1476,10 @@ await section("budget: autopay pays bills on their due date", async () => {
   ]}});
   const r = await page.evaluate(() => ({
     pays: billPayments.map(p => [p.name, p.date, !!p.auto]), phoneDue: bills.find(b => b.id === "bill-auto").due,
-    rentDue: bills.find(b => b.id === "bill-man").due, gymMeta: [...document.querySelectorAll("#panel-budget .bill-row")].map(e => e.textContent.replace(/\s+/g, " ")).find(t => t.includes("Gym")) }));
+    rentDue: bills.find(b => b.id === "bill-man").due, gymMeta: [...document.querySelectorAll("#panel-budget .btab-row")].map(e => e.textContent.replace(/\s+/g, " ")).find(t => t.includes("Gym")) }));
   check("a due autopay bill is logged as paid on its due date", r.pays.length === 1 && r.pays[0][0] === "Phone" && r.pays[0][1] === isoOffset(-3) && r.pays[0][2], r.pays);
   check("…and moves to next month; manual bills stay overdue", r.phoneDue > isoOffset(0) && r.rentDue === isoOffset(-3), r);
-  check("upcoming autopay bills say so", (r.gymMeta || "").includes("Autopays"), r.gymMeta);
+  check("upcoming autopay bills say so", (r.gymMeta || "").includes("Autopay"), r.gymMeta);
   // un-paying an autopaid bill holds it instead of re-paying it at once
   await page.evaluate(() => unpayBill(billPayments[0].id));
   check("un-paying an autopaid bill sticks", await page.evaluate(() => billPayments.length === 0 && bills.find(b => b.id === "bill-auto").due === addDaysIso(-3)));
