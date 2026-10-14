@@ -86,6 +86,9 @@ clothes, moto gear, and everything else.
   gear, `moto: true`, shown with a "Moto" tag), or a wardrobe category (`wardrobeCat`,
   shown as "Wardrobe · Tops"). They're mutually exclusive.
 - **Buying.** Mark bought moves the item to Purchased; tap Purchased to undo.
+- **Later.** Tap **Later** under an item (or the Later chip when adding, or the box in Edit)
+  to move it off To buy into a folded **Later** card, left out of the counts and totals;
+  **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
 **Budget** is laid out by pay period, one calendar month at a time (‹ › to step months).
@@ -212,7 +215,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (356 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (366 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
