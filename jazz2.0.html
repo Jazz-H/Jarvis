@@ -251,7 +251,6 @@
   .glance .glance-total{border-bottom:none; font-weight:800; font-size:15px;}
   .glance .glance-total b{color:var(--olive); font-weight:800;}
   .glance .glance-total.over b{color:var(--danger);}
-  #bills-card .coll-head h3{color:var(--text);}
   .manage-row{display:flex; align-items:center; gap:10px; width:100%; padding:13px 2px; border:none; border-top:1px solid color-mix(in srgb, var(--line) 60%, transparent);
     background:none; color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left; cursor:pointer;}
   .manage .budget-sub + .manage-row, .manage > .manage-row:first-child{border-top:none;}
@@ -4270,7 +4269,9 @@ function renderBudget(){
     unplannedBills += sum(billRowsBetween(p.date, next < monthEndNext ? next : monthEndNext));
   });
   unplannedBills = r2(unplannedBills);
-  const billsSpend = r2(hasPlan ? plannedTotal - toGoals + unplannedBills : sum(monthRows) + spentTotal);
+  const overdue = r2(sum(rows.filter(r => r.due < monthStart && !r.payment))); // still unpaid from an earlier month
+  const billsSpend = r2((hasPlan ? plannedTotal - toGoals + unplannedBills : sum(monthRows) + spentTotal) + overdue);
+  const paidCount = `${rows.filter(r => r.payment).length} of ${rows.length}`;
   const estimated = hasPlan && unplanned.length > 0;
   const leftOver = r2(incomeTotal - billsSpend - toGoals);
   const goalNames = [...new Set(paychecks.flatMap(p => p.plan.lines.map(l => goalById(l.goal)).filter(Boolean).map(g => g.name)))];
@@ -4283,15 +4284,15 @@ function renderBudget(){
       <button class="cal-nav" onclick="shiftBudgetMonth(1)" aria-label="Next month">›</button>
     </div>
     <div class="budget-kpis four">
-      ${hasIncome ? `${tile("Income", `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`)}
-      ${tile("Bills &amp; spending", `${estimated ? "~" : ""}${moneyShort(billsSpend)}`, estimated ? `${unplanned.length} check${unplanned.length === 1 ? "" : "s"} not planned yet` : `${monthRows.filter(r => r.payment).length} of ${monthRows.length} bills paid`)}
+      ${hasIncome && paychecks.length ? `${tile("Income", `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`)}
+      ${tile("Bills &amp; spending", `${estimated ? "~" : ""}${moneyShort(billsSpend)}`, estimated ? `${unplanned.length} check${unplanned.length === 1 ? "" : "s"} not planned yet` : `${paidCount} bills paid`)}
       ${tile("Left over", signed(leftOver), toGoals ? `after ${moneyShort(toGoals)} to ${goalNames.length === 1 ? escapeHtml(goalNames[0]) : "goals"}` : "", leftOver < 0 ? "neg" : "good")}`
       // no paycheck yet: bills and spending against the category budgets
-      : `${tile("Bills left", moneyShort(r2(sum(unpaid))), `${monthRows.filter(r => r.payment).length} of ${monthRows.length} paid`)}
+      : `${tile("Bills left", moneyShort(r2(sum(unpaid))), `${paidCount} paid`)}
       ${tile("Spent", moneyShort(r2(spentTotal)), limitTotal ? `of ${moneyShort(limitTotal)} budgeted` : "")}
-      ${tile("Income", "—", "Add your paycheck", "", "addIncome()")}`}
+      ${hasIncome ? tile("Income", "$0", `No paydays in ${monthName}`) : tile("Income", "—", "Add your paycheck", "", "addIncome()")}`}
       ${g0 ? tile(escapeHtml(g0.name), moneyShort(Math.round(g0s.saved)), `of ${moneyShort(g0.target)} · ${g0s.pct}%`, "goal", "document.getElementById('goals-card').scrollIntoView({behavior:'smooth'})")
-        : hasIncome ? tile("Bills left", moneyShort(r2(sum(unpaid))), `${unpaid.length} unpaid`) : tile("Left to spend", signed(r2(limitTotal - spentTotal)), "")}
+        : hasIncome && paychecks.length ? tile("Bills left", moneyShort(r2(sum(unpaid))), `${unpaid.length} unpaid`) : tile("Left to spend", signed(r2(limitTotal - spentTotal)), "")}
     </div>`;
 
   // My Bills / Joint Bills: one table each, like the sheet (paid rows struck)

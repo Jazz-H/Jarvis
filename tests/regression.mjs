@@ -931,6 +931,19 @@ await section("budget: pay that varies by check", async () => {
   // varies + received survive a reload
   await page.reload(); await page.waitForTimeout(300);
   check("goals aren't repeated above the pay periods", await page.evaluate(() => !document.querySelector(".budget-goals-strip")));
+  const od = await page.evaluate(() => {
+    const k = budgetMonthKey(), prev = addMonthsIso(k + "-20", -1);
+    bills.push({ id: "bill-od", name: "Late one", amount: 100, due: prev, day: 20, repeat: "once", autopay: false, link: null, group: "personal", account: null }); saveBudgetData();
+    const tiles = [...document.querySelectorAll(".budget-kpi")].map(e => [...e.children].map(c => c.textContent).join(" | "));
+    const rowsN = document.querySelectorAll("#panel-budget .btab-row").length;
+    bills = bills.filter(b => b.id !== "bill-od"); saveBudgetData();
+    const after = [...document.querySelectorAll(".budget-kpi")].map(e => [...e.children].map(c => c.textContent).join(" | "));
+    return { tiles, after, rowsN };
+  });
+  const amt = t => Number((t.match(/\$([\d,]+\.?\d*)/) || [0, "0"])[1].replace(/,/g, ""));
+  check("a bill overdue from last month counts in Bills & spending", Math.abs(amt(od.tiles[1]) - amt(od.after[1]) - 100) < 0.01, od);
+  check("paid counts cover every row in the tables", od.tiles[1].includes(`of ${od.rowsN} bills`), od);
+  check("a month before the paycheck starts shows no red Left over", await page.evaluate(() => { shiftBudgetMonth(-3); const t = document.querySelector(".budget-kpis").textContent; const ok = incomeInMonth(budgetMonthKey()).length || (!t.includes("Left over") && t.includes("No paydays")); shiftBudgetMonth(3); return !!ok; }));
   check("no Month at a Glance in a month without paydays", await page.evaluate(() => { shiftBudgetMonth(-3); const none = !incomeInMonth(budgetMonthKey()).length; const ok = !none || !document.getElementById("glance"); shiftBudgetMonth(3); return ok; }));
   check("the calendar starts folded at the bottom", await page.evaluate(() => { const c = document.getElementById("budget-cal"); return !!c && !c.classList.contains("open") && !!(c.compareDocumentPosition(document.getElementById("pay-periods")) & Node.DOCUMENT_POSITION_PRECEDING); }));
   check("varies and received persist", await page.evaluate(() => budget.income[0].varies && budget.plans[`inc-v|${addDaysIso(-28)}`].received === true));
