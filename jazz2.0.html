@@ -289,7 +289,6 @@
   .repeat-meta svg{width:11px; height:11px;}
   .recurring-row{cursor:pointer; padding:0; gap:0; align-items:center;}
   .recurring-row .body{order:2; flex:1; min-width:0; padding:12px 6px 12px 2px;}
-  #todo-list .wash-row .item{padding-left:20px;} /* lines up with rows that have a drag handle */
   .wash-title{display:flex; align-items:center; gap:6px; color:var(--navy);} /* same color + droplet as wash days on Home's calendar */
   .wash-title svg{width:15px; height:15px; flex-shrink:0;}
   .home-star{display:inline-flex; vertical-align:-2px; margin-left:6px; color:var(--gold);}
@@ -606,12 +605,6 @@
   .todo-icon-btn.active{color:var(--olive);}
   .subitem-list{padding:0 0 10px 26px;}
   .subitem-row{display:flex; align-items:center; gap:8px; padding:5px 0;}
-  .sub-drag-handle{
-    flex-shrink:0; width:18px; height:24px; margin-left:-4px; padding:0; border:none; background:none;
-    color:var(--text-dim); display:flex; align-items:center; justify-content:center;
-    touch-action:none; cursor:grab; opacity:.55;
-  }
-  .sub-drag-handle svg{width:12px; height:12px;}
   .subitem-row.drag-active-sub{
     position:relative; z-index:15; background:var(--surface-2); border-radius:10px;
     outline:1.5px solid var(--olive); box-shadow:0 8px 20px rgba(0,0,0,.5);
@@ -649,11 +642,6 @@
     background:var(--surface-2); color:var(--text-dim); display:flex; align-items:center; justify-content:center;}
 
   /* to-do drag-to-reorder */
-  .drag-handle{
-    flex-shrink:0; width:24px; height:28px; margin-left:-6px; padding:0; border:none; background:none;
-    color:var(--text-dim); display:flex; align-items:center; justify-content:center;
-    touch-action:none; cursor:grab; order:0; opacity:.65; align-self:center;
-  }
   .todo-wrap.drag-active{position:relative; z-index:15;}
   .todo-wrap.drag-active .item{
     background:var(--surface-2); border-radius:12px; outline:1.5px solid var(--olive);
@@ -679,7 +667,6 @@
   .todo-wrap .item, #todo-completed .item{padding:0 2px 0 0; gap:0;}
   .todo-wrap .item .body, #todo-completed .item .body{order:2; padding:12px 6px 12px 2px; min-width:0;}
   .todo-wrap .item .body{cursor:pointer;}
-  .todo-wrap .drag-handle{height:44px; width:28px; margin-left:-8px; align-self:flex-start;}
   .todo-check{
     order:1; flex-shrink:0; width:40px; height:44px; padding:0; border:none; background:none;
     display:flex; align-items:center; justify-content:center;
@@ -804,7 +791,6 @@
     border:1px solid var(--line); background:var(--surface-2); border-radius:8px;
   }
   .subitem-row{padding:0; gap:2px; min-height:44px;}
-  .sub-drag-handle{height:44px;}
   .subitem-check{
     flex-shrink:0; width:36px; height:44px; padding:0; border:none; background:none;
     display:flex; align-items:center; justify-content:center;
@@ -919,12 +905,13 @@
     .reset-btn:hover, .modal-btn.danger:hover{background:color-mix(in srgb, var(--danger) 12%, transparent);}
     .box:hover, .subitem-box:not(.checked):hover{border-color:var(--olive);}
     .link:hover{text-decoration:underline;}
-    .drag-handle:hover, .sub-drag-handle:hover{opacity:1; color:var(--text);}
     #todo-completed .completed-actions:hover{background:none;}
     #todo-completed .completed-actions:hover::before{border-color:var(--text-dim);}
     .todo-check:hover .box, .subitem-check:hover .subitem-box:not(.checked){border-color:var(--olive);}
   }
-  body.todo-dragging .drag-handle, body.todo-dragging .sub-drag-handle{cursor:grabbing;}
+  body.todo-dragging{cursor:grabbing;}
+  .sort-active{position:relative; z-index:15; background:var(--surface-2) !important; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.45);}
+  .step.editable, .rule.editable, .plan-row, #goals-card .goal, #spending-card .budget-cat, .subitem-row{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
 
   /* ---------- desktop (≥768px): tab bar moves to the top, content centers ----------
      Body is a flex column and main scrolls internally, so the nav can leave its
@@ -1086,7 +1073,6 @@ const STAR_FILLED_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="
 const SUBLIST_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"/></svg>';
 const SMALL_PLUS_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
 const X_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-const GRIP_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none"><circle cx="9" cy="5.5" r="1.7"/><circle cx="15" cy="5.5" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18.5" r="1.7"/><circle cx="15" cy="18.5" r="1.7"/></svg>';
 const DUPLICATE_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14ZM10 11v6M14 11v6"/></svg>';
 
@@ -1936,7 +1922,6 @@ function renderTodoPanel(){
   const renderSubitems = (t) => {
     const subs = t.subitems || [];
     const rows = subs.map(s => `<div class="subitem-row" data-sub-id="${s.id}">
-        <button class="sub-drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
         <button class="subitem-check" role="checkbox" aria-checked="${!!s.done}" aria-label="Complete: ${escapeAttr(s.text)}" onclick="event.stopPropagation(); toggleSubitem('${t.id}','${s.id}')"><span class="subitem-box ${s.done?'checked':''}">${BOX_CHECK_SVG}</span></button>
         <div class="subitem-text ${s.done?'checked':''}">${escapeHtml(s.text)}</div>
         <button class="subitem-del" onclick="event.stopPropagation(); deleteSubitem('${t.id}','${s.id}')" aria-label="Delete sub-item">${X_ICON}</button>
@@ -1965,7 +1950,6 @@ function renderTodoPanel(){
     if (t.repeat) meta.push(`<span class="repeat-meta">${REPEAT_ICON}${escapeHtml(repeatLabel(t))}</span>`);
     return `<div class="todo-wrap" data-todo-id="${t.id}">
         <div class="item ${t.done?'checked':''}">
-          <button class="drag-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP_ICON}</button>
           <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
           <div class="body" onclick="editTodo('${t.id}')"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length?`<div class="todo-meta">${meta.join(" · ")}</div>`:""}</div>
           <button class="todo-icon-btn ${t.starred?'starred':''}" style="order:3;" onclick="event.stopPropagation(); toggleTodoStar('${t.id}')" aria-label="${t.starred?'Unstar':'Star'} to-do">${t.starred?STAR_FILLED_ICON:STAR_ICON}</button>
@@ -2916,10 +2900,10 @@ function renderSkin(){
     const head = key === "washPm"
       ? `Wash-day PM<span class="routine-sub">replaces PM on wash days</span>`
       : key.toUpperCase();
-    const rows = steps.map((s, n) => `<button class="step editable" onclick="editRoutineStep('${key}','${s.id}')">
+    const rows = steps.map((s, n) => `<button class="step editable" data-sort-id="${s.id}" onclick="editRoutineStep('${key}','${s.id}')">
         <span class="n">${n+1}.</span><div>${routineStepText(s)}${s.days ? `<span class="note">${daysText(s.days)} only</span>` : ''}</div>
       </button>`).join("");
-    return `<div class="band ${key === 'am' ? 'am' : 'pm'}"><div class="label">${head}</div>
+    return `<div class="band ${key === 'am' ? 'am' : 'pm'}" data-band="${key}"><div class="label">${head}</div>
         ${rows || '<div class="empty">No steps.</div>'}
         <button class="add-row" onclick="addRoutineStep('${key}')">+ Add step</button>
       </div>`;
@@ -2929,7 +2913,7 @@ function renderSkin(){
 
   // 5. Key rules (only shown once there are some)
   if (!skinRules.length){ el.innerHTML = html; return; }
-  let rules = skinRules.map((r, i) => `<button class="rule editable" onclick="editSkinRule(${i})">${escapeHtml(r)}</button>`).join("")
+  let rules = skinRules.map((r, i) => `<button class="rule editable" data-sort-id="${i}" onclick="editSkinRule(${i})">${escapeHtml(r)}</button>`).join("")
     + `<button class="add-row" onclick="addSkinRule()">+ Add rule</button>`;
   html += collapsibleCard({id:"rules-skin", title:"Key rules", insight:`${skinRules.length} rules`, body:rules});
   el.innerHTML = html;
@@ -3904,7 +3888,7 @@ function goalsCardHtml(){
         <span class="goal-note">${escapeHtml(e.note || (e.amount < 0 ? "Taken out" : "Added"))}</span>
         <b class="${e.amount < 0 ? "neg" : ""}">${e.amount < 0 ? "−" : "+"}${money(Math.abs(e.amount))}</b>
       </${e.linked ? "div" : "button"}>`).join("");
-    return `<div class="goal ${s.reached ? "reached" : ""}">
+    return `<div class="goal ${s.reached ? "reached" : ""}" data-sort-id="${g.id}">
         <button class="goal-head" onclick="editGoal('${g.id}')"><b>${escapeHtml(g.name)}</b><span>${moneyShort(Math.round(s.saved))} of ${moneyShort(g.target)}</span></button>
         <div class="goal-track"><div class="progress-bar"><div class="progress-fill" style="width:${s.pct}%"></div></div>${marks}</div>
         <div class="goal-meta"><span>${s.pct}%</span> · ${meta.join(" · ")}</div>
@@ -4065,7 +4049,7 @@ function spendingCardHtml(spent, spentTotal){
     const items = list.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).map(e => `<button class="expense-row" onclick="editExpense('${e.id}')">
         <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(noonOf(e.date).toLocaleDateString('en-US', {month:'short', day:'numeric'}))}</span><b>${money(e.amount)}</b>
       </button>`).join("");
-    cats += `<div class="budget-cat ${open ? "open" : ""}">
+    cats += `<div class="budget-cat ${open ? "open" : ""}" ${c.id !== "none" ? `data-sort-id="${c.id}"` : ""}>
         <button class="budget-cat-head" onclick="toggleBudgetCat('${c.id}')" aria-expanded="${open}">
           <span class="budget-cat-name">${escapeHtml(c.name)}</span>
           <span class="budget-cat-amt ${over ? "over" : ""}">${moneyShort(total)}${c.limit ? ` <span>of ${moneyShort(c.limit)}</span>` : ""}</span>
@@ -4327,11 +4311,11 @@ function renderBudget(){
     const billsDue = billedDates.has(p.date) ? 0 : r2(sum(billRowsBetween(p.date, next)));
     billedDates.add(p.date);
     const now = p.date <= today && today < next;
-    const lines = p.plan.lines.map(l => `<div class="plan-row ${l.done ? "done" : ""}">
+    const lines = p.plan.lines.map(l => `<div class="plan-row ${l.done ? "done" : ""}" data-sort-id="${l.id}">
         <button class="todo-check" role="checkbox" aria-checked="${!!l.done}" aria-label="${l.done ? "Not done" : "Done"}: ${escapeAttr(l.name)}" onclick="togglePlanLine('${p.key}','${l.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
         <button class="plan-body" onclick="editPlanLine('${p.key}','${l.id}')"><span>${escapeHtml(l.name)}${goalById(l.goal) ? `<span class="goal-tag">→ ${escapeHtml(goalById(l.goal).name)}</span>` : ""}</span><b>${money(l.amount)}</b></button>
       </div>`).join("");
-    plan += `<div class="pp ${now ? "now" : ""}">
+    plan += `<div class="pp ${now ? "now" : ""}" data-key="${p.key}">
         <div class="pp-head ${p.src.varies ? "recv" : ""} ${p.received ? "got" : ""}">
           ${p.src.varies ? `<button class="todo-check" role="checkbox" aria-checked="${p.received}" aria-label="${p.received ? "Not received" : "Mark received"}: ${escapeAttr(p.src.name)} ${escapeAttr(shortDate(p.date))}" onclick="toggleReceived('${p.src.id}','${p.date}')"><span class="box">${BOX_CHECK_SVG}</span></button>` : ""}
           <button class="pp-title" onclick="editPaycheck('${p.src.id}','${p.date}')"><span>${escapeHtml(shortDate(p.date))} ${escapeHtml(/^paycheck$/i.test(p.src.name) ? "paycheck" : p.src.name)}${now ? `<em>Now</em>` : ""}</span>
@@ -4458,7 +4442,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   const mainEl = document.querySelector("main");
   let startX = 0, startY = 0, tracking = false;
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal, .bcal-wrap")){ tracking = false; return; }
+    if (e.target.closest(".home-cal, .bcal-wrap")){ tracking = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;
@@ -4489,7 +4473,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   let startY = 0, pulling = false, dragging = false;
 
   mainEl.addEventListener("touchstart", e => {
-    if (e.target.closest(".drag-handle, .sub-drag-handle, .home-cal, .bcal-wrap")){ pulling = false; dragging = false; return; }
+    if (e.target.closest(".home-cal, .bcal-wrap")){ pulling = false; dragging = false; return; }
     pulling = mainEl.scrollTop <= 0;
     dragging = false;
     startY = e.touches[0].clientY;
@@ -4535,25 +4519,21 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   const panel = document.getElementById("panel-todo");
   let sd = null;
 
-  panel.addEventListener("pointerdown", e => {
-    const handle = e.target.closest(".sub-drag-handle");
-    if (!handle || sd) return;
-    const row = handle.closest(".subitem-row");
-    const list = handle.closest(".subitem-list");
-    const wrap = handle.closest(".todo-wrap");
-    if (!row || !list || !wrap) return;
-    e.preventDefault();
-    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+  pressToDrag(panel, ".subitem-row", (row, x, y, pointerId, y0 = y) => {
+    const list = row.closest(".subitem-list");
+    const wrap = row.closest(".todo-wrap");
+    if (!list || !wrap || sd) return;
+    try{ row.setPointerCapture(pointerId); }catch(err){}
     const r = row.getBoundingClientRect();
     sd = {row, list, wrap, todoId:wrap.dataset.todoId, subId:row.dataset.subId,
-          clientY:e.clientY, clientX:e.clientX, startX:e.clientX,
-          grabOffset:e.clientY - r.top, promoting:false, moveTarget:null, raf:0,
+          clientY:y, clientX:x, startX:x,
+          grabOffset:y0 - r.top, promoting:false, moveTarget:null, raf:0,
           clip:[wrap.closest(".coll-body"), wrap.closest(".pinned")].filter(Boolean)};
     sd.clip.forEach(el => el.style.overflow = "visible");
     row.classList.add("drag-active-sub");
     document.body.classList.add("todo-dragging");
     tick();
-  });
+  }, "button, a, input, textarea");
 
   panel.addEventListener("pointermove", e => {
     if (sd){ sd.clientY = e.clientY; sd.clientX = e.clientX; }
@@ -4621,6 +4601,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
 
   function end(commit){
     if (!sd) return;
+    dragJustEnded = Date.now();
     cancelAnimationFrame(sd.raf);
     sd.row.style.transform = "";
     sd.row.classList.remove("drag-active-sub", "promoting");
@@ -4665,13 +4646,14 @@ const pressDrag = {pending:null};
 document.addEventListener("click", e => { if (Date.now() - dragJustEnded < 400){ e.preventDefault(); e.stopPropagation(); } }, true);
 document.addEventListener("touchmove", e => { if (document.body.classList.contains("todo-dragging")) e.preventDefault(); }, {passive:false});
 document.addEventListener("contextmenu", e => { if (document.body.classList.contains("todo-dragging") || pressDrag.pending) e.preventDefault(); });
-function pressToDrag(panel, rowSel, onStart){
-  const IGNORE = "button, a, input, textarea, select, label, .subitem-list, .drag-handle";
+function pressToDrag(panel, rowSel, onStart, ignore = "button, a, input, textarea, select, label, .subitem-list"){
+  const owner = {}; // several lists can share a panel: each only acts on its own press
   panel.addEventListener("pointerdown", e => {
     if (e.button > 0 || pressDrag.pending || document.body.classList.contains("todo-dragging")) return;
     const row = e.target.closest(rowSel);
-    if (!row || e.target.closest(IGNORE)) return;
-    const p = {row, x:e.clientX, y:e.clientY, id:e.pointerId, touch:e.pointerType !== "mouse", timer:0};
+    const skip = row && e.target.closest(ignore);
+    if (!row || (skip && skip !== row && row.contains(skip))) return;
+    const p = {owner, row, x:e.clientX, y:e.clientY, id:e.pointerId, touch:e.pointerType !== "mouse", timer:0};
     pressDrag.pending = p;
     if (p.touch) p.timer = setTimeout(() => {
       if (pressDrag.pending !== p) return;
@@ -4682,7 +4664,7 @@ function pressToDrag(panel, rowSel, onStart){
   });
   panel.addEventListener("pointermove", e => {
     const p = pressDrag.pending;
-    if (!p || e.pointerId !== p.id) return;
+    if (!p || p.owner !== owner || e.pointerId !== p.id) return;
     const d = Math.hypot(e.clientX - p.x, e.clientY - p.y);
     if (p.touch){ if (d > 10){ clearTimeout(p.timer); pressDrag.pending = null; } } // it's a scroll
     else if (d > 6){ pressDrag.pending = null; onStart(p.row, e.clientX, e.clientY, p.id, p.y); }
@@ -4692,7 +4674,7 @@ function pressToDrag(panel, rowSel, onStart){
   panel.addEventListener("pointercancel", cancel);
 }
 
-// Drag-to-reorder for to-do items: press and drag a row (or grab its grip) and
+// Drag-to-reorder for to-do items: press and drag a row and
 // move it up or down the open list. The row follows the finger, rows shuffle
 // live, holding near the top/bottom edge autoscrolls, and dropping under a
 // different day header reassigns the to-do's day.
@@ -4701,12 +4683,6 @@ function pressToDrag(panel, rowSel, onStart){
   const panel = document.getElementById("panel-todo");
   let drag = null;
 
-  panel.addEventListener("pointerdown", e => {
-    const handle = e.target.closest(".drag-handle");
-    if (!handle || drag) return;
-    e.preventDefault();
-    begin(handle.closest(".todo-wrap"), e.clientX, e.clientY, e.pointerId, handle);
-  });
   pressToDrag(panel, "#todo-list .todo-wrap[data-todo-id]", (wrap, x, y, id, y0) => begin(wrap, x, y, id, wrap, y0));
 
   function begin(wrap, x, y, pointerId, captureEl, grabY = y){
@@ -4835,6 +4811,82 @@ function pressToDrag(panel, rowSel, onStart){
     renderHome();
   }
 })();
+
+// Press-and-drag reordering for the other lists (routine steps, rules, plan
+// lines, goals, spending categories): a row moves among its siblings in the
+// same container, and onDrop gets the new order of their data-sort-ids.
+function sortable(panel, itemSel, onDrop, ignore){
+  const mainEl = document.querySelector("main");
+  let d = null;
+  pressToDrag(panel, itemSel, (row, x, y, id, y0 = y) => {
+    if (d || !row.dataset.sortId) return;
+    try{ row.setPointerCapture(id); }catch(err){}
+    const r = row.getBoundingClientRect();
+    d = {row, box:row.parentElement, clientY:y, grabOffset:y0 - r.top, raf:0,
+         clip:[row.closest(".coll-body"), row.closest(".pinned"), row.closest(".card")].filter(Boolean)};
+    d.clip.forEach(el => el.style.overflow = "visible");
+    row.classList.add("sort-active");
+    document.body.classList.add("todo-dragging");
+    tick();
+  }, ignore);
+  panel.addEventListener("pointermove", e => { if (d) d.clientY = e.clientY; });
+  panel.addEventListener("pointerup", () => end(true));
+  panel.addEventListener("pointercancel", () => end(false));
+  function tick(){
+    if (!d) return;
+    const mr = mainEl.getBoundingClientRect();
+    if (d.clientY < mr.top + 70) mainEl.scrollTop -= 9;
+    else if (d.clientY > mr.bottom - 110) mainEl.scrollTop += 9;
+    const sibs = [...d.box.children].filter(el => el !== d.row && el.matches(itemSel) && el.dataset.sortId);
+    const next = sibs.find(el => { const b = el.getBoundingClientRect(); return d.clientY <= b.top + b.height / 2; });
+    if (next){ if (next.previousElementSibling !== d.row) d.box.insertBefore(d.row, next); }
+    else if (sibs.length){ const last = sibs[sibs.length - 1]; if (last.nextElementSibling !== d.row) last.after(d.row); }
+    d.row.style.transform = "";
+    const top = d.row.getBoundingClientRect().top;
+    d.row.style.transform = `translateY(${d.clientY - d.grabOffset - top}px)`;
+    d.raf = requestAnimationFrame(tick);
+  }
+  function end(commit){
+    if (!d) return;
+    dragJustEnded = Date.now();
+    cancelAnimationFrame(d.raf);
+    const {row, box} = d;
+    row.style.transform = "";
+    row.classList.remove("sort-active");
+    d.clip.forEach(el => el.style.overflow = "");
+    document.body.classList.remove("todo-dragging");
+    d = null;
+    const ids = [...box.children].filter(el => el.matches(itemSel) && el.dataset.sortId).map(el => el.dataset.sortId);
+    if (commit) onDrop(box, ids); else { renderSkin(); renderBudget(); }
+  }
+}
+const byIds = (list, ids, key = x => x.id) => ids.map(id => list.find(x => String(key(x)) === id)).filter(Boolean)
+  .concat(list.filter(x => !ids.includes(String(key(x))))); // anything not shown keeps its place at the end
+// Skin & Hair: routine steps within their band, and the key rules
+sortable(document.getElementById("panel-skin"), ".band[data-band] > .step.editable", (box, ids) => {
+  const key = box.dataset.band;
+  if (!skinRoutine[key]) return;
+  skinRoutine[key] = byIds(skinRoutine[key], ids);
+  saveContent("skin-routine-content", skinRoutine); renderSkin(); renderHomePanel();
+}, "a, input, textarea");
+sortable(document.getElementById("panel-skin"), "#rules-skin .rule.editable", (box, ids) => {
+  skinRules = ids.map(i => skinRules[Number(i)]).filter(r => r != null);
+  saveContent("skin-rules-content", skinRules); renderSkin();
+}, "a, input, textarea");
+// Budget: a paycheck's plan lines, goals, and spending categories
+sortable(document.getElementById("panel-budget"), ".pp[data-key] > .plan-row", (box, ids) => {
+  const plan = budget.plans[box.dataset.key];
+  if (plan) plan.lines = byIds(plan.lines, ids);
+  saveBudgetData();
+}, ".todo-check, a, input");
+sortable(document.getElementById("panel-budget"), "#goals-card .goal", (box, ids) => {
+  budget.goals = byIds(budget.goals, ids);
+  saveBudgetData();
+}, ".goal-actions, .goal-entries, a, input");
+sortable(document.getElementById("panel-budget"), "#spending-card .budget-cat", (box, ids) => {
+  budget.categories = byIds(budget.categories, ids);
+  saveBudgetData();
+}, ".expense-list, a, input");
 
 // Home: press and drag a to-do within the day's lists. Dropping it in another
 // section moves it there: the day's list sets that date, Anytime clears it,
