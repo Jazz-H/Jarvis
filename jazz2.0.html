@@ -835,6 +835,11 @@
   .bill-row .title, .bill-home .title{display:flex; align-items:center;}
   .bill-logo-link .bill-logo{margin-right:0; vertical-align:0;}
   .item.checked .bill-logo{opacity:.55;}
+  .home-sub{display:flex; align-items:center; gap:7px; padding:14px 2px 4px; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+    color:hsl(var(--k, 0) 55% 70%); margin-top:2px;}
+  .home-sub:not([style]){color:var(--text-dim);}
+  .home-sub svg{width:13px; height:13px; flex-shrink:0;}
+  .home-list > .home-sub:first-child{margin-top:0; padding-top:6px;}
   .kind-ic{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; vertical-align:-5px; border-radius:7px;
     color:hsl(var(--k) 75% 70%); background:hsl(var(--k) 60% 55% / .16); flex-shrink:0;}
   .kind-ic svg{width:13px; height:13px;}
@@ -2066,11 +2071,27 @@ function renderHomePanel(){
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join("")
     + lateBills.map(b => homeBillHtml(b)).join(""), "overdue", "keep");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
-  const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])).join("")
-    + dueBills.map(b => homeBillHtml(b)).join("") + repeats.map(repeatGhostHtml).join("")
+  // The day's list groups itself: one-off to-dos first, then every type with
+  // two or more (Chores, Errands…) under its own label, then Bills
+  const items = [...day.open.map(t => ({t, html:homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])})),
+    ...repeats.map(t => ({t, html:repeatGhostHtml(t)}))];
+  const kindCount = {};
+  items.forEach(x => { const k = todoKind(x.t); if (k) kindCount[k] = (kindCount[k] || 0) + 1; });
+  const grouped = k => k && kindCount[k] >= 2;
+  const subHead = (icon, label, hue) => `<div class="home-sub" ${hue != null ? `style="--k:${hue}"` : ""}>${icon}<span>${label}</span></div>`;
+  let dayRows = (day.wash && !washDone ? washRowHtml(iso) : "")
+    + items.filter(x => !grouped(todoKind(x.t))).map(x => x.html).join("");
+  KIND_ORDER.filter(k => kindCount[k] >= 2).forEach(k => {
+    dayRows += subHead(TODO_KINDS[k].icon, TODO_KINDS[k].label, TODO_KINDS[k].hue)
+      + items.filter(x => todoKind(x.t) === k)
+        .sort((a, b) => isKindName(b.t.text, k) - isKindName(a.t.text, k)) // a to-do named "Chores" leads its group
+        .map(x => x.html).join("");
+  });
+  const billRows = dueBills.map(b => homeBillHtml(b)).join("")
     + dayBills.projected.map(b => homeBillHtml(b, {projected:true})).join("")
-    + (washDone ? washRowHtml(iso) : "") // finished to-dos leave Home (they still count in the ring; To-Do keeps them)
     + dayBills.paid.map(p => homeBillHtml(null, {payment:p})).join("");
+  if (billRows) dayRows += subHead(WALLET_ICON, "Bills") + billRows;
+  dayRows += washDone ? washRowHtml(iso) : ""; // finished to-dos leave Home (they still count in the ring; To-Do keeps them)
   const dayName = escapeHtml(dueLabel(iso));
   const doneN = day.done.length;
   const emptyText = doneN ? `All done · ${doneN} to-do${doneN === 1 ? "" : "s"} finished.`
@@ -2556,8 +2577,11 @@ const TODO_KINDS = {
 };
 // order matters: the more specific kinds win ("dinner for mom's birthday" → birthday)
 const KIND_ORDER = ["birthday", "travel", "health", "appointment", "pet", "fitness", "car", "work", "call", "social", "errand", "chores"];
+function isKindName(text, k){ return new RegExp(`^${TODO_KINDS[k].label}s?$`, "i").test(String(text || "").trim()); }
 function detectKind(text){
   const s = String(text || "");
+  const named = KIND_ORDER.find(k => isKindName(s, k));
+  if (named) return named;
   const k = KIND_ORDER.find(k => TODO_KINDS[k].words.test(s));
   if (k) return k;
   return /@\s*\d{1,2}(:\d{2})?\s*(am|pm)?\b|\b\d{1,2}(:\d{2})?\s*(am|pm)\b/i.test(s) ? "appointment" : null; // a time of day reads as an appointment

@@ -1336,6 +1336,23 @@ await section("press and drag works across the app; no grip handles", async () =
   await ctx.close();
 });
 
+await section("Home groups the day by type, with Bills on their own", async () => {
+  const { ctx, page, errors } = await openApp({});
+  const r = await page.evaluate(() => {
+    const t = addDaysIso(0);
+    todoList = ["Return clothes to Old Navy", "Gym", "Clean floors", "Laundry", "Chores"].map((x, i) => ({ id: "t" + i, text: x, done: false, due: t, starred: false, subitems: [], completedAt: null }));
+    bills = [{ id: "b1", name: "AT&T", amount: 25, due: t, day: Number(t.slice(8)), repeat: "monthly", autopay: false, link: null, group: "personal", account: null }];
+    skinRoutine.washPm = []; saveContent("todo-content", todoList); saveBudgetData(); renderHome();
+    const list = document.querySelector("#panel-home .home-list:not(.overdue)") || document.querySelector("#panel-home .home-list");
+    return [...list.children].map(el => el.classList.contains("home-sub") ? "#" + el.textContent.trim() : (el.textContent.match(/Return|Gym|Clean floors|Laundry|Chores|AT&T/) || [""])[0]);
+  });
+  check("one-offs first, then Chores (named one leading), then Bills", r.join("|") === "Return|Gym|#Chores|Chores|Clean floors|Laundry|#Bills|AT&T", r);
+  check("a to-do named like a type takes that type", await page.evaluate(() => detectKind("Chores") === "chores" && detectKind("errands") === "errand"));
+  check("a single to-do of a type isn't grouped", await page.evaluate(() => { todoList = todoList.filter(t => t.text !== "Laundry" && t.text !== "Chores"); renderHome(); return ![...document.querySelectorAll("#panel-home .home-sub")].some(e => e.textContent.includes("Chores")); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words on a picked day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "r", text: "Water plants", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "weekly" },
