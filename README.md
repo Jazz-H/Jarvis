@@ -13,6 +13,9 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 - **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
+- **Grouped by type:** the day's list puts one-off to-dos first, then each type with two or
+  more to-dos under its own label (Chores, Errands…; a to-do named after a type, like
+  "Chores", leads that group), then Bills.
 - **Day hero:** the date, a done/total progress ring, and what's left.
 - **US holidays:** worked out by rule for every year: the 11 federal holidays (plus the
   weekday they're observed on; "banks closed") and common observances (Valentine's,
@@ -218,7 +221,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (391 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (395 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
