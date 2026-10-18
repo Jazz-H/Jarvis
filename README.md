@@ -50,8 +50,8 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
   Tapping the text opens the edit form: title, a date picker, and "add sub-items, one per
   line".
 - **Other actions.** Star an item to float it to the top of its group. Press and drag a
-  row (hold briefly on a phone; click and drag with a mouse), or drag its grip, to reorder or
-  move it into another date group. On Home, dragging a to-do into another section moves it
+  row (hold briefly on a phone; click and drag with a mouse) to reorder or move it into
+  another date group; sub-items work the same way. On Home, dragging a to-do into another section moves it
   there: the day's list sets that date, Anytime clears it.
 - **Completed.** Finished items sit behind a "N completed" toggle with Restore, Duplicate,
   Delete, and Clear completed. They're archived after 7 days.
@@ -153,6 +153,11 @@ shared bottom sheet whose fields fit the tab:
 Every mode adds several in a row: Enter saves and clears, and the header counts the adds.
 Skin & Hair has no + because adding routine steps is a rare edit there.
 
+**Reordering.** Press and drag works everywhere a list's order is yours: to-dos and
+sub-items (To-Do and Home), routine steps and key rules (Skin & Hair), and each paycheck's
+plan lines, goals and spending categories (Budget). There are no grip handles. Bills
+(by due date) and Shopping (priority, need, price) sort themselves.
+
 **Editing.** Like Android apps: tap an item to edit it (to-dos, bills, routine steps, rules,
 Shopping items, plan lines…), tap its checkbox to tick it off. There are no Edit modes;
 "+ Add …" rows sit at the bottom of each card (routine steps, rules, categories), and
@@ -213,7 +218,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (384 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (391 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

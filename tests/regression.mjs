@@ -155,7 +155,7 @@ await section("to-do: drag into another date group sets the date (desktop mouse)
     { id: "x", text: "Undated", done: false, due: null, starred: false, subitems: [], completedAt: null },
     { id: "y", text: "Tomorrow thing", done: false, due: isoOffset(1), starred: false, subitems: [], completedAt: null },
   ]}});
-  const h = await page.locator('#todo-list [data-todo-id="x"] .drag-handle').boundingBox();
+  const h = await page.locator('#todo-list [data-todo-id="x"] .title').boundingBox();
   const t = await page.locator('#todo-list [data-todo-id="y"]').boundingBox();
   await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
   await page.mouse.down();
@@ -1288,6 +1288,50 @@ await section("drag to reorder by pressing a row (Home and To-Do)", async () => 
   });
   check("touch: holding a row picks it up", touch.held, touch);
   check("touch: moving right away is a scroll, not a drag", touch.scrolled, touch);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("press and drag works across the app; no grip handles", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false, query: "?tab=todo", seed: { "todo-content": [
+    { id: "p", text: "Parent", done: false, due: null, starred: false, completedAt: null,
+      subitems: [{ id: "s1", text: "One", done: false }, { id: "s2", text: "Two", done: false }, { id: "s3", text: "Three", done: false }] },
+  ]}});
+  const dragTo = async (from, to, below = false) => {
+    await page.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "center" }), to); // clear of the autoscroll edges
+    const a = await page.locator(from).boundingBox(), b = await page.locator(to).boundingBox();
+    await page.mouse.move(a.x + 30, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(a.x + 30, a.y + a.height / 2 + 8, { steps: 3 });
+    await page.mouse.move(a.x + 30, b.y + (below ? b.height - 2 : 2), { steps: 12 });
+    await page.waitForTimeout(120);
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+  };
+  check("no grip handles anywhere", await page.evaluate(() => { expandedTodos.add("p"); renderHome(); return !document.querySelector(".drag-handle, .sub-drag-handle"); }));
+  // sub-items: press the row
+  await dragTo('#todo-list [data-sub-id="s3"] .subitem-text', '#todo-list [data-sub-id="s1"] .subitem-text');
+  check("sub-items reorder by pressing the row", await page.evaluate(() => todoList[0].subitems.map(s => s.id).join() === "s3,s1,s2"), await page.evaluate(() => todoList[0].subitems.map(s => s.id).join()));
+  // routine steps
+  await page.evaluate(() => { activateTab("skin"); openPinned.add("routine-card"); renderSkin(); });
+  const am0 = await page.evaluate(() => skinRoutine.am.map(s => s.id));
+  await dragTo(`#routine-card .band[data-band="am"] [data-sort-id="${am0[2]}"]`, `#routine-card .band[data-band="am"] [data-sort-id="${am0[0]}"]`);
+  const am1 = await page.evaluate(() => skinRoutine.am.map(s => s.id));
+  check("routine steps reorder", am1[0] === am0[2] && am1[1] === am0[0] && am1.length === am0.length, am1);
+  check("the drop doesn't open the step editor", !(await page.isVisible("#modal-backdrop.open")));
+  // budget: plan lines and goals
+  await page.evaluate(() => {
+    activateTab("budget");
+    const k = budgetMonthKey();
+    budget.income = [{ id: "inc", name: "Paycheck", amount: 1000, start: k + "-01", repeat: "biweekly" }];
+    budget.plans[`inc|${k}-01`] = { lines: [{ id: "la", name: "A", amount: 1 }, { id: "lb", name: "B", amount: 2 }, { id: "lc", name: "C", amount: 3 }] };
+    budget.goals = [{ id: "g1", name: "First", target: 100, saved: 0, date: null, created: k + "-01", log: [] }, { id: "g2", name: "Second", target: 100, saved: 0, date: null, created: k + "-01", log: [] }];
+    saveBudgetData();
+  });
+  await dragTo('#pay-periods [data-sort-id="lc"] .plan-body', '#pay-periods [data-sort-id="la"] .plan-body');
+  check("plan lines reorder", await page.evaluate(() => budget.plans[`inc|${budgetMonthKey()}-01`].lines.map(l => l.id).join() === "lc,la,lb"));
+  await dragTo('#goals-card [data-sort-id="g2"] .goal-head', '#goals-card [data-sort-id="g1"] .goal-head');
+  check("goals reorder (and the top tile follows)", await page.evaluate(() => budget.goals[0].id === "g2" && document.querySelector(".budget-kpi.goal span").textContent === "Second"));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
