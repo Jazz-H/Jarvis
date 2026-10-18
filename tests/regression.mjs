@@ -1346,9 +1346,10 @@ await section("Home groups the day by type, with Bills on their own", async () =
     const list = document.querySelector("#panel-home .home-list:not(.overdue)") || document.querySelector("#panel-home .home-list");
     return [...list.children].map(el => el.classList.contains("home-sub") ? "#" + el.textContent.trim() : (el.textContent.match(/Return|Gym|Clean floors|Laundry|Chores|AT&T/) || [""])[0]);
   });
-  check("one-offs first, then Chores (named one leading), then Bills", r.join("|") === "Return|Gym|#Chores|Chores|Clean floors|Laundry|#Bills|AT&T", r);
+  check("each type under its own label (named one leading), then Bills", r.join("|") === "#Fitness|Gym|#Errands|Return|#Chores|Chores|Clean floors|Laundry|#Bills|AT&T", r);
   check("a to-do named like a type takes that type", await page.evaluate(() => detectKind("Chores") === "chores" && detectKind("errands") === "errand"));
-  check("a single to-do of a type isn't grouped", await page.evaluate(() => { todoList = todoList.filter(t => t.text !== "Laundry" && t.text !== "Chores"); renderHome(); return ![...document.querySelectorAll("#panel-home .home-sub")].some(e => e.textContent.includes("Chores")); }));
+  check("a type keeps its label with just one to-do", await page.evaluate(() => { todoList = todoList.filter(t => t.text !== "Clean floors" && t.text !== "Chores"); renderHome(); return [...document.querySelectorAll("#panel-home .home-sub")].some(e => e.textContent.includes("Chores")); }));
+  check("to-dos with no type stay at the top, unlabeled", await page.evaluate(() => { todoList.push({ id: "v", text: "Something vague", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }); renderHome(); const first = document.querySelector("#panel-home .home-list").firstElementChild; return first.textContent.includes("Something vague"); }));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

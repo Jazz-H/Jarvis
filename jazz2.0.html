@@ -840,6 +840,7 @@
   .home-sub:not([style]){color:var(--text-dim);}
   .home-sub svg{width:13px; height:13px; flex-shrink:0;}
   .home-list > .home-sub:first-child{margin-top:0; padding-top:6px;}
+  .home-sub[style] ~ .todo-wrap .kind-ic{display:none;} /* the label already shows the type */
   .kind-ic{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; vertical-align:-5px; border-radius:7px;
     color:hsl(var(--k) 75% 70%); background:hsl(var(--k) 60% 55% / .16); flex-shrink:0;}
   .kind-ic svg{width:13px; height:13px;}
@@ -2071,18 +2072,19 @@ function renderHomePanel(){
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join("")
     + lateBills.map(b => homeBillHtml(b)).join(""), "overdue", "keep");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
-  // The day's list groups itself: one-off to-dos first, then every type with
-  // two or more (Chores, Errands…) under its own label, then Bills
+  // The day's list groups itself: to-dos with no type first, then each type
+  // that has any to-dos (Chores, Errands…) under its own label, then Bills
   const items = [...day.open.map(t => ({t, html:homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])})),
     ...repeats.map(t => ({t, html:repeatGhostHtml(t)}))];
   const kindCount = {};
   items.forEach(x => { const k = todoKind(x.t); if (k) kindCount[k] = (kindCount[k] || 0) + 1; });
-  const grouped = k => k && kindCount[k] >= 2;
+  const grouped = k => k && kindCount[k] >= 1;
   const subHead = (icon, label, hue) => `<div class="home-sub" ${hue != null ? `style="--k:${hue}"` : ""}>${icon}<span>${label}</span></div>`;
   let dayRows = (day.wash && !washDone ? washRowHtml(iso) : "")
     + items.filter(x => !grouped(todoKind(x.t))).map(x => x.html).join("");
-  KIND_ORDER.filter(k => kindCount[k] >= 2).forEach(k => {
-    dayRows += subHead(TODO_KINDS[k].icon, TODO_KINDS[k].label, TODO_KINDS[k].hue)
+  KIND_ORDER.filter(k => kindCount[k] >= 1).forEach(k => {
+    const plural = {errand:"Errands", appointment:"Appointments", birthday:"Birthdays", call:"Calls", pet:"Pets", car:"Car"}[k] || TODO_KINDS[k].label;
+    dayRows += subHead(TODO_KINDS[k].icon, plural, TODO_KINDS[k].hue)
       + items.filter(x => todoKind(x.t) === k)
         .sort((a, b) => isKindName(b.t.text, k) - isKindName(a.t.text, k)) // a to-do named "Chores" leads its group
         .map(x => x.html).join("");
