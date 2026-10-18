@@ -113,7 +113,7 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
   await page.keyboard.press("Escape");
   check("Esc closes the composer", await page.evaluate(() => !document.getElementById("composer").classList.contains("open")));
 
-  await page.tap('[data-todo-id="b"] .title');
+  await page.tap('#todo-list [data-todo-id="b"] .title');
   check("tapping text opens edit, does not complete", (await page.textContent("#modal-heading")) === "Edit to-do");
   check("sub-items fold away until asked for", !(await page.isVisible("#modal-subs")));
   await page.click("#modal-body .tde-subs-toggle");
@@ -142,7 +142,7 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
   await page.click("#modal-backdrop .modal-btn.primary");
   check("picking a date saves it", await page.evaluate(() => todoList.find(t => t.id === "b").due === addDaysIso(2)));
 
-  await page.tap('[data-todo-id="b"] .todo-check');
+  await page.tap('#todo-list [data-todo-id="b"] .todo-check');
   check("checkbox completes", await page.evaluate(() => todoList.find(t => t.id === "b").done));
   await page.tap(".toast-action");
   check("undo restores", await page.evaluate(() => !todoList.find(t => t.id === "b").done));
@@ -155,8 +155,8 @@ await section("to-do: drag into another date group sets the date (desktop mouse)
     { id: "x", text: "Undated", done: false, due: null, starred: false, subitems: [], completedAt: null },
     { id: "y", text: "Tomorrow thing", done: false, due: isoOffset(1), starred: false, subitems: [], completedAt: null },
   ]}});
-  const h = await page.locator('[data-todo-id="x"] .drag-handle').boundingBox();
-  const t = await page.locator('[data-todo-id="y"]').boundingBox();
+  const h = await page.locator('#todo-list [data-todo-id="x"] .drag-handle').boundingBox();
+  const t = await page.locator('#todo-list [data-todo-id="y"]').boundingBox();
   await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
   await page.mouse.down();
   await page.mouse.move(h.x + h.width / 2, t.y + t.height + 6, { steps: 15 });
@@ -708,7 +708,7 @@ await section("to-do: recurring to-dos", async () => {
   const r0 = await page.evaluate(() => ({
     bad: "repeat" in todoList.find(t => t.id === "x"),
     rows: [...document.querySelectorAll("#todo-recurring .recurring-row .title")].map(e => e.textContent),
-    meta: document.querySelector('[data-todo-id="w"] .repeat-meta').textContent,
+    meta: document.querySelector('#todo-list [data-todo-id="w"] .repeat-meta').textContent,
     next: [addDaysIso(1), addDaysIso(4), nextRepeatIso("2026-01-31", "monthly"), nextRepeatIso("2026-10-09", "weekdays")],
   }));
   check("unknown repeat rules are dropped", !r0.bad);
@@ -716,7 +716,7 @@ await section("to-do: recurring to-dos", async () => {
   check("Recurring section lists repeating to-dos, soonest first", JSON.stringify(r0.rows) === '["Take out trash","Vitamins"]', r0.rows);
   check("row shows its rule", r0.meta.startsWith("Weekly · "), r0.meta);
   check("monthly clamps to the month's end; weekdays skip the weekend", r0.next[2] === "2026-02-28" && r0.next[3] === "2026-10-12", r0.next);
-  await page.click('[data-todo-id="w"] .todo-check');
+  await page.click('#todo-list [data-todo-id="w"] .todo-check');
   const r1 = await page.evaluate(() => {
     const w = todoList.find(t => t.id === "w");
     const copy = todoList.find(t => t.id !== "w" && t.text === "Take out trash");
@@ -1216,24 +1216,78 @@ await section("to-do types get icons", async () => {
   ]}});
   const k = await page.evaluate(() => ["Therapy @ 10am", "Gym", "WWC @ 9am", "Get eyebrows done", "Mom's birthday dinner", "Clean the kitchen", "Pick up dry cleaning", "Flight to Atlanta", "Oil change", "Something vague", "Update resume"].map(detectKind));
   check("types are guessed from the words", JSON.stringify(k) === JSON.stringify(["health", "fitness", "appointment", "appointment", "birthday", "chores", "errand", "travel", "car", null, null]), k);
-  const icons = await page.evaluate(() => [...document.querySelectorAll("#todo-list .todo-wrap")].map(w => [w.dataset.todoId, (w.querySelector(".kind-ic") || {}).title || ""]));
+  const icons = await page.evaluate(() => [...document.querySelectorAll("#todo-list .todo-wrap[data-todo-id]")].map(w => [w.dataset.todoId, (w.querySelector(".kind-ic") || {}).title || ""]));
   check("rows show the type's icon (none when nothing fits)", JSON.stringify(icons.sort()) === JSON.stringify([["a", "Health"], ["b", "Fitness"], ["c", "Appointment"], ["d", ""]]), icons);
   // pick a type by hand, then None
   await page.evaluate(() => editTodo("d"));
   check("Type row offers Automatic plus each type", (await page.$$("#tde .kind-chip")).length === 14);
   await page.click("#tde .kind-chip >> text=Work");
   await page.click("#modal-backdrop .modal-btn.primary");
-  check("picked type is saved and shown", await page.evaluate(() => todoList.find(t => t.id === "d").kind === "work" && document.querySelector('[data-todo-id="d"] .kind-ic').title === "Work"));
+  check("picked type is saved and shown", await page.evaluate(() => todoList.find(t => t.id === "d").kind === "work" && document.querySelector('#todo-list [data-todo-id="d"] .kind-ic').title === "Work"));
   await page.evaluate(() => editTodo("b"));
   await page.click("#tde .kind-chip >> text=None");
   await page.click("#modal-backdrop .modal-btn.primary");
-  check("None hides the icon", await page.evaluate(() => !document.querySelector('[data-todo-id="b"] .kind-ic')));
+  check("None hides the icon", await page.evaluate(() => !document.querySelector('#todo-list [data-todo-id="b"] .kind-ic')));
   // the Auto chip follows the text as it's typed
   await page.evaluate(() => editTodo("a"));
   await page.fill("#modal-text", "Flight home");
   check("Auto chip follows the text", (await page.textContent("#tde .kind-chip.on")).includes("Travel"));
   await page.evaluate(() => closeModal());
   check("bad types from sync are dropped", await page.evaluate(() => { todoList[0].kind = "<x>"; normalizeLoadedData(); return !("kind" in todoList[0]); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("drag to reorder by pressing a row (Home and To-Do)", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false, seed: { "todo-content": [
+    { id: "a", text: "Alpha", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "b", text: "Bravo", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "c", text: "Charlie", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "n", text: "Someday", done: false, due: null, starred: false, subitems: [], completedAt: null },
+  ]}});
+  await page.evaluate(() => { skinRoutine.washPm = []; renderHome(); });
+  const dragRow = async (from, to, below = false) => {
+    const a = await page.locator(from).boundingBox(), b = await page.locator(to).boundingBox();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2 + 10, { steps: 3 });
+    await page.mouse.move(b.x + b.width / 2, b.y + (below ? b.height - 2 : 2), { steps: 12 });
+    await page.waitForTimeout(120);
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+  };
+  // Home: drag Charlie above Alpha
+  await dragRow('#panel-home [data-todo-id="c"] .title', '#panel-home [data-todo-id="a"] .title');
+  const homeOrder = await page.evaluate(() => todoList.filter(t => t.due === addDaysIso(0)).map(t => t.id).join(""));
+  check("Home: press and drag reorders the day's to-dos", homeOrder === "cab", homeOrder);
+  check("the drop doesn't open the editor", !(await page.isVisible("#modal-backdrop.open")));
+  // Home: drag Someday from Anytime into the day's list → gets today's date
+  await dragRow('#panel-home [data-todo-id="n"] .title', '#panel-home [data-todo-id="b"] .title');
+  check("Home: dropping into the day's list sets that date", await page.evaluate(() => todoList.find(t => t.id === "n").due === addDaysIso(0)));
+  // a plain click still edits
+  await page.waitForTimeout(450);
+  await page.click('#panel-home [data-todo-id="b"] .title');
+  check("a plain click still opens the editor", await page.isVisible("#modal-backdrop.open"));
+  await page.evaluate(() => closeModal());
+  // To-Do: drag a row (no handle) to the end of Today
+  await page.evaluate(() => activateTab("todo"));
+  await dragRow('#todo-list [data-todo-id="c"] .title', '#todo-list [data-todo-id="b"] .title', true);
+  const todoOrder = await page.evaluate(() => todoList.filter(t => t.due === addDaysIso(0) && t.id !== "n").map(t => t.id).join(""));
+  check("To-Do: press and drag a row reorders it", todoOrder === "abc", todoOrder);
+  // touch: a hold starts the drag, a quick move scrolls instead
+  const touch = await page.evaluate(async () => {
+    const row = document.querySelector('#todo-list [data-todo-id="a"] .title'), r = row.getBoundingClientRect();
+    const ev = (type, y) => row.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: "touch", clientX: r.left + 20, clientY: y, isPrimary: true }));
+    ev("pointerdown", r.top + 10); await new Promise(res => setTimeout(res, 380));
+    const held = document.body.classList.contains("todo-dragging");
+    ev("pointerup", r.top + 10); await new Promise(res => setTimeout(res, 50));
+    ev("pointerdown", r.top + 10); ev("pointermove", r.top + 40); await new Promise(res => setTimeout(res, 380));
+    const scrolled = !document.body.classList.contains("todo-dragging");
+    ev("pointerup", r.top + 40);
+    return { held, scrolled };
+  });
+  check("touch: holding a row picks it up", touch.held, touch);
+  check("touch: moving right away is a scroll, not a drag", touch.scrolled, touch);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

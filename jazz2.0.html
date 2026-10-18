@@ -667,6 +667,9 @@
     outline:1.5px dashed color-mix(in srgb, var(--gold) 55%, transparent);
   }
   body.todo-dragging, body.todo-dragging *{user-select:none; -webkit-user-select:none;}
+  #todo-list .todo-wrap[data-todo-id] .body, .home-list .todo-wrap[data-todo-id] .body{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
+  .home-list .todo-wrap.drag-active{position:relative; z-index:15;}
+  .home-list .todo-wrap.drag-active .item{background:var(--surface-2); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.45);}
 
   /* ---------- to-do rows: checkbox first, ~44px touch targets ----------
      Scoped to to-do rows only — the Style tab checklist shares .item/.box.
@@ -1905,7 +1908,7 @@ function homeRowHtml(t, meta = []){
   const check = t.done
     ? `aria-checked="true" aria-label="Mark not done: ${escapeAttr(t.text)}" onclick="toggleTodo('${t.id}')"`
     : `aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" onclick="completeTodo('${t.id}')"`;
-  return `<div class="todo-wrap"><div class="item ${t.done ? 'checked' : ''}">
+  return `<div class="todo-wrap" data-todo-id="${t.id}"><div class="item ${t.done ? 'checked' : ''}">
       <button class="todo-check" role="checkbox" ${check}><span class="box">${BOX_CHECK_SVG}</span></button>
       <div class="body" onclick="editTodo('${t.id}')"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
     </div></div>`;
@@ -2073,10 +2076,11 @@ function renderHomePanel(){
       <div><h2>${date.toLocaleDateString('en-US', dateOpt)}</h2><div class="sub">${sub}</div>${holidayChips(iso)}</div>
     </div>`;
 
-  const section = (label, rows, cls = "") => rows ? `<div class="home-sec ${cls}">${label}</div><div class="card home-list">${rows}</div>` : "";
+  // data-due: what dropping a dragged to-do here sets ("keep" = leave its date)
+  const section = (label, rows, cls = "", due = "keep") => rows ? `<div class="home-sec ${cls}" data-due="${due}">${label}</div><div class="card home-list">${rows}</div>` : "";
   const lateBills = dayBills.open.filter(b => b.due < today), dueBills = dayBills.open.filter(b => b.due >= today);
   let list = section("Overdue", day.overdue.map(t => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join("")
-    + lateBills.map(b => homeBillHtml(b)).join(""), "overdue");
+    + lateBills.map(b => homeBillHtml(b)).join(""), "overdue", "keep");
   const pastOpen = iso < today ? [`<span class="overdue">Still open</span>`] : [];
   const dayRows = (day.wash && !washDone ? washRowHtml(iso) : "") + day.open.map(t => homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])).join("")
     + dueBills.map(b => homeBillHtml(b)).join("") + repeats.map(repeatGhostHtml).join("")
@@ -2089,12 +2093,12 @@ function renderHomePanel(){
     : iso === today ? "Nothing due today — tap + to add one."
     : iso < today ? "Nothing was due or done this day."
     : `Nothing planned — tap + to add one for ${dayName}.`;
-  list += dayRows ? section(dayName, dayRows)
+  list += dayRows ? section(dayName, dayRows, "", iso)
     : `<div class="home-sec">${dayName}</div><div class="card home-list"><div class="empty">${emptyText}</div></div>`;
   if (day.anytime.length){
     const more = day.anytime.length - HOME_ANYTIME_MAX;
     list += section("Anytime", day.anytime.slice(0, HOME_ANYTIME_MAX).map(t => homeRowHtml(t)).join("")
-      + (more > 0 ? `<button class="home-more" onclick="activateTab('todo')">${more} more anytime →</button>` : ""));
+      + (more > 0 ? `<button class="home-more" onclick="activateTab('todo')">${more} more anytime →</button>` : ""), "", "");
   }
   const openTotal = todoList.filter(t => !t.done).length;
   list += `<button class="home-more home-all" onclick="activateTab('todo')">All to-dos (${openTotal}) →</button>`;
@@ -4462,6 +4466,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   mainEl.addEventListener("touchend", e => {
     if (!tracking) return;
     tracking = false;
+    if (Date.now() - dragJustEnded < 400) return; // that was a drag, not a swipe
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
@@ -4492,6 +4497,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
 
   mainEl.addEventListener("touchmove", e => {
     if (!pulling) return;
+    if (document.body.classList.contains("todo-dragging") || pressDrag.pending){ pulling = false; return; }
     if (mainEl.scrollTop > 0){ pulling = false; return; }
     const dy = e.touches[0].clientY - startY;
     if (dy <= 0) return;
@@ -4651,9 +4657,44 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   }
 })();
 
-// Drag-to-reorder for to-do items: grab the grip handle and move a row up or
-// down the open list. The row follows the finger, rows shuffle live, holding
-// near the top/bottom edge of the list autoscrolls, and dropping under a
+// Press-and-drag for list rows: with a mouse, dragging starts once the pointer
+// moves 6px; on touch, after a short hold (so a quick swipe still scrolls and a
+// tap still taps). Buttons, links and inputs inside a row keep their own taps.
+let dragJustEnded = 0; // the click that ends a drag mustn't open the editor
+const pressDrag = {pending:null};
+document.addEventListener("click", e => { if (Date.now() - dragJustEnded < 400){ e.preventDefault(); e.stopPropagation(); } }, true);
+document.addEventListener("touchmove", e => { if (document.body.classList.contains("todo-dragging")) e.preventDefault(); }, {passive:false});
+document.addEventListener("contextmenu", e => { if (document.body.classList.contains("todo-dragging") || pressDrag.pending) e.preventDefault(); });
+function pressToDrag(panel, rowSel, onStart){
+  const IGNORE = "button, a, input, textarea, select, label, .subitem-list, .drag-handle";
+  panel.addEventListener("pointerdown", e => {
+    if (e.button > 0 || pressDrag.pending || document.body.classList.contains("todo-dragging")) return;
+    const row = e.target.closest(rowSel);
+    if (!row || e.target.closest(IGNORE)) return;
+    const p = {row, x:e.clientX, y:e.clientY, id:e.pointerId, touch:e.pointerType !== "mouse", timer:0};
+    pressDrag.pending = p;
+    if (p.touch) p.timer = setTimeout(() => {
+      if (pressDrag.pending !== p) return;
+      pressDrag.pending = null;
+      try{ navigator.vibrate && navigator.vibrate(12); }catch(err){}
+      onStart(p.row, p.x, p.y, p.id, p.y);
+    }, 300);
+  });
+  panel.addEventListener("pointermove", e => {
+    const p = pressDrag.pending;
+    if (!p || e.pointerId !== p.id) return;
+    const d = Math.hypot(e.clientX - p.x, e.clientY - p.y);
+    if (p.touch){ if (d > 10){ clearTimeout(p.timer); pressDrag.pending = null; } } // it's a scroll
+    else if (d > 6){ pressDrag.pending = null; onStart(p.row, e.clientX, e.clientY, p.id, p.y); }
+  });
+  const cancel = () => { const p = pressDrag.pending; if (p){ clearTimeout(p.timer); pressDrag.pending = null; } };
+  panel.addEventListener("pointerup", cancel);
+  panel.addEventListener("pointercancel", cancel);
+}
+
+// Drag-to-reorder for to-do items: press and drag a row (or grab its grip) and
+// move it up or down the open list. The row follows the finger, rows shuffle
+// live, holding near the top/bottom edge autoscrolls, and dropping under a
 // different day header reassigns the to-do's day.
 (function(){
   const mainEl = document.querySelector("main");
@@ -4663,20 +4704,24 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
   panel.addEventListener("pointerdown", e => {
     const handle = e.target.closest(".drag-handle");
     if (!handle || drag) return;
-    const wrap = handle.closest(".todo-wrap");
-    const list = document.getElementById("todo-list");
-    if (!wrap || !list || !list.contains(wrap)) return;
     e.preventDefault();
-    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    begin(handle.closest(".todo-wrap"), e.clientX, e.clientY, e.pointerId, handle);
+  });
+  pressToDrag(panel, "#todo-list .todo-wrap[data-todo-id]", (wrap, x, y, id, y0) => begin(wrap, x, y, id, wrap, y0));
+
+  function begin(wrap, x, y, pointerId, captureEl, grabY = y){
+    const list = document.getElementById("todo-list");
+    if (!wrap || !list || !list.contains(wrap) || drag) return;
+    try{ captureEl.setPointerCapture(pointerId); }catch(err){}
     const rect = wrap.getBoundingClientRect();
-    drag = {wrap, list, clientY:e.clientY, grabOffset:e.clientY - rect.top, raf:0,
-            startX:e.clientX, clientX:e.clientX, indentTarget:null,
+    drag = {wrap, list, clientY:y, grabOffset:grabY - rect.top, raf:0,
+            startX:x, clientX:x, indentTarget:null,
             clip:[wrap.closest(".coll-body"), wrap.closest(".pinned")].filter(Boolean)};
     drag.clip.forEach(el => el.style.overflow = "visible"); // don't clip the lifted row
     wrap.classList.add("drag-active");
     document.body.classList.add("todo-dragging");
     tick();
-  });
+  }
 
   panel.addEventListener("pointermove", e => {
     if (drag){ drag.clientY = e.clientY; drag.clientX = e.clientX; }
@@ -4737,6 +4782,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
 
   function endDrag(commit){
     if (!drag) return;
+    dragJustEnded = Date.now();
     cancelAnimationFrame(drag.raf);
     drag.wrap.style.transform = "";
     drag.wrap.classList.remove("drag-active", "indenting");
@@ -4785,6 +4831,85 @@ document.querySelectorAll("nav.tabbar button").forEach(btn => {
     });
     const ids = new Set(ordered.map(t => t.id));
     todoList = [...ordered, ...todoList.filter(t => !ids.has(t.id))];
+    saveContent("todo-content", todoList);
+    renderHome();
+  }
+})();
+
+// Home: press and drag a to-do within the day's lists. Dropping it in another
+// section moves it there: the day's list sets that date, Anytime clears it,
+// Overdue keeps the date it has.
+(function(){
+  const mainEl = document.querySelector("main");
+  const panel = document.getElementById("panel-home");
+  let drag = null;
+  pressToDrag(panel, ".home-list .todo-wrap[data-todo-id]", (wrap, x, y, id, y0 = y) => {
+    if (drag) return;
+    try{ wrap.setPointerCapture(id); }catch(err){}
+    const rect = wrap.getBoundingClientRect();
+    drag = {wrap, clientY:y, grabOffset:y0 - rect.top, raf:0, clip:[...panel.querySelectorAll(".home-list")]};
+    drag.clip.forEach(el => el.style.overflow = "visible");
+    wrap.classList.add("drag-active");
+    document.body.classList.add("todo-dragging");
+    tick();
+  });
+  panel.addEventListener("pointermove", e => { if (drag) drag.clientY = e.clientY; });
+  panel.addEventListener("pointerup", () => end(true));
+  panel.addEventListener("pointercancel", () => end(false));
+
+  function tick(){
+    if (!drag) return;
+    const mr = mainEl.getBoundingClientRect();
+    if (drag.clientY < mr.top + 70) mainEl.scrollTop -= 9;
+    else if (drag.clientY > mr.bottom - 110) mainEl.scrollTop += 9;
+    // move the row before the first to-do (in any list) whose middle is below the finger
+    const rows = [...panel.querySelectorAll(".home-list .todo-wrap[data-todo-id]:not(.drag-active)")];
+    const next = rows.find(r => { const b = r.getBoundingClientRect(); return drag.clientY <= b.top + b.height / 2; });
+    if (next){ if (next.previousElementSibling !== drag.wrap) next.parentNode.insertBefore(drag.wrap, next); }
+    else {
+      // below every row: the end of the last list the finger is past
+      const lists = [...panel.querySelectorAll(".home-list")].filter(l => l.getBoundingClientRect().top < drag.clientY);
+      const last = lists[lists.length - 1];
+      if (last){
+        const anchor = last.querySelector(".home-more");
+        if (anchor){ if (anchor.previousElementSibling !== drag.wrap) last.insertBefore(drag.wrap, anchor); }
+        else if (last.lastElementChild !== drag.wrap) last.appendChild(drag.wrap);
+      }
+    }
+    drag.wrap.style.transform = "";
+    const top = drag.wrap.getBoundingClientRect().top;
+    drag.wrap.style.transform = `translateY(${drag.clientY - drag.grabOffset - top}px)`;
+    drag.raf = requestAnimationFrame(tick);
+  }
+
+  function end(commit){
+    if (!drag) return;
+    dragJustEnded = Date.now();
+    cancelAnimationFrame(drag.raf);
+    const {wrap} = drag;
+    wrap.style.transform = "";
+    wrap.classList.remove("drag-active");
+    drag.clip.forEach(el => el.style.overflow = "");
+    document.body.classList.remove("todo-dragging");
+    drag = null;
+    if (!commit){ renderHome(); return; }
+    // new order of the to-dos shown, and the date each one's section stands for
+    const shown = [...panel.querySelectorAll(".home-list .todo-wrap[data-todo-id]")].map(w => {
+      const head = w.closest(".home-list").previousElementSibling;
+      return {t:todoList.find(x => x.id === w.dataset.todoId), due:head && head.dataset.due != null ? head.dataset.due : "keep"};
+    }).filter(x => x.t);
+    shown.forEach(({t, due}) => {
+      if (due === "keep" || (t.repeat && !due)) return; // a repeat keeps a date
+      const d = due || null;
+      if (d === t.due || (d && spansOn(t, d))) return;
+      if (t.repeat && d) t.repeatDay = dayOf(d);
+      t.due = d;
+    });
+    // the shown to-dos take the same slots in the list, in their new order
+    const slots = shown.map(x => todoList.indexOf(x.t)).sort((a, b) => a - b);
+    const next = todoList.slice();
+    slots.forEach((slot, k) => { next[slot] = shown[k].t; });
+    todoList = next;
     saveContent("todo-content", todoList);
     renderHome();
   }
