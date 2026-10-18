@@ -49,8 +49,10 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 - **Completing.** Only the left checkbox completes an item, and a 5-second Undo follows.
   Tapping the text opens the edit form: title, a date picker, and "add sub-items, one per
   line".
-- **Other actions.** Star an item to float it to the top of its group. Drag the grip to
-  reorder, or to move an item into another date group.
+- **Other actions.** Star an item to float it to the top of its group. Press and drag a
+  row (hold briefly on a phone; click and drag with a mouse), or drag its grip, to reorder or
+  move it into another date group. On Home, dragging a to-do into another section moves it
+  there: the day's list sets that date, Anytime clears it.
 - **Completed.** Finished items sit behind a "N completed" toggle with Restore, Duplicate,
   Delete, and Clear completed. They're archived after 7 days.
 
@@ -211,7 +213,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (376 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (384 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
