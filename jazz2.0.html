@@ -4614,7 +4614,7 @@ function editWorkout(id){
   const w = id ? fitness.plan.find(x => x.id === id) : null;
   const kinds = KIND_ORDER.map(k => TODO_KINDS[k].label);
   openModal(w ? "Edit workout" : "Add workout", [
-    {key:"name", label:"Workout (e.g. Apartment gym)", type:"text"},
+    {key:"name", label:"Workout (e.g. Gym, Yoga, Run)", type:"text"},
     {key:"days", label:"Days", type:"days"},
     {key:"time", label:"Time (optional)", type:"time"},
     {key:"every", label:"Repeats", type:"select", options:WORKOUT_EVERY},
