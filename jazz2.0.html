@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jazz 2.0</title>
+<title>Jazz 3.0</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0c0c0d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jazz 2.0">
+<meta name="apple-mobile-web-app-title" content="Jazz 3.0">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <style>
@@ -87,7 +87,7 @@
   nav.tabbar button{
     flex:1; background:none; border:none; color:var(--text-dim);
     display:flex; flex-direction:column; align-items:center; gap:4px;
-    font-size:10.5px; font-family:inherit; font-weight:600;
+    font-size:10px; font-family:inherit; font-weight:600;
     letter-spacing:.02em; padding:6px 2px; border-radius:10px;
   }
   nav.tabbar button svg{width:21px; height:21px;}
@@ -841,6 +841,43 @@
   .home-sub svg{width:13px; height:13px; flex-shrink:0;}
   .home-list > .home-sub:first-child{margin-top:0; padding-top:6px;}
   .home-sub[style] ~ .todo-wrap .kind-ic{display:none;} /* the label already shows the type */
+  .weight-top{display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin:2px 2px 10px;}
+  .weight-now b{font-size:38px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
+  .weight-now span{margin-left:4px; font-size:14px; font-weight:700; color:var(--text-dim);}
+  .weight-goal{display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:600; padding:6px 11px; border-radius:12px; margin-bottom:6px;}
+  .weight-goal b{color:var(--text);}
+  .weight-goal svg{width:12px; height:12px; color:var(--olive);}
+  .weight-scale{display:flex; justify-content:space-between; margin:5px 2px 0; font-size:11px; font-weight:700; color:var(--text-dim); font-variant-numeric:tabular-nums;}
+  .weight-chart{display:block; width:100%; height:70px; margin:12px 0 4px;}
+  .weight-chart .wc-line{fill:none; stroke:var(--link); stroke-width:2; vector-effect:non-scaling-stroke; stroke-linejoin:round;}
+  .weight-chart .wc-dot{fill:var(--link);}
+  .weight-chart .wc-goal{stroke:var(--olive); stroke-width:1; stroke-dasharray:4 4; vector-effect:non-scaling-stroke; opacity:.7;}
+  .fw-day{display:flex; gap:12px; padding:8px 2px; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
+  .fw-day:last-of-type{border-bottom:none;}
+  .fw-day.today{background:color-mix(in srgb, var(--link) 8%, transparent); border-radius:12px; padding-left:8px; padding-right:8px; margin:0 -6px;}
+  .fw-date{width:34px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding-top:8px;}
+  .fw-date b{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim);}
+  .fw-date span{font-size:16px; font-weight:800;}
+  .fw-day.past .fw-date{opacity:.55;}
+  .fw-list{flex:1; min-width:0; display:flex; flex-direction:column;}
+  .fw-item{display:flex; align-items:center; min-height:44px;}
+  .fw-item > *{order:0 !important;} /* the shared checkbox styles reorder flex items */
+  .fw-item .todo-check{width:36px; height:44px; flex-shrink:0;}
+  .fw-item.done .box{background:var(--olive); border-color:var(--olive);}
+  .fw-item.done .box svg{opacity:1;}
+  .fw-later{display:block; width:36px; flex-shrink:0;}
+  .fw-name{flex:1; min-width:0; display:flex; align-items:center; gap:0; padding:0; border:none; background:none; color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left;}
+  .fw-name span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .fw-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-left:8px; white-space:nowrap;}
+  .fw-item.done .fw-name span{text-decoration:line-through; color:var(--text-dim);}
+  .fw-item.missed .fw-name span{color:var(--text-dim);}
+  .fw-rest{display:block; padding:12px 0; font-size:13px; color:var(--text-dim); font-style:italic;}
+  .fw-foot{margin:10px 2px 2px; font-size:12.5px; color:var(--text-dim);}
+  .fw-foot b{color:var(--text);}
+  .fp-row{display:flex; align-items:center; width:100%; gap:2px; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
+  .fp-name{flex:1; min-width:0; display:flex; flex-direction:column; font-size:14.5px; font-weight:700;}
+  .fp-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-top:2px;}
+  .fp-row .chev-r{color:var(--text-dim);}
   .kind-ic{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; vertical-align:-5px; border-radius:7px;
     color:hsl(var(--k) 75% 70%); background:hsl(var(--k) 60% 55% / .16); flex-shrink:0;}
   .kind-ic svg{width:13px; height:13px;}
@@ -988,6 +1025,7 @@
   <!-- TO-DO -->
   <section class="tabpanel" id="panel-todo"></section>
   <!-- SKIN / HAIR -->
+  <section class="tabpanel" id="panel-fitness"></section>
   <section class="tabpanel" id="panel-skin"></section>
   <!-- BUDGET -->
   <section class="tabpanel" id="panel-budget"></section>
@@ -1047,6 +1085,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     To-Do
   </button>
+  <button data-tab="fitness">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg>
+    Fitness
+  </button>
   <button data-tab="budget">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/></svg>
     Budget
@@ -1062,7 +1104,7 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", todo:"To-Do", skin:"Skin & Hair", wants:"Shopping", budget:"Budget"};
+const HEADLINES = {home:"Home", todo:"To-Do", fitness:"Fitness", skin:"Skin & Hair", wants:"Shopping", budget:"Budget"};
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
@@ -1155,7 +1197,7 @@ let wantsState = {};
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "wants-pending-card", "bills-mine", "bills-joint", "pay-plan", "glance", "goals-card", "spending-card"]); // Recurring and Budget's calendar start closed
+let openPinned = new Set(["todo-card", "wants-pending-card", "weight-card", "fit-week", "fit-plan", "bills-mine", "bills-joint", "pay-plan", "glance", "goals-card", "spending-card"]); // Recurring and Budget's calendar start closed
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -1777,7 +1819,7 @@ function homeCalDayHtml(d, counts, monthView, other = false){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
   const dayBills = iso >= today ? billsOnDay(iso) : null;
   const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0)
-    + dayBills.open.length + dayBills.projected.length : 0;
+    + dayBills.open.length + dayBills.projected.length + workoutsOn(iso).filter(w => !workoutDone(iso, w.id)).length : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
   const hol = holidaysOn(iso);
   const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : "", hol.length ? "holiday" : ""].filter(Boolean).join(" ");
@@ -2046,9 +2088,10 @@ function renderHomePanel(){
   const washDone = day.wash && washHairDone(iso);
   const repeats = day.repeats || [];
   const dayBills = billsOnDay(iso);
+  const workouts = workoutsOn(iso), workoutsDone = workouts.filter(w => workoutDone(iso, w.id)).length;
   const total = day.overdue.length + day.open.length + repeats.length + day.done.length + (day.wash ? 1 : 0)
-    + dayBills.open.length + dayBills.projected.length + dayBills.paid.length;
-  const done = day.done.length + (washDone ? 1 : 0) + dayBills.paid.length;
+    + dayBills.open.length + dayBills.projected.length + dayBills.paid.length + workouts.length;
+  const done = day.done.length + (washDone ? 1 : 0) + dayBills.paid.length + workoutsDone;
   const left = total - done;
   let sub;
   if (iso === today){
@@ -2075,7 +2118,8 @@ function renderHomePanel(){
   // The day's list groups itself: to-dos with no type first, then each type
   // that has any to-dos (Chores, Errands…) under its own label, then Bills
   const items = [...day.open.map(t => ({t, html:homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])})),
-    ...repeats.map(t => ({t, html:repeatGhostHtml(t)}))];
+    ...repeats.map(t => ({t, html:repeatGhostHtml(t)})),
+    ...workouts.map(w => ({t:{kind:w.kind, text:w.name}, html:workoutRowHtml(w, iso)}))];
   const kindCount = {};
   items.forEach(x => { const k = todoKind(x.t); if (k) kindCount[k] = (kindCount[k] || 0) + 1; });
   const grouped = k => k && kindCount[k] >= 1;
@@ -4435,8 +4479,228 @@ function normalizeBudgetData(){
         .map(e => ({id:safeId(e.id, "gl"), date:e.date, amount:Number(e.amount), note:str(e.note, 80)}))}));
 }
 
+// ---------- FITNESS (Jazz 3.0) ----------
+// One synced object: a start and goal weight, weigh-ins, a weekly workout plan
+// and which planned workouts got done. Workouts are worked out from the plan
+// (like wash days), so nothing piles up as to-dos.
+//   plan: [{id, name, days:[0-6], every:1-4 weeks, anchor:"YYYY-MM-DD", time:"", kind}]
+//   checks: {"YYYY-MM-DD|planId": true}
+const DEFAULT_FITNESS = {start:null, goal:null, weights:[], plan:[], checks:{}};
+let fitness = JSON.parse(JSON.stringify(DEFAULT_FITNESS));
+let showWeighIns = false;
+function normalizeFitness(){
+  const f = fitness && typeof fitness === "object" && !Array.isArray(fitness) ? fitness : {};
+  const iso = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : null;
+  const lbs = v => { const n = Number(v); return isFinite(n) && n >= 40 && n <= 800 ? Math.round(n * 10) / 10 : null; };
+  const cutoff = addDaysIso(-400);
+  fitness = {
+    start:lbs(f.start), goal:lbs(f.goal),
+    weights:(Array.isArray(f.weights) ? f.weights : []).filter(w => w && iso(w.date) && lbs(w.lbs) != null)
+      .map(w => ({id:safeId(w.id, "wt"), date:w.date, lbs:lbs(w.lbs)})).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0),
+    plan:(Array.isArray(f.plan) ? f.plan : []).filter(w => w && typeof w === "object").map(w => ({
+      id:safeId(w.id, "wo"), name:String(w.name || "Workout").slice(0, 60),
+      days:[...new Set((Array.isArray(w.days) ? w.days : []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort(),
+      every:Math.max(1, Math.min(4, parseInt(w.every, 10) || 1)), anchor:iso(w.anchor) || addDaysIso(0),
+      time:String(w.time || "").slice(0, 20), kind:TODO_KINDS[w.kind] ? w.kind : "fitness"})),
+    checks:{}};
+  Object.keys(f.checks && typeof f.checks === "object" ? f.checks : {}).forEach(k => {
+    if (/^\d{4}-\d{2}-\d{2}\|[A-Za-z0-9_-]+$/.test(k) && f.checks[k] && k.slice(0, 10) >= cutoff) fitness.checks[k] = true;
+  });
+}
+function saveFitness(){ saveContent("fitness-content", fitness, {toast:false}); renderFitness(); renderHome(); }
+function weekStartIso(iso){ const d = noonOf(iso); d.setDate(d.getDate() - d.getDay()); return isoDate(d); }
+// Does a planned workout land on this date? It starts the week of its anchor
+// (start) date; every-N-weeks counts weeks from there.
+function workoutOn(w, iso){
+  if (!w.days.includes(noonOf(iso).getDay())) return false;
+  if (iso < weekStartIso(w.anchor)) return false; // the plan starts the week of its start date
+  if (w.every <= 1) return true;
+  const weeks = Math.round((noonOf(weekStartIso(iso)) - noonOf(weekStartIso(w.anchor))) / (7 * 864e5));
+  return ((weeks % w.every) + w.every) % w.every === 0;
+}
+function workoutsOn(iso){ return fitness.plan.filter(w => workoutOn(w, iso)); }
+function workoutDone(iso, id){ return !!fitness.checks[`${iso}|${id}`]; }
+function toggleWorkout(iso, id){
+  const k = `${iso}|${id}`;
+  if (fitness.checks[k]) delete fitness.checks[k]; else fitness.checks[k] = true;
+  saveFitness();
+}
+function fmtTime(t){
+  const m = String(t || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return t || "";
+  const h = Number(m[1]);
+  return `${h % 12 || 12}${m[2] === "00" ? "" : ":" + m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+function workoutMeta(w){
+  return [w.days.length === 7 ? "Every day" : w.days.map(d => DAY_SHORT[d]).join(" · "), fmtTime(w.time), w.every > 1 ? `every ${w.every} weeks` : ""].filter(Boolean).join(" · ");
+}
+// A workout as a Home row: checkable today and before, a preview after
+function workoutRowHtml(w, iso){
+  const today = addDaysIso(0), done = workoutDone(iso, w.id);
+  const lead = iso > today
+    ? `<span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>`
+    : `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Not done" : "Done"}: ${escapeAttr(w.name)}" onclick="event.stopPropagation(); toggleWorkout('${iso}','${w.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`;
+  return `<div class="todo-wrap workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${done ? "checked" : ""}">
+      ${lead}
+      <div class="body" onclick="activateTab('fitness')"><div class="title">${kindIconHtml({kind:w.kind, text:w.name})}${escapeHtml(w.name)}</div><div class="todo-meta">${escapeHtml(fmtTime(w.time) || "Fitness plan")}</div></div>
+    </div></div>`;
+}
+function currentWeight(){ const w = fitness.weights; return w.length ? w[w.length - 1].lbs : null; }
+function weightStatus(){
+  const cur = currentWeight(), start = fitness.start != null ? fitness.start : (fitness.weights[0] || {}).lbs, goal = fitness.goal;
+  const out = {cur, start, goal};
+  if (cur == null) return out;
+  if (start != null) out.change = Math.round((cur - start) * 10) / 10;
+  if (goal != null){
+    out.toGo = Math.round(Math.abs(goal - cur) * 10) / 10;
+    out.reached = start != null && start !== goal ? (goal > start ? cur >= goal : cur <= goal) : Math.abs(goal - cur) < 0.05;
+    out.pct = start != null && goal !== start ? Math.max(0, Math.min(100, Math.round((cur - start) / (goal - start) * 100))) : (out.reached ? 100 : 0);
+  }
+  // pace: first to last weigh-in over the last 8 weeks, per week
+  const since = addDaysIso(-56), recent = fitness.weights.filter(w => w.date >= since);
+  if (recent.length >= 2){
+    const weeks = (noonOf(recent[recent.length - 1].date) - noonOf(recent[0].date)) / (7 * 864e5);
+    if (weeks >= 1){
+      out.rate = Math.round((recent[recent.length - 1].lbs - recent[0].lbs) / weeks * 10) / 10;
+      if (goal != null && !out.reached && out.rate && Math.sign(out.rate) === Math.sign(goal - cur)) out.eta = addDaysIso(Math.ceil(Math.abs(goal - cur) / Math.abs(out.rate) * 7));
+    }
+  }
+  return out;
+}
+function weightChartHtml(){
+  const pts = fitness.weights.slice(-16);
+  if (pts.length < 2) return "";
+  const W = 300, H = 70, vals = pts.map(p => p.lbs).concat(fitness.goal != null ? [fitness.goal] : []);
+  const lo = Math.min(...vals) - 1, hi = Math.max(...vals) + 1;
+  const x = i => Math.round(i / (pts.length - 1) * (W - 8) + 4), y = v => Math.round((hi - v) / (hi - lo) * (H - 8) + 4);
+  const line = pts.map((p, i) => `${x(i)},${y(p.lbs)}`).join(" ");
+  const goal = fitness.goal != null ? `<line x1="0" x2="${W}" y1="${y(fitness.goal)}" y2="${y(fitness.goal)}" class="wc-goal"/>` : "";
+  return `<svg class="weight-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Weight trend">${goal}
+      <polyline points="${line}" class="wc-line"/>${pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.lbs)}" r="${i === pts.length - 1 ? 3.5 : 2}" class="wc-dot"/>`).join("")}</svg>`;
+}
+function logWeight(id){
+  const e = id ? fitness.weights.find(w => w.id === id) : null;
+  openModal(e ? "Edit weigh-in" : "Log weight", [
+    {key:"lbs", label:"Weight (lb)", type:"number", step:"0.1"},
+    {key:"date", label:"Date", type:"date"},
+  ], e ? {lbs:e.lbs, date:e.date} : {lbs:currentWeight() ?? "", date:addDaysIso(0)},
+    v => {
+      const n = Math.round(Number(v.lbs) * 10) / 10;
+      if (!isFinite(n) || n < 40 || n > 800) return;
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(v.date || "") ? v.date : addDaysIso(0);
+      const t = e || fitness.weights.find(w => w.date === date) || {id:genId("wt")}; // one weigh-in a day
+      t.lbs = n; t.date = date;
+      if (!fitness.weights.includes(t)) fitness.weights.push(t);
+      fitness.weights.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      saveFitness();
+      const s = weightStatus();
+      showToast(s.reached ? "Goal weight reached!" : s.toGo != null ? `${n} lb · ${s.toGo} lb to go` : `${n} lb logged`);
+    },
+    e ? () => { fitness.weights = fitness.weights.filter(w => w.id !== id); saveFitness(); } : null);
+}
+function editWeightGoal(){
+  openModal("Weight goal", [
+    {key:"start", label:"Starting weight (lb)", type:"number", step:"0.1"},
+    {key:"goal", label:"Goal weight (lb)", type:"number", step:"0.1"},
+  ], {start:fitness.start ?? "", goal:fitness.goal ?? ""},
+    v => {
+      const n = x => { const k = Math.round(Number(x) * 10) / 10; return x !== "" && x != null && isFinite(k) && k >= 40 && k <= 800 ? k : null; };
+      fitness.start = n(v.start); fitness.goal = n(v.goal);
+      saveFitness();
+    });
+}
+const WORKOUT_EVERY = ["Every week", "Every 2 weeks", "Every 3 weeks", "Every 4 weeks"];
+function editWorkout(id){
+  const w = id ? fitness.plan.find(x => x.id === id) : null;
+  const kinds = KIND_ORDER.map(k => TODO_KINDS[k].label);
+  openModal(w ? "Edit workout" : "Add workout", [
+    {key:"name", label:"Workout (e.g. Apartment gym)", type:"text"},
+    {key:"days", label:"Days", type:"days"},
+    {key:"time", label:"Time (optional)", type:"time"},
+    {key:"every", label:"Repeats", type:"select", options:WORKOUT_EVERY},
+    {key:"anchor", label:"Starts (a date it happens; every few weeks counts from here)", type:"date"},
+    {key:"kind", label:"Type", type:"select", options:kinds},
+  ], w ? {name:w.name, days:w.days, time:w.time, every:WORKOUT_EVERY[w.every - 1], anchor:w.anchor, kind:TODO_KINDS[w.kind].label}
+       : {days:[], every:WORKOUT_EVERY[0], anchor:addDaysIso(0), kind:"Fitness"},
+    v => {
+      const name = (v.name || "").trim().slice(0, 60);
+      if (!name || !(v.days || []).length){ showToast("Give it a name and at least one day", true); return; }
+      const t = w || {id:genId("wo")};
+      t.name = name; t.days = v.days; t.time = /^\d{1,2}:\d{2}$/.test(v.time || "") ? v.time : "";
+      t.every = Math.max(1, WORKOUT_EVERY.indexOf(v.every) + 1);
+      t.anchor = /^\d{4}-\d{2}-\d{2}$/.test(v.anchor || "") ? v.anchor : addDaysIso(0);
+      t.kind = KIND_ORDER.find(k => TODO_KINDS[k].label === v.kind) || "fitness";
+      if (!w) fitness.plan.push(t);
+      saveFitness();
+    },
+    w ? () => { fitness.plan = fitness.plan.filter(x => x.id !== id); saveFitness(); } : null);
+}
+function renderFitness(){
+  const el = document.getElementById("panel-fitness");
+  if (!el) return;
+  const today = addDaysIso(0), s = weightStatus();
+  // 1. Weight
+  let wBody;
+  if (s.cur == null && fitness.goal == null){
+    wBody = `<div class="empty">Track your weight toward a goal: log a weigh-in and set where you're headed.</div>
+      <div class="goal-actions"><button class="goal-add" onclick="logWeight()">+ Log weight</button><button class="goal-hist" onclick="editWeightGoal()">Set goal</button></div>`;
+  } else {
+    const dir = s.change > 0 ? "Up" : s.change < 0 ? "Down" : "No change";
+    const rate = s.rate != null ? `${s.rate > 0 ? "+" : ""}${s.rate} lb/week lately` : "Log a few weigh-ins to see your pace";
+    wBody = `<div class="weight-top">
+        <div class="weight-now"><b>${s.cur != null ? s.cur : "—"}</b><span>lb</span></div>
+        <button class="weight-goal" onclick="editWeightGoal()">${s.goal != null ? (s.reached ? `${BOX_CHECK_SVG}Goal ${s.goal} reached` : `Goal ${s.goal} · <b>${s.toGo} lb to go</b>`) : "Set a goal"}</button>
+      </div>
+      ${s.goal != null && s.start != null ? `<div class="progress-bar"><div class="progress-fill" style="width:${s.pct}%"></div></div>
+        <div class="weight-scale"><span>${s.start}</span><span>${s.pct}%</span><span>${s.goal}</span></div>` : ""}
+      <div class="goal-outlook">
+        ${s.change != null ? `<div>${dir}${s.change ? ` <b>${Math.abs(s.change)} lb</b>` : ""} since you started at ${s.start}</div>` : ""}
+        <div>${escapeHtml(rate)}${s.eta ? ` · At this pace: <b>${escapeHtml(noonOf(s.eta).toLocaleDateString('en-US', {month:'short', day:'numeric'}))}</b>` : ""}</div>
+      </div>
+      ${weightChartHtml()}
+      <div class="goal-actions">
+        <button class="goal-add" onclick="logWeight()">+ Log weight</button>
+        ${fitness.weights.length ? `<button class="goal-hist" onclick="showWeighIns = !showWeighIns; renderFitness()" aria-expanded="${showWeighIns}">Weigh-ins (${fitness.weights.length})${CHEVRON_DOWN}</button>` : ""}
+      </div>
+      ${showWeighIns ? `<div class="goal-entries">${fitness.weights.slice().reverse().map(w => `<button class="goal-entry" onclick="logWeight('${w.id}')">
+          <span>${escapeHtml(noonOf(w.date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:w.date.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric'}))}</span>
+          <span class="goal-note"></span><b>${w.lbs} lb</b></button>`).join("")}</div>` : ""}`;
+  }
+  let html = collapsibleCard({id:"weight-card", title:"Weight", insight:s.cur != null && s.goal != null ? (s.reached ? "Goal reached" : `${s.cur} → ${s.goal}`) : s.cur != null ? `${s.cur} lb` : "Not set", body:wBody});
+  // 2. This week, Sunday to Saturday
+  const ws = weekStartIso(today);
+  let done = 0, total = 0, week = "";
+  for (let i = 0; i < 7; i++){
+    const iso = isoDate(new Date(noonOf(ws).getTime() + i * 864e5)), list = workoutsOn(iso);
+    total += list.length;
+    const rows = list.map(w => {
+      const ok = workoutDone(iso, w.id); if (ok) done++;
+      const missed = !ok && iso < today;
+      return `<div class="fw-item ${ok ? "done" : ""} ${missed ? "missed" : ""}">
+          ${iso <= today ? `<button class="todo-check" role="checkbox" aria-checked="${ok}" aria-label="${ok ? "Not done" : "Done"}: ${escapeAttr(w.name)} ${escapeAttr(DAY_SHORT[i])}" onclick="toggleWorkout('${iso}','${w.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>` : `<span class="fw-later"></span>`}
+          <button class="fw-name" onclick="editWorkout('${w.id}')">${kindIconHtml({kind:w.kind, text:w.name})}<span>${escapeHtml(w.name)}</span>${w.time ? `<i>${escapeHtml(fmtTime(w.time))}</i>` : ""}</button>
+        </div>`;
+    }).join("");
+    week += `<div class="fw-day ${iso === today ? "today" : ""} ${iso < today ? "past" : ""}">
+        <div class="fw-date"><b>${DAY_SHORT[i]}</b><span>${noonOf(iso).getDate()}</span></div>
+        <div class="fw-list">${rows || `<span class="fw-rest">Rest</span>`}</div>
+      </div>`;
+  }
+  // last 4 weeks, for a sense of consistency
+  let p4 = 0, d4 = 0;
+  for (let i = 1; i <= 28; i++){ const iso = addDaysIso(-i); workoutsOn(iso).forEach(w => { p4++; if (workoutDone(iso, w.id)) d4++; }); }
+  html += collapsibleCard({id:"fit-week", title:"This week", insight:total ? `${done}/${total} done` : "No plan yet",
+    body:(fitness.plan.length ? week + (p4 ? `<div class="fw-foot">Last 4 weeks: <b>${d4} of ${p4}</b> done</div>` : "") : `<div class="empty">Add your workouts below and each week fills itself in.</div>`)});
+  // 3. The plan
+  const plan = fitness.plan.map(w => `<button class="fp-row" data-sort-id="${w.id}" onclick="editWorkout('${w.id}')">
+      ${kindIconHtml({kind:w.kind, text:w.name})}<span class="fp-name">${escapeHtml(w.name)}<i>${escapeHtml(workoutMeta(w))}</i></span>${CHEVRON_RIGHT}</button>`).join("");
+  html += collapsibleCard({id:"fit-plan", title:"Weekly plan", insight:`${fitness.plan.length} workout${fitness.plan.length === 1 ? "" : "s"}`,
+    body:plan + `<button class="add-row" onclick="editWorkout()">+ Add workout</button>`});
+  el.innerHTML = html;
+}
+
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home","todo","budget","wants","skin"]; // nav bar and swipe order
+const TAB_ORDER = ["home","todo","fitness","budget","wants","skin"]; // nav bar and swipe order
 // Old links to the removed closet view (?tab=style) land on Shopping
 const NAV_TAB = tab => tab === "style" ? "wants" : tab;
 let currentTab = "home";
@@ -4883,7 +5147,7 @@ function sortable(panel, itemSel, onDrop, ignore){
     document.body.classList.remove("todo-dragging");
     d = null;
     const ids = [...box.children].filter(el => el.matches(itemSel) && el.dataset.sortId).map(el => el.dataset.sortId);
-    if (commit) onDrop(box, ids); else { renderSkin(); renderBudget(); }
+    if (commit) onDrop(box, ids); else { renderSkin(); renderBudget(); renderFitness(); }
   }
 }
 const byIds = (list, ids, key = x => x.id) => ids.map(id => list.find(x => String(key(x)) === id)).filter(Boolean)
@@ -4909,6 +5173,10 @@ sortable(document.getElementById("panel-budget"), "#goals-card .goal", (box, ids
   budget.goals = byIds(budget.goals, ids);
   saveBudgetData();
 }, ".goal-actions, .goal-entries, a, input");
+sortable(document.getElementById("panel-fitness"), "#fit-plan .fp-row", (box, ids) => {
+  fitness.plan = byIds(fitness.plan, ids);
+  saveFitness();
+}, "a, input");
 sortable(document.getElementById("panel-budget"), "#spending-card .budget-cat", (box, ids) => {
   budget.categories = byIds(budget.categories, ids);
   saveBudgetData();
@@ -5026,7 +5294,7 @@ function resumeView(){
 // are never synced themselves.
 const SYNC_KEYS = ["skin-rules-content","skin-routine-content","routine-checks","skin-days-content","style-rules-content","sizes-content",
                    "capsule-content","wants-content","todo-content","todo-archive-content",
-                   "style-state","wants-state","bills-content","bill-payments","budget-content"];
+                   "style-state","wants-state","bills-content","bill-payments","budget-content","fitness-content"];
 const GIST_FILENAME = "jazz2-data.json";
 let syncPushTimer = null;
 let syncBusy = false;
@@ -5074,7 +5342,7 @@ function applyRemote(payload){
   wantsState = loadState("wants-state");
   migrateWardrobeNeeds(); // data from an older app version may still have a wardrobe "Still need" list
   archiveOldTodos(); // the other device may have carried expired completed items
-  renderSkin(); renderWants(); renderBudget(); renderHome();
+  renderSkin(); renderWants(); renderBudget(); renderFitness(); renderHome();
 }
 async function findOrCreateGist(){
   const gists = await gistApi("/gists?per_page=100");
@@ -5200,7 +5468,7 @@ function liveData(){
     "sizes-content":sizes, "capsule-content":capsule, "wants-content":wantsList, "todo-content":todoList,
     "todo-archive-content":loadContent("todo-archive-content", []),
     "style-state":styleState, "wants-state":wantsState,
-    "bills-content":bills, "bill-payments":billPayments, "budget-content":budget
+    "bills-content":bills, "bill-payments":billPayments, "budget-content":budget, "fitness-content":fitness
   };
 }
 async function saveBackupFile(payload){
@@ -5209,7 +5477,7 @@ async function saveBackupFile(payload){
   // Installed iOS PWAs handle <a download> poorly; the share sheet offers "Save to Files"
   const file = new File([blob], name, {type:"application/json"});
   if (navigator.canShare && navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file], title:"Jazz 2.0 backup"}); return; }
+    try{ await navigator.share({files:[file], title:"Jazz backup"}); return; }
     catch(e){ if (e.name === "AbortError") return; }
   }
   const a = document.createElement("a");
@@ -5228,7 +5496,7 @@ function restoreBackup(){
     let payload;
     try{ payload = JSON.parse(await f.text()); }catch(e){ showToast("That file isn't a valid backup", true); return; }
     const data = payload && payload.app === "jazz2" && payload.data;
-    if (!data || !Object.keys(data).some(k => SYNC_KEYS.includes(k))){ showToast("That file isn't a Jazz 2.0 backup", true); return; }
+    if (!data || !Object.keys(data).some(k => SYNC_KEYS.includes(k))){ showToast("That file isn't a Jazz backup", true); return; }
     const when = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : "an unknown date";
     if (!confirm(`Replace everything on this device with the backup from ${when}? If sync is on, your other device will get it too.`)) return;
     closeModal();
@@ -5314,6 +5582,8 @@ function loadAllContent(){
   normalizeBudgetData();
   pruneBudgetHistory();
   if (processAutopay()){ writeQuietly("bills-content", bills); writeQuietly("bill-payments", billPayments); }
+  fitness = loadContent("fitness-content", JSON.parse(JSON.stringify(DEFAULT_FITNESS)));
+  normalizeFitness();
   normalizeLoadedData(); // last: needs every list loaded
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
   const keptRules = skinRules.filter(r => !RETIRED_SKIN_RULES.includes(r));
@@ -5430,7 +5700,7 @@ function checkDayChange(){
   setHeaderDate();
   archiveOldTodos();
   if (processAutopay()){ writeQuietly("bills-content", bills); writeQuietly("bill-payments", billPayments); }
-  renderSkin(); renderBudget(); renderHome();
+  renderSkin(); renderBudget(); renderFitness(); renderHome();
 }
 function writeQuietly(key, value){
   try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error("write failed", key, e); }
@@ -5448,6 +5718,7 @@ function writeQuietly(key, value){
   migrateWardrobeNeeds();
   renderBudget();
   renderWants();
+  renderFitness();
   renderHome();
   applyLaunchParams();
   if (!location.search) resumeView();
@@ -5472,9 +5743,30 @@ function importFromLink(){
     const bytes = Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), c => c.charCodeAt(0));
     data = JSON.parse(new TextDecoder().decode(bytes));
   }catch(e){ showToast("That import link is damaged", true); return; }
-  if (!data || data.app !== "jazz2-budget" || !/^\d{4}-\d{2}$/.test(data.month || "")){ showToast("That isn't a budget import link", true); return; }
-  // let the first sync pull land before adding on top of it
-  setTimeout(() => applyBudgetImport(data), localStorage.getItem("sync-token") ? 2500 : 0);
+  const wait = localStorage.getItem("sync-token") ? 2500 : 0; // let the first sync pull land before adding on top of it
+  if (data && data.app === "jazz3-fitness"){ setTimeout(() => applyFitnessImport(data), wait); return; }
+  if (!data || data.app !== "jazz2-budget" || !/^\d{4}-\d{2}$/.test(data.month || "")){ showToast("That isn't an import link", true); return; }
+  setTimeout(() => applyBudgetImport(data), wait);
+}
+// Fitness set-up from a link: weight start/goal (if not set yet), weigh-ins on
+// dates without one, and workouts not already in the plan (by name)
+function applyFitnessImport(data){
+  const arr = v => Array.isArray(v) ? v : [];
+  const has = name => fitness.plan.some(w => w.name.toLowerCase() === String(name).toLowerCase());
+  const plan = arr(data.plan).filter(w => w && w.name && !has(w.name));
+  const weights = arr(data.weights).filter(w => w && /^\d{4}-\d{2}-\d{2}$/.test(w.date || "") && !fitness.weights.some(x => x.date === w.date));
+  const setGoal = (data.goal != null && fitness.goal == null) || (data.start != null && fitness.start == null);
+  const parts = [plan.length && `${plan.length} workout${plan.length === 1 ? "" : "s"}`, weights.length && `${weights.length} weigh-in${weights.length === 1 ? "" : "s"}`, setGoal && "your weight goal"].filter(Boolean);
+  if (!parts.length){ showToast("Everything in that link is already in Fitness"); return; }
+  if (!confirm(`Add ${parts.join(", ")} to Fitness? Nothing already there is changed.`)) return;
+  if (fitness.start == null && data.start != null) fitness.start = data.start;
+  if (fitness.goal == null && data.goal != null) fitness.goal = data.goal;
+  weights.forEach(w => fitness.weights.push({id:genId("wt"), date:w.date, lbs:w.lbs}));
+  plan.forEach(w => fitness.plan.push({id:genId("wo"), name:w.name, days:w.days, every:w.every, anchor:w.anchor, time:w.time, kind:w.kind}));
+  normalizeFitness(); // checks every field
+  saveFitness();
+  activateTab("fitness");
+  showToast(`Added ${parts.join(", ")}`);
 }
 function applyBudgetImport(data){
   const arr = v => Array.isArray(v) ? v : [];
