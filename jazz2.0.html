@@ -852,28 +852,12 @@
   .weight-chart .wc-line{fill:none; stroke:var(--link); stroke-width:2; vector-effect:non-scaling-stroke; stroke-linejoin:round;}
   .weight-chart .wc-dot{fill:var(--link);}
   .weight-chart .wc-goal{stroke:var(--olive); stroke-width:1; stroke-dasharray:4 4; vector-effect:non-scaling-stroke; opacity:.7;}
-  .fw-day{display:flex; gap:12px; padding:8px 2px; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
-  .fw-day:last-of-type{border-bottom:none;}
-  .fw-day.today{background:color-mix(in srgb, var(--link) 8%, transparent); border-radius:12px; padding-left:8px; padding-right:8px; margin:0 -6px;}
-  .fw-date{width:34px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding-top:8px;}
-  .fw-date b{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim);}
-  .fw-date span{font-size:16px; font-weight:800;}
-  .fw-day.past .fw-date{opacity:.55;}
-  .fw-list{flex:1; min-width:0; display:flex; flex-direction:column;}
-  .fw-item{display:flex; align-items:center; min-height:44px;}
-  .fw-item > *{order:0 !important;} /* the shared checkbox styles reorder flex items */
-  .fw-item .todo-check{width:36px; height:44px; flex-shrink:0;}
-  .fw-item.done .box{background:var(--olive); border-color:var(--olive);}
-  .fw-item.done .box svg{opacity:1;}
-  .fw-later{display:block; width:36px; flex-shrink:0;}
-  .fw-name{flex:1; min-width:0; display:flex; align-items:center; gap:0; padding:0; border:none; background:none; color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left;}
-  .fw-name span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .fw-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-left:8px; white-space:nowrap;}
-  .fw-item.done .fw-name span{text-decoration:line-through; color:var(--text-dim);}
-  .fw-item.missed .fw-name span{color:var(--text-dim);}
-  .fw-rest{display:block; padding:12px 0; font-size:13px; color:var(--text-dim); font-style:italic;}
   .fw-foot{margin:10px 2px 2px; font-size:12.5px; color:var(--text-dim);}
   .fw-foot b{color:var(--text);}
+  .fit-tally{display:flex; align-items:center; justify-content:space-between; width:100%; margin:0 0 12px; padding:14px 16px; border:1px solid var(--line); border-radius:16px;
+    background:var(--surface); color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left;}
+  .fit-tally b{margin-left:6px;}
+  .fit-tally span:last-child{display:inline-flex; align-items:center; gap:4px; color:var(--link); font-size:13px; font-weight:700;}
   .fp-row{display:flex; align-items:center; width:100%; gap:2px; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
   .fp-name{flex:1; min-width:0; display:flex; flex-direction:column; font-size:14.5px; font-weight:700;}
   .fp-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-top:2px;}
@@ -1197,7 +1181,7 @@ let wantsState = {};
 // Collapsible open/closed state is tracked here (not just DOM classes) because
 // edits trigger full re-renders, which would otherwise silently re-collapse
 // whatever the user had open.
-let openPinned = new Set(["todo-card", "wants-pending-card", "weight-card", "fit-week", "fit-plan", "bills-mine", "bills-joint", "pay-plan", "glance", "goals-card", "spending-card"]); // Recurring and Budget's calendar start closed
+let openPinned = new Set(["todo-card", "wants-pending-card", "weight-card", "fit-plan", "bills-mine", "bills-joint", "pay-plan", "glance", "goals-card", "spending-card"]); // Recurring and Budget's calendar start closed
 let expandedTodos = new Set();
 let subAddOpen = new Set(); // to-dos whose sub-list currently shows the add input
 
@@ -2009,17 +1993,20 @@ function renderTodoPanel(){
   const overdueCount = todoList.filter(t => !t.done && todoGroup(t) === "overdue").length;
   const countLabel = todoList.length === 0 ? 'Empty'
     : (totalOpen ? `${totalOpen} open${overdueCount ? ` · <span class="overdue">${overdueCount} overdue</span>` : ''}` : 'All done');
-  // Wash days in the next week get a "Wash hair" row in their date group
-  const washGroups = new Map();
+  // Wash days and planned workouts in the next week get their own rows in
+  // their date group (worked out from the schedule, not stored as to-dos)
+  const washGroups = new Map(), workoutGroups = new Map();
   for (let n = 0; n < 7; n++){
-    const iso = addDaysIso(n);
-    if (isWashDay(noonOf(iso))) washGroups.set(n === 0 ? "today" : "d" + n, iso);
+    const iso = addDaysIso(n), key = n === 0 ? "today" : "d" + n;
+    if (isWashDay(noonOf(iso))) washGroups.set(key, iso);
+    const ws = workoutsOn(iso);
+    if (ws.length) workoutGroups.set(key, ws.map(w => workoutRowHtml(w, iso)).join(""));
   }
   html += `<div class="card" id="todo-card">
     <div class="todo-card-head"><span class="insight">${countLabel}</span></div>`;
-  if (todoList.length === 0 && !washGroups.size){
+  if (todoList.length === 0 && !washGroups.size && !workoutGroups.size){
     html += `<div class="empty">Nothing on your list — tap + to add one.</div>`;
-  } else if (totalOpen === 0 && !washGroups.size){
+  } else if (totalOpen === 0 && !washGroups.size && !workoutGroups.size){
     html += `<div class="empty">All done for now.</div>`;
   } else {
     // Within a group, array order IS display order (drag-to-reorder writes it
@@ -2029,11 +2016,12 @@ function renderTodoPanel(){
     todoGroups().forEach(g => {
       let items = todoList.filter(t => !t.done && todoGroup(t) === g.key);
       if (g.key === "overdue" || g.key === "later") items = items.slice().sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
-      const washIso = washGroups.get(g.key);
-      if (!items.length && !washIso) return;
+      const washIso = washGroups.get(g.key), workoutRows = workoutGroups.get(g.key) || "";
+      if (!items.length && !washIso && !workoutRows) return;
       html += `<div class="cat-title${g.key==='overdue'?' overdue':''}" data-due="${g.due}"${firstGroup?' style="margin-top:0;"':''}>${g.label}</div>`;
       firstGroup = false;
       if (washIso) html += washRowHtml(washIso);
+      html += workoutRows;
       items.forEach(t => { html += todoRow(t); });
     });
     html += `</div>`;
@@ -2075,6 +2063,7 @@ function renderTodoPanel(){
     </div>`).join("");
   html += collapsibleCard({id:"todo-recurring", title:"Recurring", insight:recurring.length ? `${recurring.length}` : "None",
     body:recRows || `<div class="empty">Set <b>Repeat</b> on a to-do (tap it to edit, or use the Repeat chip when adding) and it shows up here.</div>`});
+  html += workoutsCardHtml();
   el.innerHTML = html;
 }
 function renderHomePanel(){
@@ -4507,7 +4496,7 @@ function normalizeFitness(){
     if (/^\d{4}-\d{2}-\d{2}\|[A-Za-z0-9_-]+$/.test(k) && f.checks[k] && k.slice(0, 10) >= cutoff) fitness.checks[k] = true;
   });
 }
-function saveFitness(){ saveContent("fitness-content", fitness, {toast:false}); renderFitness(); renderHome(); }
+function saveFitness(){ saveContent("fitness-content", fitness, {toast:false}); renderFitness(); renderHome(); } // renderHome redraws To-Do too
 function weekStartIso(iso){ const d = noonOf(iso); d.setDate(d.getDate() - d.getDay()); return isoDate(d); }
 // Does a planned workout land on this date? It starts the week of its anchor
 // (start) date; every-N-weeks counts weeks from there.
@@ -4542,7 +4531,7 @@ function workoutRowHtml(w, iso){
     : `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Not done" : "Done"}: ${escapeAttr(w.name)}" onclick="event.stopPropagation(); toggleWorkout('${iso}','${w.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${done ? "checked" : ""}">
       ${lead}
-      <div class="body" onclick="activateTab('fitness')"><div class="title">${kindIconHtml({kind:w.kind, text:w.name})}${escapeHtml(w.name)}</div><div class="todo-meta">${escapeHtml(fmtTime(w.time) || "Fitness plan")}</div></div>
+      <div class="body" onclick="editWorkout('${w.id}')"><div class="title">${kindIconHtml({kind:w.kind, text:w.name})}${escapeHtml(w.name)}</div><div class="todo-meta"><span class="repeat-meta">${REPEAT_ICON}${escapeHtml([w.every > 1 ? `Every ${w.every} weeks` : "Weekly", fmtTime(w.time)].filter(Boolean).join(" · "))}</span></div></div>
     </div></div>`;
 }
 function currentWeight(){ const w = fitness.weights; return w.length ? w[w.length - 1].lbs : null; }
@@ -4635,6 +4624,27 @@ function editWorkout(id){
     },
     w ? () => { fitness.plan = fitness.plan.filter(x => x.id !== id); saveFitness(); } : null);
 }
+// This week's planned workouts and how many got done; and the last 4 weeks
+function workoutWeekStats(){
+  const today = addDaysIso(0), ws = weekStartIso(today);
+  let done = 0, total = 0, p4 = 0, d4 = 0;
+  for (let i = 0; i < 7; i++){
+    const iso = isoDate(new Date(noonOf(ws).getTime() + i * 864e5));
+    workoutsOn(iso).forEach(w => { total++; if (workoutDone(iso, w.id)) done++; });
+  }
+  for (let i = 1; i <= 28; i++){ const iso = addDaysIso(-i); workoutsOn(iso).forEach(w => { p4++; if (workoutDone(iso, w.id)) d4++; }); }
+  return {done, total, p4, d4};
+}
+// To-Do's Workouts card: the weekly plan (tap to edit, drag to reorder)
+function workoutsCardHtml(){
+  const wk = workoutWeekStats();
+  const plan = fitness.plan.map(w => `<button class="fp-row" data-sort-id="${w.id}" onclick="editWorkout('${w.id}')">
+      ${kindIconHtml({kind:w.kind, text:w.name})}<span class="fp-name">${escapeHtml(w.name)}<i>${escapeHtml(workoutMeta(w))}</i></span>${CHEVRON_RIGHT}</button>`).join("");
+  return collapsibleCard({id:"fit-plan", title:"Workouts", insight:fitness.plan.length ? `${wk.done}/${wk.total} this week` : "None",
+    body:(plan || `<div class="empty">Add your workouts and they show up in your to-dos on their days.</div>`)
+      + (wk.p4 ? `<div class="fw-foot">Last 4 weeks: <b>${wk.d4} of ${wk.p4}</b> done</div>` : "")
+      + `<button class="add-row" onclick="editWorkout()">+ Add workout</button>`});
+}
 function renderFitness(){
   const el = document.getElementById("panel-fitness");
   if (!el) return;
@@ -4667,35 +4677,12 @@ function renderFitness(){
           <span class="goal-note"></span><b>${w.lbs} lb</b></button>`).join("")}</div>` : ""}`;
   }
   let html = collapsibleCard({id:"weight-card", title:"Weight", insight:s.cur != null && s.goal != null ? (s.reached ? "Goal reached" : `${s.cur} → ${s.goal}`) : s.cur != null ? `${s.cur} lb` : "Not set", body:wBody});
-  // 2. This week, Sunday to Saturday
-  const ws = weekStartIso(today);
-  let done = 0, total = 0, week = "";
-  for (let i = 0; i < 7; i++){
-    const iso = isoDate(new Date(noonOf(ws).getTime() + i * 864e5)), list = workoutsOn(iso);
-    total += list.length;
-    const rows = list.map(w => {
-      const ok = workoutDone(iso, w.id); if (ok) done++;
-      const missed = !ok && iso < today;
-      return `<div class="fw-item ${ok ? "done" : ""} ${missed ? "missed" : ""}">
-          ${iso <= today ? `<button class="todo-check" role="checkbox" aria-checked="${ok}" aria-label="${ok ? "Not done" : "Done"}: ${escapeAttr(w.name)} ${escapeAttr(DAY_SHORT[i])}" onclick="toggleWorkout('${iso}','${w.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>` : `<span class="fw-later"></span>`}
-          <button class="fw-name" onclick="editWorkout('${w.id}')">${kindIconHtml({kind:w.kind, text:w.name})}<span>${escapeHtml(w.name)}</span>${w.time ? `<i>${escapeHtml(fmtTime(w.time))}</i>` : ""}</button>
-        </div>`;
-    }).join("");
-    week += `<div class="fw-day ${iso === today ? "today" : ""} ${iso < today ? "past" : ""}">
-        <div class="fw-date"><b>${DAY_SHORT[i]}</b><span>${noonOf(iso).getDate()}</span></div>
-        <div class="fw-list">${rows || `<span class="fw-rest">Rest</span>`}</div>
-      </div>`;
+  // Workouts live in To-Do now; Fitness keeps a one-line tally
+  if (fitness.plan.length){
+    const wk = workoutWeekStats();
+    html += `<button class="fit-tally" onclick="activateTab('todo'); setTimeout(() => { const c = document.getElementById('fit-plan'); if (c) c.scrollIntoView({behavior:'smooth'}); }, 50)">
+        <span>Workouts this week <b>${wk.done} of ${wk.total}</b></span><span>In To-Do ${CHEVRON_RIGHT}</span></button>`;
   }
-  // last 4 weeks, for a sense of consistency
-  let p4 = 0, d4 = 0;
-  for (let i = 1; i <= 28; i++){ const iso = addDaysIso(-i); workoutsOn(iso).forEach(w => { p4++; if (workoutDone(iso, w.id)) d4++; }); }
-  html += collapsibleCard({id:"fit-week", title:"This week", insight:total ? `${done}/${total} done` : "No plan yet",
-    body:(fitness.plan.length ? week + (p4 ? `<div class="fw-foot">Last 4 weeks: <b>${d4} of ${p4}</b> done</div>` : "") : `<div class="empty">Add your workouts below and each week fills itself in.</div>`)});
-  // 3. The plan
-  const plan = fitness.plan.map(w => `<button class="fp-row" data-sort-id="${w.id}" onclick="editWorkout('${w.id}')">
-      ${kindIconHtml({kind:w.kind, text:w.name})}<span class="fp-name">${escapeHtml(w.name)}<i>${escapeHtml(workoutMeta(w))}</i></span>${CHEVRON_RIGHT}</button>`).join("");
-  html += collapsibleCard({id:"fit-plan", title:"Weekly plan", insight:`${fitness.plan.length} workout${fitness.plan.length === 1 ? "" : "s"}`,
-    body:plan + `<button class="add-row" onclick="editWorkout()">+ Add workout</button>`});
   el.innerHTML = html;
 }
 
@@ -5030,7 +5017,11 @@ function pressToDrag(panel, rowSel, onStart, ignore = "button, a, input, textare
     });
     // A Wash hair row is pinned under its day header: dropping above it lands
     // at the end of the previous group, not between the header and the row
-    if (next && next.classList.contains("wash-row") && next.previousElementSibling && next.previousElementSibling.classList.contains("cat-title")) next = next.previousElementSibling;
+    if (next && next.matches(".wash-row, .workout-row")){
+      let el = next;
+      while (el.previousElementSibling && el.previousElementSibling.matches(".wash-row, .workout-row")) el = el.previousElementSibling;
+      if (el.previousElementSibling && el.previousElementSibling.classList.contains("cat-title")) next = el.previousElementSibling;
+    }
     if (next){
       if (next.previousElementSibling !== drag.wrap) drag.list.insertBefore(drag.wrap, next);
     } else if (drag.list.lastElementChild !== drag.wrap){
@@ -5173,7 +5164,7 @@ sortable(document.getElementById("panel-budget"), "#goals-card .goal", (box, ids
   budget.goals = byIds(budget.goals, ids);
   saveBudgetData();
 }, ".goal-actions, .goal-entries, a, input");
-sortable(document.getElementById("panel-fitness"), "#fit-plan .fp-row", (box, ids) => {
+sortable(document.getElementById("panel-todo"), "#fit-plan .fp-row", (box, ids) => {
   fitness.plan = byIds(fitness.plan, ids);
   saveFitness();
 }, "a, input");
@@ -5745,8 +5736,23 @@ function importFromLink(){
   }catch(e){ showToast("That import link is damaged", true); return; }
   const wait = localStorage.getItem("sync-token") ? 2500 : 0; // let the first sync pull land before adding on top of it
   if (data && data.app === "jazz3-fitness"){ setTimeout(() => applyFitnessImport(data), wait); return; }
+  if (data && data.app === "jazz3-cleanup"){ setTimeout(() => applyCleanup(data), wait); return; }
   if (!data || data.app !== "jazz2-budget" || !/^\d{4}-\d{2}$/.test(data.month || "")){ showToast("That isn't an import link", true); return; }
   setTimeout(() => applyBudgetImport(data), wait);
+}
+// Clean-up from a link: removes open to-dos with these exact names (after a
+// confirm, with Undo), e.g. ones a Fitness plan now covers
+function applyCleanup(data){
+  const names = (Array.isArray(data.removeTodos) ? data.removeTodos : []).map(n => String(n).trim().toLowerCase()).filter(Boolean);
+  const hit = todoList.filter(t => !t.done && names.includes(String(t.text).trim().toLowerCase()));
+  if (!hit.length){ showToast("Nothing to remove: those to-dos are already gone"); return; }
+  if (!confirm(`Remove ${hit.length} to-do${hit.length === 1 ? "" : "s"}: ${[...new Set(hit.map(t => t.text))].join(", ")}?`)) return;
+  const snapshot = JSON.parse(JSON.stringify(liveData()));
+  todoList = todoList.filter(t => !hit.includes(t));
+  saveContent("todo-content", todoList, {toast:false});
+  renderHome();
+  activateTab("todo");
+  showUndoToast(`Removed ${hit.length} to-do${hit.length === 1 ? "" : "s"}`, () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
 }
 // Fitness set-up from a link: weight start/goal (if not set yet), weigh-ins on
 // dates without one, and workouts not already in the plan (by name)

@@ -96,22 +96,27 @@ clothes, moto gear, and everything else.
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Fitness** (new in Jazz 3.0) tracks weight toward a goal and a weekly workout plan.
+**Fitness** (new in Jazz 3.0) tracks weight toward a goal; the workouts themselves live in To-Do.
 - **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
   weight to the goal, the change since you started, your pace over the last 8 weeks
   ("+0.6 lb/week lately") with a finish date at that pace, and a small trend chart. **+ Log
   weight** (one weigh-in a day; logging the same day again updates it); tap a weigh-in to
   fix or delete it; tap the goal to set start and goal weights.
-- **This week:** Sunday to Saturday, each day's planned workouts with a box to tick (today
-  and earlier), "Rest" on days off, and how many of the last 4 weeks' workouts got done.
-- **Weekly plan:** each workout's days, optional time, and how often (every 1–4 weeks,
-  counted from its start date; a plan starts the week of that date). Tap to edit, press and
-  drag to reorder, **+ Add workout**.
-- **On Home:** each day's workouts show in the day's list under their type (Fitness, Pets…),
-  count in the progress ring and calendar dots, and can be ticked there too.
-- **Import link:** `#import=` with `{"app":"jazz3-fitness", start, goal, weights:[{date,lbs}],
-  plan:[{name, days, every, anchor, time, kind}]}` adds what isn't there yet, after a confirm.
-  Personal numbers never go in the repo; they travel only in the link's fragment.
+- **Workouts this week:** a one-line tally ("2 of 8") that opens the plan in To-Do.
+
+**Workouts** are a weekly plan that fills your to-dos by itself:
+- **In To-Do:** each planned workout shows in its day's group for the coming week (tickable
+  today, a preview on later days); tap one to edit it. A **Workouts** card under Recurring
+  holds the plan: days, optional time, how often (every 1–4 weeks, counted from its start
+  date; a plan starts the week of that date) and type. Tap to edit, press and drag to
+  reorder, **+ Add workout**, and "Last 4 weeks: N of M done".
+- **On Home:** each day's workouts show under their type (Fitness, Pets…), count in the ring
+  and calendar dots, and can be ticked there too.
+- **Links:** `#import=` with `{"app":"jazz3-fitness", start, goal, weights:[{date,lbs}],
+  plan:[{name, days, every, anchor, time, kind}]}` adds what isn't there yet; with
+  `{"app":"jazz3-cleanup", removeTodos:[names]}` it removes open to-dos with those names
+  (after a confirm, with Undo). Personal numbers never go in the repo; they travel only in
+  the link's fragment.
 
 **Budget** is laid out like the budget sheet, one calendar month at a time (‹ › to step months).
 - **Top:** four tiles: **Income** (this month's checks; ~ when some are expected),
@@ -238,7 +243,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (410 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (412 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
