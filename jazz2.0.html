@@ -5872,19 +5872,31 @@ function importFromLink(){
   if (!data || data.app !== "jazz2-budget" || !/^\d{4}-\d{2}$/.test(data.month || "")){ showToast("That isn't an import link", true); return; }
   setTimeout(() => applyBudgetImport(data), wait);
 }
-// Clean-up from a link: removes open to-dos with these exact names (after a
-// confirm, with Undo), e.g. ones a Fitness plan now covers
+// To-do changes from a link (after a confirm, with Undo): removeTodos drops
+// open to-dos with those exact names; addTodos adds [{text, repeat?, kind?}]
+// unless an open one with that text exists (a repeat starts today)
 function applyCleanup(data){
-  const names = (Array.isArray(data.removeTodos) ? data.removeTodos : []).map(n => String(n).trim().toLowerCase()).filter(Boolean);
+  const arr = v => Array.isArray(v) ? v : [];
+  const names = arr(data.removeTodos).map(n => String(n).trim().toLowerCase()).filter(Boolean);
   const hit = todoList.filter(t => !t.done && names.includes(String(t.text).trim().toLowerCase()));
-  if (!hit.length){ showToast("Nothing to remove: those to-dos are already gone"); return; }
-  if (!confirm(`Remove ${hit.length} to-do${hit.length === 1 ? "" : "s"}: ${[...new Set(hit.map(t => t.text))].join(", ")}?`)) return;
+  // to-dos to add: skipped when an open one with the same text is already there
+  const adds = arr(data.addTodos).filter(a => a && String(a.text || "").trim())
+    .map(a => ({text:String(a.text).trim().slice(0, TODO_MAX_LEN), repeat:REPEATS[a.repeat] && !CUSTOM_REPEATS[a.repeat] ? a.repeat : null, kind:TODO_KINDS[a.kind] ? a.kind : null}))
+    .filter(a => !todoList.some(t => !t.done && t.text.toLowerCase() === a.text.toLowerCase()));
+  if (!hit.length && !adds.length){ showToast("Nothing to change: your to-dos already match"); return; }
+  const parts = [adds.length && `add ${adds.map(a => `"${a.text}"${a.repeat ? ` (${REPEATS[a.repeat].short.toLowerCase()})` : ""}`).join(", ")}`,
+    hit.length && `remove ${[...new Set(hit.map(t => `"${t.text}"`))].join(", ")}`].filter(Boolean);
+  if (!confirm(`${parts.join(" and ").replace(/^./, c => c.toUpperCase())}?`)) return;
   const snapshot = JSON.parse(JSON.stringify(liveData()));
   todoList = todoList.filter(t => !hit.includes(t));
+  const today = addDaysIso(0);
+  adds.forEach(a => todoList.unshift({id:genId("todo"), text:a.text, done:false, due:a.repeat ? today : null, starred:false, subitems:[], completedAt:null,
+    ...(a.repeat ? {repeat:a.repeat, repeatDay:dayOf(today)} : {}), ...(a.kind ? {kind:a.kind} : {})}));
   saveContent("todo-content", todoList, {toast:false});
   renderHome();
   activateTab("todo");
-  showUndoToast(`Removed ${hit.length} to-do${hit.length === 1 ? "" : "s"}`, () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
+  showUndoToast([adds.length && `Added ${adds.length}`, hit.length && `removed ${hit.length}`].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase()) + ` to-do${adds.length + hit.length === 1 ? "" : "s"}`,
+    () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
 }
 // Fitness set-up from a link: weight start/goal (if not set yet), weigh-ins on
 // dates without one, and workouts not already in the plan (by name)

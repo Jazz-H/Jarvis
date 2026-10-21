@@ -127,7 +127,8 @@ the starting items.
   and calendar dots, and can be ticked there too.
 - **Links:** `#import=` with `{"app":"jazz3-fitness", start, goal, weights:[{date,lbs}],
   plan:[{name, days, every, anchor, time, kind}]}` adds what isn't there yet; with
-  `{"app":"jazz3-cleanup", removeTodos:[names]}` it removes open to-dos with those names
+  `{"app":"jazz3-cleanup", removeTodos:[names], addTodos:[{text, repeat, kind}]}` it removes open
+  to-dos with those names and adds the given ones (a repeat starts today; skipped if already there)
   (after a confirm, with Undo). Personal numbers never go in the repo; they travel only in
   the link's fragment.
 
@@ -256,7 +257,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (432 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (433 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

@@ -1396,6 +1396,13 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
     applyCleanup({ removeTodos: ["gym", "Dog park"] });
     return !todoList.some(t => t.id === "g") && todoList.some(t => t.id === "k");
   }));
+  check("a to-do link adds a daily to-do once (with its type)", await page.evaluate(() => {
+    window.confirm = () => true;
+    applyCleanup({ addTodos: [{ text: "Creatine (morning)", repeat: "daily", kind: "fitness" }] });
+    applyCleanup({ addTodos: [{ text: "Creatine (morning)", repeat: "daily", kind: "fitness" }] }); // second time: already there
+    const c = todoList.filter(t => t.text === "Creatine (morning)");
+    return c.length === 1 && c[0].repeat === "daily" && c[0].due === addDaysIso(0) && c[0].kind === "fitness" && todoKind(c[0]) === "fitness";
+  }));
   check("junk fitness values are cleaned", await page.evaluate(() => { fitness.weights.push({ date: "x", lbs: 5 }); fitness.plan.push({ name: "<b>", days: [9, 2], every: 9, kind: "zzz" }); normalizeFitness();
     const w = fitness.plan[fitness.plan.length - 1]; return fitness.weights.length === 2 && JSON.stringify(w.days) === "[2]" && w.every === 4 && w.kind === "fitness"; }));
   check("no JS errors", errors.length === 0, errors);
