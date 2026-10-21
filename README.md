@@ -96,13 +96,16 @@ clothes, moto gear, and everything else.
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Fitness** (new in Jazz 3.0) tracks weight toward a goal; the workouts themselves live in To-Do.
+**Jazz 3.0** is its own tab (third in the bar), made of sections; more are coming.
+**Budget** is hidden from the bar for now (its data, bills on Home, and links to
+`?tab=budget` all still work). Old `?tab=fitness` links open Jazz 3.0.
+
+**Fitness** (the first Jazz 3.0 section) tracks weight toward a goal; the workouts themselves live in To-Do.
 - **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
   weight to the goal, the change since you started, your pace over the last 8 weeks
   ("+0.6 lb/week lately") with a finish date at that pace, and a small trend chart. **+ Log
   weight** (one weigh-in a day; logging the same day again updates it); tap a weigh-in to
   fix or delete it; tap the goal to set start and goal weights.
-- **Workouts this week:** a one-line tally ("2 of 8") that opens the plan in To-Do.
 
 **Workouts** are a weekly plan that fills your to-dos by itself:
 - **In To-Do:** each planned workout shows in its day's group for the coming week (tickable
@@ -243,7 +246,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (412 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (414 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
