@@ -869,6 +869,9 @@
   .p3-row.done .p3-body b{text-decoration:line-through; color:var(--text-dim);}
   .p3-new{margin-top:14px;}
   .p3-row{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
+  .weigh-day-link{display:flex; align-items:center; gap:6px; margin:8px 2px 0; padding:4px 0; border:none; background:none; color:var(--text-dim); font:inherit; font-size:12.5px; font-weight:600;}
+  .weigh-day-link svg{width:13px; height:13px;}
+  .weigh-day-link b{color:var(--link); font-weight:700; margin-left:2px;}
   .fp-row{display:flex; align-items:center; width:100%; gap:2px; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
   .fp-name{flex:1; min-width:0; display:flex; flex-direction:column; font-size:14.5px; font-weight:700;}
   .fp-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-top:2px;}
@@ -1810,7 +1813,8 @@ function homeCalDayHtml(d, counts, monthView, other = false){
   const iso = isoDate(d), today = addDaysIso(0), sel = homeSelected();
   const dayBills = iso >= today ? billsOnDay(iso) : null;
   const count = iso >= today ? (counts[iso] || 0) + (iso > today ? todoList.filter(t => occursOn(t, iso)).length : 0)
-    + dayBills.open.length + dayBills.projected.length + workoutsOn(iso).filter(w => !workoutDone(iso, w.id)).length : 0;
+    + dayBills.open.length + dayBills.projected.length + workoutsOn(iso).filter(w => !workoutDone(iso, w.id)).length
+    + (weighInDue(iso) && !weighedOn(iso) ? 1 : 0) : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
   const hol = holidaysOn(iso);
   const cls = ["home-day", iso === sel ? "on" : "", iso === today ? "today" : "", iso < today ? "past" : "", other ? "other" : "", hol.length ? "holiday" : ""].filter(Boolean).join(" ");
@@ -2006,8 +2010,8 @@ function renderTodoPanel(){
   for (let n = 0; n < 7; n++){
     const iso = addDaysIso(n), key = n === 0 ? "today" : "d" + n;
     if (isWashDay(noonOf(iso))) washGroups.set(key, iso);
-    const ws = workoutsOn(iso);
-    if (ws.length) workoutGroups.set(key, ws.map(w => workoutRowHtml(w, iso)).join(""));
+    const ws = workoutsOn(iso), weigh = weighInDue(iso) ? weighRowHtml(iso) : "";
+    if (ws.length || weigh) workoutGroups.set(key, weigh + ws.map(w => workoutRowHtml(w, iso)).join(""));
   }
   html += `<div class="card" id="todo-card">
     <div class="todo-card-head"><span class="insight">${countLabel}</span></div>`;
@@ -2084,9 +2088,10 @@ function renderHomePanel(){
   const washDone = day.wash && washHairDone(iso);
   const repeats = day.repeats || [];
   const dayBills = billsOnDay(iso);
-  const workouts = workoutsOn(iso), workoutsDone = workouts.filter(w => workoutDone(iso, w.id)).length;
+  const weighDue = weighInDue(iso), weighDone = weighDue && !!weighedOn(iso);
+  const workouts = workoutsOn(iso), workoutsDone = workouts.filter(w => workoutDone(iso, w.id)).length + (weighDone ? 1 : 0);
   const total = day.overdue.length + day.open.length + repeats.length + day.done.length + (day.wash ? 1 : 0)
-    + dayBills.open.length + dayBills.projected.length + dayBills.paid.length + workouts.length;
+    + dayBills.open.length + dayBills.projected.length + dayBills.paid.length + workouts.length + (weighDue ? 1 : 0);
   const done = day.done.length + (washDone ? 1 : 0) + dayBills.paid.length + workoutsDone;
   const left = total - done;
   let sub;
@@ -2115,6 +2120,7 @@ function renderHomePanel(){
   // that has any to-dos (Chores, Errands…) under its own label, then Bills
   const items = [...day.open.map(t => ({t, html:homeRowHtml(t, [...(iso < today && todoEnd(t) < today ? pastOpen : []), ...spanMeta(t, iso)])})),
     ...repeats.map(t => ({t, html:repeatGhostHtml(t)})),
+    ...(weighDue ? [{t:{kind:"fitness", text:"Weigh in"}, html:weighRowHtml(iso)}] : []),
     ...workouts.map(w => ({t:{kind:w.kind, text:w.name}, html:workoutRowHtml(w, iso)}))];
   const kindCount = {};
   items.forEach(x => { const k = todoKind(x.t); if (k) kindCount[k] = (kindCount[k] || 0) + 1; });
@@ -4491,6 +4497,7 @@ function normalizeFitness(){
   const cutoff = addDaysIso(-400);
   fitness = {
     start:lbs(f.start), goal:lbs(f.goal),
+    ...(Number.isInteger(f.weighDay) && f.weighDay >= -1 && f.weighDay <= 6 ? {weighDay:f.weighDay} : {}),
     weights:(Array.isArray(f.weights) ? f.weights : []).filter(w => w && iso(w.date) && lbs(w.lbs) != null)
       .map(w => ({id:safeId(w.id, "wt"), date:w.date, lbs:lbs(w.lbs)})).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0),
     plan:(Array.isArray(f.plan) ? f.plan : []).filter(w => w && typeof w === "object").map(w => ({
@@ -4574,12 +4581,12 @@ function weightChartHtml(){
   return `<svg class="weight-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Weight trend">${goal}
       <polyline points="${line}" class="wc-line"/>${pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.lbs)}" r="${i === pts.length - 1 ? 3.5 : 2}" class="wc-dot"/>`).join("")}</svg>`;
 }
-function logWeight(id){
+function logWeight(id, date){
   const e = id ? fitness.weights.find(w => w.id === id) : null;
   openModal(e ? "Edit weigh-in" : "Log weight", [
     {key:"lbs", label:"Weight (lb)", type:"number", step:"0.1"},
     {key:"date", label:"Date", type:"date"},
-  ], e ? {lbs:e.lbs, date:e.date} : {lbs:currentWeight() ?? "", date:addDaysIso(0)},
+  ], e ? {lbs:e.lbs, date:e.date} : {lbs:currentWeight() ?? "", date:date || addDaysIso(0)},
     v => {
       const n = Math.round(Number(v.lbs) * 10) / 10;
       if (!isFinite(n) || n < 40 || n > 800) return;
@@ -4593,6 +4600,39 @@ function logWeight(id){
       showToast(s.reached ? "Goal weight reached!" : s.toGo != null ? `${n} lb · ${s.toGo} lb to go` : `${n} lb logged`);
     },
     e ? () => { fitness.weights = fitness.weights.filter(w => w.id !== id); saveFitness(); } : null);
+}
+// Weigh-in day: a weekly reminder (Monday unless changed; -1 = off) that shows
+// on Home and in To-Do and ticks itself once that day has a weigh-in. If a
+// week goes by without one, it also shows today.
+function weighDay(){ return fitness.weighDay == null ? 1 : fitness.weighDay; }
+function weighedOn(iso){ return fitness.weights.find(w => w.date === iso) || null; }
+function weighInDue(iso){
+  const d = weighDay(), today = addDaysIso(0);
+  if (d < 0 || (fitness.goal == null && !fitness.weights.length)) return false;
+  if (noonOf(iso).getDay() === d) return true;
+  if (iso !== today) return false;
+  const last = fitness.weights.length ? fitness.weights[fitness.weights.length - 1].date : null;
+  return !weighedOn(today) && (!last || last <= addDaysIso(-7)); // a week without one
+}
+function weighRowHtml(iso){
+  const today = addDaysIso(0), w = weighedOn(iso), last = fitness.weights.filter(x => x.date < iso).pop();
+  const open = `logWeight(${w ? `'${w.id}'` : "null"}, '${iso}')`;
+  const meta = w ? `${w.lbs} lb` : last ? `Last ${last.lbs} lb · ${noonOf(last.date).toLocaleDateString('en-US', {month:'short', day:'numeric'})}` : "Log your weight";
+  const lead = iso > today
+    ? `<span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>`
+    : `<button class="todo-check" role="checkbox" aria-checked="${!!w}" aria-label="Weigh in" onclick="event.stopPropagation(); ${open}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
+  return `<div class="todo-wrap weigh-row workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${w ? "checked" : ""}">
+      ${lead}
+      <div class="body" onclick="${open}"><div class="title">${kindIconHtml({kind:"fitness", text:""})}Weigh in</div><div class="todo-meta">${escapeHtml(meta)}</div></div>
+    </div></div>`;
+}
+function editWeighDay(){
+  const opts = [...WEEKDAYS, "Off"];
+  openModal("Weigh-in day", [
+    {key:"day", label:"Remind me to weigh in every", type:"select", options:opts},
+    {type:"note", label:"Weigh in first thing in the morning, before eating, for steady numbers. If a week goes by without a weigh-in, the reminder also shows today."},
+  ], {day:weighDay() < 0 ? "Off" : WEEKDAYS[weighDay()]},
+    v => { const i = WEEKDAYS.indexOf(v.day); fitness.weighDay = i >= 0 ? i : -1; saveFitness(); });
 }
 function editWeightGoal(){
   openModal("Weight goal", [
@@ -4674,6 +4714,7 @@ function renderFitness(){
         ${s.change != null ? `<div>${dir}${s.change ? ` <b>${Math.abs(s.change)} lb</b>` : ""} since you started at ${s.start}</div>` : ""}
         <div>${escapeHtml(rate)}${s.eta ? ` · At this pace: <b>${escapeHtml(noonOf(s.eta).toLocaleDateString('en-US', {month:'short', day:'numeric'}))}</b>` : ""}</div>
       </div>
+      <button class="weigh-day-link" onclick="editWeighDay()">${CALENDAR_ICON}<span>${weighDay() < 0 ? "Weigh-in reminder off" : `Weigh-in day: ${WEEKDAYS[weighDay()]}s`}</span><b>Change</b></button>
       ${weightChartHtml()}
       <div class="goal-actions">
         <button class="goal-add" onclick="logWeight()">+ Log weight</button>

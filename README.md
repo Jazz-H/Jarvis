@@ -106,6 +106,10 @@ clothes, moto gear, and everything else.
   ("+0.6 lb/week lately") with a finish date at that pace, and a small trend chart. **+ Log
   weight** (one weigh-in a day; logging the same day again updates it); tap a weigh-in to
   fix or delete it; tap the goal to set start and goal weights.
+- **Weigh-in day:** a weekly **Weigh in** reminder (Mondays unless changed; "Change" in the
+  Weight card, or turn it off) shows on Home under Fitness and in that day's To-Do group
+  with your last weight. Ticking it opens Log weight for that date, and it ticks itself once
+  the day has a weigh-in. If a week goes by without one, it also shows today.
 
 **Goal sections** (Glow, Leadership…) follow Fitness on the Jazz 3.0 tab: each is a card
 with a checklist of items and a short note ("Hand cream — nightly"), a "2/7
@@ -252,7 +256,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (423 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (432 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
