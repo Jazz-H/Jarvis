@@ -750,7 +750,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
     "bills-content": [{ id: "<bad>", name: "Junk", amount: "abc", due: "nope", repeat: "hourly", autopay: 1, link: "javascript:alert(1)" }],
   }});
   const nav = await page.$$eval("nav.tabbar button", bs => bs.map(b => b.textContent.trim()));
-  check("nav: Home, To-Do, Fitness, Budget, Shopping, Skin & Hair", JSON.stringify(nav) === '["Home","To-Do","Fitness","Budget","Shopping","Skin & Hair"]', nav);
+  check("nav: Home, To-Do, Jazz 3.0, Shopping, Skin & Hair (Budget hidden)", JSON.stringify(nav) === '["Home","To-Do","Jazz 3.0","Shopping","Skin & Hair"]', nav);
   check("swipe order matches the nav", await page.evaluate(() => JSON.stringify(TAB_ORDER) === JSON.stringify([...document.querySelectorAll("nav.tabbar button")].map(b => b.dataset.tab))));
   const junk = await page.evaluate(() => bills[0]);
   check("bad bill data is coerced", /^bill-/.test(junk.id) && junk.amount === 0 && junk.repeat === "monthly" && /^\d{4}-/.test(junk.due), junk);
@@ -1364,14 +1364,14 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   const r = await page.evaluate(() => ({ tab: currentTab, start: fitness.start, goal: fitness.goal, n: fitness.weights.length, plan: fitness.plan.map(w => [w.name, w.every, w.kind, w.time]),
     hash: location.hash, s: weightStatus(), title: document.title }));
   check("app is Jazz 3.0", r.title === "Jazz 3.0", r.title);
-  check("import link fills Fitness and opens it", r.tab === "fitness" && r.start === 100 && r.goal === 120 && r.n === 2 && r.plan.length === 2 && r.hash === "", r);
+  check("import link fills Fitness and opens the Jazz 3.0 tab", r.tab === "jazz3" && r.start === 100 && r.goal === 120 && r.n === 2 && r.plan.length === 2 && r.hash === "", r);
   check("weight progress, pace and finish date", r.s.cur === 112 && r.s.toGo === 8 && r.s.pct === 60 && r.s.rate === 1 && !!r.s.eta, r.s);
-  const ui = await page.evaluate(() => ({ weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "), tally: document.querySelector("#panel-fitness .fit-tally").textContent.replace(/\s+/g, " "),
-    week: document.getElementById("todo-list").textContent.replace(/\s+/g, " "), planOnFitness: !!document.querySelector("#panel-fitness #fit-plan"),
+  const ui = await page.evaluate(() => ({ weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "), section: document.querySelector("#panel-jazz3 .j3-sec").textContent.trim(), tally: !!document.querySelector(".fit-tally"),
+    week: document.getElementById("todo-list").textContent.replace(/\s+/g, " "), planOnFitness: !!document.querySelector("#panel-jazz3 #fit-plan"),
     plan: document.querySelector("#panel-todo #fit-plan").textContent.replace(/\s+/g, " ") }));
   check("Weight card shows now, goal and to go", ui.weight.includes("112") && ui.weight.includes("Goal 120") && ui.weight.includes("8 lb to go"), ui.weight);
   check("workouts fill the To-Do list on their days", ui.week.includes("Gym A") && ui.week.includes("Walk"), ui.week);
-  check("the plan lives in To-Do, Fitness keeps a tally", !ui.planOnFitness && ui.tally.includes("Workouts this week"), ui);
+  check("Jazz 3.0 tab: a Fitness section with Weight, no workout tally; plan lives in To-Do", ui.section === "Fitness" && !ui.tally && !ui.planOnFitness, ui);
   check("plan shows days, time and every 2 weeks", ui.plan.includes("Every day") && ui.plan.includes("9 AM") && ui.plan.includes("every 2 weeks"), ui.plan);
   check("every-2-weeks workouts skip alternate weeks", await page.evaluate(() => { const w = fitness.plan.find(x => x.name === "Walk"); return workoutOn(w, addDaysIso(0)) && !workoutOn(w, addDaysIso(7)) && workoutOn(w, addDaysIso(14)); }));
   check("a plan doesn't count the weeks before it started", await page.evaluate(() => { const w = fitness.plan.find(x => x.name === "Gym A"); return !workoutOn(w, addDaysIso(-8)); }));
@@ -1383,11 +1383,13 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
     subs: [...document.querySelectorAll("#panel-home .home-sub")].map(e => e.textContent.trim()) }));
   check("Home lists today's workouts under their type", home.text.includes("Gym A") && home.subs.includes("Fitness") && home.subs.includes("Pets"), home);
   check("workouts count in the day's ring", home.ring === "1 of 2 done", home.ring);
-  await page.evaluate(() => { activateTab("fitness"); logWeight(); });
+  await page.evaluate(() => { activateTab("jazz3"); logWeight(); });
   await page.fill("#modal-lbs", "113.4");
   await page.click("#modal-backdrop .modal-btn.primary");
   check("logging today again updates today's weigh-in", await page.evaluate(() => fitness.weights.length === 2 && currentWeight() === 113.4));
   // the one-time cleanup link removes open to-dos by name
+  check("Budget is hidden from the bar but still opens by link", await page.evaluate(() => !document.querySelector('nav.tabbar [data-tab="budget"]') && (activateTab("budget"), document.getElementById("panel-budget").classList.contains("active"))));
+  check("old Fitness links land on Jazz 3.0", await page.evaluate(() => (activateTab("fitness"), currentTab === "jazz3" && document.getElementById("panel-jazz3").classList.contains("active"))));
   check("cleanup removes open to-dos by name", await page.evaluate(() => {
     window.confirm = () => true;
     todoList.push({ id: "g", text: "Gym", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }, { id: "k", text: "Keep me", done: false, due: null, starred: false, subitems: [], completedAt: null });

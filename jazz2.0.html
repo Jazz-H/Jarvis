@@ -87,7 +87,7 @@
   nav.tabbar button{
     flex:1; background:none; border:none; color:var(--text-dim);
     display:flex; flex-direction:column; align-items:center; gap:4px;
-    font-size:10px; font-family:inherit; font-weight:600;
+    font-size:10.5px; font-family:inherit; font-weight:600;
     letter-spacing:.02em; padding:6px 2px; border-radius:10px;
   }
   nav.tabbar button svg{width:21px; height:21px;}
@@ -854,10 +854,8 @@
   .weight-chart .wc-goal{stroke:var(--olive); stroke-width:1; stroke-dasharray:4 4; vector-effect:non-scaling-stroke; opacity:.7;}
   .fw-foot{margin:10px 2px 2px; font-size:12.5px; color:var(--text-dim);}
   .fw-foot b{color:var(--text);}
-  .fit-tally{display:flex; align-items:center; justify-content:space-between; width:100%; margin:0 0 12px; padding:14px 16px; border:1px solid var(--line); border-radius:16px;
-    background:var(--surface); color:var(--text); font:inherit; font-size:14px; font-weight:600; text-align:left;}
-  .fit-tally b{margin-left:6px;}
-  .fit-tally span:last-child{display:inline-flex; align-items:center; gap:4px; color:var(--link); font-size:13px; font-weight:700;}
+  .j3-sec{display:flex; align-items:center; gap:8px; margin:4px 4px 10px; font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim);}
+  .j3-sec svg{width:15px; height:15px; color:hsl(25 75% 70%);}
   .fp-row{display:flex; align-items:center; width:100%; gap:2px; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
   .fp-name{flex:1; min-width:0; display:flex; flex-direction:column; font-size:14.5px; font-weight:700;}
   .fp-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-top:2px;}
@@ -1009,7 +1007,7 @@
   <!-- TO-DO -->
   <section class="tabpanel" id="panel-todo"></section>
   <!-- SKIN / HAIR -->
-  <section class="tabpanel" id="panel-fitness"></section>
+  <section class="tabpanel" id="panel-jazz3"></section>
   <section class="tabpanel" id="panel-skin"></section>
   <!-- BUDGET -->
   <section class="tabpanel" id="panel-budget"></section>
@@ -1069,13 +1067,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     To-Do
   </button>
-  <button data-tab="fitness">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg>
-    Fitness
-  </button>
-  <button data-tab="budget">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/></svg>
-    Budget
+  <button data-tab="jazz3">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L19 9.7l-4.1 3.3 1.4 5.3L12 15.4l-4.3 2.9 1.4-5.3L5 9.7l5.2-1.8z"/></svg>
+    Jazz 3.0
   </button>
   <button data-tab="wants">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
@@ -1088,7 +1082,7 @@
 </nav>
 
 <script>
-const HEADLINES = {home:"Home", todo:"To-Do", fitness:"Fitness", skin:"Skin & Hair", wants:"Shopping", budget:"Budget"};
+const HEADLINES = {home:"Home", todo:"To-Do", jazz3:"Jazz 3.0", skin:"Skin & Hair", wants:"Shopping", budget:"Budget"};
 const DROPLET_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';
 const SHIRT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l3 3 3-3h3l2 5-3 2v11H7V10L4 8z"/></svg>';
 // Checkmark drawn inside the square .box / .subitem-box checkboxes
@@ -4646,7 +4640,7 @@ function workoutsCardHtml(){
       + `<button class="add-row" onclick="editWorkout()">+ Add workout</button>`});
 }
 function renderFitness(){
-  const el = document.getElementById("panel-fitness");
+  const el = document.getElementById("panel-jazz3");
   if (!el) return;
   const today = addDaysIso(0), s = weightStatus();
   // 1. Weight
@@ -4676,20 +4670,19 @@ function renderFitness(){
           <span>${escapeHtml(noonOf(w.date).toLocaleDateString('en-US', {month:'short', day:'numeric', year:w.date.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric'}))}</span>
           <span class="goal-note"></span><b>${w.lbs} lb</b></button>`).join("")}</div>` : ""}`;
   }
-  let html = collapsibleCard({id:"weight-card", title:"Weight", insight:s.cur != null && s.goal != null ? (s.reached ? "Goal reached" : `${s.cur} → ${s.goal}`) : s.cur != null ? `${s.cur} lb` : "Not set", body:wBody});
-  // Workouts live in To-Do now; Fitness keeps a one-line tally
-  if (fitness.plan.length){
-    const wk = workoutWeekStats();
-    html += `<button class="fit-tally" onclick="activateTab('todo'); setTimeout(() => { const c = document.getElementById('fit-plan'); if (c) c.scrollIntoView({behavior:'smooth'}); }, 50)">
-        <span>Workouts this week <b>${wk.done} of ${wk.total}</b></span><span>In To-Do ${CHEVRON_RIGHT}</span></button>`;
-  }
+  // The Jazz 3.0 tab is a set of sections; Fitness is the first
+  let html = `<div class="j3-sec">${KIND_SVG('<path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/>')}Fitness</div>`;
+  html += collapsibleCard({id:"weight-card", title:"Weight", insight:s.cur != null && s.goal != null ? (s.reached ? "Goal reached" : `${s.cur} → ${s.goal}`) : s.cur != null ? `${s.cur} lb` : "Not set", body:wBody});
   el.innerHTML = html;
 }
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home","todo","fitness","budget","wants","skin"]; // nav bar and swipe order
+const TAB_ORDER = ["home","todo","jazz3","wants","skin"]; // nav bar and swipe order
+// Tabs kept but not in the bar (Budget is hidden for now): links can still open them
+const HIDDEN_TABS = ["budget"];
+const isTab = tab => TAB_ORDER.includes(tab) || HIDDEN_TABS.includes(tab);
 // Old links to the removed closet view (?tab=style) land on Shopping
-const NAV_TAB = tab => tab === "style" ? "wants" : tab;
+const NAV_TAB = tab => tab === "style" ? "wants" : tab === "fitness" ? "jazz3" : tab; // old links
 let currentTab = "home";
 
 function activateTab(tab){
@@ -5270,7 +5263,7 @@ async function hardRefresh(){
 function resumeView(){
   let v = null;
   try{ v = JSON.parse(sessionStorage.getItem("resume-view")); sessionStorage.removeItem("resume-view"); }catch(e){}
-  if (!v || !TAB_ORDER.includes(v.tab) || v.tab === currentTab) return;
+  if (!v || !isTab(v.tab) || v.tab === currentTab) return;
   activateTab(v.tab);
   const y = Number(v.scroll) || 0;
   if (y) requestAnimationFrame(() => { document.querySelector("main").scrollTop = y; });
@@ -5771,7 +5764,7 @@ function applyFitnessImport(data){
   plan.forEach(w => fitness.plan.push({id:genId("wo"), name:w.name, days:w.days, every:w.every, anchor:w.anchor, time:w.time, kind:w.kind}));
   normalizeFitness(); // checks every field
   saveFitness();
-  activateTab("fitness");
+  activateTab("jazz3");
   showToast(`Added ${parts.join(", ")}`);
 }
 function applyBudgetImport(data){
@@ -5833,7 +5826,7 @@ function applyLaunchParams(){
   const action = params.get("action");
   if (!tab && !action) return;
   if (action === "addtodo") activateTab("todo");
-  else if (tab && (TAB_ORDER.includes(tab) || tab === "style") && tab !== "home") activateTab(tab);
+  else if (tab && (isTab(NAV_TAB(tab)) || tab === "style") && tab !== "home") activateTab(tab);
   if (action === "addtodo") openComposer("todo");
   history.replaceState(null, "", location.pathname);
 }
