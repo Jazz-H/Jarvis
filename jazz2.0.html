@@ -856,6 +856,19 @@
   .fw-foot b{color:var(--text);}
   .j3-sec{display:flex; align-items:center; gap:8px; margin:4px 4px 10px; font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim);}
   .j3-sec svg{width:15px; height:15px; color:hsl(25 75% 70%);}
+  .p3-title{display:inline-flex; align-items:center; gap:8px;}
+  .p3-title svg{width:15px; height:15px; color:hsl(320 70% 75%); flex-shrink:0;}
+  .p3-row{display:flex; align-items:center; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);}
+  .p3-row > *{order:0 !important;}
+  .p3-row .todo-check{width:40px; height:48px; flex-shrink:0;}
+  .p3-row.done .box{background:var(--olive); border-color:var(--olive);}
+  .p3-row.done .box svg{opacity:1;}
+  .p3-body{flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 2px; border:none; background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
+  .p3-body b{font-size:14.5px; font-weight:700;}
+  .p3-body i{font-style:normal; font-size:12.5px; color:var(--text-dim);}
+  .p3-row.done .p3-body b{text-decoration:line-through; color:var(--text-dim);}
+  .p3-new{margin-top:14px;}
+  .p3-row{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
   .fp-row{display:flex; align-items:center; width:100%; gap:2px; padding:11px 2px; border:none; border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent); background:none; color:var(--text); font:inherit; text-align:left; cursor:pointer;}
   .fp-name{flex:1; min-width:0; display:flex; flex-direction:column; font-size:14.5px; font-weight:700;}
   .fp-name i{font-style:normal; font-size:12px; font-weight:600; color:var(--text-dim); margin-top:2px;}
@@ -4673,7 +4686,84 @@ function renderFitness(){
   // The Jazz 3.0 tab is a set of sections; Fitness is the first
   let html = `<div class="j3-sec">${KIND_SVG('<path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/>')}Fitness</div>`;
   html += collapsibleCard({id:"weight-card", title:"Weight", insight:s.cur != null && s.goal != null ? (s.reached ? "Goal reached" : `${s.cur} → ${s.goal}`) : s.cur != null ? `${s.cur} lb` : "Not set", body:wBody});
+  html += plan3SectionsHtml();
   el.innerHTML = html;
+}
+
+// ---------- JAZZ 3.0 PLAN ----------
+// Goal areas beyond fitness (Glow, Leadership…): each is a section of the
+// Jazz 3.0 tab holding a checklist of items with a short note. One synced list:
+//   plan3-content: [{id, cat, item, note, done?}]
+const DEFAULT_PLAN3 = [
+  ["Glow", "Night serum", "PM, three nights a week"],
+  ["Glow", "Daily floss", "Any brand"],
+  ["Glow", "Lip balm (AM/PM)", "SPF 30"],
+  ["Glow", "Book a checkup", "Every 6–8 weeks"],
+  ["Glow", "Hand cream", "Nightly"],
+  ["Glow", "Weekly self-care", ""],
+  ["Glow", "Morning routine", "AM"],
+  ["Leadership", "Join a speaking club", "Check for a local club"],
+  ["Leadership", "Blazer", "Structured"],
+  ["Leadership", "Work pants", ""],
+  ["Leadership", "Read a leadership book", "Any author"],
+].map(([cat, item, note], i) => ({id:`p3-${i + 1}`, cat, item, note})); // fixed ids, so two devices agree
+let plan3 = [];
+const PLAN3_ICONS = {
+  glow:'<path d="M12 3l1.6 4.6L18 9.2l-4.4 1.6L12 15.4l-1.6-4.6L6 9.2l4.4-1.6z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/>',
+  leadership:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
+};
+const plan3Slug = cat => String(cat).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "goals";
+function plan3Icon(cat){ return KIND_SVG(PLAN3_ICONS[plan3Slug(cat)] || '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'); }
+function normalizePlan3(){
+  plan3 = (Array.isArray(plan3) ? plan3 : []).filter(x => x && typeof x === "object" && String(x.item || "").trim()).map(x => ({
+    id:safeId(x.id, "p3"), cat:String(x.cat || "Goals").trim().slice(0, 30) || "Goals", item:String(x.item).trim().slice(0, 80),
+    note:String(x.note || "").slice(0, 160), ...(x.done ? {done:true} : {})}));
+}
+function plan3Cats(){ return [...new Set(plan3.map(x => x.cat))]; }
+function savePlan3(){ saveContent("plan3-content", plan3, {toast:false}); renderFitness(); }
+function togglePlan3(id){
+  const x = plan3.find(p => p.id === id);
+  if (!x) return;
+  if (x.done) delete x.done; else x.done = true;
+  savePlan3();
+}
+function editPlan3(id, cat = ""){
+  const x = id ? plan3.find(p => p.id === id) : null;
+  const cats = plan3Cats(), NEW = "New section…";
+  openModal(x ? "Edit item" : "Add item", [
+    {key:"item", label:"Item", type:"text"},
+    {key:"note", label:"Note (optional)", type:"text"},
+    {key:"cat", label:"Section", type:"select", options:[...cats, NEW]},
+    {key:"newcat", label:"New section name (if adding one)", type:"text"},
+  ], x ? {item:x.item, note:x.note, cat:x.cat} : {cat:cat || (cats.length ? cats[0] : NEW)},
+    v => {
+      const item = (v.item || "").trim().slice(0, 80);
+      if (!item) return;
+      const c = v.cat === NEW || !cats.length ? (v.newcat || "").trim().slice(0, 30) : v.cat;
+      if (!c){ showToast("Name the new section", true); return; }
+      const t = x || {id:genId("p3")};
+      t.item = item; t.note = (v.note || "").trim().slice(0, 160); t.cat = c;
+      if (!x) plan3.push(t);
+      openPinned.add("p3-" + plan3Slug(c));
+      savePlan3();
+    },
+    x ? () => { plan3 = plan3.filter(p => p.id !== id); savePlan3(); } : null);
+}
+const seenPlan3Cards = new Set(); // a section's card starts open the first time it's shown
+function plan3SectionsHtml(){
+  let html = "";
+  plan3Cats().forEach((cat, ci) => { // the add button names its section by position, so no name lands in code
+    const id = "p3-" + plan3Slug(cat), list = plan3.filter(x => x.cat === cat);
+    if (!seenPlan3Cards.has(id)){ seenPlan3Cards.add(id); openPinned.add(id); }
+    const doneN = list.filter(x => x.done).length;
+    const rows = list.map(x => `<div class="p3-row ${x.done ? "done" : ""}" data-sort-id="${x.id}">
+        <button class="todo-check" role="checkbox" aria-checked="${!!x.done}" aria-label="${x.done ? "Not done" : "Done"}: ${escapeAttr(x.item)}" onclick="togglePlan3('${x.id}')"><span class="box">${BOX_CHECK_SVG}</span></button>
+        <button class="p3-body" onclick="editPlan3('${x.id}')"><b>${escapeHtml(x.item)}</b>${x.note ? `<i>${escapeHtml(x.note)}</i>` : ""}</button>
+      </div>`).join("");
+    html += collapsibleCard({id, title:`<span class="p3-title">${plan3Icon(cat)}${escapeHtml(cat)}</span>`, insight:`${doneN}/${list.length} done`,
+      body:`<div class="p3-list">${rows}</div><button class="add-row" onclick="editPlan3(null, plan3Cats()[${ci}])">+ Add item</button>`});
+  });
+  return html + `<button class="add-row p3-new" onclick="editPlan3(null, 'New section…')">+ New section</button>`;
 }
 
 // ---------- TAB SWITCHING ----------
@@ -5161,6 +5251,12 @@ sortable(document.getElementById("panel-todo"), "#fit-plan .fp-row", (box, ids) 
   fitness.plan = byIds(fitness.plan, ids);
   saveFitness();
 }, "a, input");
+sortable(document.getElementById("panel-jazz3"), ".p3-list > .p3-row", (box, ids) => {
+  const moved = ids.map(id => plan3.find(x => x.id === id)).filter(Boolean);
+  const slots = moved.map(x => plan3.indexOf(x)).sort((a, b) => a - b);
+  slots.forEach((slot, k) => { plan3[slot] = moved[k]; }); // same places in the list, new order
+  savePlan3();
+}, ".todo-check, a, input");
 sortable(document.getElementById("panel-budget"), "#spending-card .budget-cat", (box, ids) => {
   budget.categories = byIds(budget.categories, ids);
   saveBudgetData();
@@ -5278,7 +5374,7 @@ function resumeView(){
 // are never synced themselves.
 const SYNC_KEYS = ["skin-rules-content","skin-routine-content","routine-checks","skin-days-content","style-rules-content","sizes-content",
                    "capsule-content","wants-content","todo-content","todo-archive-content",
-                   "style-state","wants-state","bills-content","bill-payments","budget-content","fitness-content"];
+                   "style-state","wants-state","bills-content","bill-payments","budget-content","fitness-content","plan3-content"];
 const GIST_FILENAME = "jazz2-data.json";
 let syncPushTimer = null;
 let syncBusy = false;
@@ -5452,7 +5548,7 @@ function liveData(){
     "sizes-content":sizes, "capsule-content":capsule, "wants-content":wantsList, "todo-content":todoList,
     "todo-archive-content":loadContent("todo-archive-content", []),
     "style-state":styleState, "wants-state":wantsState,
-    "bills-content":bills, "bill-payments":billPayments, "budget-content":budget, "fitness-content":fitness
+    "bills-content":bills, "bill-payments":billPayments, "budget-content":budget, "fitness-content":fitness, "plan3-content":plan3
   };
 }
 async function saveBackupFile(payload){
@@ -5568,6 +5664,8 @@ function loadAllContent(){
   if (processAutopay()){ writeQuietly("bills-content", bills); writeQuietly("bill-payments", billPayments); }
   fitness = loadContent("fitness-content", JSON.parse(JSON.stringify(DEFAULT_FITNESS)));
   normalizeFitness();
+  plan3 = loadContent("plan3-content", DEFAULT_PLAN3.map(x => ({...x})));
+  normalizePlan3();
   normalizeLoadedData(); // last: needs every list loaded
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
   const keptRules = skinRules.filter(r => !RETIRED_SKIN_RULES.includes(r));
