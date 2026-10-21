@@ -107,6 +107,12 @@ clothes, moto gear, and everything else.
   weight** (one weigh-in a day; logging the same day again updates it); tap a weigh-in to
   fix or delete it; tap the goal to set start and goal weights.
 
+**Goal sections** (Glow, Leadership…) follow Fitness on the Jazz 3.0 tab: each is a card
+with a checklist of items and a short note ("Hand cream — nightly"), a "2/7
+done" count, tap to edit / move / delete, press and drag to reorder, **+ Add item**, and
+**+ New section** for another goal area. Stored as `plan3-content`; the first list ships as
+the starting items.
+
 **Workouts** are a weekly plan that fills your to-dos by itself:
 - **In To-Do:** each planned workout shows in its day's group for the coming week (tickable
   today, a preview on later days); tap one to edit it. A **Workouts** card under Recurring
@@ -246,7 +252,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (414 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (423 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
@@ -303,6 +309,7 @@ Everything lives in `localStorage` on the device:
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
 | `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
 | `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped) |
+| `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

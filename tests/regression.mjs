@@ -347,7 +347,7 @@ await section("backup: download has every list, restore replaces data, junk reje
     navigator.canShare = undefined;
     return downloadBackup().then(() => captured.text()).then(JSON.parse);
   });
-  check("backup holds 15 lists (incl. bills, budget, fitness)", Object.keys(backup.data).length === 15 && "budget-content" in backup.data && "fitness-content" in backup.data, Object.keys(backup.data));
+  check("backup holds 16 lists (incl. bills, budget, fitness, plan)", Object.keys(backup.data).length === 16 && "budget-content" in backup.data && "fitness-content" in backup.data && "plan3-content" in backup.data, Object.keys(backup.data));
   backup.data["todo-content"] = [{ id: "r1", text: "Restored", done: false, due: null, starred: false, subitems: [], completedAt: null }];
   await page.evaluate(() => openSyncModal());
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("text=Restore…")]);
@@ -1398,6 +1398,35 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   }));
   check("junk fitness values are cleaned", await page.evaluate(() => { fitness.weights.push({ date: "x", lbs: 5 }); fitness.plan.push({ name: "<b>", days: [9, 2], every: 9, kind: "zzz" }); normalizeFitness();
     const w = fitness.plan[fitness.plan.length - 1]; return fitness.weights.length === 2 && JSON.stringify(w.days) === "[2]" && w.every === 4 && w.kind === "fitness"; }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
+  const r = await page.evaluate(() => ({ secs: [document.querySelector("#panel-jazz3 .j3-sec").textContent.trim(), ...[...document.querySelectorAll("#panel-jazz3 .p3-title")].map(e => e.textContent.trim())],
+    glow: document.querySelectorAll("#p3-glow .p3-row").length, lead: document.querySelectorAll("#p3-leadership .p3-row").length,
+    text: document.getElementById("p3-glow").textContent.replace(/\s+/g, " "), insight: document.querySelector("#p3-leadership .insight").textContent }));
+  check("sections: Fitness, then Glow and Leadership", JSON.stringify(r.secs) === '["Fitness","Glow","Leadership"]', r.secs);
+  check("Glow has 7 items, Leadership 4, with notes", r.glow === 7 && r.lead === 4 && r.text.includes("Nightly") && r.insight === "0/4 done", r);
+  await page.click('#p3-leadership .todo-check[aria-label="Done: Join a speaking club"]');
+  check("ticking an item marks it done", await page.evaluate(() => plan3.find(x => x.item === "Join a speaking club").done === true && document.querySelector("#p3-leadership .insight").textContent === "1/4 done"));
+  // add to a section, and start a new one
+  await page.click("#p3-glow .add-row");
+  check("+ Add item preselects its section", (await page.inputValue("#modal-cat")) === "Glow");
+  await page.fill("#modal-item", "Silk pillowcase");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  await page.click("#panel-jazz3 .p3-new");
+  await page.fill("#modal-item", "Emergency fund");
+  await page.fill("#modal-newcat", "Money's future");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const after = await page.evaluate(() => ({ glow: plan3.filter(x => x.cat === "Glow").length, cats: plan3Cats(), card: !!document.getElementById("p3-money-s-future") }));
+  check("items add to a section; a new section gets its own card", after.glow === 8 && after.cats.includes("Money's future") && after.card, after);
+  await page.click('#p3-money-s-future .add-row');
+  check("a section name with an apostrophe still works for + Add item", (await page.inputValue("#modal-cat")) === "Money's future");
+  await page.evaluate(() => closeModal());
+  check("plan items survive a reload", await (async () => { await page.reload(); await page.waitForTimeout(300); return page.evaluate(() => plan3.length === 13 && plan3.find(x => x.item === "Join a speaking club").done === true); })());
+  check("junk plan items are cleaned", await page.evaluate(() => { plan3.push({ item: "" }, { item: "<b>x</b>", cat: "" }); normalizePlan3(); const last = plan3[plan3.length - 1]; return plan3.length === 14 && last.cat === "Goals"; }));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
