@@ -1,4 +1,4 @@
-# Jazz 2.0 — Personal Dashboard PWA
+# Jazz 3.0 — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
 docs) into one place with five tabs: **Home, To-Do, Budget, Shopping, Skin & Hair.**
@@ -95,6 +95,23 @@ clothes, moto gear, and everything else.
   to move it off To buy into a folded **Later** card, left out of the counts and totals;
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
+
+**Fitness** (new in Jazz 3.0) tracks weight toward a goal and a weekly workout plan.
+- **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
+  weight to the goal, the change since you started, your pace over the last 8 weeks
+  ("+0.6 lb/week lately") with a finish date at that pace, and a small trend chart. **+ Log
+  weight** (one weigh-in a day; logging the same day again updates it); tap a weigh-in to
+  fix or delete it; tap the goal to set start and goal weights.
+- **This week:** Sunday to Saturday, each day's planned workouts with a box to tick (today
+  and earlier), "Rest" on days off, and how many of the last 4 weeks' workouts got done.
+- **Weekly plan:** each workout's days, optional time, and how often (every 1–4 weeks,
+  counted from its start date; a plan starts the week of that date). Tap to edit, press and
+  drag to reorder, **+ Add workout**.
+- **On Home:** each day's workouts show in the day's list under their type (Fitness, Pets…),
+  count in the progress ring and calendar dots, and can be ticked there too.
+- **Import link:** `#import=` with `{"app":"jazz3-fitness", start, goal, weights:[{date,lbs}],
+  plan:[{name, days, every, anchor, time, kind}]}` adds what isn't there yet, after a confirm.
+  Personal numbers never go in the repo; they travel only in the link's fragment.
 
 **Budget** is laid out like the budget sheet, one calendar month at a time (‹ › to step months).
 - **Top:** four tiles: **Income** (this month's checks; ~ when some are expected),
@@ -221,7 +238,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (396 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (410 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
@@ -277,6 +294,7 @@ Everything lives in `localStorage` on the device:
 | `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
 | `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
+| `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped) |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

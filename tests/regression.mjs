@@ -347,7 +347,7 @@ await section("backup: download has every list, restore replaces data, junk reje
     navigator.canShare = undefined;
     return downloadBackup().then(() => captured.text()).then(JSON.parse);
   });
-  check("backup holds 14 lists (incl. bills + budget)", Object.keys(backup.data).length === 14 && "budget-content" in backup.data, Object.keys(backup.data));
+  check("backup holds 15 lists (incl. bills, budget, fitness)", Object.keys(backup.data).length === 15 && "budget-content" in backup.data && "fitness-content" in backup.data, Object.keys(backup.data));
   backup.data["todo-content"] = [{ id: "r1", text: "Restored", done: false, due: null, starred: false, subitems: [], completedAt: null }];
   await page.evaluate(() => openSyncModal());
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("text=Restore…")]);
@@ -358,7 +358,7 @@ await section("backup: download has every list, restore replaces data, junk reje
   const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.click("text=Restore…")]);
   await chooser2.setFiles({ name: "x.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
   await page.waitForTimeout(200);
-  check("junk file rejected", ((await page.textContent(".toast")) || "").includes("isn't a Jazz 2.0 backup"));
+  check("junk file rejected", ((await page.textContent(".toast")) || "").includes("isn't a Jazz backup"));
   await ctx.close();
 });
 
@@ -750,7 +750,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
     "bills-content": [{ id: "<bad>", name: "Junk", amount: "abc", due: "nope", repeat: "hourly", autopay: 1, link: "javascript:alert(1)" }],
   }});
   const nav = await page.$$eval("nav.tabbar button", bs => bs.map(b => b.textContent.trim()));
-  check("nav: Home, To-Do, Budget, Shopping, Skin & Hair", JSON.stringify(nav) === '["Home","To-Do","Budget","Shopping","Skin & Hair"]', nav);
+  check("nav: Home, To-Do, Fitness, Budget, Shopping, Skin & Hair", JSON.stringify(nav) === '["Home","To-Do","Fitness","Budget","Shopping","Skin & Hair"]', nav);
   check("swipe order matches the nav", await page.evaluate(() => JSON.stringify(TAB_ORDER) === JSON.stringify([...document.querySelectorAll("nav.tabbar button")].map(b => b.dataset.tab))));
   const junk = await page.evaluate(() => bills[0]);
   check("bad bill data is coerced", /^bill-/.test(junk.id) && junk.amount === 0 && junk.repeat === "monthly" && /^\d{4}-/.test(junk.due), junk);
@@ -1350,6 +1350,42 @@ await section("Home groups the day by type, with Bills on their own", async () =
   check("a to-do named like a type takes that type", await page.evaluate(() => detectKind("Chores") === "chores" && detectKind("errands") === "errand"));
   check("a type keeps its label with just one to-do", await page.evaluate(() => { todoList = todoList.filter(t => t.text !== "Clean floors" && t.text !== "Chores"); renderHome(); return [...document.querySelectorAll("#panel-home .home-sub")].some(e => e.textContent.includes("Chores")); }));
   check("to-dos with no type stay at the top, unlabeled", await page.evaluate(() => { todoList.push({ id: "v", text: "Something vague", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }); renderHome(); const first = document.querySelector("#panel-home .home-list").firstElementChild; return first.textContent.includes("Something vague"); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", async () => {
+  const k = isoOffset(0);
+  const payload = { app: "jazz3-fitness", start: 100, goal: 120, weights: [{ date: isoOffset(-14), lbs: 110 }, { date: k, lbs: 112 }],
+    plan: [{ name: "Gym A", days: [0, 1, 2, 3, 4, 5, 6], every: 1, anchor: k, kind: "fitness" }, { name: "Walk", days: [new Date().getDay()], every: 2, anchor: k, time: "09:00", kind: "pet" }] };
+  const hash = "#import=" + Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const { ctx, page, errors } = await openApp({ query: hash });
+  await page.waitForTimeout(500);
+  const r = await page.evaluate(() => ({ tab: currentTab, start: fitness.start, goal: fitness.goal, n: fitness.weights.length, plan: fitness.plan.map(w => [w.name, w.every, w.kind, w.time]),
+    hash: location.hash, s: weightStatus(), title: document.title }));
+  check("app is Jazz 3.0", r.title === "Jazz 3.0", r.title);
+  check("import link fills Fitness and opens it", r.tab === "fitness" && r.start === 100 && r.goal === 120 && r.n === 2 && r.plan.length === 2 && r.hash === "", r);
+  check("weight progress, pace and finish date", r.s.cur === 112 && r.s.toGo === 8 && r.s.pct === 60 && r.s.rate === 1 && !!r.s.eta, r.s);
+  const ui = await page.evaluate(() => ({ weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "), week: document.getElementById("fit-week").textContent.replace(/\s+/g, " "),
+    plan: document.getElementById("fit-plan").textContent.replace(/\s+/g, " ") }));
+  check("Weight card shows now, goal and to go", ui.weight.includes("112") && ui.weight.includes("Goal 120") && ui.weight.includes("8 lb to go"), ui.weight);
+  check("This week lists the plan day by day", ui.week.includes("Gym A") && ui.week.includes("Walk") && !ui.week.includes("Rest"), ui.week);
+  check("plan shows days, time and every 2 weeks", ui.plan.includes("Every day") && ui.plan.includes("9 AM") && ui.plan.includes("every 2 weeks"), ui.plan);
+  check("every-2-weeks workouts skip alternate weeks", await page.evaluate(() => { const w = fitness.plan.find(x => x.name === "Walk"); return workoutOn(w, addDaysIso(0)) && !workoutOn(w, addDaysIso(7)) && workoutOn(w, addDaysIso(14)); }));
+  check("a plan doesn't count the weeks before it started", await page.evaluate(() => { const w = fitness.plan.find(x => x.name === "Gym A"); return !workoutOn(w, addDaysIso(-8)); }));
+  await page.click(`#fit-week .fw-day.today .todo-check[aria-label^="Done: Gym A"]`);
+  check("ticking a workout records it", await page.evaluate(() => workoutDone(addDaysIso(0), fitness.plan.find(x => x.name === "Gym A").id)));
+  await page.evaluate(() => { skinRoutine.washPm = []; activateTab("home"); });
+  const home = await page.evaluate(() => ({ text: document.querySelector("#panel-home .home-list").textContent.replace(/\s+/g, " "), ring: document.querySelector(".home-ring").getAttribute("aria-label"),
+    subs: [...document.querySelectorAll("#panel-home .home-sub")].map(e => e.textContent.trim()) }));
+  check("Home lists today's workouts under their type", home.text.includes("Gym A") && home.subs.includes("Fitness") && home.subs.includes("Pets"), home);
+  check("workouts count in the day's ring", home.ring === "1 of 2 done", home.ring);
+  await page.evaluate(() => { activateTab("fitness"); logWeight(); });
+  await page.fill("#modal-lbs", "113.4");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("logging today again updates today's weigh-in", await page.evaluate(() => fitness.weights.length === 2 && currentWeight() === 113.4));
+  check("junk fitness values are cleaned", await page.evaluate(() => { fitness.weights.push({ date: "x", lbs: 5 }); fitness.plan.push({ name: "<b>", days: [9, 2], every: 9, kind: "zzz" }); normalizeFitness();
+    const w = fitness.plan[fitness.plan.length - 1]; return fitness.weights.length === 2 && JSON.stringify(w.days) === "[2]" && w.every === 4 && w.kind === "fitness"; }));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
