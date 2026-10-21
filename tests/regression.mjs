@@ -1366,14 +1366,17 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   check("app is Jazz 3.0", r.title === "Jazz 3.0", r.title);
   check("import link fills Fitness and opens it", r.tab === "fitness" && r.start === 100 && r.goal === 120 && r.n === 2 && r.plan.length === 2 && r.hash === "", r);
   check("weight progress, pace and finish date", r.s.cur === 112 && r.s.toGo === 8 && r.s.pct === 60 && r.s.rate === 1 && !!r.s.eta, r.s);
-  const ui = await page.evaluate(() => ({ weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "), week: document.getElementById("fit-week").textContent.replace(/\s+/g, " "),
-    plan: document.getElementById("fit-plan").textContent.replace(/\s+/g, " ") }));
+  const ui = await page.evaluate(() => ({ weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "), tally: document.querySelector("#panel-fitness .fit-tally").textContent.replace(/\s+/g, " "),
+    week: document.getElementById("todo-list").textContent.replace(/\s+/g, " "), planOnFitness: !!document.querySelector("#panel-fitness #fit-plan"),
+    plan: document.querySelector("#panel-todo #fit-plan").textContent.replace(/\s+/g, " ") }));
   check("Weight card shows now, goal and to go", ui.weight.includes("112") && ui.weight.includes("Goal 120") && ui.weight.includes("8 lb to go"), ui.weight);
-  check("This week lists the plan day by day", ui.week.includes("Gym A") && ui.week.includes("Walk") && !ui.week.includes("Rest"), ui.week);
+  check("workouts fill the To-Do list on their days", ui.week.includes("Gym A") && ui.week.includes("Walk"), ui.week);
+  check("the plan lives in To-Do, Fitness keeps a tally", !ui.planOnFitness && ui.tally.includes("Workouts this week"), ui);
   check("plan shows days, time and every 2 weeks", ui.plan.includes("Every day") && ui.plan.includes("9 AM") && ui.plan.includes("every 2 weeks"), ui.plan);
   check("every-2-weeks workouts skip alternate weeks", await page.evaluate(() => { const w = fitness.plan.find(x => x.name === "Walk"); return workoutOn(w, addDaysIso(0)) && !workoutOn(w, addDaysIso(7)) && workoutOn(w, addDaysIso(14)); }));
   check("a plan doesn't count the weeks before it started", await page.evaluate(() => { const w = fitness.plan.find(x => x.name === "Gym A"); return !workoutOn(w, addDaysIso(-8)); }));
-  await page.click(`#fit-week .fw-day.today .todo-check[aria-label^="Done: Gym A"]`);
+  await page.evaluate(() => activateTab("todo"));
+  await page.click(`#todo-list .workout-row .todo-check[aria-label^="Done: Gym A"] >> nth=0`);
   check("ticking a workout records it", await page.evaluate(() => workoutDone(addDaysIso(0), fitness.plan.find(x => x.name === "Gym A").id)));
   await page.evaluate(() => { skinRoutine.washPm = []; activateTab("home"); });
   const home = await page.evaluate(() => ({ text: document.querySelector("#panel-home .home-list").textContent.replace(/\s+/g, " "), ring: document.querySelector(".home-ring").getAttribute("aria-label"),
@@ -1384,6 +1387,13 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   await page.fill("#modal-lbs", "113.4");
   await page.click("#modal-backdrop .modal-btn.primary");
   check("logging today again updates today's weigh-in", await page.evaluate(() => fitness.weights.length === 2 && currentWeight() === 113.4));
+  // the one-time cleanup link removes open to-dos by name
+  check("cleanup removes open to-dos by name", await page.evaluate(() => {
+    window.confirm = () => true;
+    todoList.push({ id: "g", text: "Gym", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }, { id: "k", text: "Keep me", done: false, due: null, starred: false, subitems: [], completedAt: null });
+    applyCleanup({ removeTodos: ["gym", "Dog park"] });
+    return !todoList.some(t => t.id === "g") && todoList.some(t => t.id === "k");
+  }));
   check("junk fitness values are cleaned", await page.evaluate(() => { fitness.weights.push({ date: "x", lbs: 5 }); fitness.plan.push({ name: "<b>", days: [9, 2], every: 9, kind: "zzz" }); normalizeFitness();
     const w = fitness.plan[fitness.plan.length - 1]; return fitness.weights.length === 2 && JSON.stringify(w.days) === "[2]" && w.every === 4 && w.kind === "fitness"; }));
   check("no JS errors", errors.length === 0, errors);
