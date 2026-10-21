@@ -1378,7 +1378,7 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   await page.evaluate(() => activateTab("todo"));
   await page.click(`#todo-list .workout-row .todo-check[aria-label^="Done: Gym A"] >> nth=0`);
   check("ticking a workout records it", await page.evaluate(() => workoutDone(addDaysIso(0), fitness.plan.find(x => x.name === "Gym A").id)));
-  await page.evaluate(() => { skinRoutine.washPm = []; activateTab("home"); });
+  await page.evaluate(() => { skinRoutine.washPm = []; fitness.weighDay = -1; activateTab("home"); }); // no weigh-in row, whatever day it is
   const home = await page.evaluate(() => ({ text: document.querySelector("#panel-home .home-list").textContent.replace(/\s+/g, " "), ring: document.querySelector(".home-ring").getAttribute("aria-label"),
     subs: [...document.querySelectorAll("#panel-home .home-sub")].map(e => e.textContent.trim()) }));
   check("Home lists today's workouts under their type", home.text.includes("Gym A") && home.subs.includes("Fitness") && home.subs.includes("Pets"), home);
@@ -1395,6 +1395,13 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
     todoList.push({ id: "g", text: "Gym", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }, { id: "k", text: "Keep me", done: false, due: null, starred: false, subitems: [], completedAt: null });
     applyCleanup({ removeTodos: ["gym", "Dog park"] });
     return !todoList.some(t => t.id === "g") && todoList.some(t => t.id === "k");
+  }));
+  check("a to-do link adds a daily to-do once (with its type)", await page.evaluate(() => {
+    window.confirm = () => true;
+    applyCleanup({ addTodos: [{ text: "Creatine (morning)", repeat: "daily", kind: "fitness" }] });
+    applyCleanup({ addTodos: [{ text: "Creatine (morning)", repeat: "daily", kind: "fitness" }] }); // second time: already there
+    const c = todoList.filter(t => t.text === "Creatine (morning)");
+    return c.length === 1 && c[0].repeat === "daily" && c[0].due === addDaysIso(0) && c[0].kind === "fitness" && todoKind(c[0]) === "fitness";
   }));
   check("junk fitness values are cleaned", await page.evaluate(() => { fitness.weights.push({ date: "x", lbs: 5 }); fitness.plan.push({ name: "<b>", days: [9, 2], every: 9, kind: "zzz" }); normalizeFitness();
     const w = fitness.plan[fitness.plan.length - 1]; return fitness.weights.length === 2 && JSON.stringify(w.days) === "[2]" && w.every === 4 && w.kind === "fitness"; }));
@@ -1427,6 +1434,43 @@ await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
   await page.evaluate(() => closeModal());
   check("plan items survive a reload", await (async () => { await page.reload(); await page.waitForTimeout(300); return page.evaluate(() => plan3.length === 13 && plan3.find(x => x.item === "Join a speaking club").done === true); })());
   check("junk plan items are cleaned", await page.evaluate(() => { plan3.push({ item: "" }, { item: "<b>x</b>", cat: "" }); normalizePlan3(); const last = plan3[plan3.length - 1]; return plan3.length === 14 && last.cat === "Goals"; }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Fitness: weigh-in day reminder", async () => {
+  const { ctx, page, errors } = await openApp({});
+  const r = await page.evaluate(() => {
+    const t = addDaysIso(0), dow = noonOf(t).getDay();
+    fitness = { start: 115, goal: 130, weights: [{ id: "w1", date: addDaysIso(-3), lbs: 125.2 }], plan: [], checks: {}, weighDay: dow };
+    skinRoutine.washPm = []; normalizeFitness(); saveFitness();
+    const row = document.querySelector("#panel-home .weigh-row");
+    return { row: !!row, meta: row && row.textContent.replace(/\s+/g, " "), todo: !!document.querySelector("#todo-list .weigh-row"),
+      ring: document.querySelector(".home-ring").getAttribute("aria-label"), sub: [...document.querySelectorAll("#panel-home .home-sub")].map(e => e.textContent.trim()) };
+  });
+  check("on weigh-in day, Home and To-Do show Weigh in (under Fitness) with the last weight", r.row && r.todo && r.meta.includes("Last 125.2 lb") && r.sub.includes("Fitness"), r);
+  check("it counts in the day's ring", r.ring === "0 of 1 done", r.ring);
+  await page.click("#panel-home .weigh-row .todo-check");
+  check("ticking it opens Log weight for that day", (await page.textContent("#modal-heading")) === "Log weight" && (await page.inputValue("#modal-date")) === (await page.evaluate(() => addDaysIso(0))));
+  await page.fill("#modal-lbs", "125.9");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("logging a weigh-in ticks the reminder", await page.evaluate(() => !!document.querySelector("#panel-home .weigh-row .item.checked") && document.querySelector(".home-ring").getAttribute("aria-label") === "1 of 1 done"));
+  const other = await page.evaluate(() => {
+    const t = addDaysIso(0);
+    fitness.weighDay = (noonOf(t).getDay() + 3) % 7; fitness.weights = [{ id: "w1", date: addDaysIso(-3), lbs: 125.2 }]; saveFitness();
+    const notToday = !document.querySelector("#panel-home .weigh-row");
+    fitness.weights = [{ id: "w1", date: addDaysIso(-9), lbs: 125.2 }]; saveFitness();
+    const overdue = !!document.querySelector("#panel-home .weigh-row");
+    fitness.weighDay = -1; saveFitness();
+    return { notToday, overdue, off: !document.querySelector("#panel-home .weigh-row") };
+  });
+  check("not shown on other days while up to date", other.notToday, other);
+  check("a week without a weigh-in shows it today", other.overdue, other);
+  check("turning it off hides it", other.off, other);
+  await page.evaluate(() => { activateTab("jazz3"); editWeighDay(); });
+  await page.selectOption("#modal-day", "Thursday");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("weigh-in day can be changed from the Weight card", await page.evaluate(() => fitness.weighDay === 4 && document.getElementById("weight-card").textContent.includes("Weigh-in day: Thursdays")));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
