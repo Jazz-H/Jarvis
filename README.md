@@ -96,14 +96,17 @@ clothes, moto gear, and everything else.
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Jazz 3.0** is its own tab (third in the bar), made of sections; more are coming.
+**Jazz 3.0** is its own tab (third in the bar), made of sections; more are coming. Its bar button stands out with a raised blue orb, and the tab opens on a gradient banner with a chip per section (Weight %, Glow 3/7…). Tapping a chip opens that section and jumps to it.
 **Budget** is hidden from the bar for now (its data, bills on Home, and links to
 `?tab=budget` all still work). Old `?tab=fitness` links open Jazz 3.0.
 
 **Fitness** (the first Jazz 3.0 section) tracks weight toward a goal; the workouts themselves live in To-Do.
 - **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
   weight to the goal, the change since you started, your pace over the last 8 weeks
-  ("+0.6 lb/week lately") with a finish date at that pace, and a small trend chart. **+ Log
+  ("+0.6 lb/week lately"; with fewer than 3 weigh-ins in that window it uses your whole
+  history, "on average") with a finish date at that pace, the change since your first
+  weigh-in and the average per month, a small trend chart, and a **By month** list (each
+  month's low–high and how much it moved) once weigh-ins span two months. **+ Log
   weight** (one weigh-in a day; logging the same day again updates it); tap a weigh-in to
   fix or delete it; tap the goal to set start and goal weights.
 - **Weigh-in day:** a weekly **Weigh in** reminder (Mondays unless changed; "Change" in the
@@ -257,7 +260,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (433 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (442 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

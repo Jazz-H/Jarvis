@@ -1438,6 +1438,40 @@ await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
   await ctx.close();
 });
 
+await section("Jazz 3.0 stands out: nav orb and hero chips", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+  check("the Jazz 3.0 nav button has its gradient orb even when inactive", await page.evaluate(() => { const b = document.querySelector('nav.tabbar button[data-tab="jazz3"]');
+    return !b.classList.contains("active") && !!b.querySelector(".j3-orb svg") && b.textContent.trim() === "Jazz 3.0"; }));
+  await page.click('nav.tabbar button[data-tab="jazz3"]');
+  await page.evaluate(() => { fitness.start = 115; fitness.goal = 130; fitness.weights = [{ id: "w1", date: "2026-01-05", lbs: 125.8 }]; openPinned.delete("p3-leadership"); renderFitness(); });
+  const chips = await page.evaluate(() => [...document.querySelectorAll("#panel-jazz3 .j3-hero .j3-chip")].map(c => c.textContent.replace(/\s+/g, " ").trim()));
+  check("hero shows weight progress and each section's tally", JSON.stringify(chips) === '["Weight72%","Glow0/7","Leadership0/4"]', chips);
+  await page.click('#panel-jazz3 .j3-chip:has-text("Leadership")');
+  await page.waitForTimeout(600);
+  check("tapping a chip opens and scrolls to its section", await page.evaluate(() => { const el = document.getElementById("p3-leadership"); const r = el.getBoundingClientRect();
+    return el.classList.contains("open") && r.top >= 0 && r.top < innerHeight / 2; }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Fitness: month-by-month weight history", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
+  const r = await page.evaluate(() => {
+    const d = n => addDaysIso(n);
+    fitness.start = 115; fitness.goal = 130;
+    fitness.weights = [[-140, 115], [-112, 117.6], [-84, 119.2], [-50, 124.4], [0, 125.8]].map(([n, lbs], i) => ({ id: "w" + i, date: d(n), lbs }));
+    renderFitness();
+    const s = weightStatus();
+    return { months: document.querySelectorAll("#weight-card .weight-months > div").length - 1, text: document.querySelector("#weight-card .goal-outlook").textContent.replace(/\s+/g, " "), rateAll: s.rateAll, rate: s.rate, eta: !!s.eta };
+  });
+  check("a By month list appears once weigh-ins span months", r.months >= 4, r);
+  check("the all-time change and monthly average show", /Since \w+.*\+10\.8 lb.*lb a month/.test(r.text), r.text);
+  check("sparse recent weigh-ins fall back to the all-time pace", r.rateAll === true && r.rate > 0.4 && r.eta && r.text.includes("on average"), r);
+  check("one month of weigh-ins shows no By month list", await page.evaluate(() => { fitness.weights = [{ id: "a", date: addDaysIso(0), lbs: 125 }]; renderFitness(); return !document.querySelector(".weight-months"); }));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Fitness: weigh-in day reminder", async () => {
   const { ctx, page, errors } = await openApp({});
   const r = await page.evaluate(() => {
