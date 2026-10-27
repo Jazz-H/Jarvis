@@ -1,4 +1,4 @@
-const CACHE_NAME = "jazz2-cache-v111";
+const CACHE_NAME = "jazz2-cache-v112";
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",

@@ -1472,6 +1472,21 @@ await section("Fitness: month-by-month weight history", async () => {
   await ctx.close();
 });
 
+await section("Routine import link: add a PM step on set days", async () => {
+  const data = { app: "jazz3-routine", steps: [{ band: "pm", label: "Night serum", product: "Night serum", days: [0, 2, 4], before: "Moisturize" }], doneItems: ["Night serum"] };
+  const { ctx, page, errors } = await openApp({ query: "#import=" + Buffer.from(JSON.stringify(data)).toString("base64url") });
+  await page.waitForTimeout(500);
+  const r = await page.evaluate(() => { const pm = skinRoutine.pm.map(s => s.label), i = pm.indexOf("Night serum"), st = skinRoutine.pm[i];
+    return { i, next: pm[i + 1], days: st && st.days, tab: document.body.dataset.tab, done: plan3.find(x => x.item === "Night serum").done,
+      tue: routineForDate(new Date(2026, 9, 27)).pm.some(s => s.label === "Night serum"), mon: routineForDate(new Date(2026, 9, 26)).pm.some(s => s.label === "Night serum") }; });
+  check("the step lands before Moisturize, on Sun/Tue/Thu only", r.i >= 0 && r.next.startsWith("Moisturize") && JSON.stringify(r.days) === "[0,2,4]", r);
+  check("it shows on a Tuesday PM and not on a Monday", r.tue && !r.mon, r);
+  check("the Glow plan item is ticked and Skin & Hair opens", r.done === true && r.tab === "skin", r);
+  check("opening the link again adds nothing", await page.evaluate(d => { applyRoutineImport(d); return skinRoutine.pm.filter(s => s.label === "Night serum").length === 1; }, data));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Fitness: weigh-in day reminder", async () => {
   const { ctx, page, errors } = await openApp({});
   const r = await page.evaluate(() => {
