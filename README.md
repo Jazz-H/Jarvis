@@ -132,9 +132,11 @@ the starting items.
   plan:[{name, days, every, anchor, time, kind}]}` adds what isn't there yet; with
   `{"app":"jazz3-cleanup", removeTodos:[names], addTodos:[{text, repeat, kind}]}` it removes open
   to-dos with those names and adds the given ones (a repeat starts today; skipped if already there)
-  ; with `{"app":"jazz3-routine", steps:[{band:"am"|"pm", label, product, note, days, before}],
-  doneItems:[names]}` it adds Skin & Hair routine steps (before the step named by `before`;
-  skipped if that product is already in the band) and ticks those Jazz 3.0 plan items
+  ; with `{"app":"jazz3-routine", steps:[{band:"am"|"pm"|"washPm", label, product, note, days, before}],
+  updateSteps:[{band, product, days, note}], doneItems:[names], planNotes:[{item, note}]}` it adds
+  Skin & Hair routine steps (before the step named by `before`; skipped if that product is already
+  in the band; wash-day steps only when there's a wash-day list), changes the days/note of the step
+  with that product, ticks those Jazz 3.0 plan items and rewrites their notes
   (after a confirm, with Undo). Personal numbers never go in the repo; they travel only in
   the link's fragment.
 
@@ -263,7 +265,7 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (447 checks) drives the real app in headless Chromium against a tiny built-in
+The suite (451 checks) drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/

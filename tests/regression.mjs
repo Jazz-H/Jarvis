@@ -1483,6 +1483,21 @@ await section("Routine import link: add a PM step on set days", async () => {
   check("it shows on a Tuesday PM and not on a Monday", r.tue && !r.mon, r);
   check("the Glow plan item is ticked and Skin & Hair opens", r.done === true && r.tab === "skin", r);
   check("opening the link again adds nothing", await page.evaluate(d => { applyRoutineImport(d); return skinRoutine.pm.filter(s => s.label === "Night serum").length === 1; }, data));
+  // a follow-up link moves the step's days, adds it to wash-day PM, and rewrites the plan note
+  const r2 = await page.evaluate(() => {
+    applyRoutineImport({ app: "jazz3-routine", updateSteps: [{ band: "pm", product: "night serum", days: [2, 4, 6], note: "New note" }],
+      steps: [{ band: "washPm", label: "Night serum", product: "Night serum", days: [0], before: "Moisturize" }],
+      planNotes: [{ item: "Night serum", note: "PM Tue/Thu/Sat" }] });
+    const pm = skinRoutine.pm.find(s => s.label === "Night serum"), w = skinRoutine.washPm.map(s => s.label), wi = w.indexOf("Night serum");
+    const wash = new Date(washSchedule().anchor + "T12:00");
+    return { days: pm.days, note: pm.note, wi, next: w[wi + 1], washDays: skinRoutine.washPm[wi] && skinRoutine.washPm[wi].days, onWash: routineForDate(wash).pm.some(s => s.label === "Night serum"),
+      planNote: plan3.find(x => x.item === "Night serum").note };
+  });
+  check("an update link moves the step to new days and note", JSON.stringify(r2.days) === "[2,4,6]" && r2.note === "New note", r2);
+  check("a wash-day step lands before Moisturize with no days, and shows on wash day", r2.wi >= 0 && r2.next.startsWith("Moisturize") && !r2.washDays && r2.onWash, r2);
+  check("plan notes are rewritten", r2.planNote === "PM Tue/Thu/Sat", r2);
+  check("no wash-day list means a wash-day step is skipped", await page.evaluate(() => { const keep = skinRoutine.washPm; skinRoutine.washPm = [];
+    applyRoutineImport({ app: "jazz3-routine", steps: [{ band: "washPm", label: "X", product: "Y" }] }); const ok = skinRoutine.washPm.length === 0; skinRoutine.washPm = keep; return ok; }));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

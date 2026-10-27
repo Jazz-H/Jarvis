@@ -5966,29 +5966,49 @@ function applyCleanup(data){
   showUndoToast([adds.length && `Added ${adds.length}`, hit.length && `removed ${hit.length}`].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase()) + ` to-do${adds.length + hit.length === 1 ? "" : "s"}`,
     () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
 }
-// Skin routine steps from a link: each goes in its band (am/pm) before the
-// step named by "before" (or before a "… last step"), skipped if that product
-// is already there. "doneItems" ticks Jazz 3.0 plan items by name.
+// Skin routine changes from a link:
+//   steps: [{band:"am"|"pm"|"washPm", label, product, note, days, before}] go in
+//     before the step named by "before" (or before a "… last step"); skipped if
+//     that product is already in the band. Wash-day steps only land in an
+//     existing wash-day list (an empty one means no wash days) and take no days.
+//   updateSteps: [{band, product, days?, note?}] change the step with that product
+//   doneItems: [names] ticks Jazz 3.0 plan items; planNotes: [{item, note}] rewrites their notes
 function applyRoutineImport(data){
   const arr = v => Array.isArray(v) ? v : [], low = v => String(v || "").trim().toLowerCase();
-  const steps = arr(data.steps).filter(x => x && (x.band === "am" || x.band === "pm") && String(x.label || "").trim() && String(x.product || "").trim()
-    && !skinRoutine[x.band].some(s => low(s.product) === low(x.product)));
+  const BANDS = {am:"AM", pm:"PM", washPm:"wash-day PM"};
+  const dayList = v => arr(v).filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
+  const daysKey = d => d && d.length && d.length < 7 ? d.join() : ""; // as applyStepValues stores them
+  const find = (band, product) => (skinRoutine[band] || []).find(s => low(s.product) === low(product));
+  const steps = arr(data.steps).filter(x => x && BANDS[x.band] && String(x.label || "").trim() && String(x.product || "").trim()
+    && !find(x.band, x.product) && (x.band !== "washPm" || skinRoutine.washPm.length));
+  const updates = arr(data.updateSteps).map(x => x && BANDS[x.band] && {x, step:find(x.band, x.product)}).filter(u => u && u.step && (
+    (u.x.days && u.x.band !== "washPm" && daysKey(dayList(u.x.days)) !== daysKey(u.step.days))
+    || (u.x.note != null && String(u.x.note).trim() !== (u.step.note || ""))));
   const done = arr(data.doneItems).map(low).filter(Boolean);
   const ticks = plan3.filter(x => !x.done && done.includes(low(x.item)));
-  if (!steps.length && !ticks.length){ showToast("Your routine already has that"); return; }
-  const parts = [steps.length && `add ${steps.map(x => `"${x.label}" to ${x.band.toUpperCase()}`).join(", ")}`, ticks.length && `tick ${ticks.map(x => `"${x.item}"`).join(", ")} in Jazz 3.0`].filter(Boolean);
-  if (!confirm(`${parts.join(" and ").replace(/^./, c => c.toUpperCase())}?`)) return;
+  const notes = arr(data.planNotes).map(n => n && {n, item:plan3.find(x => low(x.item) === low(n.item))})
+    .filter(u => u && u.item && String(u.n.note || "").trim() && u.item.note !== String(u.n.note).trim());
+  if (!steps.length && !updates.length && !ticks.length && !notes.length){ showToast("Your routine already has that"); return; }
+  const dayNames = d => d && d.length ? d.map(i => WEEKDAYS[i].slice(0, 3)).join("/") : "every day";
+  const parts = [steps.length && `add ${steps.map(x => `"${x.label}" to ${BANDS[x.band]}`).join(", ")}`,
+    updates.length && `change ${updates.map(u => `"${u.step.label}"${u.x.days ? ` to ${dayNames(dayList(u.x.days))}` : ""}`).join(", ")}`,
+    ticks.length && `tick ${ticks.map(x => `"${x.item}"`).join(", ")} in Jazz 3.0`,
+    notes.length && `update the note on ${notes.map(u => `"${u.item.item}"`).join(", ")}`].filter(Boolean);
+  if (!confirm(`${parts.join(", ").replace(/^./, c => c.toUpperCase())}?`)) return;
   const snapshot = JSON.parse(JSON.stringify(liveData()));
   steps.forEach(x => {
     const step = {id:genId(x.band)};
-    applyStepValues(step, {label:String(x.label).trim(), product:String(x.product).trim(), note:String(x.note || "").trim(), days:arr(x.days).filter(d => Number.isInteger(d) && d >= 0 && d <= 6)});
+    applyStepValues(step, {label:String(x.label).trim(), product:String(x.product).trim(), note:String(x.note || "").trim(), days:x.band === "washPm" ? [] : dayList(x.days)});
     const list = skinRoutine[x.band];
     let at = x.before ? list.findIndex(s => low(s.label).startsWith(low(x.before))) : -1;
     if (at < 0) at = list.length && /last step/i.test(list[list.length - 1].label) ? list.length - 1 : list.length;
     list.splice(at, 0, step);
   });
+  updates.forEach(({x, step}) => applyStepValues(step, {label:step.label, product:step.product,
+    note:x.note != null ? String(x.note).trim() : step.note || "", days:x.days && x.band !== "washPm" ? dayList(x.days) : step.days || []}));
   ticks.forEach(x => x.done = true);
-  if (ticks.length) savePlan3();
+  notes.forEach(u => u.item.note = String(u.n.note).trim());
+  if (ticks.length || notes.length) savePlan3();
   saveRoutine();
   activateTab("skin");
   showUndoToast(`${parts.join(", ").replace(/^./, c => c.toUpperCase())}`, () => { applyRemote({updatedAt:Date.now(), data:snapshot}); markDataChanged(); });
