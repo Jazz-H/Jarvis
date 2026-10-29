@@ -219,8 +219,9 @@ only turning sync off still asks first.
   column (760px, or 920px at ≥1440px).
 - **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`).
 - **Hard refresh:** pull down from the top of a tab (or use the refresh button on
-  desktop). It clears the service worker cache and reloads back onto the same tab and scroll
-  position, and never touches your data.
+  desktop). It clears Jazz's service worker caches, unregisters Jazz's worker, and reloads
+  back onto the same tab and scroll position. Other apps' caches and workers on the origin,
+  and your data, are left alone.
 - **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Shopping,
   Budget, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.
@@ -229,33 +230,62 @@ only turning sync off still asks first.
 
 | File | Purpose |
 | --- | --- |
-| `jazz2.0.html` | The whole app: HTML, CSS, and JS in one file. No build step, no framework. |
+| `jazz2.0.html` | The app markup (header, six tab panels, toast, modal, tab bar). It loads `css/app.css` and the `js/*.js` scripts. No build step, no framework. |
+| `css/app.css` | All app styles, loaded by a blocking `<link>` in `<head>`. Precached by the service worker. |
+| `js/*.js` | The app code, split by feature into ordered **classic scripts** (see *How the app is organized*). Every file is precached by the service worker. |
 | `index.html` | Redirects the bare site URL to `jazz2.0.html`. |
 | `manifest.json` | PWA manifest: name, icons, standalone display, home-screen shortcuts. |
-| `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys, with the cached page as the offline fallback (query strings ignored, so `?tab=` shortcuts work offline). Icons and the manifest are served from cache and refreshed in the background. Install never caches an error response. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
+| `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys, with the cached page as the offline fallback (query strings ignored, so `?tab=` shortcuts work offline). Icons and the manifest are served from cache and refreshed in the background. Install never caches an error response and removes a partial cache if installation fails. Activation only removes older Jazz-owned caches; unrelated origin caches are preserved. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
 | `icon-192.png`, `icon-512.png` | App icons. See *Design system*. |
 | `tests/regression.mjs` | Regression suite (see *Development*). |
-| `package.json` | Only holds the test dependency (Playwright). The app itself needs no install. |
+| `scripts/check.mjs` | Dependency-free quality check (`npm run check`). |
+| `package.json` | Holds the `check`/`test` scripts and the test dependency (Playwright). The app itself needs no install. |
 | `.github/workflows/test.yml` | Runs the suite on every PR and every push to `main`. |
 
-### How `jazz2.0.html` is organized
-1. **CSS:** `:root` theme tokens, base components, to-do and routine styles, hover styles
+### How the app is organized
+1. **CSS (`css/app.css`):** `:root` theme tokens, base components, to-do and routine styles, hover styles
    (mouse only), then the desktop media queries.
-2. **Markup:** header (title, date, Sync & backup button, desktop refresh button), five
-   empty `tabpanel` sections, the toast, the modal, and the tab bar.
-3. **Script**, roughly top to bottom:
-   - constants and icons;
-   - storage and escaping helpers;
-   - the default data;
-   - the modal engine;
-   - one `render*` function per tab (`renderHome` updates both Home and To-Do);
-   - feature logic (to-do dates, routine, wardrobe/wants, sync, backup);
-   - init.
+2. **Markup (`jazz2.0.html`):** header (title, date, Sync & backup button, desktop refresh button), six
+   empty `tabpanel` sections, the toast, the modal, and the tab bar, followed by the `<script src>` tags.
+3. **Scripts (`js/`).** Plain classic scripts, loaded in this order. They share one global scope, so
+   **order matters** (a file may use earlier files' top-level `const`/`let` while loading; functions are
+   only called later, at runtime). `jazz2.0.html` is the source of truth for the order, and `sw.js`
+   `ASSETS` must list every file.
+
+   | File | Contents |
+   | --- | --- |
+   | `constants.js` | Shared constants and inline SVG icons |
+   | `core.js` | Storage helpers (one JSON blob per key), toasts, escaping, shared UI state |
+   | `defaults.js` | Default data that seeds localStorage on first run |
+   | `modal.js` | Modal engine used by every add/edit form |
+   | `todo-dates.js` | To-do dates, quick-add parsing, recurring to-dos |
+   | `holidays.js` | US holidays by rule |
+   | `home.js` | Home calendar strip, day agenda, `renderHome` |
+   | `composer.js` | The floating + button's add sheet |
+   | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
+   | `skin.js` | Skin & Hair routine, wash-day schedule, rules |
+   | `shopping.js` | Shopping tab and wardrobe items |
+   | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, month calendar, `renderBudget`, data normalizing |
+   | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
+   | `shell.js` | Tab switching and the delegated `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_INPUT` / `SHELL_CHANGE` tables |
+   | `gestures.js`, `drag-reorder.js` | Swipe between tabs and pull-to-refresh; press-to-drag and sortable lists |
+   | `sync.js`, `backup.js` | Gist sync; backup download/restore |
+   | `data-load.js`, `import-link.js` | Loading, sanitizing and migrating stored data; `#import=` link and launch parameters |
+   | `pwa.js` | Hard refresh, view resume, service-worker registration |
+   | `boot.js` | Startup sequence (`init`). **Must load last.** |
+
+   **Why not ES modules?** The code shares mutable top-level state (`todoList`, `bills`, `budget`,
+   ...) that is reassigned across features, and the regression suite reads and calls those globals
+   from `page.evaluate`. Modules would need getters/setters for every shared variable and a rewrite
+   of most of the tests, for no runtime benefit on a static site, so the split stays classic scripts.
+   The check script concatenates all scripts in page order to catch cross-file redeclarations.
 
 ## Development
 
 **Run locally.** Serve the folder over HTTP, for example with `python3 -m http.server`, and
 open `/jazz2.0.html`. The service worker only registers on `https:` or `localhost`.
+
+**Check.** `npm run check` needs no install. It syntax-checks `sw.js`, `scripts/`, `tests/` and every app script (each `js/*.js` file, plus all of them concatenated in page order to catch cross-file redeclarations), and confirms every local path in the service worker's `ASSETS` list exists, every loaded script is precached, and no `js/*.js` file is orphaned. It also fails on `<script type="module">` and if the app contains any inline `on*` event-handler attribute: use `data-action` (plus the `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_CHANGE` tables) instead.
 
 **Test.** Run:
 
@@ -265,9 +295,12 @@ npx playwright install chromium   # or set CHROMIUM_PATH to an existing Chromium
 npm test
 ```
 
-The suite (451 checks) drives the real app in headless Chromium against a tiny built-in
+The suite drives the real app in headless Chromium against a tiny built-in
 server. It covers:
 - every tab on phone and desktop;
+- the external stylesheet loads and the app stays styled offline after a service-worker controlled reload;
+- service-worker activation and hard refresh preserve unrelated origin caches;
+- the regression server confines requested files to the repository root;
 - the + sheet in every mode (to-do dates, repeats and sub-items; shopping price/category/
   details; budget expenses, bills and goals; batches; per-tab button);
 - to-do date parsing, migration, undo, recurring to-dos, and drag between date groups;
@@ -291,7 +324,7 @@ CI runs the suite on every PR.
 - **Stored data is untrusted.** It can arrive from sync or a backup file. Render text with
   `escapeHtml`/`escapeAttr`, and links with `linkHtml()`, which only allows `http(s)`.
   `normalizeLoadedData()` gives a fresh id to any id that isn't a plain token, because ids
-  are interpolated into inline `onclick` handlers. `sanitizeCoreData()` and
+  are used as `data-*` metadata for delegated `data-action` handlers (which also re-check them against live data). `sanitizeCoreData()` and
   `normalizeBudgetData()` coerce every list to a safe shape on load, so one malformed record
   can't stop the app from starting.
 - **User actions vs. housekeeping.**

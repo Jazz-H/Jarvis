@@ -4,6 +4,7 @@
   "description": "Jazz 2.0 personal dashboard PWA. The app itself has no build step; this file only exists for the test suite.",
   "type": "module",
   "scripts": {
+    "check": "node scripts/check.mjs",
     "test": "node tests/regression.mjs"
   },
   "devDependencies": {

@@ -1,7 +1,36 @@
-const CACHE_NAME = "jazz2-cache-v113";
+const CACHE_PREFIX = "jazz2-cache-";
+const CACHE_NAME = `${CACHE_PREFIX}v120`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
+  "./css/app.css",
+  "./js/constants.js",
+  "./js/core.js",
+  "./js/defaults.js",
+  "./js/modal.js",
+  "./js/todo-dates.js",
+  "./js/holidays.js",
+  "./js/home.js",
+  "./js/composer.js",
+  "./js/todo.js",
+  "./js/skin.js",
+  "./js/shopping.js",
+  "./js/budget-bills.js",
+  "./js/budget-income.js",
+  "./js/budget-goals.js",
+  "./js/budget-import.js",
+  "./js/budget-view.js",
+  "./js/fitness.js",
+  "./js/jazz3.js",
+  "./js/shell.js",
+  "./js/gestures.js",
+  "./js/drag-reorder.js",
+  "./js/sync.js",
+  "./js/backup.js",
+  "./js/data-load.js",
+  "./js/import-link.js",
+  "./js/pwa.js",
+  "./js/boot.js",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
@@ -9,12 +38,17 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      Promise.all(ASSETS.map((url) => fetch(url, {cache:"reload"}).then((res) => {
-        if (!res.ok) throw new Error(url + " " + res.status); // never cache an error page
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const results = await Promise.allSettled(ASSETS.map((url) => fetch(url, {cache:"reload"}).then((res) => {
+        if (!res.ok) throw new Error(url + " " + res.status);
         return cache.put(url, res);
-      })))
-    )
+      })));
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed) {
+        await caches.delete(CACHE_NAME);
+        throw failed.reason;
+      }
+    })
   );
   self.skipWaiting();
 });
@@ -22,7 +56,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -41,32 +75,24 @@ self.addEventListener("fetch", (event) => {
   if (isAppShellRequest(event.request)){
     // Network-first for the HTML shell so a normal reload always picks up the
     // latest deploy instead of getting stuck on whatever was cached at install.
+    const networkResponse = fetch(event.request);
+    event.waitUntil(networkResponse.then((response) => {
+      if (!response || !response.ok) return;
+      return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+    }, () => {}).catch((error) => console.error("app shell cache update failed", error)));
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200){
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
+      networkResponse
         // ?tab=… launch shortcuts must find the cached page offline too
         .catch(() => caches.match(event.request, {ignoreSearch:true}).then((hit) => hit || caches.match("./jazz2.0.html")))
     );
     return;
   }
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
-  );
+  const networkResponse = fetch(event.request);
+  event.waitUntil(networkResponse.then((response) => {
+    if (!response || !response.ok) return;
+    return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+  }, () => {}).catch((error) => console.error("asset cache update failed", error)));
+  event.respondWith(caches.match(event.request).then((cached) =>
+    cached || networkResponse.catch(() => cached)
+  ));
 });

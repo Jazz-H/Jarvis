@@ -12,12 +12,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png" };
+const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".png": "image/png" };
+
+function resolveRepoFile(pathname) {
+  const file = path.resolve(ROOT, `.${pathname}`);
+  const relative = path.relative(ROOT, file);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("outside root");
+  }
+  return file;
+}
 
 const server = http.createServer(async (req, res) => {
   try {
-    const file = path.join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname));
-    if (!file.startsWith(ROOT)) throw new Error("outside root");
+    const file = resolveRepoFile(decodeURIComponent(new URL(req.url, "http://localhost").pathname));
     const body = await readFile(file);
     res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
     res.end(body);
@@ -58,6 +66,13 @@ async function section(name, fn) {
   try { await fn(); } catch (e) { failures.push(`${name}: threw ${e.message.split("\n")[0]}`); }
   console.log(`${failures.length === before ? "ok  " : "FAIL"}  ${name}`);
 }
+
+await section("test server confines requested files to the repository root", async () => {
+  check("normal app paths resolve", resolveRepoFile("/jazz2.0.html") === path.join(ROOT, "jazz2.0.html"));
+  let rejected = false;
+  try { resolveRepoFile("/../Jazz2.0-sibling/secret"); } catch { rejected = true; }
+  check("prefix-matching sibling paths are rejected", rejected);
+});
 
 await section("every tab renders without JS errors (phone + desktop)", async () => {
   for (const phone of [true, false]) {
@@ -156,7 +171,7 @@ await section("to-do: drag into another date group sets the date (desktop mouse)
     { id: "y", text: "Tomorrow thing", done: false, due: isoOffset(1), starred: false, subitems: [], completedAt: null },
   ]}});
   const h = await page.locator('#todo-list [data-todo-id="x"] .title').boundingBox();
-  const t = await page.locator('#todo-list [data-todo-id="y"]').boundingBox();
+  const t = await page.locator('#todo-list .todo-wrap[data-todo-id="y"]').boundingBox();
   await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
   await page.mouse.down();
   await page.mouse.move(h.x + h.width / 2, t.y + t.height + 6, { steps: 15 });
@@ -1539,6 +1554,69 @@ await section("Fitness: weigh-in day reminder", async () => {
   await ctx.close();
 });
 
+// Fitness tab Weight card (renderFitness) controls are delegated data-action handlers, in empty and populated states.
+await section("Fitness: Weight card controls are delegated (empty + populated), history edit targets the selected entry", async () => {
+  const { ctx, page, errors } = await openApp({});
+  const save = () => page.click("#modal-backdrop .modal-btn.primary");
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  await page.evaluate(() => { skinRoutine.washPm = []; fitness = { start: null, goal: null, weights: [], plan: [], checks: {}, weighDay: -1 }; normalizeFitness(); activateTab("jazz3"); openPinned.add("weight-card"); renderFitness(); });
+  // empty state
+  const empty = await page.evaluate(() => [...document.querySelectorAll("#weight-card .goal-actions button")].map(b => [b.getAttribute("data-action"), b.hasAttribute("onclick")]));
+  check("empty-state controls are delegated, no inline onclick", JSON.stringify(empty) === '[["fitness-log-weight",false],["fitness-weight-goal",false]]', empty);
+  await page.click('#weight-card [data-action="fitness-weight-goal"]');
+  check("empty Set goal opens Weight goal", (await page.textContent("#modal-heading")) === "Weight goal");
+  await page.fill("#modal-start", "150"); await page.fill("#modal-goal", "140"); await save();
+  check("empty Set goal saves start and goal", await page.evaluate(() => fitness.start === 150 && fitness.goal === 140));
+  await page.evaluate(() => { fitness = { start: null, goal: null, weights: [], plan: [], checks: {}, weighDay: -1 }; saveFitness(); });
+  await page.click('#weight-card [data-action="fitness-log-weight"]');
+  check("empty + Log weight opens Log weight", (await page.textContent("#modal-heading")) === "Log weight");
+  await page.fill("#modal-lbs", "148.5"); await save();
+  check("empty + Log weight saves a weigh-in", await page.evaluate(() => fitness.weights.length === 1 && fitness.weights[0].lbs === 148.5));
+  // populated state
+  await page.evaluate(() => {
+    fitness = { start: 150, goal: 140, weights: [{ id: "wa", date: addDaysIso(-10), lbs: 149 }, { id: "wb", date: addDaysIso(-5), lbs: 147 }, { id: "wc", date: addDaysIso(-1), lbs: 145 }], plan: [], checks: {}, weighDay: 1 };
+    normalizeFitness(); saveFitness(); showWeighIns = false; renderFitness();
+  });
+  check("populated card controls have no inline onclick (shared collapsible header is out of scope)", await page.evaluate(() => document.querySelectorAll("#weight-card .coll-body [onclick]").length === 0));
+  await page.click('#weight-card [data-action="fitness-weight-goal"]');
+  check("goal button opens Weight goal", (await page.textContent("#modal-heading")) === "Weight goal" && (await page.inputValue("#modal-goal")) === "140");
+  await page.fill("#modal-goal", "138"); await save();
+  check("goal change saves", await page.evaluate(() => fitness.goal === 138));
+  await page.click('#weight-card [data-action="fitness-weigh-day"]');
+  check("weigh-in day link opens Weigh-in day", (await page.textContent("#modal-heading")) === "Weigh-in day");
+  await page.selectOption("#modal-day", "Friday"); await save();
+  check("weigh-in day change saves", await page.evaluate(() => fitness.weighDay === 5 && document.getElementById("weight-card").textContent.includes("Weigh-in day: Fridays")));
+  await page.click('#weight-card .goal-actions [data-action="fitness-log-weight"]');
+  check("populated + Log weight opens a new entry", (await page.textContent("#modal-heading")) === "Log weight");
+  await page.fill("#modal-lbs", "144"); await save();
+  check("populated + Log weight adds today's weigh-in", await page.evaluate(() => fitness.weights.length === 4 && currentWeight() === 144));
+  // history toggle
+  check("history starts collapsed", await page.evaluate(() => !document.querySelector("#weight-card .goal-entry")));
+  await page.click('#weight-card [data-action="fitness-weigh-history"]');
+  check("history toggle expands entries", await page.evaluate(() => showWeighIns === true && document.querySelectorAll("#weight-card .goal-entry").length === 4 && document.querySelector('#weight-card [data-action="fitness-weigh-history"]').getAttribute("aria-expanded") === "true"));
+  await page.click('#weight-card [data-action="fitness-weigh-history"]');
+  check("history toggle collapses entries", await page.evaluate(() => showWeighIns === false && !document.querySelector("#weight-card .goal-entry")));
+  // edit the selected history record
+  await page.click('#weight-card [data-action="fitness-weigh-history"]');
+  check("history entries carry delegated ids, no inline onclick", await page.evaluate(() => [...document.querySelectorAll("#weight-card .goal-entry")].every(b => !b.hasAttribute("onclick") && b.getAttribute("data-action") === "fitness-weigh-edit") && [...document.querySelectorAll("#weight-card .goal-entry")].map(b => b.getAttribute("data-weight-id")).includes("wb")));
+  await page.click('#weight-card .goal-entry[data-weight-id="wb"]');
+  check("clicking an entry opens Edit weigh-in prefilled with that record", (await page.textContent("#modal-heading")) === "Edit weigh-in" && (await page.inputValue("#modal-lbs")) === "147");
+  await page.fill("#modal-lbs", "146.2"); await save();
+  check("editing changes only the selected record", await page.evaluate(() => { const m = Object.fromEntries(fitness.weights.map(w => [w.id, w.lbs])); return m.wa === 149 && m.wb === 146.2 && m.wc === 145 && fitness.weights.length === 4; }));
+  // invalid / stale ids are no-ops
+  await page.evaluate(() => { window.__log = []; const real = window.logWeight; window.logWeight = (...a) => { window.__log.push(a); }; window.__real = real; });
+  const before = await page.evaluate(() => JSON.stringify(fitness));
+  await page.evaluate(() => {
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "fitness-weigh-edit" });
+    for (const v of ["", "nope", "gone", "wb');alert(1);('", "wb ", "w b"]) mk({ "data-action": "fitness-weigh-edit", "data-weight-id": v });
+  });
+  check("missing/invalid/stale entry ids do nothing", (await page.evaluate(() => window.__log.length)) === 0 && (await page.evaluate(() => JSON.stringify(fitness))) === before && !(await modalOpen()));
+  await page.click('#weight-card .goal-entry[data-weight-id="wc"]');
+  check("valid id still reaches logWeight with that id", JSON.stringify(await page.evaluate(() => window.__log)) === '[["wc"]]');
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
 await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words on a picked day", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
     { id: "r", text: "Water plants", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "weekly" },
@@ -1799,15 +1877,1455 @@ await section("refresh stays on the same tab; Wash hair opens its card", async (
   await page.click("#panel-home .wash-row .body");
   const w = await page.evaluate(() => ({ tab: currentTab, open: document.getElementById("wash-card").classList.contains("open") }));
   check("tapping Wash hair opens the Wash day card on Skin & Hair", w.tab === "skin" && w.open, w);
-  // what hardRefresh leaves behind, then the reload
   await page.evaluate(() => { activateTab("budget"); sessionStorage.setItem("resume-view", JSON.stringify({ tab: currentTab, scroll: 0 })); });
-  await page.reload(); await page.waitForTimeout(600);
-  const r = await page.evaluate(() => ({ tab: currentTab, panel: document.getElementById("panel-budget").classList.contains("active"), left: sessionStorage.getItem("resume-view") }));
+  const cacheState = await page.evaluate(async () => {
+    await caches.open("jazz2-cache-v113");
+    await caches.open("unrelated-app-cache");
+    const registration = await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    const worker = registration.active;
+    if (worker.state !== "activated") await new Promise(resolve => {
+      const onStateChange = () => {
+        if (worker.state === "activated") {
+          worker.removeEventListener("statechange", onStateChange);
+          resolve();
+        }
+      };
+      worker.addEventListener("statechange", onStateChange);
+      onStateChange();
+    });
+    await caches.open("jazz2-cache-v117");
+    return (await caches.keys()).sort();
+  });
+  check("service-worker activation preserves caches owned by other apps", cacheState.includes("unrelated-app-cache") && !cacheState.includes("jazz2-cache-v113"), cacheState);
+  const reload = page.waitForNavigation({ waitUntil: "load" });
+  await page.evaluate(() => setTimeout(hardRefresh, 0));
+  await reload;
+  const r = await page.evaluate(async () => ({
+    tab: currentTab,
+    panel: document.getElementById("panel-budget").classList.contains("active"),
+    left: sessionStorage.getItem("resume-view"),
+    caches: await caches.keys(),
+    jazzWorker: (await navigator.serviceWorker.getRegistrations()).some(reg =>
+      [reg.active, reg.waiting, reg.installing].some(worker => worker && worker.scriptURL === new URL("sw.js", location.href).href)
+    ),
+  }));
   check("pull-to-refresh comes back to the same tab", r.tab === "budget" && r.panel && r.left === null, r);
+  check("hard refresh clears only Jazz caches and its own worker", r.caches.includes("unrelated-app-cache") && !r.caches.some(k => k.startsWith("jazz2-cache-")) && !r.jazzWorker, r);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
 
+await section("external stylesheet loads and the app stays styled offline", async () => {
+  const { ctx, page, errors } = await openApp();
+  const cssRes = await page.request.get(new URL("css/app.css", APP).href);
+  check("stylesheet is served as text/css", cssRes.ok() && (cssRes.headers()["content-type"] || "").startsWith("text/css"), [cssRes.status(), cssRes.headers()["content-type"]]);
+  const styled = () => page.evaluate(() => ({
+    links: document.querySelectorAll('link[rel="stylesheet"][href="css/app.css"]').length,
+    inline: document.querySelectorAll("style").length,
+    bg: getComputedStyle(document.body).backgroundColor,
+    token: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || null,
+    tabbar: getComputedStyle(document.querySelector(".tabbar, nav")).position,
+  }));
+  const online = await styled();
+  check("page links css/app.css and has no inline style block", online.links === 1 && online.inline === 0, online);
+  check("stylesheet applies online", online.bg !== "rgba(0, 0, 0, 0)" && online.bg !== "rgb(255, 255, 255)", online);
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+  });
+  await page.reload({ waitUntil: "load" });
+  check("service worker controls the page", await page.evaluate(() => !!navigator.serviceWorker.controller));
+  check("stylesheet is precached", await page.evaluate(async () => !!(await caches.match("css/app.css"))));
+  check("app scripts are precached", await page.evaluate(async () => {
+    const srcs = [...document.querySelectorAll("script[src]")].map(s => s.getAttribute("src"));
+    const hits = await Promise.all(srcs.map(s => caches.match(s)));
+    return srcs.length > 1 && hits.every(Boolean);
+  }));
+  await ctx.setOffline(true);
+  await page.reload({ waitUntil: "load" });
+  check("app JS runs after an offline controlled reload (all tabs render)", await page.evaluate(() => {
+    if (typeof activateTab !== "function") return false;
+    for (const t of ["home", "todo", "jazz3", "wants", "skin", "budget"]) { activateTab(t); if (!document.getElementById("headline").textContent) return false; }
+    return true;
+  }));
+  const offline = await styled();
+  check("app stays styled after an offline controlled reload", offline.bg === online.bg && offline.token === online.token && offline.tabbar === online.tabbar && offline.links === 1, [online, offline]);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.setOffline(false);
+  await ctx.close();
+});
+
+// Phase 2a safety net: representative inline-handler interactions by tab, including
+// nested "row opens editor" vs "inner button does something else" cases, so a later
+// move to delegated handlers can't change which action fires.
+await section("handlers: to-do rows vs inner buttons, sub-items, modal backdrop", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "ha", text: "Alpha", done: false, due: isoOffset(0), starred: false, subitems: [{ id: "s1", text: "One", done: false }], completedAt: null },
+    { id: "hb", text: "Beta", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "hc", text: "Gamma", done: true, due: isoOffset(0), starred: false, subitems: [], completedAt: Date.now() },
+  ]}});
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const row = id => `#todo-list .todo-wrap[data-todo-id="${id}"]`;
+  await page.click(`${row("hb")} .todo-check`);
+  check("to-do check completes without opening the editor", await page.evaluate(() => todoList.find(t => t.id === "hb").done) && !(await modalOpen()));
+  await page.click(`${row("ha")} .todo-icon-btn[aria-label$="to-do"]`);
+  check("to-do star toggles without opening the editor", await page.evaluate(() => todoList.find(t => t.id === "ha").starred) && !(await modalOpen()));
+  await page.click(`${row("ha")} .todo-icon-btn[aria-label$="sub-items"]`);
+  check("sub-item toggle expands the list without opening the editor", (await page.$$(`${row("ha")} .subitem-row`)).length === 1 && !(await modalOpen()));
+  await page.click(`${row("ha")} .subitem-check`);
+  check("sub-item check toggles only the sub-item", await page.evaluate(() => { const t = todoList.find(x => x.id === "ha"); return t.subitems[0].done && !t.done; }) && !(await modalOpen()));
+  await page.click(`${row("ha")} .subitem-list`, { position: { x: 3, y: 3 } });
+  check("clicking inside the sub-item list does not open the editor", !(await modalOpen()));
+  await page.click(`${row("ha")} .subitem-add-toggle`);
+  await page.fill(`#subitem-input-ha`, "Two");
+  await page.press(`#subitem-input-ha`, "Enter");
+  check("Enter in the sub-item input adds a sub-item", await page.evaluate(() => todoList.find(t => t.id === "ha").subitems.map(s => s.text).join()) === "One,Two");
+  await page.click(`${row("ha")} .subitem-del >> nth=0`);
+  check("sub-item delete removes only that sub-item", await page.evaluate(() => todoList.find(t => t.id === "ha").subitems.map(s => s.text).join()) === "Two");
+  await page.click(`${row("ha")} .body`);
+  check("tapping the row body opens the editor", await modalOpen());
+  await page.click("#modal-heading");
+  check("clicking inside the modal does not close it", await modalOpen());
+  await page.mouse.click(2, 2);
+  check("clicking the backdrop closes the modal", !(await modalOpen()));
+  await page.click("#todo-card .completed-toggle");
+  await page.click('.item:has-text("Gamma") button[aria-label="Duplicate to-do"]');
+  check("completed-row duplicate button copies the to-do", await page.evaluate(() => todoList.filter(t => t.text.startsWith("Gamma")).length) === 2 && !(await modalOpen()));
+  await page.click('.item:has-text("Beta") button[aria-label="Delete to-do"]');
+  check("completed-row delete button removes only its to-do without opening the editor", await page.evaluate(() => todoList.some(t => t.id === "hc") && !todoList.some(t => t.id === "hb")) && !(await modalOpen()));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("handlers: Home bill pay button vs row, composer chips and date input", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "bills-content": [
+    { id: "hbill", name: "Rent", amount: 900, due: isoOffset(0), repeat: "monthly", autopay: false, account: null },
+  ]}});
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  await page.click('#panel-home button[aria-label="Mark paid: Rent"]');
+  check("Home bill check pays it without opening the editor", await page.evaluate(() => billPayments.length) === 1 && !(await modalOpen()));
+  await page.click('#panel-home button[aria-label="Mark not paid: Rent"]');
+  check("Home paid bill check un-pays it", await page.evaluate(() => billPayments.length) === 0 && !(await modalOpen()));
+  await page.click('#panel-home .todo-wrap .body >> text=Rent');
+  check("Home bill row opens its editor", await modalOpen());
+  await page.evaluate(() => closeModal());
+  await page.click("#fab");
+  check("+ opens the composer", await page.evaluate(() => document.getElementById("composer").classList.contains("open")));
+  await page.click("#composer-chips .filter-chip >> text=Star");
+  check("composer chip toggles its flag", await page.evaluate(() => composer.star === true));
+  await page.click("#composer-chips .filter-chip >> text=Repeat");
+  check("composer repeat chip sets weekly", await page.evaluate(() => composer.repeat === "weekly"));
+  await page.evaluate(() => { const i = document.querySelector("#composer input[type=date]"); i.value = addDaysIso(3); i.dispatchEvent(new Event("change", { bubbles: true })); });
+  check("composer date input change sets a manual date", await page.evaluate(() => composer.manual === true && composer.date === addDaysIso(3)));
+  await page.fill("#composer-text", "Handler check item");
+  await page.click("#composer-add-btn");
+  check("composer Add saves the to-do", await page.evaluate(() => todoList.some(t => t.text.startsWith("Handler check item"))));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("handlers: wants card vs buttons, filter chips; routine, budget, fitness rows", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const first = "#wants-pending-card .want-card >> nth=0";
+  const id0 = await page.evaluate(() => [...wantsList].filter(w => !wantsState[w.id]).sort(wantsOrder)[0].id);
+  await page.click(`${first} >> .toggle`);
+  check("Mark bought marks it without opening the editor", await page.evaluate(i => !!wantsState[i], id0) && !(await modalOpen()));
+  await page.click("#wants-pending-card .want-card >> nth=0 >> .body");
+  check("want card body opens its editor", await modalOpen());
+  await page.evaluate(() => closeModal());
+  await page.click(".filter-chip >> text=Moto");
+  check("Moto filter chip sets the filter", await page.evaluate(() => wantsFilter) === "moto");
+  await page.click(".filter-chip >> text=All");
+  check("All filter chip clears the filter", await page.evaluate(() => wantsFilter) === "all");
+  await page.evaluate(() => activateTab("skin"));
+  const band = await page.evaluate(() => { const b = document.querySelector("#panel-skin .routine-band .routine-band-head"); return !!b; });
+  if (band) {
+    const before = await page.evaluate(() => document.querySelectorAll("#panel-skin .routine-step").length);
+    await page.click("#panel-skin .routine-band-head >> nth=0");
+    check("routine band header toggles its band", await page.evaluate(() => document.querySelectorAll("#panel-skin .routine-step").length) !== before);
+  }
+  await page.evaluate(() => { fitness.plan = [{ id: "hw1", name: "Handler Gym", days: [0, 1, 2, 3, 4, 5, 6], every: 1, anchor: addDaysIso(0), kind: "fitness" }]; activateTab("todo"); renderHome(); });
+  await page.click('#todo-list button[aria-label="Done: Handler Gym"]');
+  check("workout check logs it without opening the editor", await page.evaluate(() => workoutDone(addDaysIso(0), "hw1")) && !(await modalOpen()));
+  await page.click("#todo-list .workout-row .body >> text=Handler Gym");
+  check("workout row body opens its editor", await modalOpen());
+  await page.evaluate(() => closeModal());
+  await ctx.close();
+  const b = await openApp({ query: "?tab=budget", seed: { "bills-content": [
+    { id: "hb1", name: "Phone", amount: 70, due: isoOffset(0), repeat: "monthly", autopay: false, account: null },
+  ]}});
+  const bOpen = () => b.page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  await b.page.click('#panel-budget button.todo-check[aria-label="Mark paid: Phone"] >> visible=true >> nth=0');
+  check("Budget bill check pays it without opening the editor", await b.page.evaluate(() => billPayments.length) === 1 && !(await bOpen()));
+  await b.page.click("#panel-budget .btab-name >> visible=true >> text=Phone");
+  check("Budget bill name opens the payment editor", await bOpen());
+  check("no JS errors", errors.length === 0 && b.errors.length === 0, [...errors, ...b.errors]);
+  await b.ctx.close();
+});
+
+// Phase 2a-plus gates: things a delegated-handler rewrite is most likely to break.
+await section("handlers: hostile ids stay inert through load, restore and sync, and actions still work", async () => {
+  const evilId = `x');window.__pwned++;('"<&\\`;
+  const evilTodo = { id: evilId, text: "Evil todo", done: false, due: isoOffset(0), starred: false, subitems: [{ id: evilId, text: "Evil sub", done: false }], completedAt: null };
+  const evilWant = { id: evilId, name: "Evil want", meta: "", price: 5, link: "" };
+  const probe = async (page, label) => {
+    await page.evaluate(() => { window.__pwned = 0; activateTab("todo"); expandedTodos.clear(); expandedTodos.add(todoList[0].id); renderHome(); });
+    const r = await page.evaluate(() => {
+      const t = todoList[0];
+      return { todoId: t.id, subId: t.subitems[0].id, wantIds: wantsList.map(w => w.id), pwned: window.__pwned };
+    });
+    check(`${label}: ids are sanitized to safe characters`, /^[A-Za-z0-9_-]+$/.test(r.todoId) && /^[A-Za-z0-9_-]+$/.test(r.subId) && r.wantIds.every(i => /^[A-Za-z0-9_-]+$/.test(i)), r);
+    await page.click('#todo-list .todo-wrap[data-todo-id] .subitem-check');
+    check(`${label}: sub-item action works`, await page.evaluate(() => todoList[0].subitems[0].done === true));
+    await page.click('#todo-list .todo-wrap[data-todo-id] .todo-check');
+    check(`${label}: to-do action works`, await page.evaluate(() => todoList[0].done === true));
+    await page.evaluate(() => { activateTab("wants"); renderWants(); });
+    await page.click(`#wants-pending-card .want-card:has-text("Evil want") >> .toggle`);
+    check(`${label}: want action works`, await page.evaluate(() => { const w = wantsList.find(x => x.name === "Evil want"); return !!wantsState[w.id]; }));
+    check(`${label}: no injected script ran`, (await page.evaluate(() => window.__pwned)) === 0);
+  };
+  { // load from storage
+    const { ctx, page, errors } = await openApp({ seed: { "todo-content": [evilTodo], "wants-content": [evilWant], "wants-state": {} } });
+    await probe(page, "load");
+    check("load: no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  }
+  { // restore from a backup file
+    const { ctx, page, errors } = await openApp();
+    const backup = await page.evaluate(() => {
+      let captured; const orig = URL.createObjectURL;
+      URL.createObjectURL = blob => { captured = blob; return orig.call(URL, blob); };
+      navigator.canShare = undefined;
+      return downloadBackup().then(() => captured.text()).then(JSON.parse);
+    });
+    backup.data["todo-content"] = [evilTodo]; backup.data["wants-content"] = [evilWant]; backup.data["wants-state"] = {};
+    await page.evaluate(() => openSyncModal());
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("text=Restore…")]);
+    await chooser.setFiles({ name: "evil.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
+    await page.waitForFunction(() => todoList.length === 1 && todoList[0].text === "Evil todo");
+    await page.evaluate(() => { if (document.getElementById("modal-backdrop").classList.contains("open")) closeModal(); });
+    await probe(page, "restore");
+    check("restore: no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  }
+  { // sync from a remote copy
+    const { ctx, page, errors } = await openApp();
+    await page.evaluate(([t, w]) => applyRemote({ updatedAt: Date.now(), data: { "todo-content": [t], "wants-content": [w], "wants-state": {} } }), [evilTodo, evilWant]);
+    await probe(page, "sync");
+    check("sync: no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  }
+});
+
+await section("handlers: bill logo falls back to a letter when the icon host fails", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "bills-content": [
+    { id: "lg1", name: "Spotify", amount: 12, due: isoOffset(1), repeat: "monthly", autopay: false, account: null }] } });
+  await ctx.route("https://icons.duckduckgo.com/**", route => route.abort());
+  await page.evaluate(() => { activateTab("budget"); renderBudget(); });
+  await page.waitForFunction(() => document.querySelectorAll("#panel-budget .bill-logo").length > 0);
+  await page.waitForTimeout(600);
+  const r = await page.evaluate(() => ({
+    imgs: document.querySelectorAll("#panel-budget img.bill-logo").length,
+    letters: [...document.querySelectorAll("#panel-budget .btab-row .bill-logo.letter")].map(e => e.textContent),
+  }));
+  check("failed icon request is replaced by the first-letter fallback", r.imgs === 0 && r.letters.includes("S"), r);
+  check("no JS errors", errors.filter(e => !/Failed to load resource|ERR_FAILED/.test(e)).length === 0, errors);
+  await ctx.close();
+});
+
+await section("handlers: keyboard, nested children, re-render, double-click and drag-tap guard", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "k1", text: "Key one", done: false, due: isoOffset(0), starred: false, subitems: [{ id: "ks1", text: "Sub", done: false }], completedAt: null },
+    { id: "k2", text: "Key two", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "k3", text: "Key three", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "k4", text: "Key four", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+  ]}});
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const row = id => `#todo-list .todo-wrap[data-todo-id="${id}"]`;
+  const get = (id, f) => page.evaluate(([i, k]) => todoList.find(t => t.id === i)[k], [id, f]);
+  // keyboard: native buttons activate on Enter and Space
+  await page.focus(`${row("k1")} .todo-check`); await page.keyboard.press("Enter");
+  check("Enter activates a to-do check", (await get("k1", "done")) === true && !(await modalOpen()));
+  await page.focus(`${row("k2")} .todo-check`); await page.keyboard.press("Space");
+  check("Space activates a to-do check", (await get("k2", "done")) === true && !(await modalOpen()));
+  await page.focus(`${row("k3")} .todo-icon-btn[aria-label$="to-do"]`); await page.keyboard.press("Enter");
+  check("Enter on the star button stars without opening the editor", (await get("k3", "starred")) === true && !(await modalOpen()));
+  // nested child: clicking the SVG inside a check resolves the check, not the row
+  await page.click(`${row("k4")} .todo-check svg`);
+  check("clicking the SVG inside a check completes it and doesn't open the editor", (await get("k4", "done")) === true && !(await modalOpen()));
+  // re-render: a to-do added after the first render is actionable
+  await page.evaluate(() => { todoList.push({ id: "k5", text: "Added later", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }); renderHome(); });
+  await page.click(`${row("k5")} .todo-check`);
+  check("a row created by a later render is actionable", (await get("k5", "done")) === true);
+  // double-click on a toggle: records the current behavior (the second click lands on the re-rendered node)
+  await page.evaluate(() => { todoList.push({ id: "k6", text: "Double", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }); renderHome(); });
+  await page.dblclick(`${row("k6")} .todo-icon-btn[aria-label$="to-do"]`);
+  check("double-clicking the star toggles once (current behavior: the second click is lost to the re-render)", (await get("k6", "starred")) === true);
+  // sub-item input: other keys and an empty Enter do nothing
+  await page.evaluate(() => { todoList.push({ id: "k1b", text: "Sub host", done: false, due: addDaysIso(0), starred: false, subitems: [{ id: "kb1", text: "Sub", done: false }], completedAt: null }); expandedTodos.clear(); expandedTodos.add("k1b"); subAddOpen.add("k1b"); renderHome(); });
+  const before = await page.evaluate(() => todoList.find(t => t.id === "k1b").subitems.length);
+  await page.fill("#subitem-input-k1b", "typed");
+  await page.press("#subitem-input-k1b", "a");
+  await page.press("#subitem-input-k1b", "Space");
+  check("non-Enter keys don't add a sub-item", (await page.evaluate(() => todoList.find(t => t.id === "k1b").subitems.length)) === before);
+  await page.fill("#subitem-input-k1b", "");
+  await page.press("#subitem-input-k1b", "Enter");
+  check("Enter on an empty sub-item input adds nothing", (await page.evaluate(() => todoList.find(t => t.id === "k1b").subitems.length)) === before);
+  // the click that ends a drag is swallowed for 400 ms, then clicks work again
+  await page.evaluate(() => { todoList.push({ id: "k7", text: "Drag tap", done: false, due: addDaysIso(0), starred: false, subitems: [], completedAt: null }); renderHome(); });
+  await page.evaluate(() => { dragJustEnded = Date.now(); document.querySelector('#todo-list .todo-wrap[data-todo-id="k7"] .todo-check').click(); });
+  check("a click right after a drag ends is suppressed", (await get("k7", "done")) === false && !(await modalOpen()));
+  await page.waitForFunction(() => Date.now() - dragJustEnded > 600);
+  await page.click(`${row("k7")} .todo-check`);
+  check("clicks work again after the drag window", (await get("k7", "done")) === true);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("handlers: generated sub-item actions (toggle, delete, open-add, add, Enter, propagation, invalid ids)", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "p1", text: "Parent one", done: false, due: isoOffset(0), starred: false, subitems: [{ id: "s1", text: "First", done: false }, { id: "s2", text: "Second", done: false }], completedAt: null },
+    { id: "p2", text: "Parent two", done: false, due: isoOffset(0), starred: false, subitems: [{ id: "t1", text: "Other", done: false }], completedAt: null },
+  ]}});
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const subs = id => page.evaluate(i => todoList.find(t => t.id === i).subitems.map(s => [s.id, s.text, s.done]), id);
+  const wrap = id => `#todo-list .todo-wrap[data-todo-id="${id}"]`;
+  const focusedId = () => page.evaluate(() => document.activeElement && document.activeElement.id);
+  await page.evaluate(() => { expandedTodos.clear(); expandedTodos.add("p1"); expandedTodos.add("p2"); renderHome(); window.__docClicks = 0; document.addEventListener("click", () => window.__docClicks++); });
+  // markup: no inline handlers inside the generated sub-item list
+  check("sub-item list has no inline handlers", await page.evaluate(() => ![...document.querySelectorAll(".subitem-list, .subitem-list *")].some(n => n.hasAttribute("onclick") || n.hasAttribute("onkeydown"))));
+  // toggle
+  await page.click(`${wrap("p1")} .subitem-row[data-sub-id="s1"] .subitem-check`);
+  check("sub-item check toggles only that sub-item", JSON.stringify(await subs("p1")) === JSON.stringify([["s1", "First", true], ["s2", "Second", false]]) && (await subs("p2"))[0][2] === false, await subs("p1"));
+  check("toggle leaves parent row alone (no editor, still expanded, not done)", !(await modalOpen()) && await page.evaluate(() => expandedTodos.has("p1") && !todoList[0].done));
+  await page.click(`${wrap("p1")} .subitem-row[data-sub-id="s1"] .subitem-check svg`);
+  check("clicking the SVG inside a sub-item check toggles it back", (await subs("p1"))[0][2] === false);
+  // propagation: clicks inside the list never reach document or the row editor
+  await page.evaluate(() => { window.__docClicks = 0; });
+  await page.click(`${wrap("p1")} .subitem-row[data-sub-id="s2"] .subitem-text`);
+  await page.click(`${wrap("p1")} .subitem-list`, { position: { x: 2, y: 2 } });
+  check("clicks on list text/background are swallowed", !(await modalOpen()) && (await page.evaluate(() => window.__docClicks)) === 0);
+  await page.click(`${wrap("p1")} .subitem-row[data-sub-id="s2"] .subitem-check`);
+  check("sub-item action click doesn't propagate past the list", (await page.evaluate(() => window.__docClicks)) === 0 && !(await modalOpen()));
+  await page.click(`${wrap("p1")} .subitem-row[data-sub-id="s2"] .subitem-check`);
+  // delete
+  await page.click(`${wrap("p1")} .subitem-row[data-sub-id="s1"] .subitem-del`);
+  check("delete removes only that sub-item", JSON.stringify((await subs("p1")).map(s => s[0])) === '["s2"]' && (await subs("p2")).length === 1 && !(await modalOpen()), await subs("p1"));
+  // open-add + focus
+  await page.click(`${wrap("p1")} .subitem-add-toggle`);
+  check("open-add shows the input for that parent only and focuses it", (await focusedId()) === "subitem-input-p1" && (await page.locator("#subitem-input-p2").count()) === 0 && !(await modalOpen()));
+  // blank no-op (button + Enter)
+  await page.fill("#subitem-input-p1", "   ");
+  await page.click(`${wrap("p1")} .subitem-add button`);
+  await page.press("#subitem-input-p1", "Enter");
+  check("blank/whitespace input adds nothing via button or Enter", (await subs("p1")).length === 1);
+  // add via button: trimmed, rerender, focus returns to fresh input
+  await page.fill("#subitem-input-p1", "  via button  ");
+  await page.click(`${wrap("p1")} .subitem-add button`);
+  let r = await subs("p1");
+  check("add button adds a trimmed sub-item to the right parent", r.length === 2 && r[1][1] === "via button" && r[1][2] === false && (await subs("p2")).length === 1, r);
+  check("after add the fresh empty input is focused", (await focusedId()) === "subitem-input-p1" && (await page.inputValue("#subitem-input-p1")) === "");
+  // add via Enter
+  await page.type("#subitem-input-p1", "via enter");
+  await page.keyboard.press("Enter");
+  r = await subs("p1");
+  check("Enter adds a sub-item and refocuses the input", r.length === 3 && r[2][1] === "via enter" && (await focusedId()) === "subitem-input-p1" && !(await modalOpen()), r);
+  check("Enter in a sub-item input doesn't touch the other parent", (await subs("p2")).length === 1);
+  // rerendered rows are actionable
+  await page.click(`${wrap("p1")} .subitem-row:nth-child(3) .subitem-check`);
+  check("a sub-item created by a later render is actionable", (await subs("p1"))[2][2] === true);
+  // invalid / stale metadata does nothing
+  const snap = async () => JSON.stringify(await page.evaluate(() => [todoList, [...subAddOpen]]));
+  const base = await snap();
+  const tamper = (sel, attr, val) => page.evaluate(([s, a, v]) => { const el = document.querySelector(s); if (v === null) el.removeAttribute(a); else el.setAttribute(a, v); }, [sel, attr, val]);
+  const tamperClick = async (sel, attr, val, label) => {
+    const orig = await page.evaluate(([s, a]) => document.querySelector(s).getAttribute(a), [sel, attr]);
+    await tamper(sel, attr, val);
+    await page.evaluate(s => document.querySelector(s).click(), sel);
+    await tamper(sel, attr, orig);
+    check(`${label} does nothing`, (await snap()) === base && !(await modalOpen()));
+  };
+  const chk = `${wrap("p1")} .subitem-row[data-sub-id="s2"] .subitem-check`, del = `${wrap("p1")} .subitem-row[data-sub-id="s2"] .subitem-del`;
+  for (const [attr, val, label] of [["data-todo-id", null, "missing todo id"], ["data-todo-id", "bad id'\"", "malformed todo id"], ["data-todo-id", "gone", "stale todo id"], ["data-sub-id", null, "missing sub id"], ["data-sub-id", "x y", "malformed sub id"], ["data-sub-id", "gone", "stale sub id"], ["data-sub-id", "t1", "sub id from another parent"]]) {
+    await tamperClick(chk, attr, val, `toggle with ${label}`);
+    await tamperClick(del, attr, val, `delete with ${label}`);
+  }
+  const addBtn = `${wrap("p1")} .subitem-add button`, input = "#subitem-input-p1";
+  await page.fill(input, "should not add");
+  for (const [val, label] of [[null, "missing"], ["bad id'\"", "malformed"], ["gone", "stale"], ["p2", "other parent without an input"]]) {
+    await tamperClick(addBtn, "data-todo-id", val, `add button with ${label} todo id`);
+    await tamper(input, "data-todo-id", val);
+    await page.press(input, "Enter");
+    await tamper(input, "data-todo-id", "p1");
+    check(`Enter with ${label} todo id does nothing`, (await subs("p1")).length === 3 && (await subs("p2")).length === 1 && !(await modalOpen()));
+  }
+  await page.evaluate(() => { const a = document.querySelector('#todo-list .todo-wrap[data-todo-id="p2"] .subitem-add-toggle'); a.setAttribute("data-todo-id", "gone"); a.click(); });
+  check("open-add with a stale id opens nothing", !(await page.evaluate(() => subAddOpen.has("gone") || subAddOpen.has("p2"))));
+  // stale after the to-do/sub-item disappears without a re-render
+  await page.evaluate(() => { todoList.find(t => t.id === "p1").subitems = []; }); await page.fill(input, "");
+  await page.evaluate(([c, d, a]) => { for (const s of [c, d, a]) document.querySelector(s).click(); }, [chk, del, addBtn]);
+  await page.press(input, "Enter");
+  check("stale rendered sub-item controls do nothing and don't throw", (await subs("p1")).length === 0);
+  await page.evaluate(() => { todoList.splice(0, 1); });
+  await page.evaluate(([a]) => document.querySelector(a).click(), [addBtn]);
+  await page.press(input, "Enter");
+  check("controls of a removed parent do nothing", (await page.evaluate(() => todoList.length)) === 1);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+await section("handlers: bold child inside a button, filter chip keyboard, date input change events", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const kpi = page.locator('#panel-budget button.budget-kpi:has-text("Add your paycheck")');
+  if (await kpi.count()) {
+    await kpi.first().locator("b").click();
+    check("clicking the <b> inside a KPI button triggers the button's action", await modalOpen());
+    await page.evaluate(() => closeModal());
+  }
+  await page.evaluate(() => activateTab("wants"));
+  await page.focus('.filter-chip:has-text("Moto")'); await page.keyboard.press("Enter");
+  check("Enter activates a filter chip", (await page.evaluate(() => wantsFilter)) === "moto");
+  await page.focus('.filter-chip:has-text("All")'); await page.keyboard.press("Space");
+  check("Space activates a filter chip", (await page.evaluate(() => wantsFilter)) === "all");
+  await page.evaluate(() => activateTab("home"));
+  await page.click("#fab");
+  await page.fill("#composer-text", "Tomorrow dentist");
+  const dateChange = v => page.evaluate(val => { const i = document.querySelector("#composer input[type=date]"); i.value = val; i.dispatchEvent(new Event("change", { bubbles: true })); return composer.manual === true && composer.date === val; }, v);
+  check("composer date change with a value sets a manual date", await dateChange(isoOffset(4)));
+  const keptDate = await page.evaluate(() => { const i = document.querySelector("#composer input[type=date]"); i.value = ""; i.dispatchEvent(new Event("change", { bubbles: true })); return composer.date; });
+  check("composer date change with an empty value keeps the previous date", keptDate === isoOffset(4), keptDate);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Phase 2b: the static shell uses data-action + delegated listeners instead of inline handlers.
+await section("shell: static handlers are delegated (sync, refresh, FAB, composer, modal)", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [{ id: "sh1", text: "Shell", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null }] } });
+  const isOpen = id => page.evaluate(i => document.getElementById(i).classList.contains("open"), id);
+  const staticInline = await page.evaluate(() => [...document.querySelectorAll("body > *, body > * *")].filter(el => !el.closest("[id^=panel-]") && [...el.attributes].some(a => /^on/i.test(a.name))).length);
+  check("no inline on* attributes remain in the static shell", staticInline === 0, staticInline);
+  await page.click("#sync-btn");
+  check("sync button opens the Sync modal", await isOpen("modal-backdrop") && (await page.textContent("#modal-heading")).includes("Sync"));
+  await page.click("#modal-heading");
+  check("clicking inside the modal doesn't close it", await isOpen("modal-backdrop"));
+  await page.click("#modal-backdrop .modal-x");
+  check("modal close button closes it", !(await isOpen("modal-backdrop")));
+  await page.click("#sync-btn");
+  await page.mouse.click(2, 2);
+  check("clicking the modal backdrop closes it", !(await isOpen("modal-backdrop")));
+  await page.focus("#sync-btn"); await page.keyboard.press("Enter");
+  check("Enter on the sync button opens the modal (native button keyboard)", await isOpen("modal-backdrop"));
+  await page.keyboard.press("Escape");
+  await page.focus("#fab"); await page.keyboard.press("Space");
+  check("Space on the FAB opens the composer", await isOpen("composer"));
+  await page.fill("#composer-text", "Shell item " + "x".repeat(3));
+  check("typing updates the composer count (input delegate)", (await page.evaluate(() => composer.text || document.getElementById("composer-text").value)).startsWith("Shell item"));
+  await page.click("#composer-sheet .modal-head");
+  check("clicking inside the composer sheet doesn't close it", await isOpen("composer"));
+  const d = isoOffset(5);
+  const set = v => page.evaluate(val => { const i = document.getElementById("composer-date"); i.value = val; i.dispatchEvent(new Event("change", { bubbles: true })); return [composer.manual, composer.date]; }, v);
+  check("composer date change with a value sets a manual date", JSON.stringify(await set(d)) === JSON.stringify([true, d]));
+  check("composer date change with an empty value keeps the previous date", (await set(""))[1] === d);
+  await page.click("#composer-add-btn");
+  check("composer Add saves the to-do", await page.evaluate(() => todoList.some(t => t.text.startsWith("Shell item"))));
+  await page.evaluate(() => closeComposer());
+  await page.click("#fab");
+  await page.click("#composer .modal-x");
+  check("composer close button closes it", !(await isOpen("composer")));
+  await page.click("#fab");
+  await page.mouse.click(2, 2);
+  check("clicking the composer backdrop closes it", !(await isOpen("composer")));
+  // drag suppressor still runs first: a click right after a drag does nothing
+  await page.evaluate(() => { dragJustEnded = Date.now(); document.getElementById("fab").click(); });
+  check("the drag suppressor still swallows a click on a shell button", !(await isOpen("composer")));
+  await page.waitForFunction(() => Date.now() - dragJustEnded > 600);
+  // modal Save / Delete via the delegated buttons
+  await page.evaluate(() => { window.__saved = 0; window.__deleted = 0; openModal("T", [{ key: "a", label: "A", type: "text" }], {}, () => { window.__saved++; }, () => { window.__deleted++; }); });
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("modal Save runs the save callback", (await page.evaluate(() => window.__saved)) === 1);
+  await page.evaluate(() => openModal("T", [{ key: "a", label: "A", type: "text" }], {}, () => {}, () => { window.__deleted++; }));
+  await page.click("#modal-delete-btn");
+  check("modal Delete runs the delete callback", (await page.evaluate(() => window.__deleted)) === 1);
+  // hard refresh: spinner class first, then the refresh
+  await page.evaluate(() => { window.__order = []; window.hardRefresh = () => { window.__order.push(document.querySelector(".hard-refresh-btn").classList.contains("spinning")); return Promise.resolve(); }; });
+  await page.evaluate(() => document.querySelector(".hard-refresh-btn").click()); // desktop-only button, hidden on the phone profile
+  check("hard refresh adds the spinner, then calls hardRefresh", JSON.stringify(await page.evaluate(() => window.__order)) === "[true]");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Phase 2c-1: Home date strip / calendar controls use data-action + data-date/-delta/-open.
+await section("home calendar: generated controls are delegated and validate metadata", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [{ id: "hc1", text: "Cal", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null }] } });
+  const click = sel => page.evaluate(s => document.querySelector(s).click(), sel);
+  const state = () => page.evaluate(() => ({ date: homeDate, anchor: homeAnchor, open: homeCalOpen }));
+  const inline = await page.evaluate(() => document.querySelectorAll(".home-cal [onclick], .home-cal[onclick]").length);
+  check("Home calendar markup has no inline onclick", inline === 0, inline);
+  const target = isoOffset(2);
+  await click(`.home-cal [data-action=home-select-date][data-date="${target}"]`);
+  check("date cell selects that date", (await state()).date === target, await state());
+  check("Today button appears once off today", await page.evaluate(() => !!document.querySelector(".home-cal-today[data-action=home-select-date]")));
+  await click(".home-cal-today");
+  check("Today returns to today (null)", (await state()).date === null);
+  await click(".home-cal .cal-nav[data-delta='1']");
+  const a1 = (await state()).anchor;
+  check("next shifts the week anchor", !!a1);
+  await click(".home-cal .cal-nav[data-delta='-1']");
+  await click(".home-cal .cal-nav[data-delta='-1']");
+  check("previous shifts the anchor back", (await state()).anchor < a1);
+  await click(".home-cal-grab");
+  check("grab opens the month", (await state()).open === true && (await page.getAttribute(".home-cal-grab", "aria-expanded")) === "true");
+  await click(".home-cal .cal-nav[data-delta='1']");
+  check("next in month view moves by month", (await state()).anchor.endsWith("-01"));
+  await click(".home-cal-grab");
+  check("grab closes the month", (await state()).open === false && (await page.getAttribute(".home-cal-grab", "aria-expanded")) === "false");
+  await page.focus(".home-cal-grab"); await page.keyboard.press("Enter");
+  check("Enter on the grab toggles via native button keyboard", (await state()).open === true);
+  // malformed metadata is ignored
+  const before = JSON.stringify(await state());
+  await page.evaluate(() => {
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    for (const v of ["", "nope", "2026-13-45", "2026-02-30", "2026-1-1", "1);alert(1)", null]) mk(v === null ? { "data-action": "home-select-date" } : { "data-action": "home-select-date", "data-date": v });
+    for (const v of ["", "0", "2", "-2", "1.0", "abc", null]) mk(v === null ? { "data-action": "home-shift-cal" } : { "data-action": "home-shift-cal", "data-delta": v });
+    for (const v of ["", "1", "TRUE", "yes", "null", null]) mk(v === null ? { "data-action": "home-cal-open" } : { "data-action": "home-cal-open", "data-open": v });
+  });
+  check("malformed date/delta/open metadata is ignored", JSON.stringify(await state()) === before, await state());
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Home "more anytime" / "All to-dos" links are delegated and open the To-Do tab without touching data.
+await section("home links: more anytime and All to-dos are delegated and open To-Do", async () => {
+  const mkTodo = (id, due, done = false) => ({ id, text: `Item ${id}`, done, due, starred: false, subitems: [], completedAt: done ? Date.now() : null });
+  const seed = { "todo-content": [1, 2, 3, 4, 5, 6].map(n => mkTodo(`an${n}`, null)).concat([mkTodo("dated1", isoOffset(3)), mkTodo("fin1", null, true)]) };
+  const { ctx, page, errors } = await openApp({ seed });
+  const info = () => page.evaluate(() => ({
+    more: document.querySelector(".home-more:not(.home-all)")?.textContent.trim() ?? null,
+    moreClass: document.querySelector(".home-more:not(.home-all)")?.className ?? null,
+    all: document.querySelector(".home-all")?.textContent.trim() ?? null,
+    allClass: document.querySelector(".home-all")?.className ?? null,
+    tab: document.body.dataset.tab,
+    todoActive: document.getElementById("panel-todo").classList.contains("active"),
+    data: JSON.stringify(todoList),
+  }));
+  const before = await info();
+  check("no inline onclick on Home links", await page.evaluate(() => document.querySelectorAll(".home-more[onclick]").length) === 0);
+  check("more link keeps label and class", before.more === "2 more anytime →" && before.moreClass === "home-more", before);
+  check("All link keeps label, count and classes", before.all === "All to-dos (7) →" && before.allClass === "home-more home-all", before);
+  check("both links use the delegated action", await page.evaluate(() => document.querySelectorAll(".home-more[data-action=home-open-todo]").length) === 2);
+  for (const sel of [".home-more:not(.home-all)", ".home-all"]) {
+    await page.evaluate(() => activateTab("home"));
+    check(`starts on Home (${sel})`, (await info()).tab === "home");
+    await page.evaluate(s => document.querySelector(s).click(), sel);
+    const after = await info();
+    check(`${sel} opens To-Do`, after.tab === "todo" && after.todoActive, after);
+    check(`${sel} leaves to-do data unchanged`, after.data === before.data);
+  }
+  // 4 or fewer anytime to-dos: no "more" link, All link still shown with its count
+  await page.evaluate(() => { todoList = todoList.filter(t => !["an5", "an6"].includes(t.id)); activateTab("home"); });
+  const few = await info();
+  check("no more link at the display limit", few.more === null, few);
+  check("All link count follows open to-dos", few.all === "All to-dos (5) →", few);
+  await page.evaluate(() => { todoList = []; activateTab("home"); });
+  const none = await info();
+  check("no anytime section means no more link; All shows 0", none.more === null && none.all === "All to-dos (0) →", none);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Recurring card rows (renderTodoPanel) use the delegated home-todo-edit action.
+await section("recurring rows: edit is delegated, opens the right to-do, validates ids and leaves data alone", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "rc2", text: "Second repeat", done: false, due: isoOffset(5), starred: false, subitems: [], completedAt: null, repeat: "daily" },
+    { id: "rc1", text: "First repeat", done: false, due: isoOffset(1), starred: false, subitems: [], completedAt: null, repeat: "weekly" },
+    { id: "rc3", text: "Plain", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+  ] } });
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const markup = await page.evaluate(() => [...document.querySelectorAll("#todo-recurring .recurring-row")].map(r => ({
+    id: r.getAttribute("data-todo-id"), action: r.getAttribute("data-action"), onclick: r.hasAttribute("onclick"), inline: r.querySelectorAll("[onclick]").length,
+    title: r.querySelector(".title").textContent, meta: r.querySelector(".todo-meta").textContent })));
+  check("recurring rows are delegated with no inline handler, in due order", markup.length === 2 && markup.every(m => m.action === "home-todo-edit" && !m.onclick && m.inline === 0)
+    && JSON.stringify(markup.map(m => [m.id, m.title])) === '[["rc1","First repeat"],["rc2","Second repeat"]]', markup);
+  check("recurring rows keep their repeat labels", markup[0].meta.startsWith("Weekly · ") && markup[0].meta.includes(" · next ") && markup[1].meta.startsWith("Daily · next "), markup.map(m => m.meta));
+  const before = await page.evaluate(() => JSON.stringify(todoList));
+  // each row opens its own to-do in the real editor
+  for (const [id, text] of [["rc2", "Second repeat"], ["rc1", "First repeat"]]) {
+    await page.evaluate(i => document.querySelector(`#todo-recurring .recurring-row[data-todo-id="${i}"]`).click(), id);
+    check(`recurring row ${id} opens its own editor`, await modalOpen() && await page.inputValue("#modal-text") === text);
+    await page.mouse.click(2, 2);
+    check(`editor for ${id} closes without saving`, !(await modalOpen()));
+  }
+  // invalid, missing and stale ids are inert
+  await page.evaluate(() => {
+    window.__edited = []; window.editTodo = id => window.__edited.push(id);
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "home-todo-edit" });
+    for (const v of ["", "nope", "rc1');alert(1);('", "a b", "rc1 "]) mk({ "data-action": "home-todo-edit", "data-todo-id": v });
+    todoList.splice(todoList.findIndex(t => t.id === "rc2"), 1); // stale: row still rendered, to-do gone
+    document.querySelector('#todo-recurring .recurring-row[data-todo-id="rc2"]').click();
+  });
+  check("invalid/stale recurring ids open nothing", await page.evaluate(() => window.__edited.length) === 0 && !(await modalOpen()));
+  const after = await page.evaluate(() => JSON.stringify(todoList));
+  check("recurring row interactions leave persisted to-dos unchanged", JSON.parse(after).length === 2 && JSON.stringify(JSON.parse(before).filter(t => t.id !== "rc2")) === after
+    && JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem("todo-content")))) === before, after);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+// Home future-repeat preview rows (repeatGhostHtml) use the delegated home-todo-edit action.
+await section("home repeat previews: edit is delegated, opens the right to-do, validates ids and leaves data alone", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "gp1", text: "Preview one", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "daily" },
+    { id: "gp2", text: "Preview two", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null, repeat: "daily" },
+  ] } });
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  await page.evaluate(() => selectHomeDate(addDaysIso(2)));
+  const rows = () => page.evaluate(() => [...document.querySelectorAll("#panel-home .repeat-ghost:not(.workout-row)")].map(r => { const b = r.querySelector(".body"); return {
+    id: b.getAttribute("data-todo-id"), action: b.getAttribute("data-action"), inline: r.querySelectorAll("[onclick]").length,
+    title: r.querySelector(".title").textContent, meta: r.querySelector(".todo-meta").textContent, icon: !!r.querySelector(".repeat-icon"), checks: r.querySelectorAll(".todo-check").length }; }));
+  const markup = await rows();
+  check("preview rows are delegated with no inline handler", markup.length === 2 && markup.every(m => m.action === "home-todo-edit" && m.inline === 0 && m.icon && m.checks === 0), markup);
+  check("preview rows keep titles and repeat labels", markup.every(m => m.meta.startsWith("Daily")) && markup.map(m => m.title).sort().join() === "Preview one,Preview two", markup);
+  check("preview ids are distinct", new Set(markup.map(m => m.id)).size === 2 && markup.map(m => m.id).sort().join() === "gp1,gp2", markup);
+  const before = await page.evaluate(() => JSON.stringify(todoList));
+  for (const [id, text] of [["gp2", "Preview two"], ["gp1", "Preview one"]]) {
+    await page.evaluate(i => document.querySelector(`#panel-home .repeat-ghost .body[data-todo-id="${i}"]`).click(), id);
+    check(`preview ${id} opens its own editor`, await modalOpen() && await page.inputValue("#modal-text") === text);
+    await page.mouse.click(2, 2);
+    check(`editor for ${id} closes without saving`, !(await modalOpen()));
+  }
+  await page.evaluate(() => {
+    window.__edited = []; window.editTodo = id => window.__edited.push(id);
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "home-todo-edit" });
+    for (const v of ["", "nope", "gp1');alert(1);('", "a b", "gp1 "]) mk({ "data-action": "home-todo-edit", "data-todo-id": v });
+    todoList.splice(todoList.findIndex(t => t.id === "gp2"), 1); // stale: preview still rendered, to-do gone
+    document.querySelector('#panel-home .repeat-ghost .body[data-todo-id="gp2"]').click();
+  });
+  check("invalid/stale preview ids open nothing", await page.evaluate(() => window.__edited.length) === 0 && !(await modalOpen()));
+  const after = await page.evaluate(() => JSON.stringify(todoList));
+  check("preview interactions leave persisted to-dos unchanged", JSON.stringify(JSON.parse(before).filter(t => t.id !== "gp2")) === after
+    && JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem("todo-content")))) === before, after);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});// Phase 2c-2: regular Home to-do rows (homeRowHtml) use delegated data-action handlers.
+await section("home to-do rows: complete/toggle/edit are delegated and validate ids", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "hr1", text: "Open row", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "hr2", text: "Done row", done: true, due: isoOffset(0), starred: false, subitems: [], completedAt: Date.now() }] } });
+  const click = sel => page.evaluate(s => document.querySelector(s).click(), sel);
+  const row = id => `.home-list .todo-wrap[data-todo-id="${id}"]`;
+  const inline = await page.evaluate(() => [...document.querySelectorAll(".home-list .todo-wrap[data-todo-id]")].filter(w => w.querySelector("[onclick]")).length);
+  check("regular Home rows have no inline onclick", inline === 0, inline);
+  await page.evaluate(() => { window.__edited = []; window.__realEdit = editTodo; window.editTodo = id => window.__edited.push(id); });
+  await click(`${row("hr1")} .body[data-action=home-todo-edit]`);
+  check("row body opens that to-do for editing", JSON.stringify(await page.evaluate(() => window.__edited)) === '["hr1"]');
+  await click(`${row("hr1")} .todo-check[data-action=home-todo-complete]`);
+  check("open check completes the item", await page.evaluate(() => todoList.find(t => t.id === "hr1").done === true));
+  // finished to-dos leave today's Home list, so render the done row's generated markup directly
+  await page.evaluate(() => { const d = document.createElement("div"); d.id = "done-host"; d.innerHTML = homeRowHtml(todoList.find(t => t.id === "hr2")); document.body.appendChild(d); });
+  check("done row check is delegated, not inline", await page.evaluate(() => !document.querySelector("#done-host [onclick]") && !!document.querySelector("#done-host .todo-check[data-action=home-todo-toggle]")));
+  await click("#done-host .todo-check");
+  check("done check re-opens the item", await page.evaluate(() => todoList.find(t => t.id === "hr2").done === false));  // invalid, missing, unknown and wrong-state ids are ignored
+  const before = await page.evaluate(() => JSON.stringify(todoList));
+  await page.evaluate(() => {
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    for (const a of ["home-todo-complete", "home-todo-toggle", "home-todo-edit"]) {
+      mk({ "data-action": a });
+      for (const v of ["", "nope", "hr1');alert(1);('", "a b", "hr1 "]) mk({ "data-action": a, "data-todo-id": v });
+    }
+    mk({ "data-action": "home-todo-complete", "data-todo-id": "hr1" }); // already done
+    mk({ "data-action": "home-todo-toggle", "data-todo-id": "hr2" });   // not done
+  });
+  check("invalid/missing/wrong-state ids change nothing", await page.evaluate(() => JSON.stringify(todoList)) === before && (await page.evaluate(() => window.__edited.length)) === 1);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Phase 2c-4: the main To-Do tab rows (todoRow) use delegated data-action handlers.
+await section("to-do tab rows: check/edit/star/expand are delegated, validate ids, keep propagation and repeat rollover", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "tr1", text: "Plain", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "tr2", text: "Parent", done: false, due: isoOffset(0), starred: false, subitems: [{ id: "ts1", text: "Kid", done: false }], completedAt: null },
+    { id: "tr3", text: "Daily", done: false, due: isoOffset(0), starred: false, repeat: "daily", subitems: [], completedAt: null },
+  ] } });
+  const row = id => `#todo-list .todo-wrap[data-todo-id="${id}"]`;
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const markup = await page.evaluate(() => {
+    const w = document.querySelector('#todo-list .todo-wrap[data-todo-id="tr2"]');
+    const q = s => w.querySelector(s);
+    return { inline: w.querySelectorAll("[onclick]").length, check: q(".todo-check").getAttribute("data-action"), body: q(".body").getAttribute("data-action"),
+      star: q('.todo-icon-btn[aria-label$="to-do"]').getAttribute("data-action"), exp: q('.todo-icon-btn[aria-label$="sub-items"]').getAttribute("data-action"),
+      aria: [q(".todo-check").getAttribute("aria-label"), q(".todo-check").getAttribute("aria-checked"), q('.todo-icon-btn[aria-label$="sub-items"]').getAttribute("aria-label"), q('.todo-icon-btn[aria-label$="sub-items"]').getAttribute("aria-expanded")] };
+  });
+  check("to-do tab row controls are delegated with aria preserved", markup.inline === 0 && markup.check === "home-todo-complete" && markup.body === "home-todo-edit" && markup.star === "todo-star" && markup.exp === "todo-expand"
+    && JSON.stringify(markup.aria) === '["Complete: Parent","false","Show sub-items","false"]', markup);
+  // star and expand stop propagation at the delegated listener (on body): a click must not reach document or open the editor
+  await page.evaluate(() => { window.__bubbled = 0; document.addEventListener("click", () => window.__bubbled++); });
+  await page.click(`${row("tr2")} .todo-icon-btn[aria-label$="to-do"]`);
+  check("star toggles and moves to top without bubbling or editing", await page.evaluate(() => todoList[0].id === "tr2" && todoList[0].starred && window.__bubbled === 0) && !(await modalOpen()));
+  await page.click(`${row("tr2")} .todo-icon-btn[aria-label$="sub-items"]`);
+  check("expand shows sub-items without bubbling or editing", (await page.$$(`${row("tr2")} .subitem-row`)).length === 1 && await page.evaluate(() => window.__bubbled === 0 && expandedTodos.has("tr2")) && !(await modalOpen()));
+  check("expanded aria state updates", await page.evaluate(() => { const b = document.querySelector('#todo-list [data-todo-id="tr2"] .todo-icon-btn[aria-label$="sub-items"]'); return b.getAttribute("aria-label") === "Hide sub-items" && b.getAttribute("aria-expanded") === "true"; }));
+  await page.click(`${row("tr2")} .todo-icon-btn[aria-label$="sub-items"]`);
+  check("expand collapses again", (await page.$$(`${row("tr2")} .subitem-row`)).length === 0 && await page.evaluate(() => !expandedTodos.has("tr2")));
+  await page.click(`${row("tr2")} .body`);
+  check("row body opens the editor", await modalOpen());
+  await page.mouse.click(2, 2);
+  await page.click(`${row("tr1")} .todo-check`);
+  check("check completes a plain to-do", await page.evaluate(() => todoList.find(t => t.id === "tr1").done === true));
+  await page.click(`${row("tr3")} .todo-check`);
+  check("check on a repeating to-do rolls it over and logs a done copy", await page.evaluate(() => {
+    const open = todoList.find(t => t.id === "tr3"), copy = todoList.find(t => t.seriesId === "tr3");
+    return !open.done && open.due > addDaysIso(0) && copy && copy.done;
+  }));
+  // invalid, missing, stale and wrong-state ids change nothing
+  const before = await page.evaluate(() => JSON.stringify(todoList) + [...expandedTodos]);
+  await page.evaluate(() => {
+    window.__edited = []; window.editTodo = id => window.__edited.push(id);
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    for (const a of ["home-todo-complete", "home-todo-edit", "todo-star", "todo-expand"]) {
+      mk({ "data-action": a });
+      for (const v of ["", "nope", "tr2');alert(1);('", "a b", "tr2 "]) mk({ "data-action": a, "data-todo-id": v });
+    }
+    mk({ "data-action": "home-todo-complete", "data-todo-id": "tr1" }); // already done
+  });
+  check("invalid/stale/wrong-state ids change nothing", await page.evaluate(() => JSON.stringify(todoList) + [...expandedTodos]) === before && (await page.evaluate(() => window.__edited.length)) === 0);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+await section("completed to-do rows: restore/duplicate/delete are delegated, isolated, confirm-aware and validate ids", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "cd1", text: "Done one", done: true, due: isoOffset(0), starred: false, subitems: [{ id: "cs1", text: "Kid", done: true }], completedAt: Date.now() },
+    { id: "cd2", text: "Done two", done: true, due: isoOffset(0), starred: false, subitems: [], completedAt: Date.now() },
+    { id: "cd3", text: "Open", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+  ] } });
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const row = id => `#todo-completed .item:has([data-todo-id="${id}"])`;
+  if (!(await page.$("#todo-completed"))) await page.click(".completed-toggle");
+  const markup = await page.evaluate(() => {
+    const r = document.querySelector('#todo-completed .item:has([data-todo-id="cd1"])');
+    const q = s => r.querySelector(s);
+    return { inline: r.querySelectorAll("[onclick]").length, check: [q(".todo-check").getAttribute("data-action"), q(".todo-check").getAttribute("data-todo-id"), q(".todo-check").getAttribute("aria-label"), q(".todo-check").getAttribute("aria-checked")],
+      dup: [q('[aria-label="Duplicate to-do"]').getAttribute("data-action"), q('[aria-label="Duplicate to-do"]').getAttribute("data-todo-id")],
+      del: [q('[aria-label="Delete to-do"]').getAttribute("data-action"), q('[aria-label="Delete to-do"]').getAttribute("data-todo-id")] };
+  });
+  check("completed row controls are delegated with aria preserved", markup.inline === 0 && JSON.stringify(markup.check) === '["home-todo-toggle","cd1","Mark not done: Done one","true"]'
+    && JSON.stringify(markup.dup) === '["todo-duplicate","cd1"]' && JSON.stringify(markup.del) === '["todo-delete","cd1"]', markup);
+  await page.evaluate(() => { window.__bubbled = 0; document.addEventListener("click", () => window.__bubbled++); });
+  // duplicate: fresh open copy with reset sub-items; original untouched; no editor, no bubbling
+  await page.click(`${row("cd1")} [data-action="todo-duplicate"]`);
+  check("duplicate keeps semantics and leaves the original alone", await page.evaluate(() => {
+    const o = todoList.find(t => t.id === "cd1"), c = todoList.filter(t => t.id !== "cd1" && t.text === "Done one");
+    return todoList.length === 4 && o.done && c.length === 1 && !c[0].done && c[0].completedAt === null && !c[0].starred && c[0].id !== "cd1"
+      && c[0].subitems.length === 1 && c[0].subitems[0].text === "Kid" && !c[0].subitems[0].done && c[0].subitems[0].id !== "cs1" && window.__bubbled === 0;
+  }) && !(await modalOpen()));
+  // delete canceled, then confirmed (only that row)
+  await page.evaluate(() => { window.__asked = 0; window.confirm = () => { window.__asked++; return false; }; });
+  const n = await page.evaluate(() => todoList.length);
+  await page.click(`${row("cd2")} [data-action="todo-delete"]`);
+  check("canceled delete keeps the to-do", await page.evaluate(n0 => window.__asked === 1 && todoList.length === n0 && todoList.some(t => t.id === "cd2"), n) && !(await modalOpen()));
+  await page.evaluate(() => { window.confirm = () => { window.__asked++; return true; }; });
+  await page.click(`${row("cd2")} [data-action="todo-delete"]`);
+  check("confirmed delete removes only that to-do", await page.evaluate(n0 => !todoList.some(t => t.id === "cd2") && todoList.length === n0 - 1 && todoList.some(t => t.id === "cd1") && todoList.some(t => t.id === "cd3"), n) && !(await modalOpen()));
+  // restore: only the clicked row changes
+  await page.click(`${row("cd1")} .todo-check`);
+  check("restore reopens only that to-do", await page.evaluate(() => { const o = todoList.find(t => t.id === "cd1"); return !o.done && o.completedAt === null && todoList.find(t => t.id === "cd3").done === false; }) && !(await modalOpen()));
+  // invalid, missing, stale and wrong-state ids change nothing
+  const before = await page.evaluate(() => JSON.stringify(todoList));
+  await page.evaluate(() => {
+    window.__asked = 0; window.confirm = () => { window.__asked++; return true; };
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    for (const a of ["home-todo-toggle", "todo-duplicate", "todo-delete"]) {
+      mk({ "data-action": a });
+      for (const v of ["", "nope", "cd1');alert(1);('", "a b", "cd1 ", "cd2"]) mk({ "data-action": a, "data-todo-id": v });
+    }
+    mk({ "data-action": "home-todo-toggle", "data-todo-id": "cd3" }); // open to-do: toggle is for done rows only
+  });
+  check("invalid/stale/wrong-state ids change nothing", await page.evaluate(() => JSON.stringify(todoList)) === before && (await page.evaluate(() => window.__asked)) === 0 && !(await modalOpen()));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});// Phase 2c-3: the Wash hair row (washRowHtml) uses delegated data-action handlers.
+await section("wash hair row: toggle/open are delegated, validate the date, and keep propagation", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [
+    { id: "wh1", text: "Anchor", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null }] } });
+  await page.evaluate(() => { skinRoutine.wash = { anchor: addDaysIso(0), everyDays: 14 }; renderHome(); });
+  const markup = await page.evaluate(() => {
+    const w = document.querySelector("#panel-home .wash-row");
+    return { inline: w.querySelectorAll("[onclick]").length, date: w.querySelector(".todo-check").getAttribute("data-date"),
+      toggle: w.querySelector(".todo-check").getAttribute("data-action"), open: w.querySelector(".body").getAttribute("data-action") };
+  });
+  check("wash row markup is delegated, no inline onclick", markup.inline === 0 && markup.toggle === "home-wash-toggle" && markup.open === "home-wash-open" && markup.date === isoOffset(0), markup);
+  const done = () => page.evaluate(() => washHairDone(addDaysIso(0)));
+  await page.evaluate(() => { window.__opened = 0; window.openWashCard = () => { window.__opened++; }; });
+  await page.click("#panel-home .wash-row .todo-check");
+  check("check ticks the wash steps", await done());
+  check("check aria-checked/row reflect done", await page.evaluate(() => document.querySelector("#panel-home .wash-row .todo-check").getAttribute("aria-checked") === "true" && document.querySelector("#panel-home .wash-row .item").classList.contains("checked")));
+  await page.click("#panel-home .wash-row .todo-check");
+  check("check again unticks (round-trip)", !(await done()));
+  check("checkbox clicks do not open the wash card", (await page.evaluate(() => window.__opened)) === 0);
+  await page.click("#panel-home .wash-row .body");
+  check("body click opens the wash card, no toggle", (await page.evaluate(() => window.__opened)) === 1 && !(await done()));
+  // invalid or missing dates are no-ops
+  const before = await page.evaluate(() => JSON.stringify(routineChecks));
+  await page.evaluate(() => {
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "home-wash-toggle" });
+    for (const v of ["", "nope", "2026-13-45", "2026-02-30", "2026-1-1", "1');alert(1);('", " 2026-01-01"]) mk({ "data-action": "home-wash-toggle", "data-date": v });
+  });
+  check("invalid/missing date changes nothing", (await page.evaluate(() => JSON.stringify(routineChecks))) === before && (await page.evaluate(() => window.__opened)) === 1);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Bill pay/unpay checks (Home + Budget rows) use delegated data-action handlers.
+await section("bill pay/unpay checks: delegated from Home and Budget, validated, no editor opening", async () => {
+  const mkBill = (id, name, extra = {}) => ({ id, name, amount: 40, due: isoOffset(0), repeat: "monthly", autopay: false, link: null, group: "personal", account: null, ...extra });
+  const { ctx, page, errors } = await openApp({ seed: { "bills-content": [mkBill("bw", "Water"), mkBill("be", "Electric", { amount: 80, varies: true })] } });
+  const trap = () => page.evaluate(() => { window.__edit = []; window.editBill = id => window.__edit.push("bill:" + id); window.editPayment = id => window.__edit.push("pay:" + id); window.activateTabReal = activateTab; });
+  await trap();
+  const homeRow = name => `#panel-home .bill-home:has(.title:text-is("Pay ${name}"))`;
+  const markup = await page.evaluate(() => [...document.querySelectorAll("#panel-home .bill-home")].map(w => ({ inline: w.querySelectorAll(".todo-check[onclick]").length, a: w.querySelector(".todo-check").getAttribute("data-action"), d: w.querySelector(".todo-check").getAttribute("data-due") })));
+  check("Home bill checks are delegated with bill id and due date", markup.length === 2 && markup.every(m => m.inline === 0 && m.a === "bill-pay" && m.d === isoOffset(0)), markup);
+  // pay a fixed bill from Home
+  const water = () => page.evaluate(() => ({ pays: billPayments.map(p => ({ billId: p.billId, name: p.name, amount: p.amount, due: p.due, date: p.date, auto: !!p.auto })), due: bills.find(b => b.id === "bw").due, done: !!bills.find(b => b.id === "bw").done }));
+  const nextDue = await page.evaluate(() => nextBillIso(addDaysIso(0), "monthly", undefined));
+  await page.click(`${homeRow("Water")} .todo-check`);
+  let w = await water();
+  check("Home pay records one payment at the bill's due date, dated today, and advances the bill", w.pays.length === 1 && w.pays[0].billId === "bw" && w.pays[0].amount === 40 && w.pays[0].due === isoOffset(0) && w.pays[0].date === isoOffset(0) && !w.pays[0].auto && w.due === nextDue, w);
+  check("checkbox click did not open the editor or the bill", (await page.evaluate(() => window.__edit.length)) === 0);
+  check("paid row now offers un-pay", await page.evaluate(() => !!document.querySelector('#panel-home .bill-home .todo-check[data-action="bill-unpay"][aria-checked="true"]')));
+  await page.click(`#panel-home .bill-home .todo-check[data-action="bill-unpay"]`);
+  w = await water();
+  check("Home un-pay removes the payment and restores the due date", w.pays.length === 0 && w.due === isoOffset(0) && !w.done, w);
+  check("un-pay click did not open an editor", (await page.evaluate(() => window.__edit.length)) === 0);
+  // body click still opens the editor (and does not pay)
+  await page.click(`${homeRow("Water")} .body`);
+  check("row body still opens the bill editor, no payment", JSON.stringify(await page.evaluate(() => window.__edit)) === '["bill:bw"]' && (await water()).pays.length === 0);
+  // variable bill asks for the amount first
+  await page.click(`${homeRow("Electric")} .todo-check`);
+  check("variable bill opens the amount prompt without paying yet", await page.evaluate(() => billPayments.length === 0 && document.getElementById("modal-backdrop").classList.contains("open")));
+  await page.fill("#modal-amount", "93.40");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("variable bill records the entered amount", await page.evaluate(() => billPayments.length === 1 && billPayments[0].billId === "be" && billPayments[0].amount === 93.4 && billPayments[0].due === addDaysIso(0)));
+  await page.evaluate(() => unpayBill(billPayments[0].id));
+  // non-payable projected rows have no action; stale/invalid metadata is ignored
+  const proj = await page.evaluate(() => {
+    const b = bills.find(x => x.id === "bw");
+    const h = document.createElement("div"); h.innerHTML = homeBillHtml(b, { projected: true });
+    const r = document.createElement("div"); r.innerHTML = billTableRowHtml({ bill: b, name: b.name, amount: 40, due: addDaysIso(60), current: false }, addDaysIso(0), addDaysIso(0).slice(0, 7) + "-01");
+    const c = document.createElement("div"); c.innerHTML = billRowHtml({ bill: b, name: b.name, amount: 40, due: addDaysIso(60), current: false }, addDaysIso(0));
+    return [h, r, c].map(e => e.querySelectorAll("[data-action]:not(.body[data-action=home-bill-open]):not(.body[data-action=bill-row-open]):not(.btab-name[data-action=bill-row-open]), [onclick]:not(.body):not(.btab-name)").length);
+  });
+  check("projected/future rows are not actionable", proj.every(n => n === 0), proj);
+  const before = await page.evaluate(() => JSON.stringify([bills, billPayments]));
+  await page.evaluate(() => {
+    bills.push({ id: "bdone", name: "Old", amount: 5, due: addDaysIso(0), repeat: "monthly", done: true });
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "bill-pay" }); mk({ "data-action": "bill-unpay" });
+    for (const v of ["", "nope", "bw');alert(1);('", "bw ", "b w"]) { mk({ "data-action": "bill-pay", "data-bill-id": v, "data-due": addDaysIso(0) }); mk({ "data-action": "bill-unpay", "data-payment-id": v }); }
+    mk({ "data-action": "bill-pay", "data-bill-id": "bw" });                                    // missing due
+    mk({ "data-action": "bill-pay", "data-bill-id": "bw", "data-due": addDaysIso(-1) });        // stale due
+    mk({ "data-action": "bill-pay", "data-bill-id": "bdone", "data-due": addDaysIso(0) });      // finished bill
+    mk({ "data-action": "bill-unpay", "data-payment-id": "pay-missing" });
+  });
+  const after = await page.evaluate(() => { bills = bills.filter(b => b.id !== "bdone"); return JSON.stringify([bills, billPayments]); });
+  check("invalid/missing/stale/finished ids change nothing", after === before, after);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// Home bill row body (homeBillHtml) uses a delegated data-action instead of an inline onclick.
+await section("home bill row body: delegated edit/budget branches, validated, checkbox does not open editor", async () => {
+  const mkBill = (id, name, extra = {}) => ({ id, name, amount: 40, due: isoOffset(0), repeat: "monthly", autopay: false, link: null, group: "personal", account: null, ...extra });
+  const { ctx, page, errors } = await openApp({ seed: { "bills-content": [mkBill("bw", "Water")] } });
+  await page.evaluate(() => { window.__log = []; window.editBill = id => window.__log.push("edit:" + id); const real = activateTab; window.activateTab = t => { window.__log.push("tab:" + t); return real(t); }; });
+  const log = () => page.evaluate(() => JSON.stringify(window.__log));
+  const row = `#panel-home .bill-home:has(.title:text-is("Pay Water"))`;
+  const markup = await page.evaluate(() => {
+    const b = bills[0], p = { id: "px", billId: b.id, name: b.name, amount: 40 };
+    return [homeBillHtml(b), homeBillHtml(b, { projected: true }), homeBillHtml(null, { payment: p })].map(h => { const d = document.createElement("div"); d.innerHTML = h; const e = d.querySelector(".body"); return { inline: d.querySelectorAll("[onclick]").length, raw: /onclick/i.test(h), a: e.getAttribute("data-action"), id: e.getAttribute("data-bill-id"), mode: e.getAttribute("data-mode") }; });
+  });
+  check("markup has no inline onclick and carries id/mode", markup.every(m => !m.inline && !m.raw && m.a === "home-bill-open") && markup[0].id === "bw" && markup[0].mode === "edit" && markup[1].mode === "edit" && markup[2].mode === "budget" && markup[2].id === null, markup);
+  await page.click(`${row} .body`);
+  check("edit branch opens the bill editor only", (await log()) === '["edit:bw"]', await log());
+  await page.click(`${row} .todo-check`);
+  check("checkbox click pays without opening the editor", (await log()) === '["edit:bw"]' && (await page.evaluate(() => billPayments.length)) === 1);
+  await page.click(`#panel-home .bill-home.bill-home:has(.todo-check[data-action="bill-unpay"]) .body`);
+  check("paid row body opens the Budget tab, not the editor", (await log()) === '["edit:bw","tab:budget"]' && await page.evaluate(() => document.getElementById("panel-budget").classList.contains("active")), await log());
+  await page.evaluate(() => { activateTab("home"); window.__log = []; });
+  const before = await page.evaluate(() => JSON.stringify([bills, billPayments]));
+  await page.evaluate(() => {
+    const mk = attrs => { const b = document.createElement("div"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "home-bill-open" });
+    mk({ "data-action": "home-bill-open", "data-mode": "edit" });
+    mk({ "data-action": "home-bill-open", "data-mode": "nope", "data-bill-id": "bw" });
+    mk({ "data-action": "home-bill-open", "data-mode": "BUDGET" });
+    for (const v of ["", "nope", "gone", "bw');alert(1);('", "bw ", "b w"]) mk({ "data-action": "home-bill-open", "data-mode": "edit", "data-bill-id": v });
+  });
+  check("invalid/stale ids and modes are inert", (await log()) === "[]" && (await page.evaluate(() => JSON.stringify([bills, billPayments]))) === before, await log());
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget bill rows: pay/unpay delegated; latest-payment-only and autopay hold still apply", async () => {
+  const mkBill = (id, name, extra = {}) => ({ id, name, amount: 40, due: isoOffset(0), repeat: "monthly", autopay: false, link: null, group: "personal", account: null, ...extra });
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: {
+    "bills-content": [mkBill("bw", "Water"), mkBill("be", "Electric", { amount: 80, varies: true }),
+      mkBill("bk", "Weekly", { repeat: "weekly" }), mkBill("ba", "Phone", { autopay: true, due: isoOffset(-3) })],
+    "bill-payments": [
+      { id: "pay-k1", billId: "bk", name: "Weekly", amount: 40, due: isoOffset(-14), date: isoOffset(-14), group: "personal", account: null },
+      { id: "pay-k2", billId: "bk", name: "Weekly", amount: 40, due: isoOffset(-7), date: isoOffset(-7), group: "personal", account: null }] } });
+  await page.evaluate(() => { window.__edit = []; window.editBill = id => window.__edit.push("bill:" + id); window.editPayment = id => window.__edit.push("pay:" + id); });
+  const inline = await page.evaluate(() => [...document.querySelectorAll("#bills-mine .btab-row .todo-check")].filter(b => b.hasAttribute("onclick")).length);
+  check("Budget table checks carry no inline onclick", inline === 0, inline);
+  const nextDue = await page.evaluate(() => nextBillIso(addDaysIso(0), "monthly", undefined));
+  await page.click('#bills-mine .todo-check[aria-label="Mark paid: Water"]');
+  const w = await page.evaluate(() => ({ pays: billPayments.filter(p => p.billId === "bw").map(p => [p.amount, p.due, p.date]), due: bills.find(b => b.id === "bw").due }));
+  check("Budget pay records payment at due date and advances the bill", JSON.stringify(w.pays) === JSON.stringify([[40, isoOffset(0), isoOffset(0)]]) && w.due === nextDue, w);
+  check("Budget checkbox click did not open an editor", (await page.evaluate(() => window.__edit.length)) === 0);
+  // variable bill from Budget
+  await page.click('#bills-mine .todo-check[aria-label="Mark paid: Electric"]');
+  check("variable bill prompts first", await page.evaluate(() => !billPayments.some(p => p.billId === "be") && document.getElementById("modal-backdrop").classList.contains("open")));
+  await page.fill("#modal-amount", "55.25");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check("variable bill records entered amount from Budget", await page.evaluate(() => billPayments.some(p => p.billId === "be" && p.amount === 55.25)));
+  // un-pay Water from its paid row
+  await page.click('#bills-mine .btab-row.checked .todo-check[aria-label="Mark not paid: Water"]');
+  const u = await page.evaluate(() => ({ n: billPayments.filter(p => p.billId === "bw").length, due: bills.find(b => b.id === "bw").due }));
+  check("Budget un-pay removes the payment and restores the due date", u.n === 0 && u.due === isoOffset(0), u);
+  check("un-pay click did not open an editor", (await page.evaluate(() => window.__edit.length)) === 0);
+  // latest-payment-only: rows are injected so they don't depend on the visible month
+  const host = await page.evaluate(() => {
+    const d = document.createElement("div"); d.id = "bt-host";
+    const rows = id => { const p = billPayments.find(x => x.id === id); return billTableRowHtml({ bill: bills.find(b => b.id === p.billId), name: p.name, amount: p.amount, due: p.due, payment: p }, addDaysIso(0), "2000-01-01"); };
+    d.innerHTML = `<div id="h-k1">${rows("pay-k1")}</div><div id="h-k2">${rows("pay-k2")}</div>`; document.body.appendChild(d);
+    return d.querySelectorAll("[onclick].todo-check").length;
+  });
+  check("injected paid rows are delegated", host === 0);
+  await page.evaluate(() => document.querySelector("#h-k1 .todo-check").click());
+  check("older payment cannot be undone", await page.evaluate(() => billPayments.some(p => p.id === "pay-k1") && billPayments.some(p => p.id === "pay-k2") && bills.find(b => b.id === "bk").due === addDaysIso(0)));
+  await page.evaluate(() => document.querySelector("#h-k2 .todo-check").click());
+  check("latest payment can be undone and restores its due date", await page.evaluate(() => !billPayments.some(p => p.id === "pay-k2") && billPayments.some(p => p.id === "pay-k1") && bills.find(b => b.id === "bk").due === addDaysIso(-7)));
+  // autopay: un-paying holds the date so it is not re-paid
+  const auto = await page.evaluate(() => { const p = billPayments.find(x => x.billId === "ba"); return p && { id: p.id, auto: !!p.auto }; });
+  check("autopay bill was auto-paid on load", !!auto && auto.auto, auto);
+  await page.evaluate(id => { const p = billPayments.find(x => x.id === id); const d = document.createElement("div"); d.id = "ap-host"; d.innerHTML = billTableRowHtml({ bill: bills.find(b => b.id === "ba"), name: p.name, amount: p.amount, due: p.due, payment: p }, addDaysIso(0), "2000-01-01"); document.body.appendChild(d); }, auto.id);
+  await page.evaluate(() => document.querySelector("#ap-host .todo-check").click());
+  check("autopay un-pay sticks (hold set, not re-paid)", await page.evaluate(() => !billPayments.some(p => p.billId === "ba") && bills.find(b => b.id === "ba").due === addDaysIso(-3) && bills.find(b => b.id === "ba").hold === addDaysIso(-3)));
+  // calendar-day rows (billRowHtml) are delegated too
+  const cal = await page.evaluate(() => {
+    const b = bills.find(x => x.id === "bw");
+    const d = document.createElement("div"); d.id = "cal-host"; d.innerHTML = `<div id="cal-wrap">${billRowHtml({ bill: b, name: b.name, amount: 40, due: b.due, current: true }, addDaysIso(0))}</div>`; document.body.appendChild(d);
+    return d.querySelectorAll("[onclick].todo-check").length;
+  });
+  check("calendar bill row check is delegated", cal === 0);
+  await page.evaluate(() => document.querySelector("#cal-host .todo-check").click());
+  check("calendar-row pay works and opens no editor", await page.evaluate(() => billPayments.some(p => p.billId === "bw") && window.__edit.length === 0));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+await section("fitness Workouts card: rows and + Add workout are delegated; editor, order, re-render and drag hold", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false, query: "?tab=todo" });
+  const save = () => page.click("#modal-backdrop .modal-btn.primary");
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const order = () => page.evaluate(() => fitness.plan.map(w => w.id).join());
+  const domOrder = () => page.evaluate(() => [...document.querySelectorAll("#fit-plan .fp-row")].map(r => r.dataset.sortId).join());
+  const seed = () => page.evaluate(() => {
+    fitness.plan = [["wa", "Gym"], ["wb", "Yoga"], ["wc", "Run"]].map(([id, name]) => ({ id, name, days: [1], time: "", every: 1, anchor: addDaysIso(0), kind: "fitness" }));
+    saveFitness(); openPinned.add("fit-plan"); renderFitness(); renderTodoPanel();
+  });
+  await seed();
+  const markup = await page.evaluate(() => [...document.querySelectorAll("#fit-plan .fp-row, #fit-plan .add-row")].map(b => [b.getAttribute("data-action"), b.getAttribute("data-workout-id"), b.hasAttribute("onclick")]));
+  check("generated rows + Add carry delegated attributes, no inline onclick", markup.length === 4 && markup.every(m => !m[2]) && markup[0][0] === "fitness-workout-edit" && markup[1][1] === "wb" && markup[3][0] === "fitness-workout-add", markup);
+  // existing workout editor
+  await page.click('#fit-plan .fp-row[data-workout-id="wb"]');
+  check("row opens Edit workout prefilled with that workout, with Delete", (await page.textContent("#modal-heading")) === "Edit workout" && (await page.inputValue("#modal-name")) === "Yoga" && await page.isVisible("#modal-delete-btn"));
+  await page.fill("#modal-name", "Yoga 2"); await save();
+  check("editing changes only the selected workout and keeps order", await page.evaluate(() => fitness.plan.map(w => w.id + "=" + w.name).join() === "wa=Gym,wb=Yoga 2,wc=Run"));
+  check("card re-renders with the new name, same order", (await domOrder()) === "wa,wb,wc" && await page.evaluate(() => document.querySelector('#fit-plan .fp-row[data-workout-id="wb"]').textContent.includes("Yoga 2")));
+  // blank add editor
+  await page.click("#fit-plan .add-row");
+  check("+ Add workout opens a blank Add workout editor without Delete", (await page.textContent("#modal-heading")) === "Add workout" && (await page.inputValue("#modal-name")) === "" && !(await page.isVisible("#modal-delete-btn")));
+  await page.fill("#modal-name", "Swim"); await save();
+  check("add without a day is rejected (nothing added, existing behavior)", (await order()) === "wa,wb,wc");
+  await page.click("#fit-plan .add-row"); await page.fill("#modal-name", "Swim");
+  await page.click('#modal-days .day-chip:has(input[value="3"])'); await save();
+  check("add appends the new workout last and re-renders", await page.evaluate(() => fitness.plan.length === 4 && fitness.plan[3].name === "Swim" && fitness.plan[3].days.join() === "3") && (await domOrder()).split(",").length === 4 && !(await modalOpen()));
+  // stale / hostile ids are inert
+  await page.evaluate(() => { window.__edit = []; window.__real = window.editWorkout; window.editWorkout = (...a) => window.__edit.push(a); });
+  const before = await page.evaluate(() => JSON.stringify(fitness.plan));
+  await page.evaluate(() => {
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    mk({ "data-action": "fitness-workout-edit" });
+    for (const v of ["", "nope", "gone", "wb');alert(1);('", "wb ", "w b"]) mk({ "data-action": "fitness-workout-edit", "data-workout-id": v });
+  });
+  check("missing/invalid/stale workout ids do nothing", (await page.evaluate(() => window.__edit.length)) === 0 && (await page.evaluate(() => JSON.stringify(fitness.plan))) === before && !(await modalOpen()));
+  await page.click('#fit-plan .fp-row[data-workout-id="wa"]');
+  check("valid id reaches editWorkout with that id only", JSON.stringify(await page.evaluate(() => window.__edit)) === '[["wa"]]');
+  await page.evaluate(() => { window.editWorkout = window.__real; });
+  // drag reorders and the drop doesn't open the editor
+  await seed();
+  await page.evaluate(() => document.querySelector("#fit-plan").scrollIntoView({ block: "center" }));
+  const from = await page.locator('#fit-plan .fp-row[data-workout-id="wc"]').boundingBox(), to = await page.locator('#fit-plan .fp-row[data-workout-id="wa"]').boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 - 8, { steps: 3 });
+  await page.mouse.move(to.x + to.width / 2, to.y + 2, { steps: 12 });
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  check("drag reorders the plan", (await order()) === "wc,wa,wb", await order());
+  check("drag drop did not open the editor", !(await modalOpen()));
+  await page.evaluate(() => renderFitness());
+  check("DOM follows the saved order after re-render", (await domOrder()) === "wc,wa,wb");
+  await page.click('#fit-plan .fp-row[data-workout-id="wa"]');
+  check("a plain click after the drag still edits that workout", (await modalOpen()) && (await page.inputValue("#modal-name")) === "Gym");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+// Workout occurrence rows (workoutRowHtml) in Home's selected-date list and To-Do upcoming groups use delegated actions.
+await section("workout occurrence rows: delegated in Home and To-Do, validated, future preview, persistence", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false });
+  await page.evaluate(() => {
+    fitness.plan = [["wa", "Gym"], ["wb", "Yoga"]].map(([id, name]) => ({ id, name, days: [0, 1, 2, 3, 4, 5, 6], time: "", every: 1, anchor: addDaysIso(-30), kind: "fitness" }));
+    fitness.checks = {}; saveFitness(); activateTab("home"); selectHomeDate(addDaysIso(0));
+    window.__edit = []; window.__realEdit = window.editWorkout; window.editWorkout = (...a) => { window.__edit.push(a); return window.__realEdit(...a); };
+  });
+  const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
+  const closeIt = () => page.evaluate(() => { if (document.getElementById("modal-backdrop").classList.contains("open")) closeModal(); });
+  const markup = sel => page.evaluate(s => [...document.querySelectorAll(s)].map(r => ({ inline: r.querySelectorAll("[onclick]").length,
+    chk: r.querySelector(".todo-check") && [r.querySelector(".todo-check").getAttribute("data-action"), r.querySelector(".todo-check").getAttribute("data-workout-id"), r.querySelector(".todo-check").getAttribute("data-date")].join("|"),
+    body: [r.querySelector(".body").getAttribute("data-action"), r.querySelector(".body").getAttribute("data-workout-id"), r.querySelector(".body").getAttribute("data-date")].join("|") })), sel);
+  const today = await page.evaluate(() => addDaysIso(0));
+  const hm = await markup("#panel-home .workout-row");
+  check("Home rows delegated, no inline handlers", hm.length === 2 && hm.every(m => m.inline === 0) && hm[0].chk === `workout-occ-toggle|wa|${today}` && hm[1].body === `workout-occ-edit|wb|${today}`, hm);
+  const done = (id, iso) => page.evaluate(([i, d]) => workoutDone(d, i), [id, iso]);
+  // toggle the right occurrence in Home; no editor
+  await page.click('#panel-home .workout-row:has(.title:text-is("Yoga")) .todo-check');
+  check("Home check toggles only that workout/date, opens no editor", (await done("wb", today)) && !(await done("wa", today)) && !(await modalOpen()) && (await page.evaluate(() => window.__edit.length)) === 0);
+  check("done styling and persistence", await page.evaluate(() => { const r = [...document.querySelectorAll("#panel-home .workout-row")].find(x => x.textContent.includes("Yoga"));
+    return r.querySelector(".item").classList.contains("checked") && r.querySelector(".todo-check").getAttribute("aria-checked") === "true" && JSON.parse(localStorage.getItem("fitness-content")).checks[`${addDaysIso(0)}|wb`] === true; }));
+  await page.click('#panel-home .workout-row:has(.title:text-is("Yoga")) .todo-check');
+  check("Home check again unticks", !(await done("wb", today)));
+  // edit the right workout
+  await page.click('#panel-home .workout-row:has(.title:text-is("Gym")) .body');
+  check("Home body opens that workout's editor", (await modalOpen()) && (await page.inputValue("#modal-name")) === "Gym" && !(await done("wa", today)));
+  await closeIt();
+  // future date: preview, no check, still editable
+  const fut = await page.evaluate(() => { selectHomeDate(addDaysIso(2)); return addDaysIso(2); });
+  const fm = await page.evaluate(() => [...document.querySelectorAll("#panel-home .workout-row")].map(r => ({ ghost: r.classList.contains("repeat-ghost"), checks: r.querySelectorAll(".todo-check").length, icon: !!r.querySelector(".repeat-icon"), body: r.querySelector(".body").getAttribute("data-date") })));
+  check("future rows are previews: no check, repeat icon, dated body", fm.length === 2 && fm.every(m => m.ghost && m.checks === 0 && m.icon && m.body === fut), fm);
+  await page.click('#panel-home .workout-row:has(.title:text-is("Yoga")) .body');
+  check("future preview still opens editor", (await modalOpen()) && (await page.inputValue("#modal-name")) === "Yoga");
+  await closeIt();
+  // a forged future toggle is a no-op
+  await page.evaluate(d => { const b = document.createElement("button"); b.setAttribute("data-action", "workout-occ-toggle"); b.setAttribute("data-workout-id", "wa"); b.setAttribute("data-date", d); document.body.appendChild(b); b.click(); b.remove(); }, fut);
+  check("future toggle does nothing", !(await done("wa", fut)));
+  // To-Do upcoming groups
+  await page.evaluate(() => { selectHomeDate(addDaysIso(0)); activateTab("todo"); renderTodoPanel(); });
+  const tm = await page.evaluate(() => [...document.querySelectorAll("#todo-card .workout-row")].map(r => ({ inline: r.querySelectorAll("[onclick]").length, ghost: r.classList.contains("repeat-ghost"), checks: r.querySelectorAll(".todo-check").length,
+    body: r.querySelector(".body").getAttribute("data-action") + "|" + r.querySelector(".body").getAttribute("data-date"), group: r.closest(".todo-group, .group, [data-group]") ? 1 : 0 })));
+  check("To-Do shows 7 days x 2 rows, delegated, only today is checkable", tm.length === 14 && tm.every(m => m.inline === 0 && m.body.startsWith("workout-occ-edit|")) && tm.filter(m => m.checks).length === 2 && tm.filter(m => m.ghost).length === 12, tm.length);
+  const dates = await page.evaluate(() => [...document.querySelectorAll("#todo-card .workout-row .body")].map(b => b.getAttribute("data-date")));
+  const expected = await page.evaluate(() => [0, 1, 2, 3, 4, 5, 6].flatMap(n => [addDaysIso(n), addDaysIso(n)]));
+  check("To-Do rows keep date grouping order", JSON.stringify(dates) === JSON.stringify(expected));
+  await page.click('#todo-card .workout-row:has(.title:text-is("Gym")) .todo-check');
+  check("To-Do check toggles that occurrence, opens no editor", (await done("wa", today)) && !(await done("wb", today)) && !(await modalOpen()));
+  check("To-Do row re-renders checked and persists", await page.evaluate(() => document.querySelector('#todo-card .workout-row .item.checked') !== null && JSON.parse(localStorage.getItem("fitness-content")).checks[`${addDaysIso(0)}|wa`] === true));
+  await page.click('#todo-card .workout-row:has(.title:text-is("Yoga")) >> nth=1 >> .body');
+  check("To-Do future row body opens that workout's editor", (await modalOpen()) && (await page.inputValue("#modal-name")) === "Yoga");
+  await closeIt();
+  // invalid / missing / stale metadata is inert
+  await page.evaluate(() => { window.__edit = []; });
+  const before = await page.evaluate(() => JSON.stringify([fitness.checks, fitness.plan]));
+  await page.evaluate(() => {
+    const t = addDaysIso(0);
+    const mk = attrs => { const b = document.createElement("button"); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); document.body.appendChild(b); b.click(); b.remove(); };
+    for (const action of ["workout-occ-edit", "workout-occ-toggle"]) {
+      mk({ "data-action": action });
+      mk({ "data-action": action, "data-workout-id": "wa" });
+      mk({ "data-action": action, "data-date": t });
+      for (const id of ["", "nope", "gone", "wa');alert(1);('", "wa ", "w a"]) mk({ "data-action": action, "data-workout-id": id, "data-date": t });
+      for (const d of ["", "nope", "2026-13-45", "2026-02-30", "2026-1-1", " " + t]) mk({ "data-action": action, "data-workout-id": "wa", "data-date": d });
+    }
+    // a real workout that does not land on the date (stale occurrence)
+    fitness.plan[0].days = [(noonOf(t).getDay() + 1) % 7]; fitness.plan[0].every = 1;
+    mk({ "data-action": "workout-occ-edit", "data-workout-id": "wa", "data-date": t });
+    mk({ "data-action": "workout-occ-toggle", "data-workout-id": "wa", "data-date": t });
+  });
+  const after = await page.evaluate(() => JSON.stringify([fitness.checks, fitness.plan.map((w, i) => i === 0 ? { ...w, days: [0, 1, 2, 3, 4, 5, 6] } : w)]));
+  check("invalid/missing/stale metadata does nothing", (await page.evaluate(() => window.__edit.length)) === 0 && !(await modalOpen()) && after === before);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+// Completed section toggle + Clear completed run through delegated data-action handlers.
+await section("handlers: completed to-do toggle and clear completed", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "ca", text: "Open one", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null },
+    { id: "cb", text: "Done one", done: true, due: isoOffset(0), starred: false, subitems: [], completedAt: Date.now() },
+    { id: "cc", text: "Done two", done: true, due: isoOffset(0), starred: false, subitems: [], completedAt: Date.now() },
+  ]}});
+  const toggle = "#todo-card .completed-toggle";
+  const state = () => page.evaluate(() => ({
+    expanded: document.querySelector("#todo-card .completed-toggle")?.getAttribute("aria-expanded"),
+    list: !!document.getElementById("todo-completed"),
+    ids: todoList.map(t => t.id).join(),
+  }));
+  check("completed toggle uses data-action, no inline handlers", await page.evaluate(() =>
+    document.querySelector("#todo-card .completed-toggle").getAttribute("data-action") === "todo-completed-toggle" &&
+    !document.querySelector("#todo-card .completed-toggle").hasAttribute("onclick")));
+  let s = await state();
+  check("completed section starts collapsed", s.expanded === "false" && !s.list, s);
+  await page.click(toggle);
+  s = await state();
+  check("toggle opens: aria-expanded true and list visible", s.expanded === "true" && s.list, s);
+  check("clear button uses data-action, no inline handler", await page.evaluate(() => {
+    const b = document.querySelector("#todo-completed .reset-btn");
+    return b.getAttribute("data-action") === "todo-completed-clear" && !b.hasAttribute("onclick");
+  }));
+  await page.click(toggle);
+  s = await state();
+  check("toggle closes: aria-expanded false and list hidden", s.expanded === "false" && !s.list, s);
+  await page.click(toggle);
+  page.removeAllListeners("dialog");
+  let msg = null;
+  page.once("dialog", d => { msg = d.message(); d.dismiss(); });
+  await page.click("#todo-completed .reset-btn");
+  s = await state();
+  check("cancelling clear confirm changes nothing", /Clear all completed/.test(msg || "") && s.ids === "ca,cb,cc" && s.list, [msg, s]);
+  page.once("dialog", d => d.accept());
+  await page.click("#todo-completed .reset-btn");
+  s = await state();
+  check("confirming clear removes only completed items and rerenders section", s.ids === "ca" && !s.list && s.expanded === undefined, s);
+  check("open item still rendered", await page.locator('#todo-list .todo-wrap[data-todo-id="ca"]').count() === 1);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+// Inline-handler migration, batch 1: composer chips and the edit-to-do sheet use delegated data-action markup.
+// `bad` clicks/changes synthetic elements carrying invalid or stale metadata; the caller asserts nothing changed.
+const fireSynthetic = (page, specs, event = "click") => page.evaluate(([specs, event]) => {
+  for (const attrs of specs) {
+    const b = document.createElement("button");
+    for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v);
+    document.body.appendChild(b);
+    b.dispatchEvent(new Event(event, { bubbles: true }));
+    b.remove();
+  }
+}, [specs, event]);
+await section("composer chips: delegated, mode-validated, invalid metadata inert", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "budget-content": { categories: [{ id: "cg", name: "Groceries", limit: 100 }], accounts: ["Visa"], goals: [], paychecks: [] } } });
+  const state = () => page.evaluate(() => JSON.stringify(composer));
+  await page.evaluate(() => openComposer("todo"));
+  check("to-do chips have no inline handlers", await page.evaluate(() => !document.querySelector("#composer [onclick], #composer [onchange]") && document.querySelectorAll("#composer-chips [data-action]").length >= 6));
+  await page.click('#composer-chips [data-action="composer-toggle"][data-key="star"]');
+  check("Star toggles and aria-pressed follows", await page.evaluate(() => composer.star === true && document.querySelector('[data-key="star"]').getAttribute("aria-pressed") === "true"));
+  await page.click('#composer-chips [data-action="composer-repeat-toggle"]');
+  check("Repeat chip turns on weekly and shows the second row", await page.evaluate(() => composer.repeat === "weekly" && document.querySelectorAll('#composer-chips2 [data-key="repeat"]').length > 3));
+  await page.click('#composer-chips2 [data-val="monthly"]');
+  check("repeat choice applies", await page.evaluate(() => composer.repeat === "monthly"));
+  await page.click('#composer-chips [data-action="composer-pick-date"] >> nth=1');
+  check("date chip picks Tomorrow", await page.evaluate(() => composer.date === addDaysIso(1) && composer.manual));
+  const before = await state();
+  await fireSynthetic(page, [
+    { "data-action": "composer-set", "data-key": "repeat", "data-val": "constructor" }, { "data-action": "composer-set", "data-key": "repeat", "data-val": "custom" },
+    { "data-action": "composer-set", "data-key": "__proto__", "data-val": "x" }, { "data-action": "composer-set", "data-key": "cat", "data-val": "moto" },
+    { "data-action": "composer-set", "data-key": "type", "data-val": "bill" }, { "data-action": "composer-toggle", "data-key": "high" },
+    { "data-action": "composer-toggle", "data-key": "mode" }, { "data-action": "composer-pick-date", "data-date": "2026-02-31" },
+    { "data-action": "composer-pick-date", "data-date": "x');alert(1);('" }, { "data-action": "composer-set-date", "data-date": isoOffset(2) },
+    { "data-action": "composer-account", "data-index": "0" }, { "data-action": "composer-group-toggle" }, { "data-action": "composer-ignore-parse" },
+  ]);
+  check("invalid / wrong-mode to-do chip metadata is inert", (await state()) === before, await state());
+  await page.evaluate(() => closeComposer());
+  // shopping mode
+  await page.evaluate(() => openComposer("shop"));
+  await page.click('#composer-chips [data-key="cat"][data-val="wardrobe"]');
+  await page.click('#composer-chips2 [data-key="wcat"][data-val="Shoes"]');
+  await page.click('#composer-chips [data-action="composer-toggle"][data-key="high"]');
+  await page.click('#composer-chips [data-key="kind"][data-val="need"]');
+  check("shop chips set cat/wcat/high/kind", await page.evaluate(() => composer.cat === "wardrobe" && composer.wcat === "Shoes" && composer.high === true && composer.kind === "need"), await state());
+  const shopBefore = await state();
+  await fireSynthetic(page, [{ "data-action": "composer-set", "data-key": "cat", "data-val": "cg" }, { "data-action": "composer-set", "data-key": "wcat", "data-val": "Hats" },
+    { "data-action": "composer-set", "data-key": "kind", "data-val": "both" }, { "data-action": "composer-toggle", "data-key": "star" }]);
+  check("invalid shop metadata is inert", (await state()) === shopBefore, await state());
+  await page.evaluate(() => closeComposer());
+  // money mode
+  await page.evaluate(() => openComposer("money"));
+  await page.click('#composer-chips [data-key="cat"][data-val="cg"], #composer-chips2 [data-key="cat"][data-val="cg"]');
+  check("expense category chip applies", await page.evaluate(() => composer.cat === "cg"));
+  await page.click('#composer-chips [data-key="type"][data-val="bill"]');
+  await page.click('#composer-chips [data-action="composer-group-toggle"]');
+  await page.click('#composer-chips [data-action="composer-toggle"][data-key="autopay"]');
+  await page.click('#composer-chips2 [data-key="repeat"][data-val="weekly"]');
+  await page.click('#composer-chips2 [data-action="composer-account"]');
+  const bill = await page.evaluate(() => ({ g: composer.group, a: composer.autopay, r: composer.repeat, acct: composer.account }));
+  check("bill chips apply (group, autopay, repeat, account)", bill.g === "joint" && bill.a === true && bill.r === "weekly" && bill.acct === "Visa", bill);
+  await page.click('#composer-chips2 [data-action="composer-account"]');
+  check("account chip toggles off", await page.evaluate(() => composer.account === null));
+  const moneyBefore = await state();
+  await fireSynthetic(page, [{ "data-action": "composer-account", "data-index": "9" }, { "data-action": "composer-account", "data-index": "-1" }, { "data-action": "composer-account", "data-index": "0 " },
+    { "data-action": "composer-set", "data-key": "repeat", "data-val": "daily" }, { "data-action": "composer-set", "data-key": "goal", "data-val": "nope" },
+    { "data-action": "composer-set", "data-key": "type", "data-val": "goal" }, { "data-action": "composer-set-date", "data-date": "nope" }]);
+  check("invalid money metadata is inert", (await state()) === moneyBefore, await state());
+  check("no inline handlers in money composer", await page.evaluate(() => !document.querySelector("#composer [onclick]")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+await section("edit to-do sheet: delegated chips, date inputs, stale/invalid metadata inert", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo", seed: { "todo-content": [
+    { id: "ea", text: "Plan trip", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null }] } });
+  await page.evaluate(() => editTodo("ea"));
+  check("sheet markup has no inline handlers", await page.evaluate(() => document.querySelectorAll("#modal-backdrop [onclick], #modal-backdrop [onchange]").length === 0 && !!document.querySelector('.tde-subs-toggle[data-action="tde-open-subs"]')));
+  await page.click('#tde [data-action="tde-repeat"][data-repeat=""]');
+  await page.click('#tde [data-action="tde-repeat"]:text-is("Custom")');
+  check("Custom reveals the stepper with weeks selected", await page.evaluate(() => tde.repeat === "weeks" && !!document.getElementById("modal-every") && document.querySelector('.tde-seg [aria-pressed="true"]').textContent.trim().startsWith("week")));
+  await page.click('[data-action="tde-every"][data-delta="1"]');
+  await page.click('[data-action="tde-every"][data-delta="1"]');
+  await page.click('[data-action="tde-every"][data-delta="-1"]');
+  await page.click('.tde-seg [data-repeat="months"]');
+  check("stepper and unit apply", await page.evaluate(() => tde.every === 3 && tde.repeat === "months" && document.getElementById("modal-every").textContent === "3"));
+  await page.click('#tde [data-action="tde-end"]:has-text("Multi-day")');
+  check("Multi-day sets an end date the next day", await page.evaluate(() => tde.end === addDaysIso(1) && !!document.getElementById("modal-end")));
+  await page.fill("#modal-end", isoOffset(4));
+  check("date input change flows through tdeSet", await page.evaluate(iso => tde.end === iso, isoOffset(4)));
+  await page.click('.tde-x');
+  check("✕ clears the end date", await page.evaluate(() => tde.end === null));
+  await page.fill("#modal-due", isoOffset(9));
+  check("due date input applies", await page.evaluate(iso => tde.due === iso, isoOffset(9)));
+  await page.click('#tde [data-action="tde-kind"][data-kind="pet"]');
+  check("kind chip applies with aria-pressed", await page.evaluate(() => tde.kind === "pet" && document.querySelector('#tde [data-kind="pet"]').getAttribute("aria-pressed") === "true"));
+  await page.click('#tde [data-action="tde-due"][data-date=""]');
+  check("Anytime clears date and repeat", await page.evaluate(() => tde.due === null && tde.repeat === null));
+  const snap = () => page.evaluate(() => JSON.stringify(tde));
+  const before = await snap();
+  await fireSynthetic(page, [{ "data-action": "tde-due", "data-date": "2026-13-45" }, { "data-action": "tde-due", "data-date": "x" }, { "data-action": "tde-end", "data-date": "'+alert(1)+'" },
+    { "data-action": "tde-repeat", "data-repeat": "constructor" }, { "data-action": "tde-repeat", "data-repeat": "hourly" }, { "data-action": "tde-every", "data-delta": "5" },
+    { "data-action": "tde-kind", "data-kind": "evil" }, { "data-action": "tde-kind", "data-kind": "toString" }]);
+  await fireSynthetic(page, [{ "data-change-action": "tde-date", "data-field": "kind" }], "change");
+  check("invalid tde metadata is inert", (await snap()) === before, await snap());
+  await page.click(".tde-subs-toggle");
+  check("Add sub-items reveals and focuses the field, removing the button", await page.evaluate(() => !document.querySelector(".tde-subs-toggle") && !document.getElementById("modal-subs").closest(".modal-field").hidden && document.activeElement.id === "modal-subs"));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+// Inline-handler migration, batch 2: Skin tab (routine, week, editor, rules, wash calendar), collapsible headers and Shopping.
+await section("skin + shopping controls: delegated markup, behavior, invalid/stale metadata inert", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=skin", seed: { "skin-rules-content": ["First rule", "Second rule"] } });
+  await page.evaluate(() => { openPinned.add("wash-card"); openPinned.add("routine-card"); openPinned.add("rules-skin"); renderSkin(); });
+  check("skin markup has no inline handlers", await page.evaluate(() => !document.querySelector("#panel-skin [onclick], #panel-skin [onchange], #panel-skin [onerror]")));
+  const stepSel = ".routine-band.am .routine-step";
+  const n0 = await page.evaluate(() => todayChecks().am.length);
+  await page.click(`${stepSel} >> nth=0`);
+  check("routine step toggles and aria-checked follows", await page.evaluate(n => todayChecks().am.length === n + 1 && document.querySelector(".routine-band.am .routine-step").getAttribute("aria-checked") === "true", n0));
+  await page.click(".routine-band.pm .routine-band-head");
+  const pmOpen = await page.evaluate(() => document.querySelector(".routine-band.pm .routine-band-head").getAttribute("aria-expanded"));
+  await page.click(".routine-band.pm .routine-band-head");
+  check("band head toggles aria-expanded", pmOpen !== (await page.evaluate(() => document.querySelector(".routine-band.pm .routine-band-head").getAttribute("aria-expanded"))), pmOpen);
+  await page.click(".week-day-head >> nth=0");
+  check("week day expands", await page.evaluate(() => document.querySelectorAll(".week-day.open").length === 1 && openWeekDays.size === 1));
+  // collapsible header (shared)
+  await page.click("#wash-card .coll-head");
+  check("collapsible header toggles open", await page.evaluate(() => !document.getElementById("wash-card").classList.contains("open")));
+  await page.click("#wash-card .coll-head");
+  // wash calendar
+  const target = isoOffset(3);
+  const hasTarget = await page.locator(`#wash-card .cal-day[data-date="${target}"]`).count();
+  if (hasTarget) { await page.click(`#wash-card .cal-day[data-date="${target}"]`); check("calendar day sets wash date", await page.evaluate(iso => washSchedule().anchor === iso, target)); }
+  await page.click('#wash-card .wash-freq [data-days="21"]');
+  check("frequency chip applies", await page.evaluate(() => washSchedule().everyDays === 21));
+  const month0 = await page.evaluate(() => washCalOffset);
+  await page.click('#wash-card [data-action="wash-month"][data-delta="1"]');
+  check("month nav shifts", await page.evaluate(m => washCalOffset === m + 1, month0));
+  // routine editor + rules (editor buttons keep the sortable .band[data-band] > .step.editable shape)
+  check("editor steps are direct children of band boxes", await page.evaluate(() => document.querySelectorAll(".band[data-band] > .step.editable").length > 3 && ![...document.querySelectorAll("[data-step-band]")].some(b => b.hasAttribute("data-band"))));
+  await page.click(".band.am > .step.editable >> nth=0");
+  check("step editor opens", await page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open") && document.getElementById("modal-heading").textContent === "Edit step"));
+  await page.evaluate(() => closeModal());
+  await page.click('.band[data-band="pm"] [data-action="routine-step-add"]');
+  check("add-step opens an empty editor", await page.evaluate(() => document.getElementById("modal-heading").textContent === "Add step"));
+  await page.evaluate(() => closeModal());
+  check("rules rows and Add are delegated", await page.evaluate(() => document.querySelectorAll('[data-action="skin-rule-edit"]').length === 2 && !!document.querySelector('[data-action="skin-rule-add"]')));
+  await page.click('[data-action="skin-rule-edit"][data-index="1"]');
+  check("rule editor opens for that rule", await page.evaluate(() => document.getElementById("modal-heading").textContent === "Edit rule" && document.getElementById("modal-text").value === "Second rule"));
+  await page.evaluate(() => closeModal());
+  // invalid / stale metadata
+  const snap = () => page.evaluate(() => JSON.stringify([routineChecks, skinRoutine, skinRules, washSchedule(), [...openWeekDays], washCalOffset, document.getElementById("modal-backdrop").classList.contains("open")]));
+  const before = await snap();
+  await fireSynthetic(page, [
+    { "data-action": "routine-step", "data-band": "washPm", "data-step-id": "x" }, { "data-action": "routine-step", "data-band": "am", "data-step-id": "gone" },
+    { "data-action": "routine-step", "data-band": "constructor", "data-step-id": "a'b" }, { "data-action": "routine-band", "data-band": "washPm" },
+    { "data-action": "week-day", "data-date": "2026-02-30" }, { "data-action": "week-day", "data-date": "x" },
+    { "data-action": "routine-step-edit", "data-step-band": "am", "data-step-id": "gone" }, { "data-action": "routine-step-edit", "data-step-band": "zz", "data-step-id": "a" },
+    { "data-action": "routine-step-add", "data-step-band": "zz" }, { "data-action": "routine-step-add", "data-step-band": "__proto__" },
+    { "data-action": "skin-rule-edit", "data-index": "999" }, { "data-action": "skin-rule-edit", "data-index": "-1" }, { "data-action": "skin-rule-edit", "data-index": "1e0" },
+    { "data-action": "wash-date", "data-date": "nope" }, { "data-action": "wash-frequency", "data-days": "5" }, { "data-action": "wash-frequency", "data-days": "" },
+    { "data-action": "wash-month", "data-delta": "9" }, { "data-action": "coll-toggle", "data-card-id": "nope" }, { "data-action": "coll-toggle", "data-card-id": "panel-skin" },
+    { "data-action": "coll-toggle", "data-card-id": "a b" },
+  ]);
+  check("invalid/stale skin metadata is inert", (await snap()) === before);
+  // shopping
+  await page.evaluate(() => { activateTab("wants"); ["wants-pending-card", "wants-later-card", "wants-purchased-card"].forEach(i => openPinned.add(i)); renderWants(); });
+  check("shopping markup has no inline handlers", await page.evaluate(() => !document.querySelector("#panel-wants [onclick], #panel-wants [onchange]")));
+  await page.click('.filter-chips [data-filter="moto"]');
+  check("filter chip applies with aria-pressed", await page.evaluate(() => wantsFilter === "moto" && document.querySelector('[data-filter="moto"]').getAttribute("aria-pressed") === "true"));
+  await page.evaluate(() => { wantsFilter = "wardrobe"; wantsList.forEach(w => { delete w.wardrobeCat; }); renderWants(); });
+  check("empty filter shows Show all", await page.locator('.link-btn[data-filter="all"]').count() === 1);
+  await page.click('.link-btn[data-filter="all"]');
+  check("Show all resets the filter", await page.evaluate(() => wantsFilter === "all"));
+  const id = await page.evaluate(() => wantsList.find(w => !wantsState[w.id] && !w.later).id);
+  await page.click(`#wants-pending-card .want-card:has([data-want-id="${id}"]) [data-action="want-later"]`);
+  check("Later moves the item off To buy", await page.evaluate(id => wantsList.find(w => w.id === id).later === true && !!document.querySelector(`#wants-later-card [data-want-id="${id}"]`), id));
+  await page.click(`#wants-later-card [data-action="want-later"][data-want-id="${id}"]`);
+  check("Back to list restores it", await page.evaluate(id => !wantsList.find(w => w.id === id).later, id));
+  await page.click(`#wants-pending-card [data-action="want-toggle"][data-want-id="${id}"]`);
+  check("Mark bought moves it to Purchased", await page.evaluate(id => wantsState[id] === true && !!document.querySelector(`#wants-purchased-card [data-action="want-toggle"][data-want-id="${id}"]`), id));
+  await page.click(`#wants-purchased-card [data-action="want-toggle"][data-want-id="${id}"]`);
+  await page.evaluate(() => { window.__e = []; const real = editWant; window.editWant = i => window.__e.push(i); });
+  await page.click(`#wants-pending-card .want-card .body[data-want-id="${id}"] .name`);
+  check("body click opens the editor for that item", (await page.evaluate(() => JSON.stringify(window.__e))) === JSON.stringify([id]));
+  await page.evaluate(() => { const a = document.createElement("a"); a.href = "#"; a.textContent = "x"; a.addEventListener("click", e => e.preventDefault()); document.querySelector("#wants-pending-card .want-card .body").appendChild(a); a.click(); });
+  check("a link inside the body does not open the editor", (await page.evaluate(() => window.__e.length)) === 1);
+  const wsnap = () => page.evaluate(() => JSON.stringify([wantsList, wantsState, wantsFilter]));
+  const wb = await wsnap();
+  await fireSynthetic(page, [{ "data-action": "want-toggle", "data-want-id": "nope" }, { "data-action": "want-toggle", "data-want-id": "a b'c" }, { "data-action": "want-toggle" },
+    { "data-action": "want-later", "data-want-id": id, "data-later": "maybe" }, { "data-action": "want-later", "data-want-id": "nope", "data-later": "true" },
+    { "data-action": "want-edit", "data-want-id": "nope" }, { "data-action": "wants-filter", "data-filter": "bogus" }, { "data-action": "wants-filter", "data-filter": "constructor" }]);
+  check("invalid/stale want metadata is inert", (await wsnap()) === wb && (await page.evaluate(() => window.__e.length)) === 1);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+// Inline-handler migration, batch 3: Jazz 3.0 (Plan 3 rows/sections/hero chips) and the weigh-in row.
+await section("jazz 3.0: plan rows, sections, hero chips and weigh-in rows are delegated and validated", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=jazz3", seed: { "fitness-content": { goal: 120, start: 100, weights: [{ id: "wk1", date: isoOffset(-3), lbs: 110 }], plan: [], weighDay: new Date().getDay() } } });
+  check("no inline handlers in Jazz 3.0 / Home weigh-in", await page.evaluate(() => !document.querySelector("#panel-jazz3 [onclick], #panel-jazz3 [onchange]")));
+  const first = await page.evaluate(() => plan3[0].id);
+  await page.evaluate(() => { activateTab("jazz3"); });
+  await page.click(`#panel-jazz3 [data-action="plan3-toggle"][data-plan3-id="${first}"]`);
+  check("check toggles done and keeps aria-checked/label", await page.evaluate(id => plan3.find(x => x.id === id).done === true && document.querySelector(`[data-plan3-id="${id}"][data-action="plan3-toggle"]`).getAttribute("aria-checked") === "true" && /^Not done:/.test(document.querySelector(`[data-plan3-id="${id}"][data-action="plan3-toggle"]`).getAttribute("aria-label")), first));
+  await page.click(`#panel-jazz3 [data-action="plan3-toggle"][data-plan3-id="${first}"]`);
+  check("check toggles back", await page.evaluate(id => !plan3.find(x => x.id === id).done, first));
+  await page.click(`#panel-jazz3 [data-action="plan3-edit"][data-plan3-id="${first}"]`);
+  check("row body opens the editor for that item", await page.evaluate(id => document.getElementById("modal-heading").textContent === "Edit item" && document.getElementById("modal-item").value === plan3.find(x => x.id === id).item, first));
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-jazz3 [data-action="plan3-add"][data-cat-index="1"]');
+  check("Add item preselects its section by position", await page.evaluate(() => document.getElementById("modal-heading").textContent === "Add item" && document.getElementById("modal-cat").value === plan3Cats()[1]));
+  await page.evaluate(() => closeModal());
+  await page.click('[data-action="plan3-new-section"]');
+  check("New section opens the add form on the new-section option", await page.evaluate(() => document.getElementById("modal-cat").value === "New section…"));
+  await page.evaluate(() => closeModal());
+  check("sortable rows still match .p3-list > .p3-row", await page.evaluate(() => document.querySelectorAll(".p3-list > .p3-row[data-sort-id]").length === plan3.length));
+  const chips = await page.evaluate(() => [...document.querySelectorAll('[data-action="j3-jump"]')].map(b => b.getAttribute("data-target")));
+  check("hero chips carry targets", chips[0] === "weight-card" && chips.some(c => c.startsWith("p3-")), chips);
+  await page.evaluate(() => { openPinned.delete("p3-glow"); renderFitness(); window.__scroll = 0; Element.prototype.scrollIntoView = function () { window.__scroll++; }; });
+  await page.click('[data-action="j3-jump"][data-target="p3-glow"]');
+  check("hero chip opens and scrolls to its card", await page.evaluate(() => openPinned.has("p3-glow") && window.__scroll === 1));
+  const snap = () => page.evaluate(() => JSON.stringify([plan3, [...openPinned].sort(), fitness.weights, document.getElementById("modal-backdrop").classList.contains("open"), window.__scroll]));
+  const before = await snap();
+  await fireSynthetic(page, [
+    { "data-action": "plan3-toggle", "data-plan3-id": "nope" }, { "data-action": "plan3-toggle", "data-plan3-id": "p3-1');alert(1)" }, { "data-action": "plan3-toggle" },
+    { "data-action": "plan3-edit", "data-plan3-id": "gone" }, { "data-action": "plan3-add", "data-cat-index": "99" }, { "data-action": "plan3-add", "data-cat-index": "-1" },
+    { "data-action": "plan3-add", "data-cat-index": "x" }, { "data-action": "j3-jump", "data-target": "panel-home" }, { "data-action": "j3-jump", "data-target": "p3-nope" },
+    { "data-action": "j3-jump", "data-target": "constructor" }, { "data-action": "weigh-row-open", "data-weight-id": "nope", "data-date": isoOffset(0) },
+    { "data-action": "weigh-row-open", "data-weight-id": "", "data-date": "2026-02-30" }, { "data-action": "weigh-row-check", "data-weight-id": "wk1", "data-date": "x" },
+    { "data-action": "weigh-row-check", "data-weight-id": "a b", "data-date": isoOffset(0) },
+  ]);
+  check("invalid/stale plan3 and weigh-row metadata is inert", (await snap()) === before);
+  // weigh-in rows (Home): weigh-in day is today so the row shows
+  await page.evaluate(() => activateTab("home"));
+  const row = "#panel-home .weigh-row";
+  check("weigh row renders delegated, no inline handlers", await page.evaluate(sel => { const r = document.querySelector(sel); return !!r && r.querySelectorAll("[onclick]").length === 0 && r.querySelector(".todo-check").getAttribute("data-action") === "weigh-row-check" && r.querySelector(".body").getAttribute("data-action") === "weigh-row-open"; }, row));
+  await page.click(`${row} .todo-check`);
+  check("weigh row check opens the log form", await page.evaluate(() => document.getElementById("modal-heading").textContent === "Log weight" && document.getElementById("modal-date").value === addDaysIso(0)));
+  await page.evaluate(() => closeModal());
+  await page.click(`${row} .body`);
+  check("weigh row body opens the log form", await page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+await section("budget: bills, plan lines, paychecks, goals, spending, manage rows and logo fallback are delegated and validated", async () => {
+  const k = isoOffset(0).slice(0, 7);
+  const seed = {
+    "budget-content": {
+      categories: [{ id: "cg", name: "Groceries", limit: 100 }, { id: "co", name: "Other", limit: 50 }],
+      expenses: [{ id: "ex1", name: "Milk", amount: 4, cat: "cg", date: isoOffset(0) }],
+      accounts: ["Visa", "Ally"], income: [{ id: "inc1", name: "Paycheck", amount: 2000, start: k + "-01", repeat: "monthly" }],
+      plans: { ["inc1|" + k + "-01"]: { lines: [{ id: "ln1", name: "Card", amount: 300 }] } },
+      goals: [{ id: "gl1", name: "Trip", target: 1000, saved: 10, log: [{ id: "ge1", amount: 20, date: isoOffset(-1), note: "x" }] }],
+    },
+    "bills-content": [{ id: "bl1", name: "Rent", amount: 500, due: isoOffset(2), repeat: "monthly", link: "https://example.com/pay" }],
+  };
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed });
+  await page.evaluate(() => { activateTab("budget"); ["goals-card", "spending-card", "bills-mine", "pay-plan"].forEach(i => openPinned.add(i)); openGoals.add("gl1"); renderBudget(); });
+  check("no inline handlers in the Budget tab", await page.evaluate(() => !document.querySelector("#panel-budget [onclick], #panel-budget [onerror], #panel-budget [onchange]")));
+  const modalHead = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open") ? document.getElementById("modal-heading").textContent : "");
+  await page.click('#panel-budget [data-action="plan-line-toggle"]');
+  check("plan line check toggles done", await page.evaluate(k => budget.plans["inc1|" + k + "-01"].lines[0].done === true, k));
+  await page.click('#panel-budget [data-action="plan-line-toggle"]');
+  await page.click('#panel-budget [data-action="plan-line-edit"]');
+  check("plan line body opens Edit line", (await modalHead()) === "Edit line");
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-budget [data-action="plan-line-add"]');
+  check("+ Add line opens the sheet", (await modalHead()) === "Add to this paycheck");
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-budget [data-action="paycheck-edit"]');
+  check("paycheck title opens the paycheck editor", (await modalHead()) !== "");
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-budget [data-action="goal-edit"]');
+  check("goal head opens Edit goal", (await modalHead()) === "Edit goal");
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-budget [data-action="goal-add"][data-entry-id="ge1"]');
+  check("goal entry opens Edit entry", (await modalHead()) === "Edit entry");
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-budget .goal-hist');
+  check("goal history toggle collapses and updates aria-expanded", await page.evaluate(() => !openGoals.has("gl1") && document.querySelector("#panel-budget .goal-hist").getAttribute("aria-expanded") === "false"), await page.evaluate(() => [[...openGoals], [...document.querySelectorAll(".goal-hist")].map(b => b.getAttribute("aria-expanded"))]));
+  await page.click('#panel-budget [data-action="goal-new"]');
+  check("New goal sheet offers delegated name ideas", (await modalHead()) === "New goal");
+  await page.click('[data-action="goal-idea"][data-idea="1"]');
+  check("idea fills the goal name", await page.evaluate(() => document.getElementById("modal-name").value === GOAL_IDEAS[1]));
+  await page.evaluate(() => closeModal());
+  await page.click('#panel-budget [data-action="budget-cat-toggle"]');
+  check("category row toggles with aria-expanded", await page.evaluate(() => openBudgetCats.has("cg") && document.querySelector('[data-action="budget-cat-toggle"]').getAttribute("aria-expanded") === "true"));
+  await page.click('#panel-budget [data-action="expense-edit"]');
+  check("expense row opens Edit expense", (await modalHead()) === "Edit expense");
+  await page.evaluate(() => closeModal());
+  const m0 = await page.evaluate(() => budgetMonthOffset);
+  await page.click('#panel-budget [data-action="budget-month"][data-delta="1"]');
+  check("month arrow shifts the month", await page.evaluate(m => budgetMonthOffset === m + 1, m0));
+  await page.click('#panel-budget [data-action="budget-month"][data-delta="-1"]');
+  await page.click('#panel-budget [data-action="budget-manage-open"]');
+  check("Manage opens and its rows are delegated", (await modalHead()) === "Manage budget" && await page.evaluate(() => !document.querySelector("#budget-manage [onclick]") && document.querySelectorAll('#budget-manage [data-action="manage-run"]').length >= 5));
+  await page.click('#budget-manage [data-op="accounts"]');
+  check("Cards & banks row opens the accounts sheet", (await modalHead()) === "Cards & banks");
+  await page.click('.acct-editor [data-action="account-edit"][data-index="1"]');
+  check("account pill opens its editor", (await modalHead()) === "Edit card or bank" && await page.evaluate(() => document.getElementById("modal-name").value === "Ally"));
+  await page.evaluate(() => closeModal());
+  // bill logo error → letter fallback; link click doesn't open the editor
+  await page.evaluate(() => { closeModal(); const img = document.createElement("img"); img.className = "bill-logo"; img.setAttribute("data-fb", '<span class="bill-logo">R</span>'); document.getElementById("panel-budget").appendChild(img); img.dispatchEvent(new Event("error")); });
+  check("bill-logo error swaps in the letter fallback", await page.evaluate(() => { const l = document.querySelector("#panel-budget > span.bill-logo"); return !!l && l.textContent === "R" && !document.querySelector("#panel-budget > img.bill-logo"); }));
+  await page.evaluate(() => { const l = document.querySelector("#panel-budget > span.bill-logo"); if (l) l.remove(); });
+  await page.click('#panel-budget .btab-name');
+  check("bill table row opens Edit bill", (await modalHead()) !== "");
+  await page.evaluate(() => closeModal());
+  const snap = () => page.evaluate(() => JSON.stringify([budget, bills, billPayments, [...openGoals], [...openBudgetCats], budgetMonthOffset, document.getElementById("modal-backdrop").classList.contains("open")]));
+  const before = await snap();
+  await fireSynthetic(page, [
+    { "data-action": "bill-row-open", "data-mode": "bill", "data-bill-id": "nope" }, { "data-action": "bill-row-open", "data-mode": "payment", "data-payment-id": "nope" },
+    { "data-action": "bill-row-open", "data-mode": "x", "data-bill-id": "bl1" }, { "data-action": "bill-row-open", "data-mode": "bill", "data-bill-id": "a b" },
+    { "data-action": "expense-edit", "data-expense-id": "gone" }, { "data-action": "budget-cat-toggle", "data-cat-id": "nope" }, { "data-action": "budget-cat-edit", "data-cat-id": "nope" },
+    { "data-action": "account-edit", "data-index": "9" }, { "data-action": "account-edit", "data-index": "-1" }, { "data-action": "account-edit", "data-index": "1.5" },
+    { "data-action": "budget-select-day", "data-date": "2026-02-30" }, { "data-action": "budget-cal-open", "data-open": "maybe" }, { "data-action": "budget-month", "data-delta": "5" },
+    { "data-action": "paycheck-edit", "data-src-id": "nope", "data-date": isoOffset(0) }, { "data-action": "paycheck-received", "data-src-id": "inc1", "data-date": "bad" },
+    { "data-action": "plan-line-toggle", "data-plan-key": "inc1|" + k + "-15", "data-line-id": "ln1" }, { "data-action": "plan-line-toggle", "data-plan-key": "inc1|" + k + "-01", "data-line-id": "x y" },
+    { "data-action": "plan-line-edit", "data-plan-key": "nope", "data-line-id": "ln1" }, { "data-action": "plan-line-add", "data-plan-key": "inc1|2020-01-01" },
+    { "data-action": "plan-hint", "data-plan-key": "zzz|" + k + "-01" }, { "data-action": "manage-run", "data-op": "constructor" }, { "data-action": "manage-run", "data-op": "edit-income", "data-id": "nope" },
+    { "data-action": "goal-edit", "data-goal-id": "nope" }, { "data-action": "goal-add", "data-goal-id": "gl1", "data-entry-id": "nope" }, { "data-action": "goal-add", "data-goal-id": "nope" },
+    { "data-action": "goal-toggle", "data-goal-id": "nope" }, { "data-action": "goal-idea", "data-idea": "99" },
+  ]);
+  check("invalid/stale budget metadata is inert", (await snap()) === before);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
