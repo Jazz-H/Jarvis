@@ -8,8 +8,6 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
   Gmail sign-in (15 min, computer). Steps: SETUP.md section 6.
 - [ ] **Phone notifications secret** (you, at the computer): copy `VAPID_PRIVATE_KEY` from
   `agents/.env` into a repo secret, then tap **Turn on** on your phone. SETUP.md section 7.
-- [ ] **Google workflow env** (me, once you approve the `workflow` scope): the Google and VAPID
-  secrets added to `jarvis.yml` (branch `jarvis/google-workflow`).
 
 ## Decide
 - (nothing open)
@@ -18,6 +16,7 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
+- [x] Workflow passes the Google and VAPID secrets to the morning run (Oct 30, `main`)
 - [x] Budget stays out of the tab bar; Home's Money tile is the way in (decided Oct 30)
 - [x] Backlog build, steps 7–16 (Oct 30, `main`): skin weather (UV + SPF, air quality), wash-day
   swap, one goal item a day, consistency (last 7 days), money extras (safe to spend, payday
