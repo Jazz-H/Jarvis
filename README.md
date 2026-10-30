@@ -25,10 +25,19 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
   older day's briefing is dimmed and labeled "From <date>". Problems from the run are listed
   under "notes".
-- **Systems:** six tiles (Weather, To-Do, Money, Skin & Hair, Jazz 3.0, Shopping), each with
+- **Your day:** a timeline of today in time order: calendar events (all-day first; past ones
+  dimmed; overlapping ones flagged), when rain is likely, Amazon deliveries arriving, the to-dos
+  left, bills due today and wash day. Each row drills in: events open the **Calendar** detail
+  (today and tomorrow as an agenda), deliveries open **Deliveries** (arriving today with
+  **Mark bought** when it's on your Shopping list, then each package's Ordered → Shipped → Out →
+  Delivered progress), to-dos go to the Planner, rain to Weather. Until the calendar is connected
+  the timeline offers **Connect your calendar** with the setup steps.
+- **Systems:** six tiles (Weather, Inbox, Money, Skin & Hair, Jazz 3.0, Shopping), each with
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
-  under it (one at a time; tap again to close). To-Do has no separate detail: it goes to the
-  Planner, which is today's list.
+  under it (one at a time; tap again to close).
+  - **Inbox:** the tile shows unread mail and what needs you; the detail lists urgent mail,
+    people waiting on a reply, and bills found in email, each checked against Budget (a
+    mismatch shows the Budget amount and opens Budget).
   - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
     hour-by-hour list (every 3 hours: temperature, conditions, rain). Names its agent and time.
   - **Money:** bills due in the next 7 days (tick to pay, tap to edit), then the current pay
@@ -337,8 +346,9 @@ only turning sync off still asks first.
 
 ## Jarvis
 
-Jarvis is the AI layer, built in phases (`docs/jarvis/PLAN.md`). Phase 1 is in: a daily
-briefing with Weather and News. Setup: `docs/jarvis/SETUP.md`.
+Jarvis is the AI layer, built in phases (`docs/jarvis/PLAN.md`). Phases 1 and 2 are in: a daily
+briefing with Weather and News, plus Calendar, Inbox and Deliveries once Google is connected.
+Setup: `docs/jarvis/SETUP.md`.
 
 - **Where it runs:** `.github/workflows/jarvis.yml`, about 6:45am Eastern daily (two UTC cron
   lines, one for EDT and one for EST; only the one in the 6:30–9:00am window delivers, once a
@@ -348,6 +358,12 @@ briefing with Weather and News. Setup: `docs/jarvis/SETUP.md`.
   progress. It then runs the sub-agents in parallel:
   - **Weather:** `claude-haiku-5-5`, with data from Open-Meteo.
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
+  - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
+  - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets only).
+  - **Deliveries:** `claude-haiku-5-5`, from Amazon order and shipping emails in Gmail.
+
+  The three Google ones run only when their secrets are set (`npm run google-auth` does the
+  one-time Gmail sign-in).
 
   Code does all fetching, parsing and math, and each model only judges, ranks and summarizes.
   Every sub-agent's output is checked with zod and retried once if invalid. **Jarvis**

@@ -5,7 +5,7 @@ same private gist that Jazz sync uses. The app picks it up the next time it sync
 **only** in GitHub Actions secrets (or a gitignored `agents/.env` on your computer), never in
 the app, the gist, or the repo.
 
-Phase 1 needs three secrets. Later phases add Google, Plaid and so on, and their steps will be added here.
+Phase 1 needs three secrets (sections 1–5). Phase 2 adds optional Google access (section 6).
 
 ## 1. Anthropic API key: `ANTHROPIC_API_KEY`
 1. Go to console.anthropic.com → **API Keys** → **Create Key**. Name it "Jarvis".
@@ -42,6 +42,52 @@ Optional: on the **Variables** tab, add `MAX_RUN_COST_USD` (for example `0.30`) 
    the briefing shows at the top of the Jarvis tab.
 3. Each run uploads a `jarvis-trace-<id>` artifact with timings, outcomes and token costs per agent
    (no inputs or secrets).
+
+## 6. Google (optional): Calendar, Inbox and Deliveries
+
+Each part is optional. Until it's connected, Home shows "Connect your calendar" or "Not
+connected", and the rest of the briefing works as before. Everything is **read-only**.
+
+### Calendar (about 2 minutes, works on a phone in desktop view)
+1. Open calendar.google.com → ⚙ **Settings** → under *Settings for my calendars*, click your
+   calendar → **Integrate calendar**.
+2. Copy **Secret address in iCal format**.
+3. Add it as the repository secret **`GOOGLE_CALENDAR_ICS_URL`**.
+
+The address only lets someone *read* that calendar. Never share it; if it ever leaks, click
+**Reset** there and update the secret.
+
+### Gmail: Inbox and Deliveries (about 15 minutes, once, on a computer)
+Jarvis reads only headers and Gmail's short preview snippet: never full emails or attachments.
+
+1. **Project:** go to console.cloud.google.com and create a project named "Jarvis".
+2. **Gmail API:** APIs & Services → Library → **Gmail API** → **Enable**.
+3. **Consent screen** (Google Auth Platform):
+   - *Branding*: app name "Jarvis", your email as support and developer contact.
+   - *Audience*: user type **External**; add your Gmail address as a test user.
+   - *Data access*: **Add or remove scopes** → `https://www.googleapis.com/auth/gmail.readonly`.
+   - Back on *Audience*, click **Publish app** so it's **In production**. This matters: apps left
+     in "Testing" get sign-ins that expire every 7 days. You don't need Google's verification
+     for an app only you use.
+4. **Client:** *Clients* → **Create client** → type **Desktop app** → name "Jarvis CLI". Copy the
+   **Client ID** and **Client secret**.
+5. **Sign in once** on your computer:
+   ```
+   cd agents
+   npm ci
+   # add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to agents/.env (it's gitignored)
+   npm run google-auth
+   ```
+   Google says **"Google hasn't verified this app."** That's expected for your own app: click
+   **Advanced → Go to Jarvis**, then allow read-only Gmail access. The terminal prints a refresh
+   token.
+6. Add three repository secrets: **`GOOGLE_CLIENT_ID`**, **`GOOGLE_CLIENT_SECRET`**,
+   **`GOOGLE_REFRESH_TOKEN`** (the token from step 5). Don't paste the token anywhere else.
+7. Actions → Jarvis → **Run workflow**. Inbox and Deliveries appear on Home.
+
+**If Inbox says "Google access expired":** changing your Google password (or 6 months unused, or
+removing access at myaccount.google.com/permissions) ends the sign-in. Run
+`npm run google-auth` again and update `GOOGLE_REFRESH_TOKEN`.
 
 ## When it runs
 - Every morning so it's there by about **7:00am Eastern**. GitHub's cron is UTC-only and can start

@@ -12,7 +12,8 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 ## Status
 - [x] Phase 1: Agent SDK setup, Jarvis + Weather + News, Gist output, in-app notice, Jarvis tab
   (setup steps in `SETUP.md`). Smaller open work is tracked in `BACKLOG.md`.
-- [ ] Phase 2: Calendar + Inbox + Shopper (Google OAuth)
+- [x] Phase 2: Calendar + Inbox + Shopper (Calendar via secret iCal; Gmail read-only OAuth).
+  Live once the Google secrets are added (SETUP.md section 6). Design: PHASE2-DISCOVERY.md.
 - [ ] Phase 3: Money + Budget links + Bill Guard
 - [ ] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
 

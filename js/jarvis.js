@@ -10,7 +10,15 @@
 const BRIEFING_FILENAME = "jazz2-briefing.json";
 const BRIEFING_KEY = "jarvis-briefing";
 const BRIEFING_SEEN_KEY = "jarvis-briefing-seen"; // id of the last briefing shown on screen
-const BRIEFING_SOURCES = { weather: "Weather", news: "News", jazz: "Jazz", jarvis: "Jarvis" };
+const BRIEFING_SOURCES = {
+  weather: "Weather",
+  news: "News",
+  jazz: "Jazz",
+  jarvis: "Jarvis",
+  calendar: "Calendar",
+  inbox: "Inbox",
+  deliveries: "Amazon",
+};
 openPinned.add("jarvis-news");
 
 function normalizeBriefing(b) {
@@ -82,6 +90,75 @@ function normalizeBriefing(b) {
     }
     return { status: "error", error: str(c.error, 200) || "This agent didn't finish.", ...meta };
   };
+  // Phase 2 cards: present only once their source is connected
+  const hhmm = (v) => (typeof v === "string" && /^\d{2}:\d{2}$/.test(v) ? v : null);
+  const calendar = (d) => {
+    if (!isObj(d)) return null;
+    return {
+      date: isoDay(d.date) ? d.date : "",
+      events: arr(d.events)
+        .filter(isObj)
+        .slice(0, 30)
+        .map((e) => ({
+          title: str(e.title, 120),
+          day: e.day === "tomorrow" ? "tomorrow" : "today",
+          allDay: e.allDay === true,
+          start: hhmm(e.start),
+          end: hhmm(e.end),
+          location: str(e.location, 120),
+        }))
+        .filter((e) => e.title && (e.allDay || e.start)),
+      overlaps: arr(d.overlaps)
+        .filter(isObj)
+        .slice(0, 10)
+        .map((o) => ({ a: str(o.a, 120), b: str(o.b, 120) })),
+      summary: str(d.summary, 200),
+    };
+  };
+  const people = (v, n) =>
+    arr(v)
+      .filter(isObj)
+      .slice(0, n)
+      .map((x) => ({ from: str(x.from, 80), summary: str(x.summary, 140) }))
+      .filter((x) => x.summary);
+  const BILL_STATUSES = ["matches", "differs", "not-in-budget", "no-amount"];
+  const inbox = (d) =>
+    isObj(d)
+      ? {
+          unread: num(d.unread, 0, 1e6) || 0,
+          urgent: people(d.urgent, 3),
+          needsReply: people(d.needsReply, 5),
+          bills: arr(d.bills)
+            .filter(isObj)
+            .slice(0, 5)
+            .map((x) => ({
+              payee: str(x.payee, 60),
+              amount: num(x.amount, 0, 1e7),
+              due: isoDay(x.due) ? x.due : null,
+              budgetName: str(x.budgetName, 60),
+              budgetAmount: num(x.budgetAmount, 0, 1e7),
+              status: BILL_STATUSES.includes(x.status) ? x.status : "no-amount",
+            }))
+            .filter((x) => x.payee),
+        }
+      : null;
+  const PKG_STATUSES = ["ordered", "shipped", "out", "delivered"];
+  const deliveries = (d) =>
+    isObj(d)
+      ? {
+          packages: arr(d.packages)
+            .filter(isObj)
+            .slice(0, 8)
+            .map((x) => ({
+              item: str(x.item, 80),
+              status: PKG_STATUSES.includes(x.status) ? x.status : "ordered",
+              eta: isoDay(x.eta) ? x.eta : null,
+              etaText: str(x.etaText, 40),
+              shoppingMatch: str(x.shoppingMatch, 60),
+            }))
+            .filter((x) => x.item),
+        }
+      : null;
   const cards = isObj(b.cards) ? b.cards : {};
   return {
     id: str(b.id, 40),
@@ -96,6 +173,9 @@ function normalizeBriefing(b) {
     summaryBy: b.summaryBy === "fallback" ? "fallback" : "jarvis",
     weather: card(cards.weather, weather),
     news: card(cards.news, news),
+    calendar: cards.calendar ? card(cards.calendar, calendar) : null,
+    inbox: cards.inbox ? card(cards.inbox, inbox) : null,
+    deliveries: cards.deliveries ? card(cards.deliveries, deliveries) : null,
     notes: arr(b.notes)
       .map((n) => str(n, 200))
       .filter(Boolean)

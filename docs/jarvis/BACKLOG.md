@@ -4,8 +4,9 @@ Everything open, so nothing gets missed. Tick items off here as they land (and n
 branch or commit). Big phases live in `PLAN.md`; this list is the smaller work around them.
 
 ## Do next
-- [ ] **Phase 2 + backlog plan:** answer the decisions in `PHASE2-DISCOVERY.md` (section 8); then
-  build in its order (Phase 2 steps 1–6, then backlog steps 7–16).
+- [ ] **Connect Google** (you): Calendar's secret iCal address (2 min, phone) and the one-time
+  Gmail sign-in (15 min, computer). Steps: SETUP.md section 6.
+- [ ] **Backlog build** (steps 7–16 in `PHASE2-DISCOVERY.md`), with the layouts you picked.
 
 ## Decide
 - [ ] **Budget in the tab bar?** It's hidden; Home's Money tile is the everyday way in. Keep it
@@ -28,6 +29,8 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Your layout.** Reorder or hide Home's tiles; pin the detail you open most.
 
 ## Done
+- [x] Phase 2 built: Calendar, Inbox and Deliveries agents; Your day timeline; Inbox tile;
+  Calendar and Deliveries details; Google setup guide and `npm run google-auth`
 - [x] Loading skeleton on Home while the app starts
 - [x] New Jarvis app icon: reactor core with a Rajdhani "J" (`icon.svg`, `npm run icons`)
 - [x] App sync on (private gist) and all three Jarvis secrets added; first briefing delivered

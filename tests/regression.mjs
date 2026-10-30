@@ -8008,11 +8008,13 @@ await section("home dashboard: tiles drill into details, details into tabs, noth
   );
   check(
     "six tiles, one per feed",
-    JSON.stringify(t0.map((t) => t.go)) === '["weather","todo","money","skin","jazz3","shop"]',
+    JSON.stringify(t0.map((t) => t.go)) === '["weather","inbox","money","skin","jazz3","shop"]',
     t0,
   );
   check("details start closed and there are no duplicate cards", r.details === 0 && r.oldCards.length === 0, r);
-  check("to-do tile counts overdue + today", t0[1].value === "3 left", t0);
+  check("inbox tile says it's not connected yet", t0[1].value === "—", t0);
+  const todoRow = await page.evaluate(() => document.querySelector('.jv-day-row[data-go="todo"] b')?.textContent);
+  check("Your day counts overdue + today's to-dos", todoRow === "3 to-dos left", todoRow);
   check("money tile totals bills due this week", t0[2].value === "$1,450", t0);
   check("jazz 3.0 tile shows weight-goal progress", t0[4].value === "50%", t0);
   check("shopping tile counts needs", t0[5].value === `${needN} need${needN === 1 ? "" : "s"}`, [t0, needN]);
@@ -8064,8 +8066,8 @@ await section("home dashboard: tiles drill into details, details into tabs, noth
     homeDate = addDaysIso(3);
     renderHome();
   });
-  await page.tap('.jv-tile[data-go="todo"]');
-  check("to-do tile shows today in the Planner", await page.evaluate(() => homeDate === null));
+  await page.tap('.jv-day-row[data-go="todo"]');
+  check("the to-do row shows today in the Planner", await page.evaluate(() => homeDate === null));
 
   // forged targets do nothing
   await page.evaluate(() => {
@@ -8211,6 +8213,153 @@ await section("loading skeleton shows before the scripts run, then gives way to 
   check("after load the skeleton is replaced by the dashboard", !r.busy && !r.skeleton && r.dashboard, r);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
+});
+
+await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbox", async () => {
+  const today = isoOffset(0);
+  const meta = (agent) => ({ status: "ok", agent, model: "m", updatedAt: new Date().toISOString() });
+  const b = briefingFixture();
+  b.cards.calendar = {
+    ...meta("Calendar"),
+    data: {
+      date: today,
+      summary: "Busy midday.",
+      overlaps: [{ a: "Lunch with Sam", b: "Call with the bank" }],
+      events: [
+        { title: "Dentist", day: "today", allDay: false, start: "15:00", end: "16:00", location: "Midtown" },
+        { title: "Lunch with Sam", day: "today", allDay: false, start: "12:00", end: "13:00", location: "" },
+        { title: "Call with the bank", day: "today", allDay: false, start: "12:30", end: "13:00", location: "" },
+        {
+          title: "<img src=x onerror=window.__pwned=1>",
+          day: "today",
+          allDay: true,
+          start: null,
+          end: null,
+          location: "",
+        },
+        { title: "Bad time", day: "today", allDay: false, start: "nope", end: null, location: "" },
+        { title: "Oil change", day: "tomorrow", allDay: false, start: "10:00", end: "11:00", location: "" },
+      ],
+    },
+  };
+  b.cards.inbox = {
+    ...meta("Inbox"),
+    data: {
+      unread: 14,
+      urgent: [{ from: "Bank", summary: "Verify a new card" }],
+      needsReply: [{ from: "Sam Lee", summary: "Pick a lunch spot" }],
+      bills: [
+        {
+          payee: "City Power",
+          amount: 112.4,
+          due: isoOffset(6),
+          budgetName: "Power",
+          budgetAmount: 100,
+          status: "differs",
+        },
+        { payee: "Verizon", amount: 85, due: null, budgetName: "Phone", budgetAmount: 85, status: "bogus" },
+      ],
+    },
+  };
+  b.cards.deliveries = {
+    ...meta("Deliveries"),
+    data: {
+      packages: [
+        { item: "Columbia rain jacket", status: "out", eta: today, etaText: "by 8 PM", shoppingMatch: "Rain jacket" },
+        { item: "Desk lamp", status: "teleported", eta: "soon", etaText: null, shoppingMatch: null },
+      ],
+    },
+  };
+  const { ctx, page, errors } = await openApp({
+    seed: { "jarvis-briefing": b, "wants-content": [{ id: "w1", name: "Rain jacket", kind: "need", price: 120 }] },
+  });
+  const rows = await page.$$eval(".jv-day-row", (els) =>
+    els.map((e) => [
+      e.dataset.go,
+      e.querySelector(".jv-day-time").textContent,
+      e.querySelector("b").textContent,
+      e.className.includes("warn"),
+    ]),
+  );
+  const timed = rows.filter((r) => r[0] === "calendar").map((r) => r[1] + " " + r[2]);
+  check(
+    "timeline lists today's events in time order (all-day first), escaped, bad times dropped",
+    JSON.stringify(timed) ===
+      JSON.stringify([
+        "All day <img src=x onerror=window.__pwned=1>",
+        "12p Lunch with Sam",
+        "12:30p Call with the bank",
+        "3p Dentist",
+      ]) && !(await page.evaluate(() => window.__pwned)),
+    timed,
+  );
+  check("overlapping events are flagged", rows.filter((r) => r[3] && r[0] === "calendar").length === 2, rows);
+  check(
+    "rain and the delivery are on the timeline",
+    rows.some((r) => r[0] === "weather") && rows.some((r) => r[2] === "Columbia rain jacket arrives"),
+    rows,
+  );
+  check("no 'connect your calendar' once it's connected", !(await page.$(".jv-day-connect")));
+
+  // Calendar detail (agenda list) opens from its chip and from an event row
+  await page.tap('.jv-chip-sm[data-go="calendar"]');
+  const agenda = await page.$$eval("#jarvis-calendar .jv-agenda-row, #jv-detail-calendar .jv-agenda-row", (els) =>
+    els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
+  );
+  check(
+    "calendar detail lists today and tomorrow",
+    agenda.length === 5 && agenda.at(-1).includes("Oil change"),
+    agenda,
+  );
+  await page.tap('.jv-chip-sm[data-go="calendar"]');
+  check("tapping again closes it", !(await page.$("#jv-detail-calendar")));
+
+  // Deliveries detail: Mark bought ticks the Shopping item; unknown status/eta are normalized
+  await page.tap('.jv-day-row[data-go="deliveries"]');
+  const pk = await page.$$eval("#jv-detail-deliveries .jv-pkg", (els) =>
+    els.map((e) => [e.querySelector("b").textContent, e.querySelectorAll(".jv-pkg-steps .on").length]),
+  );
+  check(
+    "packages show progress (out = 3 steps, unknown = ordered)",
+    JSON.stringify(pk) === '[["Columbia rain jacket",3],["Desk lamp",1]]',
+    pk,
+  );
+  await page.tap('#jv-detail-deliveries [data-action="want-toggle"]');
+  check("Mark bought ticks the matching Shopping item", await page.evaluate(() => !!wantsState.w1));
+
+  // Inbox tile + detail: count on the tile only, rows for urgent/reply/bills, Budget mismatch flagged
+  const tile = await page.$eval('.jv-tile[data-go="inbox"]', (e) => e.textContent.replace(/\s+/g, " "));
+  check(
+    "inbox tile shows unread and what needs you",
+    tile.includes("14 unread") && tile.includes("1 bill ≠ Budget"),
+    tile,
+  );
+  await page.tap('.jv-tile[data-go="inbox"]');
+  const mail = await page.$$eval("#jv-detail-inbox .jv-mail-row", (els) =>
+    els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
+  );
+  check("inbox detail lists urgent, reply and bills", mail.length === 4 && mail[0].startsWith("Urgent") && mail[0].includes("Bank"), mail);
+  check(
+    "a bill that differs from Budget is flagged",
+    !!(await page.$('#jv-detail-inbox .jv-chip-sm.warn[data-go="money"]')),
+  );
+  check(
+    "the unread count isn't repeated in the detail",
+    !(await page.$eval("#jv-detail-inbox", (e) => e.textContent.includes("14"))),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+
+  // not connected: a connect prompt on the timeline and setup steps in the details
+  const plain = await openApp({ seed: { "jarvis-briefing": briefingFixture() } });
+  check("calendar not connected shows a connect prompt", !!(await plain.page.$(".jv-day-connect")));
+  await plain.page.tap(".jv-day-connect");
+  check(
+    "…which explains the setup",
+    (await plain.page.textContent("#jv-detail-calendar")).includes("GOOGLE_CALENDAR_ICS_URL"),
+  );
+  check("no JS errors (not connected)", plain.errors.length === 0, plain.errors);
+  await plain.ctx.close();
 });
 
 await browser.close();

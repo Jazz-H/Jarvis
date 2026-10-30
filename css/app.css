@@ -4804,6 +4804,250 @@ a.jv-story-title:hover {
     animation: none;
   }
 }
+/* Phase 2: Your day timeline */
+.jv-src-calendar {
+  color: var(--olive);
+}
+.jv-src-inbox {
+  color: var(--gold);
+}
+.jv-src-deliveries {
+  color: var(--navy);
+}
+.jv-day {
+  padding: 4px 14px;
+}
+.jv-day-row {
+  display: grid;
+  grid-template-columns: 58px 14px minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.jv-day-time {
+  padding-top: 15px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.jv-day-dot {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.jv-day-dot::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+.jv-day-dot.first::before {
+  top: 18px;
+}
+.jv-day-dot.last::before {
+  bottom: calc(100% - 18px);
+}
+.jv-day-dot i {
+  position: relative;
+  margin-top: 13px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.jv-day-row.accent .jv-day-dot i {
+  background: var(--olive);
+}
+.jv-day-row.warn .jv-day-dot i {
+  background: var(--warn);
+}
+.jv-day-row.pink .jv-day-dot i {
+  background: var(--navy);
+}
+.jv-day-row.gold .jv-day-dot i {
+  background: var(--gold);
+}
+.jv-day-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 11px 0;
+  min-width: 0;
+}
+.jv-day-text b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.jv-day-text span {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.jv-day-row.warn .jv-day-text span {
+  color: var(--warn);
+}
+.jv-day-row.past .jv-day-text {
+  opacity: 0.55;
+}
+.jv-day-connect {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 2px 0 4px;
+  border: 1px dashed var(--olive-dim);
+  border-radius: 10px;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jv-day-chips {
+  display: flex;
+  gap: 6px;
+}
+.jv-chip-sm {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.jv-chip-sm.on {
+  border-color: var(--olive);
+  color: var(--olive);
+}
+.jv-chip-sm.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+/* Calendar agenda */
+.jv-agenda-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  min-height: 40px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.jv-agenda-time {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.jv-agenda-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jv-agenda-what span {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.jv-agenda-flag {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--warn);
+}
+/* Deliveries */
+.jv-pkg-what {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jv-pkg {
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.jv-pkg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.jv-pkg-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.jv-pkg-steps span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.jv-pkg-steps i {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track);
+}
+.jv-pkg-steps span.on i {
+  background: var(--olive);
+}
+.jv-pkg-steps span.on {
+  color: var(--text);
+}
+/* Inbox */
+.jv-mail-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.jv-mini.warn {
+  color: var(--warn);
+}
+.jv-mini.gold {
+  color: var(--gold);
+}
+.jv-mail-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jv-mail-text span {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.jv-mail-ok {
+  font-size: 12.5px;
+  color: var(--olive);
+}
+.jv-mail-note {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.jv-pkg-what span {
+  font-size: 13px;
+  color: var(--text-dim);
+}
 nav.tabbar button.jv-new::after {
   content: "";
   position: absolute;

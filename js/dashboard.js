@@ -12,7 +12,9 @@
 // pay-period bar; Skin & Hair AM/PM checklists with progress; Jazz 3.0 goal bars; Shopping needs list.
 const JARVIS_OWNER = "Jazz";
 const DASH_TABS = { todo: "todo", money: "budget", skin: "skin", jazz3: "jazz3", shop: "wants" };
-const DASH_DETAILS = ["weather", "money", "skin", "jazz3", "shop"]; // tiles that open a detail
+// tiles (and timeline rows) that open a detail; calendar and deliveries open under the timeline
+const DASH_DETAILS = ["weather", "inbox", "money", "skin", "jazz3", "shop", "calendar", "deliveries"];
+const DASH_TIMELINE_DETAILS = ["calendar", "deliveries"];
 const DASH_SHOP_MAX = 5;
 let dashOpenKey = null; // the tile whose detail is open (not saved: the tab opens clean)
 const dashDetailId = (key) => (key === "weather" ? "jarvis-weather" : "jv-detail-" + key);
@@ -36,8 +38,9 @@ function dashDrill(key) {
   if (!DASH_DETAILS.includes(key)) return;
   dashOpenKey = dashOpenKey === key ? null : key;
   renderHome();
-  const tile = document.querySelector(`#panel-home .jv-tile[data-go="${key}"]`);
-  if (tile && dashOpenKey) tile.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const target =
+    document.querySelector(`#panel-home .jv-tile[data-go="${key}"]`) || document.getElementById(dashDetailId(key));
+  if (target && dashOpenKey) target.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 // Go to a section's tab; Jazz 3.0 can also open and scroll to one of its cards
 const DASH_J3_CARD = /^(weight-card|p3-[a-z0-9-]+)$/;
@@ -254,17 +257,7 @@ function dashTilesHtml(b, progress, d) {
       tone: "",
       detail: !!wc,
     },
-    {
-      go: "todo",
-      label: "To-Do",
-      value: `${d.todo.left} left`,
-      sub: [d.todo.overdue ? `${d.todo.overdue} overdue` : "", `${progress.done}/${progress.total} done today`]
-        .filter(Boolean)
-        .join(" · "),
-      pct: dashPct(progress.done, progress.total),
-      tone: d.todo.overdue ? "warn" : "",
-      detail: false,
-    },
+    dashInboxTile(b),
     {
       go: "money",
       label: "Money",
@@ -307,13 +300,15 @@ function dashTilesHtml(b, progress, d) {
   const detailOf = (key) =>
     key === "weather"
       ? jarvisWeatherDetail(wc)
-      : key === "money"
-        ? dashMoneyDetail(d.money)
-        : key === "skin"
-          ? dashSkinDetail(d.skin)
-          : key === "jazz3"
-            ? dashJazz3Detail(d.jazz3)
-            : dashShopDetail(d.shop, b);
+      : key === "inbox"
+        ? dashInboxDetail(b && b.inbox)
+        : key === "money"
+          ? dashMoneyDetail(d.money)
+          : key === "skin"
+            ? dashSkinDetail(d.skin)
+            : key === "jazz3"
+              ? dashJazz3Detail(d.jazz3)
+              : dashShopDetail(d.shop, b);
   const html = tiles
     .map((t) => {
       const open = t.detail && dashOpenKey === t.go;
@@ -353,6 +348,7 @@ function dashboardHtml() {
       ${dashQuickHtml()}
       ${dashTomorrowHtml(b)}
       ${jarvisHeroHtml(b)}
+      ${dashTimelineHtml(b, d)}
       ${dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d)}
       ${b ? jarvisNewsCard(b.news) : ""}
     </div>`;
@@ -448,4 +444,264 @@ function updateAppBadge(n) {
   if (n === dashBadgeShown || !("setAppBadge" in navigator)) return;
   dashBadgeShown = n;
   (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+}
+
+// ---- Phase 2: Your day timeline, Calendar, Deliveries and Inbox ----
+// "9:30a", "3p": compact times for the timeline
+function dashTime(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const h12 = h % 12 || 12;
+  return `${h12}${m ? ":" + String(m).padStart(2, "0") : ""}${h < 12 ? "a" : "p"}`;
+}
+const dashMins = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+const dashToday = (c) => (c && c.status === "ok" ? c.data : null);
+const DASH_SETUP = {
+  calendar:
+    "Connect your calendar: in Google Calendar settings, copy the calendar's secret address in iCal format and add it as the GOOGLE_CALENDAR_ICS_URL secret (docs/jarvis/SETUP.md).",
+  google:
+    "Connect Gmail: run the one-time Google sign-in (docs/jarvis/SETUP.md → Google), then add the three GOOGLE_ secrets.",
+};
+
+// Today's calendar events, rain, deliveries, to-dos, bills and wash day, in time order
+function dashDayRows(b, d) {
+  const today = addDaysIso(0),
+    nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const rows = [];
+  const cal = dashToday(b && b.calendar);
+  if (cal && cal.date === today) {
+    const overlapping = new Set(cal.overlaps.flatMap((o) => [o.a, o.b]));
+    cal.events
+      .filter((e) => e.day === "today")
+      .forEach((e) => {
+        const past = !e.allDay && e.end && dashMins(e.end) <= nowMin;
+        rows.push({
+          sort: e.allDay ? -1 : dashMins(e.start),
+          time: e.allDay ? "All day" : dashTime(e.start),
+          title: e.title,
+          sub: [
+            e.end && !e.allDay ? `until ${dashTime(e.end)}` : "",
+            e.location,
+            overlapping.has(e.title) ? "overlaps" : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          tone: overlapping.has(e.title) ? "warn" : past ? "past" : "accent",
+          go: "calendar",
+        });
+      });
+  }
+  const w = dashToday(b && b.weather);
+  if (w && b.date === today) {
+    const wet = w.hourlyRain.filter((h) => h.chance >= 50);
+    if (wet.length)
+      rows.push({
+        sort: wet[0].hour * 60,
+        time: jvHourLabel(wet[0].hour),
+        title: "Rain likely",
+        sub: `${w.rainChanceMax}% · until ${jvHourLabel((wet[wet.length - 1].hour + 1) % 24)}`,
+        tone: "gold",
+        go: "weather",
+      });
+  }
+  const del = dashToday(b && b.deliveries);
+  if (del)
+    del.packages
+      .filter((p) => p.status !== "delivered" && (p.status === "out" || p.eta === today))
+      .forEach((p) =>
+        rows.push({
+          sort: 24 * 60 + 1,
+          time: p.etaText || "Today",
+          title: `${p.item} arrives`,
+          sub: p.shoppingMatch ? "On your Shopping list" : "Amazon",
+          tone: "pink",
+          go: "deliveries",
+        }),
+      );
+  if (d.todo.left)
+    rows.push({
+      sort: 24 * 60 + 2,
+      time: "Today",
+      title: `${d.todo.left} to-do${d.todo.left === 1 ? "" : "s"} left`,
+      sub: d.todo.overdue ? `${d.todo.overdue} overdue` : "Open the Planner",
+      tone: d.todo.overdue ? "warn" : "",
+      go: "todo",
+    });
+  bills
+    .filter((x) => !x.done && x.due && x.due <= today)
+    .slice(0, 3)
+    .forEach((x) =>
+      rows.push({
+        sort: 24 * 60 + 3,
+        time: x.due < today ? "Overdue" : "Today",
+        title: `Pay ${x.name}`,
+        sub: `${moneyShort(billShare(x))}${x.autopay ? " · autopay" : ""}`,
+        tone: x.due < today ? "warn" : "",
+        go: "money",
+      }),
+    );
+  if (d.skin.r.wash)
+    rows.push({ sort: 24 * 60 + 10, time: "Tonight", title: "Wash day", sub: "Skin & Hair", tone: "pink", go: "skin" });
+  return rows.sort((a, c) => a.sort - c.sort);
+}
+
+function dashTimelineHtml(b, d) {
+  const rows = dashDayRows(b, d);
+  const calConnected = !!(b && b.calendar);
+  const list = rows.length
+    ? rows
+        .map(
+          (r, i) => `<button class="jv-day-row ${r.tone}" data-action="jv-drill" data-go="${r.go}">
+          <span class="jv-day-time">${escapeHtml(r.time)}</span>
+          <span class="jv-day-dot${i === 0 ? " first" : ""}${i === rows.length - 1 ? " last" : ""}" aria-hidden="true"><i></i></span>
+          <span class="jv-day-text"><b>${escapeHtml(r.title)}</b>${r.sub ? `<span>${escapeHtml(r.sub)}</span>` : ""}</span>
+        </button>`,
+        )
+        .join("")
+    : `<div class="empty">Nothing scheduled today.</div>`;
+  const connect = calConnected
+    ? ""
+    : `<button class="jv-day-connect" data-action="jv-drill" data-go="calendar">+ Connect your calendar</button>`;
+  const openKey = DASH_TIMELINE_DETAILS.includes(dashOpenKey) ? dashOpenKey : null;
+  const detail = openKey
+    ? `<section class="jv-detail" id="${dashDetailId(openKey)}" aria-label="${openKey === "calendar" ? "Calendar" : "Deliveries"} details">${
+        openKey === "calendar" ? dashCalendarDetail(b && b.calendar) : dashDeliveriesDetail(b && b.deliveries)
+      }</section>`
+    : "";
+  const pkgs = dashToday(b && b.deliveries);
+  const chips = `<span class="jv-day-chips">${
+    calConnected
+      ? `<button class="jv-chip-sm${openKey === "calendar" ? " on" : ""}" data-action="jv-drill" data-go="calendar" aria-expanded="${openKey === "calendar"}">Calendar</button>`
+      : ""
+  }${
+    b && b.deliveries
+      ? `<button class="jv-chip-sm${openKey === "deliveries" ? " on" : ""}" data-action="jv-drill" data-go="deliveries" aria-expanded="${openKey === "deliveries"}">Deliveries${pkgs && pkgs.packages.length ? ` · ${pkgs.packages.length}` : ""}</button>`
+      : ""
+  }</span>`;
+  return `<div class="jv-label"><span>Your day</span><i></i>${chips}</div>
+    <section class="card jv-day" aria-label="Your day">${list}${connect}</section>${detail}`;
+}
+
+// Calendar detail (layout 1): today and tomorrow as an agenda list
+function dashCalendarDetail(c) {
+  if (!c) return `<p class="jv-line">${escapeHtml(DASH_SETUP.calendar)}</p>`;
+  if (c.status !== "ok") return jvErrorBody(c);
+  const cal = c.data;
+  const overlapping = new Set(cal.overlaps.flatMap((o) => [o.a, o.b]));
+  const day = (which, label) => {
+    const evs = cal.events.filter((e) => e.day === which);
+    return `<div class="jv-sub-label">${label}</div>${
+      evs.length
+        ? `<div class="jv-agenda">${evs
+            .map(
+              (e) => `<div class="jv-agenda-row${overlapping.has(e.title) && which === "today" ? " warn" : ""}">
+            <span class="jv-agenda-time">${e.allDay ? "All day" : `${dashTime(e.start)}${e.end ? `–${dashTime(e.end)}` : ""}`}</span>
+            <span class="jv-agenda-what"><b>${escapeHtml(e.title)}</b>${e.location ? `<span>${escapeHtml(e.location)}</span>` : ""}</span>
+            ${overlapping.has(e.title) && which === "today" ? '<span class="jv-agenda-flag">overlaps</span>' : ""}
+          </div>`,
+            )
+            .join("")}</div>`
+        : `<div class="empty">Nothing on the calendar.</div>`
+    }`;
+  };
+  return `${cal.summary ? `<p class="jv-lede">${escapeHtml(cal.summary)}</p>` : ""}${day("today", "Today")}${day("tomorrow", "Tomorrow")}${jvMeta(c)}`;
+}
+
+// Deliveries detail (layouts 1 + 2): arriving today with Mark bought, then each package's progress
+const DASH_PKG_STEPS = ["ordered", "shipped", "out", "delivered"];
+const DASH_PKG_LABEL = { ordered: "Ordered", shipped: "Shipped", out: "Out for delivery", delivered: "Delivered" };
+function dashDeliveriesDetail(c) {
+  if (!c) return `<p class="jv-line">${escapeHtml(DASH_SETUP.google)}</p>`;
+  if (c.status !== "ok") return jvErrorBody(c);
+  const today = addDaysIso(0);
+  const pkgs = c.data.packages;
+  if (!pkgs.length) return `<div class="empty">No Amazon orders on the way.</div>${jvMeta(c)}`;
+  const want = (name) => name && wantsList.find((w) => !wantsState[w.id] && w.name === name);
+  const arrivingToday = (p) => p.status !== "delivered" && (p.status === "out" || p.eta === today);
+  // one row per package: arriving-today ones first, with Mark bought when they're on the Shopping list
+  const row = (p) => {
+    const at = DASH_PKG_STEPS.indexOf(p.status);
+    const w = arrivingToday(p) ? want(p.shoppingMatch) : null;
+    const eta =
+      p.status === "delivered"
+        ? "Delivered"
+        : p.eta
+          ? `${p.eta === today ? "Today" : noonOf(p.eta).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}${p.etaText ? ` · ${p.etaText}` : ""}`
+          : DASH_PKG_LABEL[p.status];
+    return `<div class="jv-pkg">
+        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(p.item)}</b><span>${escapeHtml(eta)}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span>${
+          w
+            ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
+            : ""
+        }</div>
+        <div class="jv-pkg-steps" aria-label="${escapeAttr(DASH_PKG_LABEL[p.status])}">${DASH_PKG_STEPS.map(
+          (s, i) =>
+            `<span class="${i <= at ? "on" : ""}"><i></i>${["Ordered", "Shipped", "Out", "Delivered"][i]}</span>`,
+        ).join("")}</div>
+      </div>`;
+  };
+  const today_ = pkgs.filter(arrivingToday),
+    later = pkgs.filter((p) => !arrivingToday(p));
+  return (
+    (today_.length ? `<div class="jv-sub-label">Arriving today</div>${today_.map(row).join("")}` : "") +
+    (later.length ? `<div class="jv-sub-label">On the way</div>${later.map(row).join("")}` : "") +
+    jvMeta(c)
+  );
+}
+
+// Inbox tile and detail (layout 3): unread count, then urgent, replies and bills (checked against Budget)
+function dashInboxTile(b) {
+  const c = b && b.inbox;
+  const x = dashToday(c);
+  const differs = x ? x.bills.filter((y) => y.status === "differs").length : 0;
+  return {
+    go: "inbox",
+    label: "Inbox",
+    value: x ? `${x.unread} unread` : "—",
+    sub: x
+      ? [
+          x.urgent.length ? `${x.urgent.length} urgent` : "",
+          x.needsReply.length ? `${x.needsReply.length} to reply` : "",
+          differs
+            ? `${differs} bill ≠ Budget`
+            : x.bills.length
+              ? `${x.bills.length} bill${x.bills.length === 1 ? "" : "s"}`
+              : "",
+        ]
+          .filter(Boolean)
+          .join(" · ") || "Nothing needs you"
+      : c
+        ? "Unavailable"
+        : "Not connected",
+    pct: 0,
+    tone: x && (x.urgent.length || differs) ? "warn" : "",
+    detail: true,
+  };
+}
+function dashInboxDetail(c) {
+  if (!c) return `<p class="jv-line">${escapeHtml(DASH_SETUP.google)}</p>`;
+  if (c.status !== "ok") return jvErrorBody(c);
+  const x = c.data;
+  const row = (tag, tone, a, bText, extra = "") =>
+    `<div class="jv-mail-row"><span class="jv-mini ${tone}">${tag}</span><span class="jv-mail-text"><b>${escapeHtml(a)}</b>${bText ? `<span>${escapeHtml(bText)}</span>` : ""}</span>${extra}</div>`;
+  const bill = (y) => {
+    const amt = y.amount != null ? moneyShort(y.amount) : "amount not shown";
+    const due = y.due ? ` · due ${noonOf(y.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "";
+    const flag =
+      y.status === "differs"
+        ? `<button class="jv-chip-sm warn" data-action="jv-go" data-go="money">Budget ${moneyShort(y.budgetAmount)}</button>`
+        : y.status === "matches"
+          ? '<span class="jv-mail-ok">✓ Budget</span>'
+          : y.status === "not-in-budget"
+            ? '<span class="jv-mail-note">Not in Budget</span>'
+            : "";
+    return row("Bill", "gold", y.payee, amt + due, flag);
+  };
+  const rows =
+    x.urgent.map((y) => row("Urgent", "warn", y.from, y.summary)).join("") +
+    x.needsReply.map((y) => row("Reply", "am", y.from, y.summary)).join("") +
+    x.bills.map(bill).join("");
+  // the unread count is on the tile already
+  return `${
+    rows ? `<div class="jv-mail">${rows}</div>` : `<div class="empty">Nothing urgent, nobody waiting, no bills.</div>`
+  }${jvMeta(c)}`;
 }
