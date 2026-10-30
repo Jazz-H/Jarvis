@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Jarvis app icon (source). Render with `npm run icons` (scripts/render-icons.mjs).
+       Full-bleed square for maskable use: everything that matters sits inside the central
+       80% circle (r = 204.8), which Android may crop to. Colors are the Reactor theme tokens. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0" stop-color="#0b2a3b" />
+      <stop offset="0.55" stop-color="#04111b" />
+      <stop offset="1" stop-color="#02060b" />
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="45%" r="60%">
+      <stop offset="0" stop-color="#11506a" />
+      <stop offset="1" stop-color="#062634" />
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7" result="b" />
+      <feMerge>
+        <feMergeNode in="b" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)" />
+
+  <!-- circuit traces reaching in from the edges (cropped away on round masks; that's fine) -->
+  <g fill="none" stroke="#1c6e8e" stroke-width="3" stroke-linecap="round" opacity="0.7">
+    <path d="M 0 150 L 58 150 L 78 170 L 92 170" />
+    <path d="M 512 362 L 454 362 L 434 342 L 420 342" />
+    <path d="M 150 512 L 150 470 L 166 454" />
+    <path d="M 362 0 L 362 42 L 346 58" />
+  </g>
+  <g fill="#3fe0ff">
+    <circle cx="92" cy="170" r="5" />
+    <circle cx="420" cy="342" r="5" />
+  </g>
+
+  <!-- outer dotted ring -->
+  <circle cx="256" cy="256" r="186" fill="none" stroke="#3fe0ff" stroke-width="4" stroke-dasharray="2 12" opacity="0.65" stroke-linecap="round" />
+  <!-- segmented ring: 12 segments, 10 lit -->
+  <circle cx="256" cy="256" r="158" fill="none" stroke="#0f3446" stroke-width="22" stroke-dasharray="70.7 12" transform="rotate(-90 256 256)" />
+  <circle cx="256" cy="256" r="158" fill="none" stroke="#3fe0ff" stroke-width="22" stroke-dasharray="70.7 12 70.7 12 70.7 12 70.7 12 70.7 12 70.7 12 70.7 12 70.7 12 70.7 12 70.7 1000" transform="rotate(-90 256 256)" filter="url(#glow)" />
+  <!-- inner broken ring -->
+  <circle cx="256" cy="256" r="122" fill="none" stroke="#3fe0ff" stroke-width="5" stroke-dasharray="64 16 12 16" opacity="0.9" />
+
+  <!-- core -->
+  <circle cx="256" cy="256" r="100" fill="url(#core)" stroke="#3fe0ff" stroke-width="7" filter="url(#glow)" />
+  <circle cx="256" cy="256" r="84" fill="none" stroke="#3fe0ff" stroke-width="2" opacity="0.45" />
+
+  <!-- J -->
+  <text x="256" y="256" dy="0.35em" text-anchor="middle" font-family="Rajdhani, sans-serif" font-weight="700" font-size="178" fill="#e6f7ff" filter="url(#glow)">J</text>
+</svg>

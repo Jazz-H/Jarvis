@@ -11,10 +11,6 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
   that way, or put Budget back in the bar.
 
 ## Build
-- [ ] **New app icon.** The icon is still the charcoal "J 2.0" terminal card. Redesign it for
-  Jarvis in the Reactor look (near-black, cyan core ring), keep it inside Android's maskable
-  safe zone, and regenerate `icon-192.png` / `icon-512.png`; update the manifest and the README's
-  Icons section, and bump `CACHE_NAME` in `sw.js` so installed copies pick it up.
 - [ ] **Real phone notifications.** The Jarvis Action sends the morning headline as a Web Push
   notification (VAPID key in a secret; works for home-screen apps on iOS 16.4+), instead of
   only the in-app notice.
@@ -31,6 +27,7 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Your layout.** Reorder or hide Home's tiles; pin the detail you open most.
 
 ## Done
+- [x] New Jarvis app icon: reactor core with a Rajdhani "J" (`icon.svg`, `npm run icons`)
 - [x] App sync on (private gist) and all three Jarvis secrets added; first briefing delivered
   Oct 30 (Weather, News and Jarvis all succeeded, about $0.05 for the run)
 - [x] Pushed to GitHub (Oct 30): `main` live on Pages; Tests workflow green (app + agents)
