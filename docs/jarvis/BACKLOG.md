@@ -9,6 +9,11 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Phone notifications secret** (you, at the computer): copy `VAPID_PRIVATE_KEY` from
   `agents/.env` into a repo secret, then tap **Turn on** on your phone. SETUP.md section 7.
 
+- [ ] **Publish the Google app** (you): the Jarvis app is in "Testing", so the Gmail sign-in
+  ends every 7 days. Publishing was blocked on Branding (likely a privacy policy link); a
+  one-page privacy policy on the Pages site would fix it. Until then, redo `npm run google-auth`
+  weekly and update `GOOGLE_REFRESH_TOKEN`.
+
 ## Decide
 - (nothing open)
 
