@@ -4,11 +4,6 @@ Everything open, so nothing gets missed. Tick items off here as they land (and n
 branch or commit). Big phases live in `PLAN.md`; this list is the smaller work around them.
 
 ## Do next
-- [ ] **Connect Google** (you): Calendar's secret iCal address (2 min, phone) and the one-time
-  Gmail sign-in (15 min, computer). Steps: SETUP.md section 6.
-- [ ] **Phone notifications secret** (you, at the computer): copy `VAPID_PRIVATE_KEY` from
-  `agents/.env` into a repo secret, then tap **Turn on** on your phone. SETUP.md section 7.
-
 - [ ] **Publish the Google app** (you): the Jarvis app is in "Testing", so the Gmail sign-in
   ends every 7 days. Publishing was blocked on Branding (likely a privacy policy link); a
   one-page privacy policy on the Pages site would fix it. Until then, redo `npm run google-auth`
@@ -21,6 +16,8 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
+- [x] Google connected (Calendar, Inbox, Deliveries) and phone notifications on; tested Oct 30
+- [x] Skin & Hair renamed Beauty; notification badge; cleaner notification text (Oct 30)
 - [x] Workflow passes the Google and VAPID secrets to the morning run (Oct 30, `main`)
 - [x] Budget stays out of the tab bar; Home's Money tile is the way in (decided Oct 30)
 - [x] Backlog build, steps 7–16 (Oct 30, `main`): skin weather (UV + SPF, air quality), wash-day
