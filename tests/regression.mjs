@@ -9250,6 +9250,57 @@ await section("home polish: news shows 'topic · source' and one safe Read link 
   await ctx.close();
 });
 
+await section("undo: survives a quick edit after it and only puts back what was deleted", async () => {
+  const todo = (id, text) => ({ id, text, done: false, due: null, starred: false, subitems: [], completedAt: null });
+  const { ctx, page, errors } = await openApp({
+    seed: { "todo-content": [todo("a", "Alpha"), todo("b", "Bravo"), todo("c", "Charlie")] },
+  });
+  await page.evaluate(() => {
+    activateTab("todo");
+    editTodo("b");
+  });
+  await page.click("#modal-delete-btn");
+  check("deleted", await page.evaluate(() => !todoList.some((t) => t.id === "b")));
+  // within the undo window: star another to-do and rename a third (each saves)
+  await page.evaluate(() => {
+    todoList.find((t) => t.id === "a").starred = true;
+    saveContent("todo-content", todoList);
+    todoList.find((t) => t.id === "c").text = "Charlie 2";
+    saveContent("todo-content", todoList);
+    renderHome();
+  });
+  check("the Undo stays on screen after other saves", await page.isVisible(".toast.actionable .toast-action"));
+  await page.click(".toast .toast-action");
+  const r = await page.evaluate(() => todoList.map((t) => `${t.id}:${t.text}:${t.starred}`));
+  check(
+    "undo brings the deleted to-do back in its place and keeps the star and rename",
+    JSON.stringify(r) === '["a:Alpha:true","b:Bravo:false","c:Charlie 2:false"]',
+    r,
+  );
+  check("undo is saved", await page.evaluate(() => JSON.parse(localStorage.getItem("todo-content")).length === 3));
+  // the window: 8 seconds, paused while hovered
+  await page.evaluate(() => {
+    editTodo("c");
+  });
+  await page.click("#modal-delete-btn");
+  await page.hover(".toast.actionable");
+  await page.waitForTimeout(8600);
+  check("hovering keeps the Undo open past 8 s", await page.isVisible(".toast.actionable"));
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(8300);
+  check("it closes 8 s after the pointer leaves", !(await page.isVisible(".toast.actionable")));
+  check(
+    "errors still show over an Undo",
+    await page.evaluate(() => {
+      showUndoToast("Deleted", () => {});
+      showToast("Save failed", true);
+      return document.getElementById("toast").textContent === "Save failed";
+    }),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

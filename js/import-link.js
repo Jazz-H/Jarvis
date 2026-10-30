@@ -68,7 +68,7 @@ function applyCleanup(data) {
     hit.length && `remove ${[...new Set(hit.map((t) => `"${t.text}"`))].join(", ")}`,
   ].filter(Boolean);
   if (!confirm(`${parts.join(" and ").replace(/^./, (c) => c.toUpperCase())}?`)) return;
-  const snapshot = JSON.parse(JSON.stringify(liveData()));
+  const before = dataSnapshot();
   todoList = todoList.filter((t) => !hit.includes(t));
   const today = addDaysIso(0);
   adds.forEach((a) =>
@@ -87,15 +87,13 @@ function applyCleanup(data) {
   saveContent("todo-content", todoList, { toast: false });
   renderHome();
   activateTab("todo");
+  const after = dataSnapshot();
   showUndoToast(
     [adds.length && `Added ${adds.length}`, hit.length && `removed ${hit.length}`]
       .filter(Boolean)
       .join(", ")
       .replace(/^./, (c) => c.toUpperCase()) + ` to-do${adds.length + hit.length === 1 ? "" : "s"}`,
-    () => {
-      applyRemote({ updatedAt: Date.now(), data: snapshot });
-      markDataChanged();
-    },
+    () => undoTo(before, after),
   );
 }
 // Skin routine changes from a link:
@@ -151,7 +149,7 @@ function applyRoutineImport(data) {
     notes.length && `update the note on ${notes.map((u) => `"${u.item.item}"`).join(", ")}`,
   ].filter(Boolean);
   if (!confirm(`${parts.join(", ").replace(/^./, (c) => c.toUpperCase())}?`)) return;
-  const snapshot = JSON.parse(JSON.stringify(liveData()));
+  const before = dataSnapshot();
   steps.forEach((x) => {
     const step = { id: genId(x.band) };
     applyStepValues(step, {
@@ -178,10 +176,8 @@ function applyRoutineImport(data) {
   if (ticks.length || notes.length) savePlan3();
   saveRoutine();
   activateTab("skin");
-  showUndoToast(`${parts.join(", ").replace(/^./, (c) => c.toUpperCase())}`, () => {
-    applyRemote({ updatedAt: Date.now(), data: snapshot });
-    markDataChanged();
-  });
+  const after = dataSnapshot();
+  showUndoToast(`${parts.join(", ").replace(/^./, (c) => c.toUpperCase())}`, () => undoTo(before, after));
 }
 // Fitness set-up from a link: weight start/goal (if not set yet), weigh-ins on
 // dates without one, and workouts not already in the plan (by name)

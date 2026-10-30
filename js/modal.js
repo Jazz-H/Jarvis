@@ -115,8 +115,8 @@ function modalSave() {
   closeModal();
 }
 // Deletes happen right away with an Undo (no "are you sure?"): the undo puts
-// back a snapshot of every list taken just before, so it covers anything the
-// delete touched (a goal's links, a category's spending…).
+// back whatever the delete changed in any list (a goal's links, a category's
+// spending…) and keeps other edits made since (undoMerge).
 function modalDelete() {
   if (!modalOnDelete) return;
   if (modalDeleteOpts.noUndo) {
@@ -127,12 +127,10 @@ function modalDelete() {
     }
     return;
   }
-  const snapshot = JSON.parse(JSON.stringify(liveData()));
+  const before = dataSnapshot();
   const label = document.getElementById("modal-delete-btn").textContent;
   modalOnDelete();
   closeModal();
-  showUndoToast(/delete/i.test(label) ? "Deleted" : "Done", () => {
-    applyRemote({ updatedAt: Date.now(), data: snapshot });
-    markDataChanged();
-  });
+  const after = dataSnapshot();
+  showUndoToast(/delete/i.test(label) ? "Deleted" : "Done", () => undoTo(before, after));
 }
