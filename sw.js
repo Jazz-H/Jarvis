@@ -1,9 +1,10 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v121`;
+const CACHE_NAME = `${CACHE_PREFIX}v122`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
   "./css/app.css",
+  "./js/theme.js",
   "./js/constants.js",
   "./js/core.js",
   "./js/defaults.js",
@@ -12,6 +13,7 @@ const ASSETS = [
   "./js/holidays.js",
   "./js/home.js",
   "./js/jarvis.js",
+  "./js/dashboard.js",
   "./js/composer.js",
   "./js/todo.js",
   "./js/skin.js",
@@ -35,6 +37,11 @@ const ASSETS = [
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
+  "./fonts/inter-latin-var.woff2",
+  "./fonts/rajdhani-500.woff2",
+  "./fonts/rajdhani-600.woff2",
+  "./fonts/rajdhani-700.woff2",
+  "./fonts/share-tech-mono-400.woff2",
 ];
 
 self.addEventListener("install", (event) => {

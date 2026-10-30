@@ -36,6 +36,7 @@ describe("open-meteo tool", () => {
       washDay: true,
     });
     expect(f.hourlyRain.map((h) => h.hour)).toEqual([6, 7, 12, 17]); // 5am and 11pm dropped
+    expect(f.hourlyRain[2]).toEqual({ hour: 12, chance: 60, tempF: 61, conditions: "Light rain" });
     expect(f.humidityPct).toBe(75); // mean of 90, 80, 60, 70
   });
 

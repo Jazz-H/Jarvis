@@ -11,22 +11,40 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 
 ## Using the app
 
-**Jarvis** is the main tab (`home` in code; the bar says Jarvis). Jarvis's briefing sits on
-top, and Home's day planner follows below it.
-- **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
-  came from (Jarvis, Jazz, Weather, News). If the Jarvis model didn't finish, the items are
-  assembled automatically and say so. Problems from the run are listed under "notes".
-- **Weather card:** a summary, what to wear, a wash-day humidity note on wash days, hourly
-  rain-chance bars (6am–10pm), and the current conditions.
-- **News card:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with a
-  short summary and a link.
-- **Each card** names the agent that made it and when, and shows an error if that agent failed.
+**Jarvis** is the main tab (`home` in code; the bar says Jarvis). It's a dashboard fed by
+the whole app, with Home's day planner below it. In order:
+- **Greeting:** "Good morning, Jazz." with Jarvis's status (when it last briefed you), the
+  date, and the current weather.
+- **Today in 60 seconds:** a ring with how much of today's list is done, Jarvis's headline,
+  and 3–5 ranked items tagged with where each came from (Jarvis, Jazz, Weather, News). If the
+  Jarvis model didn't finish, the items are assembled automatically and say so. Problems from
+  the run are listed under "notes".
+- **Systems:** six tiles (Weather, To-Do, Money, Skin & Hair, Jazz 3.0, Shopping), each with
+  a headline number, a line of detail and a progress bar. Tap one to open its tab (Weather
+  scrolls to its card).
+- **Cards** (each folds; each ends in a link to its tab):
+  - **Weather:** now, high/low, rain chance and the hours it's likely, humidity, what to wear,
+    a wash-day note, then an hour-by-hour list (every 3 hours: temperature, conditions, rain).
+  - **To-Do:** overdue then today's to-dos (starred first), up to 6, ticked off in place.
+  - **Money:** bills due in the next 7 days (tick to pay), then the current pay period
+    (payday to payday) as a bar of paid vs. due, with what's left of the paycheck.
+  - **Skin & Hair:** AM and PM progress bars, the next step and the streak, then both
+    checklists side by side to tick off.
+  - **Jazz 3.0:** a bar for the weight goal and for each goal section, then chips for each
+    section and today's workouts.
+  - **Shopping:** how many needs and wants (and the estimated total), a line from Jarvis's
+    briefing when it mentions one of your needs, and the top needs to tick off as bought.
+  - **News:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with its
+    topic, a linked headline, the source and a short summary.
+- **Weather and News** name the agent that made them and when, and show an error if it failed.
+  Everything else is built on this device from your own lists, so it works offline and with
+  Jarvis not set up.
 - **New briefing notice:** when sync brings in a new briefing, a "Jarvis: <headline>" toast
   appears, the tab gets a dot if you're elsewhere, and the briefing shows **New** until seen.
   An older day's briefing is dimmed and labeled "From <date>". `?tab=jarvis` opens the tab.
-- **Not set up:** a short note points to `docs/jarvis/SETUP.md`; everything else works as before.
+- **Not set up:** the briefing panel says so and points to `docs/jarvis/SETUP.md`.
 
-**Home** (below the briefing) is a day planner.
+**Home** (the Planner, below the dashboard) is a day planner.
 - **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
@@ -250,6 +268,7 @@ only turning sync off still asks first.
 | `jazz2.0.html` | The app markup (header, six tab panels, toast, modal, tab bar). It loads `css/app.css` and the `js/*.js` scripts. No build step, no framework. |
 | `css/app.css` | All app styles, loaded by a blocking `<link>` in `<head>`. Precached by the service worker. |
 | `js/*.js` | The app code, split by feature into ordered **classic scripts** (see *How the app is organized*). Every file is precached by the service worker. |
+| `fonts/` | Self-hosted Inter, Rajdhani and Share Tech Mono (SIL OFL; see `fonts/README.md`), precached for offline use. |
 | `index.html` | Redirects the bare site URL to `jazz2.0.html`. |
 | `manifest.json` | PWA manifest: name, icons, standalone display, home-screen shortcuts. |
 | `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys, with the cached page as the offline fallback (query strings ignored, so `?tab=` shortcuts work offline). Icons and the manifest are served from cache and refreshed in the background. Install never caches an error response and removes a partial cache if installation fails. Activation only removes older Jazz-owned caches; unrelated origin caches are preserved. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
@@ -275,6 +294,7 @@ only turning sync off still asks first.
 
    | File | Contents |
    | --- | --- |
+   | `theme.js` | Light/dark theme. Loads in `<head>`, before the stylesheet paints |
    | `constants.js` | Shared constants and inline SVG icons |
    | `core.js` | Storage helpers (one JSON blob per key), toasts, escaping, shared UI state |
    | `defaults.js` | Default data that seeds localStorage on first run |
@@ -282,7 +302,8 @@ only turning sync off still asks first.
    | `todo-dates.js` | To-do dates, quick-add parsing, recurring to-dos |
    | `holidays.js` | US holidays by rule |
    | `home.js` | Home calendar strip, day agenda, `renderHome` |
-   | `jarvis.js` | Jarvis briefing: normalizing, rendering, the new-briefing notice, `ingestBriefingFile` (called by sync) |
+   | `jarvis.js` | Jarvis briefing: normalizing, the new-briefing notice, `ingestBriefingFile` (called by sync), and the briefing, Weather and News cards |
+   | `dashboard.js` | The Jarvis tab: greeting, tiles and the live To-Do, Money, Skin & Hair, Jazz 3.0 and Shopping cards (`dashboardHtml`) |
    | `composer.js` | The floating + button's add sheet |
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
    | `skin.js` | Skin & Hair routine, wash-day schedule, rules |
@@ -311,7 +332,8 @@ briefing with Weather and News. Setup: `docs/jarvis/SETUP.md`.
   lines, one for EDT and one for EST; only the one in the 6:30–9:00am window delivers, once a
   day), or on demand with "Run workflow".
 - **How it works:** `agents/jarvis.ts` reads `jazz2-data.json` from the sync gist for today's
-  to-dos, bills due in 3 days and wash days. It then runs the sub-agents in parallel:
+  to-dos, bills due in 3 days, wash days, Shopping needs, Jazz 3.0 goal sections and weight-goal
+  progress. It then runs the sub-agents in parallel:
   - **Weather:** `claude-haiku-5-5`, with data from Open-Meteo.
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
 
@@ -449,14 +471,32 @@ Lists still on their built-in defaults have no key until first edited.
 
 ## Design system
 
-**Theme.** "Graphite": a neutral charcoal ground with a soft-white primary accent, pastel
-blue for AM, and pastel pink for PM. Every color comes from the `:root` tokens, so a theme
-change only touches that block, plus `theme-color` in the HTML and `manifest.json`. The
-token names are historical:
-- `--gold`: AM;
-- `--navy`: PM;
-- `--olive`: the primary accent;
-- `--link`: links.
+**Theme.** "Reactor", a Jarvis HUD look: a near-black ground with a faint grid, electric cyan
+for the accent, amber for warnings and overdue items, soft blue for AM and pink for PM.
+- **Light and dark:** the header's theme button cycles **System → Light → Dark**. System
+  follows the phone or computer, including when it switches. The choice is stored on this
+  device only (`theme-pref`); it isn't synced or backed up. `js/theme.js` sets
+  `<html data-theme="light|dark">` and the browser's `theme-color` before the first paint.
+- **Tokens:** every color comes from the `:root` tokens in `css/app.css`, and
+  `:root[data-theme="light"]` redefines the same ones, so new UI only needs the tokens to
+  work in both themes. The names are historical:
+  - `--gold`: AM;
+  - `--navy`: PM;
+  - `--olive`: the primary accent;
+  - `--link`: links.
+
+  Newer tokens:
+  - `--warn`;
+  - `--track`: empty parts of rings and bars;
+  - `--trace`: section lines;
+  - `--grid`, `--glow` and `--shade`;
+  - `--hue-l` / `--hue-bg-l`: the lightness for per-kind hue colors, darker in light mode
+    so they stay readable;
+  - `--font-body`, `--font-display` and `--font-mono`.
+- **Type:** Inter for reading text, Rajdhani for headings and big numbers, and Share Tech Mono
+  for small uppercase HUD labels (card titles, section labels, the tab bar). All three are
+  self-hosted in `fonts/`. Body text stays Inter at 14–16px so daily reading is easy.
+- **Contrast:** text and dim text meet WCAG AA (4.5:1) on their backgrounds in both themes.
 
 **Icons.**
 - **Design:** a charcoal terminal-window card with a blue→pink "J", a raised "2.0", and a

@@ -65,6 +65,36 @@ describe("jazz context", () => {
     expect(c.washTomorrow).toBe(false);
   });
 
+  it("lists open shopping needs, Jazz 3.0 goal progress and weight-goal progress", () => {
+    const c = buildJazzContext(
+      gist({
+        "wants-content": [
+          { id: "w1", name: "Desk lamp", kind: "want" },
+          { id: "w2", name: "Rain jacket", kind: "need" },
+          { id: "w3", name: "Blazer", wardrobeCat: "Tops" }, // wardrobe items default to needs
+          { id: "w4", name: "Shampoo", kind: "need", priority: "high" },
+          { id: "w5", name: "Bought one", kind: "need" },
+          { id: "w6", name: "Later one", kind: "need", later: true },
+        ],
+        "wants-state": { w5: true },
+        "plan3-content": [
+          { cat: "Glow", item: "a", done: true },
+          { cat: "Glow", item: "b" },
+          { cat: "Leadership", item: "c" },
+        ],
+        "fitness-content": { start: 200, goal: 180, weights: [{ lbs: 200 }, { lbs: 190 }] },
+      }),
+      TODAY,
+    );
+    expect(c.shoppingNeeds).toEqual(["Shampoo", "Rain jacket", "Blazer"]);
+    expect(c.goals).toEqual([
+      { name: "Glow", done: 1, total: 2 },
+      { name: "Leadership", done: 0, total: 1 },
+    ]);
+    expect(c.weightGoalPct).toBe(50);
+    expect(buildJazzContext(gist({}), TODAY)).toMatchObject({ shoppingNeeds: [], goals: [], weightGoalPct: null });
+  });
+
   it("adds days across months", () => {
     expect(addDays("2026-10-30", 3)).toBe("2026-11-02");
   });

@@ -18,6 +18,7 @@ const TYPES = {
   ".js": "text/javascript",
   ".json": "application/json",
   ".png": "image/png",
+  ".woff2": "font/woff2",
 };
 
 function resolveRepoFile(pathname) {
@@ -815,12 +816,12 @@ await section("home: day agenda completes in place", async () => {
     skinRoutine.washPm = [];
     renderHome();
   }); // no Wash hair row, whatever day the suite runs
-  await page.tap('#panel-home .todo-check[aria-label="Complete: Due today"]');
+  await page.tap('#panel-home .home-list .todo-check[aria-label="Complete: Due today"]');
   check("completed from Home", await page.evaluate(() => todoList[0].done));
   check("still on Home", (await page.textContent("#headline")) === "Jarvis");
   const r = await page.evaluate(() => ({
     struck:
-      !document.querySelector('#panel-home .todo-check[aria-label="Mark not done: Due today"]') &&
+      !document.querySelector('#panel-home .home-list .todo-check[aria-label="Mark not done: Due today"]') &&
       document.querySelector("#panel-home").textContent.includes("All done · 1 to-do finished"),
     ring: document.querySelector(".home-ring").getAttribute("aria-label"),
     sub: document.querySelector(".home-hero .sub").textContent,
@@ -930,7 +931,8 @@ await section("home: calendar strip picks any day", async () => {
       ],
     },
   });
-  const titles = () => page.$$eval("#panel-home .todo-wrap .title", (els) => els.map((e) => e.textContent.trim()));
+  const titles = () =>
+    page.$$eval("#panel-home .home-list .todo-wrap .title", (els) => els.map((e) => e.textContent.trim()));
   const wk = await page.evaluate(() => {
     const first = document.querySelector("#panel-home .home-week .home-day");
     return first && first.getAttribute("aria-label");
@@ -1439,14 +1441,14 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   // Pay it from Home
   await page.evaluate(() => activateTab("home"));
   check("bill shows on Home today", (await page.textContent("#panel-home")).includes("Pay Rent"));
-  await page.click('#panel-home .bill-home .todo-check[aria-label="Mark paid: Rent"]');
+  await page.click('#panel-home .home-list .bill-home .todo-check[aria-label="Mark paid: Rent"]');
   const paid = await page.evaluate(() => ({
     due: bills[0].due,
     pays: billPayments.length,
     next: addMonthsIso(addDaysIso(0), 1),
   }));
   check("paying logs it and moves the bill to next month", paid.pays === 1 && paid.due === paid.next, paid);
-  check("paid bill stays on Home, struck", !!(await page.$("#panel-home .bill-home .item.checked")));
+  check("paid bill stays on Home, struck", !!(await page.$("#panel-home .home-list .bill-home .item.checked")));
   await page.click(".toast button");
   check("undo un-pays", await page.evaluate(() => billPayments.length === 0 && bills[0].due === addDaysIso(0)));
 
@@ -2535,6 +2537,8 @@ await section("drag to reorder by pressing a row (Home and To-Do)", async () => 
     renderHome();
   });
   const dragRow = async (from, to, below = false) => {
+    await page.locator(to).scrollIntoViewIfNeeded(); // Home's planner sits below the Jarvis dashboard
+    await page.locator(from).scrollIntoViewIfNeeded();
     const a = await page.locator(from).boundingBox(),
       b = await page.locator(to).boundingBox();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
@@ -2546,7 +2550,7 @@ await section("drag to reorder by pressing a row (Home and To-Do)", async () => 
     await page.waitForTimeout(150);
   };
   // Home: drag Charlie above Alpha
-  await dragRow('#panel-home [data-todo-id="c"] .title', '#panel-home [data-todo-id="a"] .title');
+  await dragRow('#panel-home .home-list [data-todo-id="c"] .title', '#panel-home .home-list [data-todo-id="a"] .title');
   const homeOrder = await page.evaluate(() =>
     todoList
       .filter((t) => t.due === addDaysIso(0))
@@ -2556,14 +2560,14 @@ await section("drag to reorder by pressing a row (Home and To-Do)", async () => 
   check("Home: press and drag reorders the day's to-dos", homeOrder === "cab", homeOrder);
   check("the drop doesn't open the editor", !(await page.isVisible("#modal-backdrop.open")));
   // Home: drag Someday from Anytime into the day's list → gets today's date
-  await dragRow('#panel-home [data-todo-id="n"] .title', '#panel-home [data-todo-id="b"] .title');
+  await dragRow('#panel-home .home-list [data-todo-id="n"] .title', '#panel-home .home-list [data-todo-id="b"] .title');
   check(
     "Home: dropping into the day's list sets that date",
     await page.evaluate(() => todoList.find((t) => t.id === "n").due === addDaysIso(0)),
   );
   // a plain click still edits
   await page.waitForTimeout(450);
-  await page.click('#panel-home [data-todo-id="b"] .title');
+  await page.click('#panel-home .home-list [data-todo-id="b"] .title');
   check("a plain click still opens the editor", await page.isVisible("#modal-backdrop.open"));
   await page.evaluate(() => closeModal());
   // To-Do: drag a row (no handle) to the end of Today
@@ -3497,7 +3501,7 @@ await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words 
       ],
     },
   });
-  await page.click('#panel-home .todo-check[aria-label="Complete: Water plants"]');
+  await page.click('#panel-home .home-list .todo-check[aria-label="Complete: Water plants"]');
   // a sync swaps in fresh objects before Undo is tapped
   await page.evaluate(() => {
     todoList = JSON.parse(JSON.stringify(todoList));
@@ -3506,10 +3510,10 @@ await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words 
   const u = await page.evaluate(() => todoList.map((t) => [t.text, t.due, t.done]));
   check("undo still restores the repeat after a sync", u.length === 1 && u[0][1] === isoOffset(0), u);
   // complete again, then un-tick the done copy on Home: the series comes back
-  await page.click('#panel-home .todo-check[aria-label="Complete: Water plants"]');
+  await page.click('#panel-home .home-list .todo-check[aria-label="Complete: Water plants"]');
   check(
     "finished repeat leaves Home",
-    !(await page.$('#panel-home .todo-check[aria-label="Mark not done: Water plants"]')),
+    !(await page.$('#panel-home .home-list .todo-check[aria-label="Mark not done: Water plants"]')),
   );
   await page.evaluate(() => toggleTodo(todoList.find((t) => t.done && t.text === "Water plants").id));
   const back = await page.evaluate(() => todoList.map((t) => [t.due, t.done]));
@@ -4311,7 +4315,7 @@ await section("handlers: Home bill pay button vs row, composer chips and date in
     "Home paid bill check un-pays it",
     (await page.evaluate(() => billPayments.length)) === 0 && !(await modalOpen()),
   );
-  await page.click("#panel-home .todo-wrap .body >> text=Rent");
+  await page.click("#panel-home .home-list .todo-wrap .body >> text=Rent");
   check("Home bill row opens its editor", await modalOpen());
   await page.evaluate(() => closeModal());
   await page.click("#fab");
@@ -5919,9 +5923,9 @@ await section("bill pay/unpay checks: delegated from Home and Budget, validated,
       window.activateTabReal = activateTab;
     });
   await trap();
-  const homeRow = (name) => `#panel-home .bill-home:has(.title:text-is("Pay ${name}"))`;
+  const homeRow = (name) => `#panel-home .home-list .bill-home:has(.title:text-is("Pay ${name}"))`;
   const markup = await page.evaluate(() =>
-    [...document.querySelectorAll("#panel-home .bill-home")].map((w) => ({
+    [...document.querySelectorAll("#panel-home .home-list .bill-home")].map((w) => ({
       inline: w.querySelectorAll(".todo-check[onclick]").length,
       a: w.querySelector(".todo-check").getAttribute("data-action"),
       d: w.querySelector(".todo-check").getAttribute("data-due"),
@@ -5965,10 +5969,12 @@ await section("bill pay/unpay checks: delegated from Home and Budget, validated,
     "paid row now offers un-pay",
     await page.evaluate(
       () =>
-        !!document.querySelector('#panel-home .bill-home .todo-check[data-action="bill-unpay"][aria-checked="true"]'),
+        !!document.querySelector(
+          '#panel-home .home-list .bill-home .todo-check[data-action="bill-unpay"][aria-checked="true"]',
+        ),
     ),
   );
-  await page.click(`#panel-home .bill-home .todo-check[data-action="bill-unpay"]`);
+  await page.click(`#panel-home .home-list .bill-home .todo-check[data-action="bill-unpay"]`);
   w = await water();
   check(
     "Home un-pay removes the payment and restores the due date",
@@ -6088,7 +6094,7 @@ await section(
       };
     });
     const log = () => page.evaluate(() => JSON.stringify(window.__log));
-    const row = `#panel-home .bill-home:has(.title:text-is("Pay Water"))`;
+    const row = `#panel-home .home-list .bill-home:has(.title:text-is("Pay Water"))`;
     const markup = await page.evaluate(() => {
       const b = bills[0],
         p = { id: "px", billId: b.id, name: b.name, amount: 40 };
@@ -6122,7 +6128,7 @@ await section(
       "checkbox click pays without opening the editor",
       (await log()) === '["edit:bw"]' && (await page.evaluate(() => billPayments.length)) === 1,
     );
-    await page.click(`#panel-home .bill-home.bill-home:has(.todo-check[data-action="bill-unpay"]) .body`);
+    await page.click(`#panel-home .home-list .bill-home.bill-home:has(.todo-check[data-action="bill-unpay"]) .body`);
     check(
       "paid row body opens the Budget tab, not the editor",
       (await log()) === '["edit:bw","tab:budget"]' &&
@@ -7626,7 +7632,7 @@ function briefingFixture(over = {}) {
           hourlyRain: [
             { hour: 6, chance: 10 },
             { hour: 9, chance: 30 },
-            { hour: 12, chance: 60 },
+            { hour: 12, chance: 60, tempF: 64, conditions: "Light rain" },
           ],
           washDay: true,
           summary: "Light rain by noon.",
@@ -7689,11 +7695,13 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
     sources: [...document.querySelectorAll(".jv-summary .jv-src")].map((s) => s.className),
     weatherInsight: document.querySelector("#jarvis-weather .insight").textContent,
     wash: document.querySelector("#jarvis-weather .jv-wash")?.textContent || "",
-    bars: document.querySelectorAll("#jarvis-weather .jv-bar").length,
+    hours: [...document.querySelectorAll("#jarvis-weather .jv-hour")].map((h) =>
+      h.textContent.replace(/\s+/g, " ").trim(),
+    ),
     meta: document.querySelector("#jarvis-weather .jv-meta").textContent,
     links: [...document.querySelectorAll("#jarvis-news a")].map((a) => a.getAttribute("href")),
     titles: [...document.querySelectorAll("#jarvis-news .jv-story-title")].map((t) => t.textContent),
-    order: [...document.getElementById("panel-home").children].map((c) => c.className.split(" ")[0]).slice(0, 2),
+    order: [...document.getElementById("panel-home").children].map((c) => c.className.split(" ")[0]).slice(0, 3),
     newPill: !!document.querySelector(".jv-pill"),
     seen: localStorage.getItem("jarvis-briefing-seen"),
   }));
@@ -7702,11 +7710,19 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
   check("unknown source falls back to Jarvis", r.sources[2].includes("jv-src-jarvis"), r.sources);
   check("weather insight shows high/low and rain", r.weatherInsight === "69°/49° · 60% rain", r.weatherInsight);
   check("wash-day note shows", r.wash.includes("frizz"), r.wash);
-  check("hourly rain bars", r.bars === 3, r.bars);
+  check(
+    "hour-by-hour list (every third hour, temp and conditions when present)",
+    r.hours.length === 3 && r.hours[2] === "12p 64° Light rain 60%" && r.hours[0] === "6a 10%",
+    r.hours,
+  );
   check("card names its agent", r.meta.startsWith("Weather agent ·"), r.meta);
   check("only the http link is a link", JSON.stringify(r.links) === '["https://news.google.com/a1"]', r.links);
   check("unsafe-link story still shows as text", r.titles.includes("Evil link"), r.titles);
-  check("briefing sits above the planner", r.order[0] === "jv-wrap" && r.order[1] === "home-cal", r.order);
+  check(
+    "dashboard sits above the planner",
+    r.order[0] === "jv-wrap" && r.order[1] === "jv-label" && r.order[2] === "home-cal",
+    r.order,
+  );
   check("first view shows New and marks it seen", r.newPill && r.seen === briefingFixture().id, r);
   await page.evaluate(() => renderHome());
   check("New goes away after it's been seen", !(await page.$(".jv-pill")));
@@ -7840,6 +7856,164 @@ await section("jarvis: sync pulls the briefing from the gist, notifies in-app, a
     "sync payload and backup leave the briefing out",
     !(await page.evaluate(() => JSON.stringify([collectLocal(), liveData()]).includes("Rain by noon"))),
   );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("theme: follows the system, cycles system → light → dark, stays on this device", async () => {
+  const { ctx, page, errors } = await openApp();
+  const state = () =>
+    page.evaluate(() => ({
+      theme: document.documentElement.dataset.theme,
+      pref: document.getElementById("theme-btn").dataset.pref,
+      label: document.getElementById("theme-btn").getAttribute("aria-label"),
+      meta: document.querySelector('meta[name="theme-color"]').getAttribute("content"),
+      bg: getComputedStyle(document.body).backgroundColor,
+    }));
+  await page.emulateMedia({ colorScheme: "light" });
+  let s = await state();
+  check("system light → light theme", s.theme === "light" && s.pref === "system" && s.meta === "#eef4f8", s);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.waitForTimeout(100);
+  s = await state();
+  check("system change is followed live", s.theme === "dark" && s.meta === "#02060b", s);
+  await page.tap("#theme-btn");
+  s = await state();
+  check("first tap pins light", s.theme === "light" && s.pref === "light" && s.label === "Theme: light", s);
+  check("light ground is light", s.bg === "rgb(238, 244, 248)", s.bg);
+  await page.tap("#theme-btn");
+  check("second tap pins dark", (await state()).theme === "dark");
+  await page.reload();
+  await page.waitForTimeout(400);
+  s = await state();
+  check("choice survives a reload", s.theme === "dark" && s.pref === "dark" && s.bg === "rgb(2, 6, 11)", s);
+  await page.tap("#theme-btn");
+  check("third tap goes back to the system", (await state()).pref === "system");
+  check(
+    "theme choice is not synced or backed up",
+    await page.evaluate(
+      () => !SYNC_KEYS.includes("theme-pref") && !JSON.stringify([collectLocal(), liveData()]).includes("theme-pref"),
+    ),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("jarvis dashboard: greeting, tiles and live section cards feed from the app", async () => {
+  const td = (id, text, due, extra = {}) => ({
+    id,
+    text,
+    done: false,
+    due,
+    starred: false,
+    subitems: [],
+    completedAt: null,
+    ...extra,
+  });
+  const briefing = briefingFixture({
+    summary: [{ text: "Grab the rain jacket from your list today.", source: "jarvis" }],
+  });
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "jarvis-briefing": briefing,
+      "todo-content": [
+        td("a", "Today thing", isoOffset(0)),
+        td("b", "Late thing", isoOffset(-2)),
+        td("c", "Starred today", isoOffset(0), { starred: true }),
+        td("d", "Next week", isoOffset(9)),
+      ],
+      "bills-content": [
+        {
+          id: "b1",
+          name: "Rent",
+          amount: 1450,
+          due: isoOffset(3),
+          repeat: "monthly",
+          autopay: false,
+          group: "personal",
+        },
+        { id: "b2", name: "Gym", amount: 30, due: isoOffset(20), repeat: "monthly", autopay: false, group: "personal" },
+      ],
+      "wants-content": [
+        { id: "w1", name: "Rain jacket", kind: "need", price: 120 },
+        { id: "w2", name: "Desk lamp", kind: "want", price: 48 },
+      ],
+      "fitness-content": {
+        start: 200,
+        goal: 180,
+        weights: [
+          { id: "x1", date: isoOffset(-30), lbs: 200 },
+          { id: "x2", date: isoOffset(-1), lbs: 190 },
+        ],
+        plan: [],
+        checks: {},
+      },
+    },
+  });
+  const r = await page.evaluate(() => ({
+    hello: document.querySelector(".jv-hello").textContent,
+    sub: document.querySelector(".jv-greet-sub").textContent,
+    tiles: [...document.querySelectorAll(".jv-tile")].map((t) => [
+      t.dataset.go,
+      t.querySelector(".jv-tile-value").textContent,
+    ]),
+    todo: [...document.querySelectorAll("#jv-todo .title")].map((t) => t.textContent.trim()),
+    money: [...document.querySelectorAll("#jv-money .bill-home .title")].map((t) => t.textContent.trim()),
+    jazz3: document.querySelector("#jv-jazz3 .insight").textContent,
+    shop: document.querySelector("#jv-shop .jv-shop-count b").textContent,
+    match: document.querySelector("#jv-shop .jv-shop-match")?.textContent || "",
+    cards: [...document.querySelectorAll(".jv-wrap .pinned")].map((c) => c.id),
+  }));
+  check("greeting names Jazz", /^Good (morning|afternoon|evening), Jazz\.$/.test(r.hello), r.hello);
+  check("greeting carries the forecast", r.sub.includes("Springfield") && r.sub.includes("51°"), r.sub);
+  check(
+    "six tiles, one per feed",
+    JSON.stringify(r.tiles.map((t) => t[0])) === '["weather","todo","money","skin","jazz3","shop"]',
+    r.tiles,
+  );
+  check("to-do tile counts overdue + today", r.tiles[1][1] === "3 left", r.tiles);
+  check("money tile totals bills due this week", r.tiles[2][1] === "$1,450", r.tiles);
+  check("jazz 3.0 tile shows weight-goal progress", r.tiles[4][1] === "50%", r.tiles);
+  const needN = await page.evaluate(() => dashShopData().needs.length); // built-in wardrobe needs count too
+  check("shopping tile counts needs", r.tiles[5][1] === `${needN} need${needN === 1 ? "" : "s"}`, [r.tiles, needN]);
+  check(
+    "to-do card: overdue first, then today (starred first)",
+    r.todo.join("|") === "Late thing|Starred today|Today thing",
+    r.todo,
+  );
+  check("money card: only bills due within 7 days", r.money.length === 1 && r.money[0].endsWith("Pay Rent"), r.money);
+  check("jazz 3.0 card", r.jazz3 === "Weight 50%", r.jazz3);
+  check("shopping card counts needs", r.shop === r.tiles[5][1], r.shop);
+  check("shopping card shows Jarvis's matching line", r.match.includes("rain jacket"), r.match);
+  check(
+    "cards in order",
+    r.cards.join() === "jarvis-weather,jv-todo,jv-money,jv-skin,jv-jazz3,jv-shop,jarvis-news",
+    r.cards,
+  );
+
+  // tick things off in place, with the same actions as their own tabs
+  await page.tap('#jv-todo .todo-check[aria-label="Complete: Today thing"]');
+  check("to-do completes from the dashboard", await page.evaluate(() => todoList.find((t) => t.id === "a").done));
+  await page.tap('#jv-money .todo-check[aria-label="Mark paid: Rent"]');
+  check("bill pays from the dashboard", await page.evaluate(() => billPayments.some((p) => p.billId === "b1")));
+  const step = await page.evaluate(() => routineForDate(new Date()).am[0].id);
+  await page.tap(`#jv-skin .jv-step[data-band="am"][data-step-id="${step}"]`);
+  check("routine step ticks from the dashboard", await page.evaluate((id) => todayChecks().am.includes(id), step));
+  await page.tap("#jv-shop .coll-head");
+  await page.tap('#jv-shop .todo-check[aria-label="Bought: Rain jacket"]');
+  check("shopping need ticks from the dashboard", await page.evaluate(() => !!wantsState.w1));
+
+  // tiles open their tabs
+  await page.tap('.jv-tile[data-go="money"]');
+  check("money tile opens Budget", (await page.textContent("#headline")) === "Budget");
+  await page.evaluate(() => activateTab("home"));
+  await page.tap('.jv-tile[data-go="skin"]');
+  check("skin tile opens Skin & Hair", (await page.textContent("#headline")) === "Skin & Hair");
+  await page.evaluate(() => {
+    activateTab("home");
+    dashGo("nope"); // unknown targets do nothing
+  });
+  check("unknown tile target is inert", (await page.textContent("#headline")) === "Jarvis");
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

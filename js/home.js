@@ -271,19 +271,9 @@ function homeRingHtml(done, total) {
 }
 // Re-renders both pages that show to-dos, so every to-do change can keep
 // calling renderHome() and Home's summary card never goes stale.
-function renderHome() {
-  renderTodoPanel();
-  renderHomePanel();
-}
-function renderHomePanel() {
-  const el = document.getElementById("panel-home");
-  const iso = homeSelected(),
-    today = addDaysIso(0);
+// Everything on a day's list and how much of it is done (the progress ring on Home and on Jarvis)
+function homeDayTotals(iso) {
   const day = homeDayItems(iso);
-  const date = noonOf(iso);
-  const strip = homeCalHtml();
-  homeCalAnim = false;
-
   const washDone = day.wash && washHairDone(iso);
   const repeats = day.repeats || [];
   const dayBills = billsOnDay(iso);
@@ -303,6 +293,20 @@ function renderHomePanel() {
     workouts.length +
     (weighDue ? 1 : 0);
   const done = day.done.length + (washDone ? 1 : 0) + dayBills.paid.length + workoutsDone;
+  return { day, washDone, repeats, dayBills, weighDue, weighDone, workouts, total, done };
+}
+function renderHome() {
+  renderTodoPanel();
+  renderHomePanel();
+}
+function renderHomePanel() {
+  const el = document.getElementById("panel-home");
+  const iso = homeSelected(),
+    today = addDaysIso(0);
+  const date = noonOf(iso);
+  const strip = homeCalHtml();
+  homeCalAnim = false;
+  const { day, washDone, repeats, dayBills, weighDue, workouts, total, done } = homeDayTotals(iso);
   const left = total - done;
   let sub;
   if (iso === today) {
@@ -413,7 +417,8 @@ function renderHomePanel() {
   const openTotal = todoList.filter((t) => !t.done).length;
   list += `<button class="home-more home-all" data-action="home-open-todo">All to-dos (${openTotal}) →</button>`;
 
-  el.innerHTML = jarvisHtml() + strip + hero + list; // Jarvis's briefing leads the main tab
+  // Jarvis's dashboard leads the main tab; the day planner follows
+  el.innerHTML = dashboardHtml() + `<div class="jv-label jv-planner-label">Planner</div>` + strip + hero + list;
 }
 // The calendar strip's own gestures: down opens the month, up closes it, and
 // sideways pages weeks (or months). Touches that start on it are left out of

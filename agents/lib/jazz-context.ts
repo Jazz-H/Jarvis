@@ -10,6 +10,9 @@ export interface JazzContext {
   billsDueSoon: { name: string; amount: number; due: string; autopay: boolean }[];
   washDay: boolean;
   washTomorrow: boolean;
+  shoppingNeeds: string[]; // open "need" items, high priority first
+  goals: { name: string; done: number; total: number }[]; // Jazz 3.0 sections
+  weightGoalPct: number | null; // how far from start weight to goal weight
 }
 
 const DEFAULT_WASH = { anchor: "2026-07-16", everyDays: 14 }; // same as js/skin.js
@@ -47,7 +50,49 @@ export function emptyContext(today: string): JazzContext {
     billsDueSoon: [],
     washDay: false,
     washTomorrow: false,
+    shoppingNeeds: [],
+    goals: [],
+    weightGoalPct: null,
   };
+}
+
+// Same rules as js/shopping.js wantKind(): wardrobe items without a kind count as needs
+function shoppingNeeds(data: any): string[] {
+  const list = Array.isArray(data["wants-content"]) ? data["wants-content"] : [];
+  const bought = data["wants-state"] && typeof data["wants-state"] === "object" ? data["wants-state"] : {};
+  return list
+    .filter((w: any) => w && !bought[w.id] && !w.later)
+    .filter((w: any) => w.kind === "need" || (w.kind !== "want" && !!w.wardrobeCat))
+    .sort((a: any, b: any) => Number(b.priority === "high") - Number(a.priority === "high"))
+    .slice(0, 6)
+    .map((w: any) => clip(w.name, 60))
+    .filter(Boolean);
+}
+
+// Jazz 3.0 sections in their saved order, with how many items are done
+function goals(data: any): JazzContext["goals"] {
+  const items = Array.isArray(data["plan3-content"]) ? data["plan3-content"] : [];
+  const out: JazzContext["goals"] = [];
+  for (const x of items) {
+    if (!x || typeof x.cat !== "string") continue;
+    const name = clip(x.cat, 40);
+    let g = out.find((o) => o.name === name);
+    if (!g) out.push((g = { name, done: 0, total: 0 }));
+    g.total++;
+    if (x.done) g.done++;
+  }
+  return out.slice(0, 6);
+}
+
+// Same math as js/fitness.js weightStatus().pct
+function weightGoalPct(data: any): number | null {
+  const f = data["fitness-content"];
+  const ws = f && Array.isArray(f.weights) ? f.weights.filter((w: any) => typeof w?.lbs === "number") : [];
+  if (!ws.length || typeof f.goal !== "number") return null;
+  const cur = ws[ws.length - 1].lbs;
+  const start = typeof f.start === "number" ? f.start : ws[0].lbs;
+  if (start === f.goal) return null;
+  return Math.max(0, Math.min(100, Math.round(((cur - start) / (f.goal - start)) * 100)));
 }
 
 export function buildJazzContext(raw: string | null, today: string): JazzContext {
@@ -88,5 +133,8 @@ export function buildJazzContext(raw: string | null, today: string): JazzContext
     billsDueSoon,
     washDay: isWashDate(today, routine),
     washTomorrow: isWashDate(addDays(today, 1), routine),
+    shoppingNeeds: shoppingNeeds(data),
+    goals: goals(data),
+    weightGoalPct: weightGoalPct(data),
   };
 }

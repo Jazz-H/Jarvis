@@ -47,7 +47,7 @@ export function forecastUrl(q: WeatherQuery): string {
     latitude: String(q.latitude),
     longitude: String(q.longitude),
     current: "temperature_2m,weather_code",
-    hourly: "precipitation_probability,relative_humidity_2m",
+    hourly: "precipitation_probability,relative_humidity_2m,temperature_2m,weather_code",
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
     temperature_unit: "fahrenheit",
     timezone: q.timezone,
@@ -68,12 +68,20 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
   const times: string[] = j?.hourly?.time ?? [];
   const rain: unknown[] = j?.hourly?.precipitation_probability ?? [];
   const humidity: unknown[] = j?.hourly?.relative_humidity_2m ?? [];
+  const temps: unknown[] = j?.hourly?.temperature_2m ?? [];
+  const codes: unknown[] = j?.hourly?.weather_code ?? [];
   const hourlyRain: WeatherFacts["hourlyRain"] = [];
   const dayHumidity: number[] = [];
   times.forEach((t, i) => {
     const hour = Number(t.slice(11, 13));
     if (hour < 6 || hour > 22) return; // waking hours only
-    if (typeof rain[i] === "number") hourlyRain.push({ hour, chance: Math.round(rain[i] as number) });
+    if (typeof rain[i] === "number")
+      hourlyRain.push({
+        hour,
+        chance: Math.round(rain[i] as number),
+        ...(typeof temps[i] === "number" ? { tempF: Math.round(temps[i] as number) } : {}),
+        ...(typeof codes[i] === "number" ? { conditions: describeWeatherCode(codes[i] as number) } : {}),
+      });
     if (typeof humidity[i] === "number") dayHumidity.push(humidity[i] as number);
   });
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);

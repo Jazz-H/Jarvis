@@ -10,7 +10,17 @@ export const WeatherFacts = z.object({
   lowF: z.number(),
   humidityPct: z.number().min(0).max(100), // daytime average
   rainChanceMax: z.number().min(0).max(100),
-  hourlyRain: z.array(z.object({ hour: z.number().int().min(0).max(23), chance: z.number().min(0).max(100) })).max(24),
+  // Waking hours; temperature and conditions feed the app's hour-by-hour list
+  hourlyRain: z
+    .array(
+      z.object({
+        hour: z.number().int().min(0).max(23),
+        chance: z.number().min(0).max(100),
+        tempF: z.number().optional(),
+        conditions: z.string().optional(),
+      }),
+    )
+    .max(24),
   washDay: z.boolean(),
 });
 export type WeatherFacts = z.infer<typeof WeatherFacts>;

@@ -248,6 +248,8 @@ const SHELL_CLICK = {
   },
   // Generated Home links (more anytime / All to-dos) both open the To-Do tab through the existing tab route.
   "home-open-todo": () => activateTab("todo"),
+  "theme-cycle": () => cycleTheme(),
+  "jv-go": (el) => dashGo(el.getAttribute("data-go")), // dashGo only accepts its own section names
   // Budget / bills. Every id, date and index is revalidated against live data; stale or forged metadata does nothing.
   "stop-click": (el, e) => e.stopPropagation(),
   "bill-row-open": (el) => {

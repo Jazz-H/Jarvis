@@ -540,5 +540,5 @@ function accountColor(name) {
     i = 0;
     for (const ch of String(name)) i = (i * 31 + ch.charCodeAt(0)) % ACCOUNT_HUES.length;
   }
-  return `hsl(${ACCOUNT_HUES[i % ACCOUNT_HUES.length]} 65% 66%)`;
+  return `hsl(${ACCOUNT_HUES[i % ACCOUNT_HUES.length]} 65% var(--hue-l))`;
 }
