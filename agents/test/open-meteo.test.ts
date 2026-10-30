@@ -23,9 +23,15 @@ describe("open-meteo tool", () => {
   });
 
   it("turns the response into facts, keeping waking hours only", async () => {
-    const { impl, calls } = fakeFetch([["https://api.open-meteo.com/", () => json(fixture)]]);
+    const { impl, calls } = fakeFetch([
+      ["https://api.open-meteo.com/", () => json(fixture)],
+      ["https://air-quality-api.open-meteo.com/", () => json({}, 503)], // optional: a failure just means no AQI
+    ]);
     const f = await fetchWeather(q, impl);
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
+    expect(f.uvMax).toBe(7); // waking hours only (tomorrow's 9 is left out)
+    expect(f.uvHigh).toEqual({ from: 12, to: 13 });
+    expect(f.aqi).toBeNull();
     expect(f).toMatchObject({
       location: "Springfield, IL",
       date: "2026-10-29",
@@ -47,6 +53,20 @@ describe("open-meteo tool", () => {
       rainChanceMax: 20,
     });
     expect(f.humidityPct).toBe(75); // mean of 90, 80, 60, 70
+  });
+
+  it("reads the day's worst waking-hour air quality", async () => {
+    const aq = {
+      hourly: {
+        time: ["2026-10-29T03:00", "2026-10-29T08:00", "2026-10-29T15:00", "2026-10-29T23:00"],
+        us_aqi: [120, 38, 51.4, 140],
+      },
+    };
+    const { impl } = fakeFetch([
+      ["https://api.open-meteo.com/", () => json(fixture)],
+      ["https://air-quality-api.open-meteo.com/", () => json(aq)],
+    ]);
+    expect((await fetchWeather(q, impl)).aqi).toBe(51);
   });
 
   it("throws on an HTTP error or a missing field", async () => {

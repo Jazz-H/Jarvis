@@ -47,13 +47,41 @@ export function forecastUrl(q: WeatherQuery): string {
     latitude: String(q.latitude),
     longitude: String(q.longitude),
     current: "temperature_2m,weather_code",
-    hourly: "precipitation_probability,relative_humidity_2m,temperature_2m,weather_code",
+    hourly: "precipitation_probability,relative_humidity_2m,temperature_2m,weather_code,uv_index",
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
     temperature_unit: "fahrenheit",
     timezone: q.timezone,
     forecast_days: "2", // today, plus tomorrow for the evening view
   });
   return `https://api.open-meteo.com/v1/forecast?${p}`;
+}
+// Open-Meteo's air-quality API (also keyless): today's hourly US AQI
+export function airQualityUrl(q: WeatherQuery): string {
+  const p = new URLSearchParams({
+    latitude: String(q.latitude),
+    longitude: String(q.longitude),
+    hourly: "us_aqi",
+    timezone: q.timezone,
+    forecast_days: "1",
+  });
+  return `https://air-quality-api.open-meteo.com/v1/air-quality?${p}`;
+}
+// Worst waking-hour AQI today, or null when the air-quality service doesn't answer (it's optional)
+async function fetchAqi(q: WeatherQuery, fetchImpl: typeof fetch): Promise<number | null> {
+  try {
+    const res = await fetchImpl(airQualityUrl(q), { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return null;
+    const j = (await res.json()) as any;
+    const times: string[] = j?.hourly?.time ?? [];
+    const vals: unknown[] = j?.hourly?.us_aqi ?? [];
+    const day = times
+      .map((t, i) => [Number(t.slice(11, 13)), vals[i]] as const)
+      .filter(([h, v]) => h >= 6 && h <= 22 && typeof v === "number")
+      .map(([, v]) => v as number);
+    return day.length ? Math.round(Math.max(...day)) : null;
+  } catch {
+    return null;
+  }
 }
 
 const num = (v: unknown, what: string): number => {
@@ -70,6 +98,8 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
   const humidity: unknown[] = j?.hourly?.relative_humidity_2m ?? [];
   const temps: unknown[] = j?.hourly?.temperature_2m ?? [];
   const codes: unknown[] = j?.hourly?.weather_code ?? [];
+  const uv: unknown[] = j?.hourly?.uv_index ?? [];
+  const uvHours: { hour: number; uv: number }[] = [];
   const hourlyRain: WeatherFacts["hourlyRain"] = [];
   const dayHumidity: number[] = [];
   const today = String(j?.daily?.time?.[0] ?? "");
@@ -85,7 +115,13 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
         ...(typeof codes[i] === "number" ? { conditions: describeWeatherCode(codes[i] as number) } : {}),
       });
     if (typeof humidity[i] === "number") dayHumidity.push(humidity[i] as number);
+    if (typeof uv[i] === "number") uvHours.push({ hour, uv: uv[i] as number });
   });
+  // UV: the day's peak, and the hours it's high (6+), for SPF advice
+  const uvMax = uvHours.length ? Math.round(Math.max(...uvHours.map((h) => h.uv))) : null;
+  const high = uvHours.filter((h) => h.uv >= 6);
+  const uvHigh = high.length ? { from: high[0].hour, to: high[high.length - 1].hour + 1 } : null;
+  const aqi = await fetchAqi(q, fetchImpl);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
   // Tomorrow's outlook, for the app's evening Tomorrow view (null if the second day is missing)
   const d1 = (k: string) => j?.daily?.[k]?.[1];
@@ -121,5 +157,8 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
     ),
     hourlyRain,
     washDay: q.washDay,
+    uvMax,
+    uvHigh,
+    aqi,
   });
 }

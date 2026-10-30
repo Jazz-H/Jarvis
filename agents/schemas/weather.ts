@@ -22,6 +22,13 @@ export const WeatherFacts = z.object({
     )
     .max(24),
   washDay: z.boolean(),
+  // skin weather: today's peak UV, the hours it's high (6+), and the worst waking-hour US AQI
+  uvMax: z.number().min(0).max(20).nullable().optional(),
+  uvHigh: z
+    .object({ from: z.number().int().min(0).max(23), to: z.number().int().min(1).max(24) })
+    .nullable()
+    .optional(),
+  aqi: z.number().min(0).max(500).nullable().optional(),
   // tomorrow's outlook, shown by the app's evening Tomorrow view
   tomorrow: z
     .object({

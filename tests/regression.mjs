@@ -8338,7 +8338,11 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
   const mail = await page.$$eval("#jv-detail-inbox .jv-mail-row", (els) =>
     els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
   );
-  check("inbox detail lists urgent, reply and bills", mail.length === 4 && mail[0].startsWith("Urgent") && mail[0].includes("Bank"), mail);
+  check(
+    "inbox detail lists urgent, reply and bills",
+    mail.length === 4 && mail[0].startsWith("Urgent") && mail[0].includes("Bank"),
+    mail,
+  );
   check(
     "a bill that differs from Budget is flagged",
     !!(await page.$('#jv-detail-inbox .jv-chip-sm.warn[data-go="money"]')),
@@ -8360,6 +8364,37 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
   );
   check("no JS errors (not connected)", plain.errors.length === 0, plain.errors);
   await plain.ctx.close();
+});
+
+await section("skin weather: UV with SPF advice and air quality, on Weather and the Skin tile", async () => {
+  const b = briefingFixture();
+  Object.assign(b.cards.weather.data, { uvMax: 7, uvHigh: { from: 11, to: 15 }, aqi: 42 });
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  const skinSub = await page.$eval('.jv-tile[data-go="skin"] .jv-tile-sub', (e) => e.textContent);
+  check("Skin & Hair tile flags a high-UV day", skinSub.includes("UV 7 · SPF"), skinSub);
+  await page.tap('.jv-tile[data-go="weather"]');
+  const rows = await page.$$eval("#jarvis-weather .jv-skinwx-row", (els) =>
+    els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
+  );
+  check(
+    "Weather detail shows UV with SPF advice and the hours, and air quality",
+    rows.length === 2 && rows[0].endsWith("High (7) 11a–3p: SPF 50, reapply every 2 h") && rows[1].endsWith("Good (AQI 42)"),
+    rows,
+  );
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("jarvis-briefing"));
+    Object.assign(raw.cards.weather.data, { uvMax: "lots", uvHigh: { from: "x" }, aqi: -5 });
+    localStorage.setItem("jarvis-briefing", JSON.stringify(raw));
+    renderHome();
+  });
+  const junk = await page.$$eval("#jarvis-weather .jv-skinwx-row", (els) => els.map((e) => e.textContent.trim()));
+  check(
+    "bad UV / AQI values are dropped or clamped, never shown raw",
+    junk.length === 1 && junk[0].includes("AQI 0"),
+    junk,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
 });
 
 await browser.close();

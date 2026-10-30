@@ -273,7 +273,13 @@ function dashTilesHtml(b, progress, d) {
       go: "skin",
       label: "Skin & Hair",
       value: skinAm ? `AM ${d.skin.amDone}/${d.skin.r.am.length}` : `PM ${d.skin.pmDone}/${d.skin.r.pm.length}`,
-      sub: d.skin.r.wash ? "Wash day tonight" : d.skin.streak ? `${d.skin.streak}-day streak` : "Today's routine",
+      // skin weather on the tile (layout 2): a high-UV day says SPF
+      sub: [
+        d.skin.r.wash ? "Wash day tonight" : d.skin.streak ? `${d.skin.streak}-day streak` : "Today's routine",
+        w && w.uvMax != null && w.uvMax >= 6 ? `UV ${w.uvMax} · SPF` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       pct: skinAm ? dashPct(d.skin.amDone, d.skin.r.am.length) : dashPct(d.skin.pmDone, d.skin.r.pm.length),
       tone: "pink",
       detail: true,

@@ -52,6 +52,12 @@ function normalizeBriefing(b) {
       wear: str(d.wear, 160),
       washDay: d.washDay === true,
       washDayNote: str(d.washDayNote, 160),
+      uvMax: num(d.uvMax, 0, 20),
+      uvHigh:
+        isObj(d.uvHigh) && Number.isInteger(d.uvHigh.from) && Number.isInteger(d.uvHigh.to)
+          ? { from: num(d.uvHigh.from, 0, 23), to: num(d.uvHigh.to, 1, 24) }
+          : null,
+      aqi: num(d.aqi, 0, 500),
       tomorrow:
         isObj(d.tomorrow) && isoDay(d.tomorrow.date) && num(d.tomorrow.highF, -80, 150) != null
           ? {
@@ -267,6 +273,7 @@ function jarvisWeatherDetail(c) {
   return `<p class="jv-lede">${escapeHtml(w.summary)}</p>
     ${w.wear ? `<p class="jv-line"><b>Wear:</b> ${escapeHtml(w.wear)}</p>` : ""}
     ${w.washDay && w.washDayNote ? `<p class="jv-line jv-wash">${DROPLET_ICON}<span>${escapeHtml(w.washDayNote)}</span></p>` : ""}
+    ${jvSkinWeatherHtml(w)}
     <div class="jv-facts">${escapeHtml(w.conditions)}${w.humidityPct != null ? ` · ${w.humidityPct}% humidity` : ""}</div>
     ${list}${jvMeta(c)}`;
 }
@@ -325,4 +332,45 @@ function jarvisHeroHtml(b) {
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${notes}
     </section>`;
+}
+
+// Skin weather: UV (with SPF advice) and air quality, from the Weather agent's facts
+function jvUvLevel(uv) {
+  return uv >= 11 ? "Extreme" : uv >= 8 ? "Very high" : uv >= 6 ? "High" : uv >= 3 ? "Moderate" : "Low";
+}
+function jvUvAdvice(uv) {
+  return uv >= 8
+    ? "SPF 50, reapply every 2 h, shade at midday"
+    : uv >= 6
+      ? "SPF 50, reapply every 2 h"
+      : uv >= 3
+        ? "SPF 30 before you go out"
+        : "Daily SPF is enough";
+}
+function jvAqiLevel(aqi) {
+  return aqi > 300
+    ? "Hazardous"
+    : aqi > 200
+      ? "Very unhealthy"
+      : aqi > 150
+        ? "Unhealthy"
+        : aqi > 100
+          ? "Unhealthy for sensitive groups"
+          : aqi > 50
+            ? "Moderate"
+            : "Good";
+}
+function jvSkinWeatherHtml(w) {
+  const lines = [];
+  if (w.uvMax != null) {
+    const when = w.uvHigh ? ` ${jvHourLabel(w.uvHigh.from)}–${jvHourLabel(w.uvHigh.to % 24)}` : "";
+    lines.push(
+      `<div class="jv-skinwx-row${w.uvMax >= 6 ? " warn" : ""}"><span class="jv-mini">UV</span><span>${jvUvLevel(w.uvMax)} (${w.uvMax})${when}: ${jvUvAdvice(w.uvMax)}</span></div>`,
+    );
+  }
+  if (w.aqi != null)
+    lines.push(
+      `<div class="jv-skinwx-row${w.aqi > 100 ? " warn" : ""}"><span class="jv-mini">Air</span><span>${jvAqiLevel(w.aqi)} (AQI ${w.aqi})</span></div>`,
+    );
+  return lines.length ? `<div class="jv-skinwx">${lines.join("")}</div>` : "";
 }
