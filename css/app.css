@@ -1717,6 +1717,12 @@ nav.tabbar button.j3-tab::before {
 .weight-months .wm-down {
   color: hsl(25 80% var(--hue-l));
 }
+.weight-months .wm-toward {
+  color: var(--olive);
+}
+.weight-months .wm-away {
+  color: var(--text-dim);
+}
 .goal-meta {
   margin: 8px 2px 0;
   font-size: 12.5px;

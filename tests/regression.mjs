@@ -8936,6 +8936,32 @@ await section("phone notifications repair themselves when the phone's push addre
   await ctx.close();
 });
 
+await section("weight by month: colored by whether it moved toward the goal", async () => {
+  const weights = [
+    { date: "2026-09-02", lbs: 200 },
+    { date: "2026-09-28", lbs: 196 },
+    { date: "2026-10-05", lbs: 194 },
+    { date: "2026-10-26", lbs: 196 },
+  ];
+  const tones = async (fit) => {
+    const { ctx, page } = await openApp({ seed: { "fitness-content": fit } });
+    await page.evaluate(() => activateTab("jazz3"));
+    const t = await page.$$eval(".weight-months span[class]", (els) => els.map((e) => e.className));
+    await ctx.close();
+    return t;
+  };
+  const losing = await tones({ start: 200, goal: 180, weights, plan: [], checks: {} });
+  check(
+    "losing toward a lower goal is good; a gain month is muted",
+    JSON.stringify(losing) === '["wm-away","wm-toward"]',
+    losing,
+  );
+  const gaining = await tones({ start: 200, goal: 210, weights, plan: [], checks: {} });
+  check("with a higher goal it's the other way round", JSON.stringify(gaining) === '["wm-toward","wm-away"]', gaining);
+  const none = await tones({ start: null, goal: null, weights, plan: [], checks: {} });
+  check("no goal: plain up/down colors", JSON.stringify(none) === '["wm-up","wm-down"]', none);
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

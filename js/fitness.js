@@ -158,6 +158,10 @@ function weightMonthsHtml() {
   if (by.size < 2) return "";
   const today = addDaysIso(0),
     r1 = (n) => Math.round(n * 10) / 10;
+  // with a goal, a month's change is colored by whether it moved toward it (not up = good)
+  const from = fitness.start ?? (fitness.weights[0] && fitness.weights[0].lbs);
+  const aim = fitness.goal != null && from != null ? Math.sign(fitness.goal - from) : 0;
+  const tone = (d) => (!d ? "" : aim ? (Math.sign(d) === aim ? "wm-toward" : "wm-away") : d > 0 ? "wm-up" : "wm-down");
   const rows = [...by]
     .reverse()
     .map(([k, l]) => {
@@ -168,7 +172,7 @@ function weightMonthsHtml() {
         month: "short",
         year: k.slice(0, 4) === today.slice(0, 4) ? undefined : "2-digit",
       });
-      return `<div><span>${escapeHtml(name)}</span><b>${lo === hi ? `${lo} lb` : `${lo}–${hi} lb`}</b><span class="${d > 0 ? "wm-up" : d < 0 ? "wm-down" : ""}">${l.length > 1 ? `${d > 0 ? "+" : ""}${d} lb` : ""}</span></div>`;
+      return `<div><span>${escapeHtml(name)}</span><b>${lo === hi ? `${lo} lb` : `${lo}–${hi} lb`}</b><span class="${tone(d)}">${l.length > 1 ? `${d > 0 ? "+" : ""}${d} lb` : ""}</span></div>`;
     })
     .join("");
   return `<div class="weight-months"><div><span>By month</span></div>${rows}</div>`;
