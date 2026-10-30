@@ -498,7 +498,7 @@ function renderTodoPanel() {
     return `<div class="todo-wrap" data-todo-id="${t.id}">
         <div class="item ${t.done ? "checked" : ""}">
           <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" data-action="home-todo-complete" data-todo-id="${t.id}"><span class="box">${BOX_CHECK_SVG}</span></button>
-          <div class="body" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
+          <div class="body" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
           <button class="todo-icon-btn ${t.starred ? "starred" : ""}" style="order:3;" data-action="todo-star" data-todo-id="${t.id}" aria-label="${t.starred ? "Unstar" : "Star"} to-do">${t.starred ? STAR_FILLED_ICON : STAR_ICON}</button>
           ${subs.length ? `<button class="todo-icon-btn ${expanded ? "active" : ""}" style="order:4;" data-action="todo-expand" data-todo-id="${t.id}" aria-label="${expanded ? "Hide" : "Show"} sub-items" aria-expanded="${expanded}">${SUBLIST_ICON}</button>` : ""}
         </div>
@@ -589,7 +589,9 @@ function renderTodoPanel() {
   const recurring = todoList.filter((t) => t.repeat && !t.done).sort(byDue);
   const recRows = recurring
     .map(
-      (t) => `<div class="item recurring-row" data-action="home-todo-edit" data-todo-id="${t.id}">
+      (
+        t,
+      ) => `<div class="item recurring-row" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}">
       <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
       <div class="body"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))} · next ${escapeHtml(t.due ? dueLabel(t.due).replace(/^(Today|Tomorrow|Yesterday)$/, (w) => w.toLowerCase()) : "today")}</div></div>
     </div>`,

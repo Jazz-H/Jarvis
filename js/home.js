@@ -214,7 +214,7 @@ function washRowHtml(iso) {
   const check = `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" data-action="home-wash-toggle" data-date="${iso}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
       ${check}
-      <div class="body" data-action="home-wash-open"><div class="title wash-title">Wash hair${DROPLET_ICON}</div></div>
+      <div class="body" role="button" tabindex="0" data-action="home-wash-open"><div class="title wash-title">Wash hair${DROPLET_ICON}</div></div>
     </div></div>`;
 }
 // A bill on Home's day list: payable when it's the bill's real due date,
@@ -235,7 +235,7 @@ function homeBillHtml(b, { projected = false, payment = null } = {}) {
   const open = b ? `data-bill-id="${b.id}" data-mode="edit"` : `data-mode="budget"`;
   return `<div class="todo-wrap bill-home"><div class="item ${payment ? "checked" : ""}">
       ${lead}
-      <div class="body" data-action="home-bill-open" ${open}><div class="title">${billLogoHtml(b || bills.find((x) => payment && x.id === payment.billId), name)}Pay ${escapeHtml(name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
+      <div class="body" role="button" tabindex="0" data-action="home-bill-open" ${open}><div class="title">${billLogoHtml(b || bills.find((x) => payment && x.id === payment.billId), name)}Pay ${escapeHtml(name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
     </div></div>`;
 }
 // A future repeat of a recurring to-do: shown on its date, ticked off only once
@@ -243,7 +243,7 @@ function homeBillHtml(b, { projected = false, payment = null } = {}) {
 function repeatGhostHtml(t) {
   return `<div class="todo-wrap repeat-ghost"><div class="item">
       <span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>
-      <div class="body" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))}</div></div>
+      <div class="body" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div><div class="todo-meta">${escapeHtml(repeatLabel(t))}</div></div>
     </div></div>`;
 }
 function homeRowHtml(t, meta = []) {
@@ -256,7 +256,7 @@ function homeRowHtml(t, meta = []) {
     : `aria-checked="false" aria-label="Complete: ${escapeAttr(t.text)}" data-action="home-todo-complete" data-todo-id="${t.id}"`;
   return `<div class="todo-wrap" data-todo-id="${t.id}"><div class="item ${t.done ? "checked" : ""}">
       <button class="todo-check" role="checkbox" ${check}><span class="box">${BOX_CHECK_SVG}</span></button>
-      <div class="body" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
+      <div class="body" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
     </div></div>`;
 }
 function homeRingHtml(done, total) {

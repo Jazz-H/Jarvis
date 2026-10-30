@@ -619,13 +619,35 @@ function delegateShell(type, attr, table) {
   document.body.addEventListener(type, (e) => {
     const el = e.target.closest && e.target.closest(`[${attr}]`);
     const fn = el && table[el.getAttribute(attr)];
-    if (fn) fn(el, e);
+    if (!fn) return;
+    const hadFocus = type === "click" && document.activeElement === el;
+    fn(el, e);
+    // a re-render replaced the control the keyboard was on (a star, a tick): focus its new copy
+    const lost = !document.activeElement || document.activeElement === document.body;
+    if (hadFocus && lost && !document.contains(el)) refocusTwin(el);
   });
+}
+function refocusTwin(el) {
+  const sel = [...el.attributes]
+    .filter((a) => a.name.startsWith("data-"))
+    .map((a) => `[${a.name}="${CSS.escape(a.value)}"]`)
+    .join("");
+  const twin = sel && document.querySelector(el.tagName.toLowerCase() + sel);
+  if (twin) twin.focus({ preventScroll: true });
 }
 delegateShell("click", "data-action", SHELL_CLICK);
 delegateShell("keydown", "data-keydown-action", SHELL_KEYDOWN);
 delegateShell("input", "data-input-action", SHELL_INPUT);
 delegateShell("change", "data-change-action", SHELL_CHANGE);
+// Rows that act as buttons but hold block content (a to-do's text, a card header) are
+// role="button" tabindex="0"; Enter and Space activate them like a real button.
+document.body.addEventListener("keydown", (e) => {
+  if ((e.key !== "Enter" && e.key !== " ") || e.defaultPrevented) return;
+  const el = e.target;
+  if (!el || el.tagName === "BUTTON" || el.getAttribute("role") !== "button" || !el.hasAttribute("data-action")) return;
+  e.preventDefault();
+  el.click();
+});
 // `error` doesn't bubble, so catch it in the capture phase: a bill logo that fails to load swaps in its letter fallback.
 document.addEventListener(
   "error",

@@ -295,6 +295,7 @@ function openComposer(mode = "todo") {
   const el = document.getElementById("composer");
   el.classList.add("open");
   el.setAttribute("aria-hidden", "false");
+  syncSheets();
   text.focus(); // synchronous with the tap, so phones raise the keyboard
   fitComposerToKeyboard();
 }
@@ -302,6 +303,7 @@ function closeComposer() {
   const el = document.getElementById("composer");
   el.classList.remove("open");
   el.setAttribute("aria-hidden", "true");
+  syncSheets();
   document.getElementById("composer-sheet").style.transform = "";
   document.activeElement && document.activeElement.blur();
 }

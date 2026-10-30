@@ -300,7 +300,9 @@ Shopping items, plan lines…), tap its checkbox to tick it off. There are no Ed
 "+ Add …" rows sit at the bottom of each card (routine steps, rules, categories), and
 spending categories have an Edit link inside when opened (new to-dos, shopping items, and
 budget entries come from the + button). Edit forms are a bottom sheet on phones and
-a centered dialog on desktop. Esc closes them and Enter saves. **Delete** happens right away
+a centered dialog on desktop. Esc closes them and Enter saves. With a keyboard, every row and card header is reachable
+with Tab and opens with Enter or Space; while a sheet is open only it is reachable, and closed
+sheets never are; ticking or starring keeps focus on that control. **Delete** happens right away
 with an 8-second **Undo** (paused while you hover or focus it). Undo puts back only what the
 delete changed, in any list, so linked data comes back too and anything you edited in the
 meantime stays. A "Saved" notice never replaces a pending Undo;

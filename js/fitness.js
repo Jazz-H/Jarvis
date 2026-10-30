@@ -104,7 +104,7 @@ function workoutRowHtml(w, iso) {
       : `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Not done" : "Done"}: ${escapeAttr(w.name)}" data-action="workout-occ-toggle" data-workout-id="${w.id}" data-date="${iso}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${done ? "checked" : ""}">
       ${lead}
-      <div class="body" data-action="workout-occ-edit" data-workout-id="${w.id}" data-date="${iso}"><div class="title">${kindIconHtml({ kind: w.kind, text: w.name })}${escapeHtml(w.name)}</div><div class="todo-meta"><span class="repeat-meta">${REPEAT_ICON}${escapeHtml([w.every > 1 ? `Every ${w.every} weeks` : "Weekly", fmtTime(w.time)].filter(Boolean).join(" · "))}</span></div></div>
+      <div class="body" role="button" tabindex="0" data-action="workout-occ-edit" data-workout-id="${w.id}" data-date="${iso}"><div class="title">${kindIconHtml({ kind: w.kind, text: w.name })}${escapeHtml(w.name)}</div><div class="todo-meta"><span class="repeat-meta">${REPEAT_ICON}${escapeHtml([w.every > 1 ? `Every ${w.every} weeks` : "Weekly", fmtTime(w.time)].filter(Boolean).join(" · "))}</span></div></div>
     </div></div>`;
 }
 function currentWeight() {
@@ -273,7 +273,7 @@ function weighRowHtml(iso) {
       : `<button class="todo-check" role="checkbox" aria-checked="${!!w}" aria-label="Weigh in" data-action="weigh-row-check" ${open}><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap weigh-row workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${w ? "checked" : ""}">
       ${lead}
-      <div class="body" data-action="weigh-row-open" ${open}><div class="title">${kindIconHtml({ kind: "fitness", text: "" })}Weigh in</div><div class="todo-meta">${escapeHtml(meta)}</div></div>
+      <div class="body" role="button" tabindex="0" data-action="weigh-row-open" ${open}><div class="title">${kindIconHtml({ kind: "fitness", text: "" })}Weigh in</div><div class="todo-meta">${escapeHtml(meta)}</div></div>
     </div></div>`;
 }
 function editWeighDay() {

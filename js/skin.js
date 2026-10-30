@@ -442,7 +442,7 @@ function washCalendarHtml() {
 // bottom of each card (the way Android apps do it)
 function collapsibleCard({ id, title, insight = "", insightId = "", body = "", wrapBody = true, innerId = "" }) {
   return `<div class="card pinned ${openPinned.has(id) ? "open" : ""}" id="${id}">
-    <div class="coll-head" data-action="coll-toggle" data-card-id="${escapeAttr(id)}">
+    <div class="coll-head" role="button" tabindex="0" aria-expanded="${openPinned.has(id)}" data-action="coll-toggle" data-card-id="${escapeAttr(id)}">
       <div style="display:flex;align-items:center;gap:8px;"><h3>${title}</h3><span class="insight"${insightId ? ` id="${insightId}"` : ""}>${insight}</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         ${CHEVRON_DOWN}
@@ -459,7 +459,10 @@ function toggleCompletedTodos() {
 function toggleRules(id) {
   if (openPinned.has(id)) openPinned.delete(id);
   else openPinned.add(id);
-  document.getElementById(id).classList.toggle("open");
+  const card = document.getElementById(id);
+  card.classList.toggle("open");
+  const head = card.querySelector(".coll-head");
+  if (head) head.setAttribute("aria-expanded", String(card.classList.contains("open")));
 }
 function editSkinRule(i) {
   openModal(

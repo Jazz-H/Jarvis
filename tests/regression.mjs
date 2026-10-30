@@ -9396,6 +9396,66 @@ await section("sync: both devices changed the same list → merged item by item"
   await ctx.close();
 });
 
+await section("keyboard: closed sheets are out of reach; rows and card headers work with Enter/Space", async () => {
+  const todo = (id, text) => ({ id, text, done: false, due: null, starred: false, subitems: [], completedAt: null });
+  const { ctx, page, errors } = await openApp({ seed: { "todo-content": [todo("a", "Alpha"), todo("b", "Bravo")] } });
+  await page.evaluate(() => activateTab("todo"));
+  const inert = await page.evaluate(() => ({
+    composer: document.getElementById("composer").inert,
+    modal: document.getElementById("modal-backdrop").inert,
+    main: document.querySelector("main").inert,
+  }));
+  check("closed sheets are inert, the page isn't", inert.composer && inert.modal && !inert.main, inert);
+  // Tab through the whole page: never lands in a closed sheet
+  const landed = [];
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press("Tab");
+    landed.push(await page.evaluate(() => !!document.activeElement.closest("#composer, #modal-backdrop")));
+  }
+  check("Tab never reaches the closed composer or edit form", !landed.some(Boolean));
+  // Enter on a to-do's text opens its editor, and the page behind goes inert
+  await page.focus('#panel-todo [data-action="home-todo-edit"][data-todo-id="a"]');
+  await page.keyboard.press("Enter");
+  const open = await page.evaluate(() => ({
+    open: document.getElementById("modal-backdrop").classList.contains("open"),
+    modalInert: document.getElementById("modal-backdrop").inert,
+    mainInert: document.querySelector("main").inert,
+  }));
+  check(
+    "Enter on a to-do opens its editor; only the editor is reachable",
+    open.open && !open.modalInert && open.mainInert,
+    open,
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(100);
+  check("closing it makes the page reachable again", await page.evaluate(() => !document.querySelector("main").inert));
+  // a card header toggles with Space and reports its state
+  const head = "#panel-todo .card.pinned .coll-head";
+  const before = await page.getAttribute(head, "aria-expanded");
+  await page.focus(head);
+  await page.keyboard.press(" ");
+  const after = await page.getAttribute(head, "aria-expanded");
+  check(
+    "Space toggles a card header and aria-expanded follows",
+    before !== after && ["true", "false"].includes(after),
+    {
+      before,
+      after,
+    },
+  );
+  // starring with the keyboard keeps focus on the (redrawn) star
+  await page.focus('#panel-todo [data-action="todo-star"][data-todo-id="b"]');
+  await page.keyboard.press("Enter");
+  const f = await page.evaluate(() => ({
+    action: document.activeElement.getAttribute("data-action"),
+    id: document.activeElement.getAttribute("data-todo-id"),
+    starred: todoList.find((t) => t.id === "b").starred,
+  }));
+  check("focus stays on the star after it redraws", f.starred && f.action === "todo-star" && f.id === "b", f);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

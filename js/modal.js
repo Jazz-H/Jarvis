@@ -54,11 +54,17 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts) {
     .join("");
   document.getElementById("modal-delete-btn").style.display = modalOnDelete ? "block" : "none";
   document.getElementById("modal-backdrop").classList.add("open");
+  syncSheets();
   // Autofocus the first field — desktop only, so mobile doesn't pop the keyboard
-  // over the sheet the moment it opens.
+  // over the sheet the moment it opens. On touch, focus goes to the heading instead,
+  // so a screen reader (or the next Tab) starts inside the sheet.
   if (window.matchMedia("(hover:hover) and (pointer:fine)").matches) {
     const first = body.querySelector("input, textarea, select");
     if (first) setTimeout(() => first.focus(), 60);
+  } else {
+    const h = document.getElementById("modal-heading");
+    h.setAttribute("tabindex", "-1");
+    h.focus({ preventScroll: true });
   }
 }
 document.addEventListener("keydown", (e) => {
@@ -88,8 +94,20 @@ document.addEventListener("keydown", (e) => {
     modalSave();
   }
 });
+// While a sheet (edit form or + composer) is open it's the only thing Tab and screen readers
+// reach; a closed one is out of reach entirely (it stays in the page, just hidden).
+function syncSheets() {
+  const modal = document.getElementById("modal-backdrop"),
+    comp = document.getElementById("composer");
+  const mo = modal.classList.contains("open"),
+    co = comp.classList.contains("open");
+  modal.inert = !mo;
+  comp.inert = !co || mo;
+  document.querySelectorAll("body > header, main, #fab, nav.tabbar").forEach((x) => (x.inert = mo || co));
+}
 function closeModal() {
   document.getElementById("modal-backdrop").classList.remove("open");
+  syncSheets();
   // back to whatever opened it, if it's still on the page (keyboard/screen-reader users)
   if (modalReturnFocus && document.contains(modalReturnFocus))
     try {
