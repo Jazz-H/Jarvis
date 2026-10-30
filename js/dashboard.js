@@ -140,12 +140,17 @@ function dashMoneyDetail(d) {
   const scale = p ? Math.max(p.pay, p.paid + p.due) : 0;
   const period = p
     ? `<button class="jv-period" data-action="jv-go" data-go="money">
+        ${p.pay ? `<span class="jv-safe"><span class="jv-mini">Safe to spend</span><b class="${p.left < 0 ? "neg" : ""}">${p.left < 0 ? "−" : ""}${moneyShort(Math.abs(p.left))}</b><span>until payday ${dashPaydayIn(p.end)}</span></span>` : ""}
         <span class="jv-period-head"><b>Pay period</b><span>${short(p.start)} – ${short(isoDate(new Date(noonOf(p.end).getTime() - 864e5)))} · day ${p.dayN} of ${p.days}</span></span>
         <span class="jv-period-bar" aria-hidden="true"><span class="paid" style="width:${dashPct(p.paid, scale)}%"></span><span class="due" style="width:${dashPct(p.due, scale)}%"></span></span>
-        <span class="jv-period-keys"><span><i class="paid"></i>Paid ${moneyShort(p.paid)}</span><span><i class="due"></i>Due ${moneyShort(p.due)}</span>${p.pay ? `<span class="${p.left < 0 ? "neg" : ""}">Left ${p.left < 0 ? "−" : ""}${moneyShort(Math.abs(p.left))}</span>` : ""}</span>
+        <span class="jv-period-keys"><span><i class="paid"></i>Paid ${moneyShort(p.paid)}</span><span><i class="due"></i>Due ${moneyShort(p.due)}</span>${p.pay ? `<span>Paycheck ${moneyShort(p.pay)}</span>` : ""}</span>
       </button>`
     : "";
-  return `<div class="jv-sub-label">Due this week · tap a bill to edit</div>${list}${period}${dashOpen("money", "Open Budget")}`;
+  const manual = dashManualSoon(d.dueSoon);
+  const warn = manual.length
+    ? `<div class="jv-money-warn">${manual.map((b) => `<span>${escapeHtml(b.name)} (${moneyShort(billShare(b))}) is due ${escapeHtml(dashDueWord(b.due))} and isn't on autopay.</span>`).join("")}</div>`
+    : "";
+  return `${warn}<div class="jv-sub-label">Due this week · tap a bill to edit</div>${list}${period}${dashOpen("money", "Open Budget")}`;
 }
 function dashSkinDetail(d) {
   const { r, c } = d;
@@ -264,11 +269,13 @@ function dashTilesHtml(b, progress, d) {
       go: "money",
       label: "Money",
       value: moneyShort(d.money.total),
-      sub: nextBill
-        ? `${nextBill.name} due ${noonOf(nextBill.due).toLocaleDateString("en-US", { weekday: "short" })}`
-        : "No bills this week",
+      sub: dashManualSoon(d.money.dueSoon)[0]
+        ? `${dashManualSoon(d.money.dueSoon)[0].name} due ${dashDueWord(dashManualSoon(d.money.dueSoon)[0].due)} · not autopay`
+        : nextBill
+          ? `${nextBill.name} due ${noonOf(nextBill.due).toLocaleDateString("en-US", { weekday: "short" })}`
+          : "No bills this week",
       pct: d.money.period ? dashPct(d.money.period.paid, d.money.period.paid + d.money.period.due) : 0,
-      tone: "",
+      tone: dashManualSoon(d.money.dueSoon).length ? "warn" : "",
       detail: true,
     },
     {
@@ -943,4 +950,24 @@ function dashOutfitSwap() {
     localStorage.setItem(DASH_OUTFIT_SWAP, JSON.stringify({ date: addDaysIso(0), n: dashOutfitSwapN() + 1 }));
   } catch (e) {}
   renderHome();
+}
+
+// ---- money extras: bills that need paying by hand soon, and the payday countdown ----
+function dashManualSoon(dueSoon) {
+  const limit = addDaysIso(3);
+  return dueSoon.filter((b) => !b.autopay && b.due <= limit);
+}
+function dashDueWord(iso) {
+  const n = daysFromToday(iso);
+  return n < 0
+    ? "overdue"
+    : n === 0
+      ? "today"
+      : n === 1
+        ? "tomorrow"
+        : noonOf(iso).toLocaleDateString("en-US", { weekday: "short" });
+}
+function dashPaydayIn(iso) {
+  const n = daysFromToday(iso);
+  return n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
 }

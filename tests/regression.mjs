@@ -8632,6 +8632,68 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
   await ctx.close();
 });
 
+await section("money extras: safe to spend, payday countdown, and bills that aren't on autopay", async () => {
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "bills-content": [
+        {
+          id: "m1",
+          name: "Rent",
+          amount: 1450,
+          due: isoOffset(2),
+          repeat: "monthly",
+          autopay: false,
+          group: "personal",
+        },
+        {
+          id: "m2",
+          name: "Power",
+          amount: 100,
+          due: isoOffset(1),
+          repeat: "monthly",
+          autopay: true,
+          group: "personal",
+        },
+        { id: "m3", name: "Gym", amount: 30, due: isoOffset(6), repeat: "monthly", autopay: false, group: "personal" },
+      ],
+      "budget-content": {
+        categories: [],
+        expenses: [],
+        accounts: [],
+        income: [{ id: "inc1", name: "Paycheck", amount: 2400, start: isoOffset(-6), repeat: "biweekly" }],
+        plans: {},
+        goals: [],
+      },
+    },
+  });
+  const tile = await page.$eval('.jv-tile[data-go="money"]', (e) => ({
+    sub: e.querySelector(".jv-tile-sub").textContent,
+    warn: e.classList.contains("warn"),
+  }));
+  check(
+    "Money tile calls out a manual bill due within 3 days",
+    tile.sub.startsWith("Rent due ") && tile.sub.endsWith("· not autopay") && tile.warn,
+    tile,
+  );
+  await page.tap('.jv-tile[data-go="money"]');
+  const d = await page.evaluate(() => ({
+    warn: document.querySelector("#jv-detail-money .jv-money-warn")?.textContent || "",
+    safe: document.querySelector("#jv-detail-money .jv-safe")?.textContent.replace(/\s+/g, " ").trim() || "",
+  }));
+  check(
+    "the detail warns about it (and not about autopay or later bills)",
+    d.warn.includes("Rent ($1,450)") && !d.warn.includes("Power") && !d.warn.includes("Gym"),
+    d,
+  );
+  check(
+    "safe to spend counts down to payday",
+    d.safe.includes("Safe to spend") && d.safe.includes("until payday in 8 days"),
+    d,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
