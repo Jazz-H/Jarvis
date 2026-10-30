@@ -425,6 +425,22 @@ function renderHomePanel() {
   }
   // Jarvis's dashboard leads the main tab; the day planner follows
   el.innerHTML = dashboardHtml() + `<div class="jv-label jv-planner-label">Planner</div>` + strip + hero + list;
+  homeWatchPlanner();
+}
+// On Home the + button adds to the day picked in the Planner, so it shows once the Planner is
+// on screen. Above it, Quick add is the way to add, and the button would only cover the dashboard.
+let homePlannerObserver = null;
+function homeWatchPlanner() {
+  if (homePlannerObserver) homePlannerObserver.disconnect();
+  const label = document.querySelector("#panel-home .jv-planner-label");
+  if (!label || !("IntersectionObserver" in window)) {
+    document.body.classList.add("home-fab");
+    return;
+  }
+  homePlannerObserver = new IntersectionObserver(([e]) =>
+    document.body.classList.toggle("home-fab", e.isIntersecting || e.boundingClientRect.top < 0),
+  );
+  homePlannerObserver.observe(label);
 }
 // The calendar strip's own gestures: down opens the month, up closes it, and
 // sideways pages weeks (or months). Touches that start on it are left out of

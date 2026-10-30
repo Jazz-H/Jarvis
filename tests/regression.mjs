@@ -89,6 +89,13 @@ function addMonthsLocal(k) {
   const d = new Date(y, m, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
+// On Home the + button shows once the Planner is on screen (homeWatchPlanner); scroll there first
+async function showFab(page) {
+  if (!(await page.evaluate(() => document.body.dataset.tab === "home"))) return;
+  await page.evaluate(() => document.querySelector("#panel-home .jv-planner-label").scrollIntoView());
+  await page.waitForFunction(() => document.body.classList.contains("home-fab"));
+  await page.waitForTimeout(250); // fade-in
+}
 async function section(name, fn) {
   const before = failures.length;
   try {
@@ -150,6 +157,7 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
   );
 
   // composer: the floating + button opens it; it stays open for several adds
+  await showFab(page);
   await page.tap("#fab");
   check(
     "+ opens the composer with the text box focused",
@@ -459,6 +467,7 @@ await section("wants: need/want tags, sorting, filters, editing", async () => {
   await page.click(".filter-chip >> text=Needs");
   const needsOnly = await page.$$eval("#wants-pending-card .want-card .badge.kind-want", (e) => e.length);
   check("Needs filter hides wants", needsOnly === 0, needsOnly);
+  await showFab(page);
   await page.tap("#fab");
   await page.fill("#composer-text", "Phone charger");
   await page.press("#composer-text", "Enter");
@@ -502,6 +511,7 @@ await section("shopping: page name and Moto category", async () => {
   await page.click(".filter-chip >> text=Moto");
   const names = await page.$$eval("#wants-pending-card .want-card .name", (e) => e.map((x) => x.textContent));
   check("Moto filter shows only moto gear", names.length === 1 && names[0].startsWith("Trailco"), names);
+  await showFab(page);
   await page.tap("#fab");
   await page.fill("#composer-text", "Riding gloves");
   await page.press("#composer-text", "Enter");
@@ -720,7 +730,9 @@ await section("security: a malicious backup cannot run script", async () => {
 
 await section("composer: + on Home, hidden elsewhere, launch shortcut opens it", async () => {
   const { ctx, page } = await openApp();
-  check("+ shows on Home", await page.isVisible("#fab"));
+  check("+ is hidden at the top of Home (Quick add is there)", !(await page.isVisible("#fab")));
+  await showFab(page);
+  check("+ shows on Home once the Planner is on screen", await page.isVisible("#fab"));
   await page.evaluate(() => activateTab("skin"));
   check("+ hidden on Beauty", !(await page.isVisible("#fab")));
   const labels = await page.evaluate(() =>
@@ -735,6 +747,7 @@ await section("composer: + on Home, hidden elsewhere, launch shortcut opens it",
     labels,
   );
   await page.evaluate(() => activateTab("home"));
+  await showFab(page);
   await page.tap("#fab");
   await page.fill("#composer-text", "From home");
   await page.press("#composer-text", "Enter");
@@ -750,6 +763,7 @@ await section("composer: + on Home, hidden elsewhere, launch shortcut opens it",
 
 await section("composer: shopping items (price, category, details, batches)", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
+  await showFab(page);
   await page.tap("#fab");
   check("+ opens the New item sheet", (await page.textContent("#composer-heading")) === "New item");
   check(
@@ -1047,6 +1061,7 @@ await section("home: calendar strip picks any day", async () => {
   await page.click(cell);
   check("picking a far date shows its to-dos", JSON.stringify(await titles()) === '["Far thing"]', await titles());
   check("Today button appears away from today", !!(await page.$(".home-cal-today")));
+  await showFab(page);
   await page.click("#fab");
   const due = await page.evaluate(() => composerDue().due);
   check("+ on a picked day presets that date", due === isoOffset(40), due);
@@ -1333,6 +1348,7 @@ await section("to-do: recurring to-dos", async () => {
   check("future repeats show on Home's calendar", ghosts.includes("Vitamins"), ghosts);
   // Composer: Repeat chip
   await page.evaluate(() => selectHomeDate(addDaysIso(0)));
+  await showFab(page);
   await page.click("#fab");
   await page.fill("#composer-text", "Water plants");
   await page.click("#composer-chips .filter-chip >> text=Repeat");
@@ -1404,6 +1420,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
 
   // Spending
   await page.evaluate(() => activateTab("budget"));
+  await showFab(page);
   await page.click("#fab");
   check("+ on Budget opens Add to budget", (await page.textContent("#composer-heading")) === "Add to budget");
   await page.fill("#composer-text", "Coffee");
@@ -1873,6 +1890,7 @@ await section("budget: long-term goals", async () => {
   check("past paycheck line counts, future one doesn't yet", linked.saved === 1700, linked);
   check("linked paycheck lines are tagged", linked.tag);
   // composer: To a goal
+  await showFab(page);
   await page.click("#fab");
   await page.click("#composer-chips .filter-chip >> text=To a goal");
   await page.fill("#composer-text", "Birthday money $200");
@@ -3528,6 +3546,7 @@ await section("to-dos: repeat undo after a sync, un-ticking a repeat, day words 
   );
   // a day word wins over Home's picked day
   await page.evaluate(() => selectHomeDate(addDaysIso(3)));
+  await showFab(page);
   await page.click("#fab");
   await page.fill("#composer-text", "Dentist tomorrow");
   await page.press("#composer-text", "Enter");
@@ -3699,6 +3718,7 @@ await section("shopping: Later list", async () => {
     "Edit's Later box saves it for later",
     await page.evaluate((id) => wantsList.find((w) => w.id === id).later === true, first.id),
   );
+  await showFab(page);
   await page.click("#fab");
   await page.click("#composer-chips .filter-chip >> text=Later");
   await page.fill("#composer-text", "Someday lamp");
@@ -4329,6 +4349,7 @@ await section("handlers: Home bill pay button vs row, composer chips and date in
   await page.click("#panel-home .home-list .todo-wrap .body >> text=Rent");
   check("Home bill row opens its editor", await modalOpen());
   await page.evaluate(() => closeModal());
+  await showFab(page);
   await page.click("#fab");
   check(
     "+ opens the composer",
@@ -4927,6 +4948,7 @@ await section("handlers: bold child inside a button, filter chip keyboard, date 
   await page.keyboard.press("Space");
   check("Space activates a filter chip", (await page.evaluate(() => wantsFilter)) === "all");
   await page.evaluate(() => activateTab("home"));
+  await showFab(page);
   await page.click("#fab");
   await page.fill("#composer-text", "Tomorrow dentist");
   const dateChange = (v) =>
@@ -4981,6 +5003,7 @@ await section("shell: static handlers are delegated (sync, refresh, FAB, compose
   await page.keyboard.press("Enter");
   check("Enter on the sync button opens the modal (native button keyboard)", await isOpen("modal-backdrop"));
   await page.keyboard.press("Escape");
+  await showFab(page);
   await page.focus("#fab");
   await page.keyboard.press("Space");
   check("Space on the FAB opens the composer", await isOpen("composer"));
@@ -5012,9 +5035,11 @@ await section("shell: static handlers are delegated (sync, refresh, FAB, compose
     await page.evaluate(() => todoList.some((t) => t.text.startsWith("Shell item"))),
   );
   await page.evaluate(() => closeComposer());
+  await showFab(page);
   await page.click("#fab");
   await page.click("#composer .modal-x");
   check("composer close button closes it", !(await isOpen("composer")));
+  await showFab(page);
   await page.click("#fab");
   await page.mouse.click(2, 2);
   check("clicking the composer backdrop closes it", !(await isOpen("composer")));
@@ -8311,6 +8336,14 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
     agenda.length === 5 && agenda.at(-1).includes("Oil change"),
     agenda,
   );
+  check(
+    "calendar detail is in time order: all-day first, then by start",
+    agenda
+      .slice(0, 4)
+      .map((r) => r.split(" ")[0])
+      .join(",") === "All,12p–1p,12:30p–1p,3p–4p",
+    agenda,
+  );
   await page.tap('.jv-chip-sm[data-go="calendar"]');
   check("tapping again closes it", !(await page.$("#jv-detail-calendar")));
 
@@ -8619,7 +8652,16 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
   );
   check("pending items are never picked", !JSON.stringify(hotWeekend).includes("p1"));
   const card = await page.$(".jv-outfit");
+  check("the outfit card is on Home", !!card);
   if (card) {
+    const rows = await page.$$eval(".jv-outfit-list li", (els) =>
+      els.map((e) => [...e.children].map((c) => c.textContent.trim()).join(" ")),
+    );
+    check("one labeled row per piece", rows.length >= 3 && /^Top /.test(rows[0]) && /^Bottom /.test(rows[1]), rows);
+    check(
+      "Swap sits in the card header, not among the pieces",
+      !!(await page.$('.jv-outfit-head [data-action="jv-outfit-swap"]')),
+    );
     await page.tap('[data-action="jv-outfit-swap"]');
     check("Swap is remembered for today", await page.evaluate(() => dashOutfitSwapN() === 1));
   }

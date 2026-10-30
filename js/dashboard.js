@@ -612,7 +612,9 @@ function dashCalendarDetail(c) {
   const cal = c.data;
   const overlapping = new Set(cal.overlaps.flatMap((o) => [o.a, o.b]));
   const day = (which, label) => {
-    const evs = cal.events.filter((e) => e.day === which);
+    // all-day first, then by start time (the same order as Your day)
+    const at = (e) => (e.allDay || !e.start ? -1 : dashMins(e.start));
+    const evs = cal.events.filter((e) => e.day === which).sort((a, b) => at(a) - at(b));
     return `<div class="jv-sub-label">${label}</div>${
       evs.length
         ? `<div class="jv-agenda">${evs
@@ -938,12 +940,16 @@ function dashOutfit(b, now = new Date()) {
 function dashOutfitHtml(b) {
   const o = dashOutfit(b);
   if (!o) return "";
+  const part = { Tops: "Top", Bottoms: "Bottom", Shoes: "Shoes", Outerwear: "Layer" };
   return `<section class="card jv-card jv-outfit" aria-label="Outfit">
-      <div class="jv-kicker">Outfit</div>
-      <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
-      <div class="jv-chips">${o.items.map((i) => `<span class="jv-chip">${escapeHtml(i.title)}</span>`).join("")}
-        <button class="jv-chip-sm" data-action="jv-outfit-swap">Swap</button>
+      <div class="jv-outfit-head">
+        <div class="jv-kicker">Outfit</div>
+        <button class="jv-chip-sm" data-action="jv-outfit-swap" aria-label="Swap for another outfit">Swap</button>
       </div>
+      <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
+      <ul class="jv-outfit-list">${o.items
+        .map((i) => `<li><span class="jv-mini">${part[i.cat] || ""}</span><span>${escapeHtml(i.title)}</span></li>`)
+        .join("")}</ul>
       ${o.needsLayer ? `<p class="jv-line jv-outfit-note">No ${o.rain ? "rain layer" : "coat"} saved in your wardrobe yet.</p>` : ""}
     </section>`;
 }

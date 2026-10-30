@@ -44,7 +44,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
-  jacket. It's plain rules, no AI. **Swap** shows another good option. Hidden until you've saved
+  jacket. It's plain rules, no AI. Each piece is a row labeled Top, Bottom, Shoes or Layer;
+  **Swap** (top right) shows another good option. Hidden until you've saved
   at least a top and a bottom.
 - **Systems:** six tiles (Weather, Inbox, Money, Beauty, Jazz 3.0, Shopping), each with
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
@@ -85,7 +86,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
 - **Loading:** while the scripts load, Home shows a shimmering skeleton of its layout (a gentle
   pulse with Reduce Motion on); the dashboard fades in once when it replaces it.
 
-**The Planner** (below the dashboard on Home) is a day planner.
+**The Planner** (below the dashboard on Home) is a day planner. The floating + appears once
+the Planner is on screen and adds to the day picked there; above it, Quick add is the way in.
 - **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.

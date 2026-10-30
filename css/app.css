@@ -479,7 +479,7 @@ nav.tabbar button.j3-tab::before {
   border-top: 1px solid var(--line);
 }
 .band .label {
-  font-size: 10.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 700;
@@ -579,7 +579,7 @@ nav.tabbar button.j3-tab::before {
 }
 .badge {
   display: inline-block;
-  font-size: 9.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
@@ -670,7 +670,7 @@ nav.tabbar button.j3-tab::before {
   background: none;
   color: var(--text-dim);
   font: inherit;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
 }
 .home-day b {
@@ -760,7 +760,7 @@ nav.tabbar button.j3-tab::before {
 .home-day .marks em.pay,
 .bcal-pay em.pay {
   font-style: normal;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 900;
   line-height: 1;
   color: var(--olive);
@@ -808,7 +808,7 @@ nav.tabbar button.j3-tab::before {
   gap: 6px;
   padding: 0 2px 6px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -955,7 +955,7 @@ nav.tabbar button.j3-tab::before {
 }
 .pp-title em {
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1137,7 +1137,9 @@ nav.tabbar button.j3-tab::before {
   display: flex;
   justify-content: center;
   width: 100%;
-  padding: 8px 0 2px;
+  /* 28px tall to tap, but the negative margins keep it in the same space as before */
+  padding: 14px 0 10px;
+  margin: -6px 0 -8px;
   border: none;
   background: none;
 }
@@ -1290,7 +1292,7 @@ nav.tabbar button.j3-tab::before {
 }
 .budget-kpi span {
   display: block;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1343,7 +1345,7 @@ nav.tabbar button.j3-tab::before {
   display: flex;
   justify-content: space-between;
   margin: 12px 2px 0;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -1658,7 +1660,7 @@ nav.tabbar button.j3-tab::before {
 }
 .goal-mark em {
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-dim);
   margin-top: 4px;
@@ -2020,7 +2022,7 @@ nav.tabbar button.j3-tab::before {
   height: 12px;
 }
 .routine-band .label {
-  font-size: 10.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 700;
@@ -2140,7 +2142,7 @@ nav.tabbar button.j3-tab::before {
   padding: 0 0 12px 44px;
 }
 .week-day-body .wl {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -2379,6 +2381,38 @@ button.rule {
 }
 button.step {
   padding-left: 2px;
+  /* a comfortable row to tap (was 23px tall); the padding replaces .step's margin */
+  padding-top: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 0;
+}
+/* small controls keep their look but get a bigger hit area (about 44px) */
+.theme-btn,
+.sync-btn,
+.weight-goal,
+.weigh-day-link,
+.later-chip {
+  position: relative;
+}
+.theme-btn::after,
+.sync-btn::after,
+.weight-goal::after,
+.weigh-day-link::after,
+.later-chip::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+.later-chip::after {
+  inset: -3px -4px -8px; /* stays clear of Mark bought just above */
+}
+.toggle {
+  position: relative;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  inset: -7px -4px -2px; /* the Later chip sits just below */
 }
 .want-card .body {
   cursor: pointer;
@@ -2831,7 +2865,7 @@ body.todo-dragging * {
   text-align: center;
 }
 .cal-dow {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-dim);
   padding: 4px 0;
@@ -2900,6 +2934,18 @@ body[data-tab="todo"] .fab,
 body[data-tab="wants"] .fab,
 body[data-tab="budget"] .fab {
   display: flex;
+}
+/* Home: only once the Planner is on screen (homeWatchPlanner); it fades in */
+.fab {
+  transition:
+    opacity 0.18s,
+    transform 0.18s,
+    visibility 0.18s;
+}
+body[data-tab="home"]:not(.home-fab) .fab {
+  opacity: 0;
+  transform: scale(0.85);
+  visibility: hidden;
 }
 body[data-tab="home"] main,
 body[data-tab="todo"] main,
@@ -5172,14 +5218,38 @@ a.jv-story-title:hover {
   color: var(--text-dim);
 }
 /* Outfit card */
+.jv-outfit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 .jv-outfit .jv-headline {
   margin-bottom: 10px;
 }
-.jv-outfit .jv-chips {
-  margin-top: 0;
+/* one piece per row: a mono label (Top, Bottom…) and the item, divided like the other lists */
+.jv-outfit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.jv-outfit .jv-chip {
-  cursor: default;
+.jv-outfit-list li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.jv-outfit-list li:first-child {
+  border-top: none;
+  padding-top: 2px;
+}
+.jv-outfit-list .jv-mini {
+  color: var(--text-dim);
+  font-weight: 400;
 }
 .jv-outfit-note {
   margin: 10px 0 0;
