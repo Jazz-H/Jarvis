@@ -60,6 +60,10 @@ const isoOffset = (n) => {
   d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 };
+// n days away but kept inside this month / this Sun–Sat week, so tests that read one month's
+// tables or the week strip don't break near month-end or on weekends
+const isoInMonth = (n) => (isoOffset(n).slice(0, 7) === isoOffset(0).slice(0, 7) ? isoOffset(n) : isoOffset(-n));
+const isoInWeek = (n) => (new Date().getDay() + n <= 6 ? isoOffset(n) : isoOffset(-n));
 
 // A fresh browser profile seeded with localStorage, plus a JS-error collector.
 async function openApp({ seed = {}, phone = true, query = "", route } = {}) {
@@ -4028,14 +4032,21 @@ await section("budget: autopay pays bills on their due date", async () => {
       ],
     },
   });
-  const r = await page.evaluate(() => ({
-    pays: billPayments.map((p) => [p.name, p.date, !!p.auto]),
-    phoneDue: bills.find((b) => b.id === "bill-auto").due,
-    rentDue: bills.find((b) => b.id === "bill-man").due,
-    gymMeta: [...document.querySelectorAll("#panel-budget .btab-row")]
-      .map((e) => e.textContent.replace(/\s+/g, " "))
-      .find((t) => t.includes("Gym")),
-  }));
+  const r = await page.evaluate(() => {
+    const gymDue = bills.find((b) => b.id === "bill-soon").due;
+    if (gymDue.slice(0, 7) !== addDaysIso(0).slice(0, 7)) {
+      budgetMonthOffset = 1; // near month-end the upcoming bill is in next month's table
+      renderBudget();
+    }
+    return {
+      pays: billPayments.map((p) => [p.name, p.date, !!p.auto]),
+      phoneDue: bills.find((b) => b.id === "bill-auto").due,
+      rentDue: bills.find((b) => b.id === "bill-man").due,
+      gymMeta: [...document.querySelectorAll("#panel-budget .btab-row")]
+        .map((e) => e.textContent.replace(/\s+/g, " "))
+        .find((t) => t.includes("Gym")),
+    };
+  });
   check(
     "a due autopay bill is logged as paid on its due date",
     r.pays.length === 1 && r.pays[0][0] === "Phone" && r.pays[0][1] === isoOffset(-3) && r.pays[0][2],
@@ -5075,7 +5086,7 @@ await section("home calendar: generated controls are delegated and validate meta
   const state = () => page.evaluate(() => ({ date: homeDate, anchor: homeAnchor, open: homeCalOpen }));
   const inline = await page.evaluate(() => document.querySelectorAll(".home-cal [onclick], .home-cal[onclick]").length);
   check("Home calendar markup has no inline onclick", inline === 0, inline);
-  const target = isoOffset(2);
+  const target = isoInWeek(2);
   await click(`.home-cal [data-action=home-select-date][data-date="${target}"]`);
   check("date cell selects that date", (await state()).date === target, await state());
   check(
@@ -7430,7 +7441,14 @@ await section(
         ],
       },
       "bills-content": [
-        { id: "bl1", name: "Rent", amount: 500, due: isoOffset(2), repeat: "monthly", link: "https://example.com/pay" },
+        {
+          id: "bl1",
+          name: "Rent",
+          amount: 500,
+          due: isoInMonth(2),
+          repeat: "monthly",
+          link: "https://example.com/pay",
+        },
       ],
     };
     const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed });
