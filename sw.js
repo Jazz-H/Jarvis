@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v138`;
+const CACHE_NAME = `${CACHE_PREFIX}v139`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",

@@ -881,7 +881,7 @@ function dashConsistency() {
   return rows ? `<div class="jv-sub-label">Last 7 days</div><div class="jv-streak">${rows}</div>` : "";
 }
 
-// ---- coming up (layout 1, in the evening Tomorrow view): the next 14 days, called out in pink ----
+// ---- coming up (layout 1, in the evening Tomorrow view): the next 14 days ----
 const DASH_COMING_KINDS = { birthday: "Birthday", car: "Car", appointment: "Appointment", travel: "Trip" };
 function dashComingUp() {
   const from = addDaysIso(2),

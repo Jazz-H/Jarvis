@@ -20,7 +20,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   stays ready for the next one. Sync waits while you're typing there.
 - **Tomorrow (from 5 PM):** tomorrow at a glance above the briefing: its forecast, to-dos,
   bills, wash day and workouts. **Plan tomorrow** opens tomorrow in the Planner. Under it,
-  **Next 14 days** calls out (in pink) upcoming birthdays, car maintenance, appointments and
+  **Next 14 days** lists upcoming birthdays, car maintenance, appointments and
   trips from your to-do types, plus a gift idea from Shopping (an item with "gift" in it) when
   a birthday is coming.
 - **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it

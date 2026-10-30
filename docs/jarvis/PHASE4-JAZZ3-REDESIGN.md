@@ -1,7 +1,8 @@
 # Phase 4 discovery: turning the Jazz 3.0 tab into Jarvis's Console
 
-Status: **proposal, nothing built.** Phase 4 work ("Ask Jarvis, Weekly Review, suggested to-dos"
-in `PLAN.md`). It needs your approval, and the decisions in section 8, before any code.
+Status: **approved Oct 30; building steps 1–5.** Phase 4 work ("Ask Jarvis, Weekly Review, suggested
+to-dos" in `PLAN.md`). Decisions are recorded at the end of section 8. Mockup:
+https://claude.ai/artifact/JXypPxJC97xFRZ6r7n9xq2 (the "A layout + B design" screen).
 
 ## 1. Summary and recommendation
 
@@ -515,3 +516,13 @@ Steps 1–5 deliver value with **no new credentials** and can ship on their own.
 7. **Review timing and window.** Sunday ~6pm, Mon–Sun / Sunday 8pm / Monday 7am alongside the briefing. **My pick: Sunday ~6pm, Mon–Sun.**
 8. **Ask limits.** 10 a day, 40 a week, $0.40 per run (my pick) / looser / tighter.
 9. **Capture expenses.** Chip only (my pick) / add straight to Budget like to-dos.
+
+### Decisions (Oct 30)
+- **Approved:** build now, before Phase 3 (1a). Name **Console** (2). Jazz 3.0 becomes a **hidden tab** (5).
+  Notes are **Anytime to-dos** for v1 (6). Review **Sunday ~6pm, Mon–Sun** (7). Expenses are a
+  **chip only** (9). Ask limits as proposed (8).
+- **Layout (4): A's layout with B's design.** One page: a full-width **Ask | Capture** segmented switch,
+  a single-line box with the send button inside, the suggestions as **one swipeable row right under
+  the box**, then the hint line, the week's review card (headline, one line of numbers, Open review),
+  and the feed.
+- **Ask transport (3): not decided yet.** Steps 1–5 don't need it; decide before step 6.
