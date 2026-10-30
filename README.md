@@ -1,7 +1,9 @@
 # Jazz 3.0 — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
-docs) into one place with five tabs: **Home, To-Do, Budget, Shopping, Skin & Hair.**
+docs) into one place with five tabs: **Jarvis (Home), To-Do, Budget, Shopping, Skin & Hair.**
+**Jarvis**, an AI chief of staff that runs in GitHub Actions, writes a morning briefing that
+leads the main tab (see *Jarvis* below and `docs/jarvis/`).
 Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
 was removed; its data is still loaded, synced and backed up, just not shown.)
 
@@ -9,7 +11,22 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 
 ## Using the app
 
-**Home** is a day planner.
+**Jarvis** is the main tab (`home` in code; the bar says Jarvis). Jarvis's briefing sits on
+top, and Home's day planner follows below it.
+- **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
+  came from (Jarvis, Jazz, Weather, News). If the Jarvis model didn't finish, the items are
+  assembled automatically and say so. Problems from the run are listed under "notes".
+- **Weather card:** a summary, what to wear, a wash-day humidity note on wash days, hourly
+  rain-chance bars (6am–10pm), and the current conditions.
+- **News card:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with a
+  short summary and a link.
+- **Each card** names the agent that made it and when, and shows an error if that agent failed.
+- **New briefing notice:** when sync brings in a new briefing, a "Jarvis: <headline>" toast
+  appears, the tab gets a dot if you're elsewhere, and the briefing shows **New** until seen.
+  An older day's briefing is dimmed and labeled "From <date>". `?tab=jarvis` opens the tab.
+- **Not set up:** a short note points to `docs/jarvis/SETUP.md`; everything else works as before.
+
+**Home** (below the briefing) is a day planner.
 - **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
@@ -240,7 +257,11 @@ only turning sync off still asks first.
 | `tests/regression.mjs` | Regression suite (see *Development*). |
 | `scripts/check.mjs` | Dependency-free quality check (`npm run check`). |
 | `package.json` | Holds the `check`/`test` scripts and the test dependency (Playwright). The app itself needs no install. |
-| `.github/workflows/test.yml` | Runs the suite on every PR and every push to `main`. |
+| `.github/workflows/test.yml` | Runs the suite (and the `agents/` tests) on every PR and every push to `main`. |
+| `agents/` | Jarvis backend: TypeScript on the Claude Agent SDK with its own `package.json`. Never shipped to the app. See *Jarvis*. |
+| `.github/workflows/jarvis.yml` | Runs Jarvis every morning (and on "Run workflow"). |
+| `docs/jarvis/` | `PLAN.md` (phases and design), `SETUP.md` (secrets), `PROMPTS.md` (per-phase prompts). |
+| `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md` | Rules for AI coding assistants. |
 
 ### How the app is organized
 1. **CSS (`css/app.css`):** `:root` theme tokens, base components, to-do and routine styles, hover styles
@@ -261,6 +282,7 @@ only turning sync off still asks first.
    | `todo-dates.js` | To-do dates, quick-add parsing, recurring to-dos |
    | `holidays.js` | US holidays by rule |
    | `home.js` | Home calendar strip, day agenda, `renderHome` |
+   | `jarvis.js` | Jarvis briefing: normalizing, rendering, the new-briefing notice, `ingestBriefingFile` (called by sync) |
    | `composer.js` | The floating + button's add sheet |
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
    | `skin.js` | Skin & Hair routine, wash-day schedule, rules |
@@ -279,6 +301,36 @@ only turning sync off still asks first.
    from `page.evaluate`. Modules would need getters/setters for every shared variable and a rewrite
    of most of the tests, for no runtime benefit on a static site, so the split stays classic scripts.
    The check script concatenates all scripts in page order to catch cross-file redeclarations.
+
+## Jarvis
+
+Jarvis is the AI layer, built in phases (`docs/jarvis/PLAN.md`). Phase 1 is in: a daily
+briefing with Weather and News. Setup: `docs/jarvis/SETUP.md`.
+
+- **Where it runs:** `.github/workflows/jarvis.yml`, about 6:45am Eastern daily (two UTC cron
+  lines, one for EDT and one for EST; only the one in the 6:30–9:00am window delivers, once a
+  day), or on demand with "Run workflow".
+- **How it works:** `agents/jarvis.ts` reads `jazz2-data.json` from the sync gist for today's
+  to-dos, bills due in 3 days and wash days. It then runs the sub-agents in parallel:
+  - **Weather:** `claude-haiku-5-5`, with data from Open-Meteo.
+  - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
+
+  Code does all fetching, parsing and math, and each model only judges, ranks and summarizes.
+  Every sub-agent's output is checked with zod and retried once if invalid. **Jarvis**
+  (`claude-opus-5-5`) gets only that checked output plus the app data and writes the summary.
+  The orchestrator then writes `jazz2-briefing.json` to the gist.
+- **Safety:**
+  - Every agent runs with no tools, no MCP servers, no repo settings or `CLAUDE.md`, and no
+    secrets except the Anthropic key.
+  - Headlines and app text go to models as clearly marked untrusted data.
+  - News links come from code, never from a model.
+  - Only the orchestrator holds the gist token, and it writes only the briefing file.
+- **Limits:** each run is capped by `MAX_RUN_COST_USD` (default $0.50). Optional sub-agents are
+  skipped if they won't fit. A failed sub-agent shows as an error card and the rest still ships.
+- **Trace:** each run uploads timings, outcomes and token costs per agent (no inputs) as a
+  workflow artifact.
+- **Settings:** location, time, feeds and models live in `agents/config.ts`. A Settings → Jarvis
+  screen comes in a later phase.
 
 ## Development
 
@@ -313,9 +365,15 @@ server. It covers:
   paycheck plans (import, copy forward), goals, spending;
 - month-end date math, midnight rollover, and malformed-data robustness;
 - backup and restore, sync against a mocked Gist API (including the per-list merge), and
-  XSS hardening.
+  XSS hardening;
+- the Jarvis briefing: empty state, escaped rendering, safe links only, agent/error cards,
+  stale and junk briefings, pulling it from the gist, the in-app notice, and never pushing it.
 
-CI runs the suite on every PR.
+The Jarvis backend has its own tests (`cd agents && npm ci && npm test`, plus `npm run typecheck`).
+They cover every tool and schema, the agent runner, both sub-agents and the orchestrator
+(including a failing sub-agent), with every external API mocked.
+
+CI runs both on every PR.
 
 **Ship.** Merge to `main` and GitHub Pages deploys it. When cached assets change, bump
 `CACHE_NAME` in `sw.js` so installed copies refresh them. The HTML itself is network-first.
@@ -359,6 +417,7 @@ Everything lives in `localStorage` on the device:
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |
+| `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 
 Lists still on their built-in defaults have no key until first edited.
 
@@ -410,9 +469,10 @@ token names are historical:
 devices so iOS doesn't zoom.
 
 ## Known limitations and ideas
-- **No notifications.** A static web page can't wake itself up to alert you, and iOS
-  blocks this even for installed PWAs. The planned workaround is "Add to calendar" on
-  dated to-dos (an `.ics` file with an alarm).
+- **No push notifications.** A static web page can't wake itself up to alert you, and iOS
+  blocks this even for installed PWAs. Jarvis's notice is in-app only (it shows the next time
+  the app syncs). The planned workaround for to-dos is "Add to calendar" on dated to-dos (an
+  `.ics` file with an alarm).
 - **Home's short step names** (`STEP_SHORT_NAMES`) are a code lookup. Unmapped labels fall
   back to the full label.
 - **Sync push replaces the gist file.** A device on an outdated app version can drop keys

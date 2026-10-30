@@ -134,6 +134,7 @@ function localSnapshot() {
 }
 async function fetchRemote(gistId) {
   const g = await gistApi("/gists/" + gistId);
+  ingestBriefingFile(g.files && g.files[BRIEFING_FILENAME]); // Jarvis's read-only briefing rides along
   const file = g.files && g.files[GIST_FILENAME];
   if (!file) return null;
   const text = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;

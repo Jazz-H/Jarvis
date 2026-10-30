@@ -817,7 +817,7 @@ await section("home: day agenda completes in place", async () => {
   }); // no Wash hair row, whatever day the suite runs
   await page.tap('#panel-home .todo-check[aria-label="Complete: Due today"]');
   check("completed from Home", await page.evaluate(() => todoList[0].done));
-  check("still on Home", (await page.textContent("#headline")) === "Home");
+  check("still on Home", (await page.textContent("#headline")) === "Jarvis");
   const r = await page.evaluate(() => ({
     struck:
       !document.querySelector('#panel-home .todo-check[aria-label="Mark not done: Due today"]') &&
@@ -1020,7 +1020,7 @@ await section("home: calendar strip picks any day", async () => {
   const title0 = await page.textContent(".home-cal-title");
   await swipe(-120, 0);
   check("swipe left pages to the next month", (await page.textContent(".home-cal-title")) !== title0);
-  check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Home");
+  check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Jarvis");
   await swipe(0, -120);
   check(
     "swipe up closes back to the week",
@@ -1363,8 +1363,8 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   });
   const nav = await page.$$eval("nav.tabbar button", (bs) => bs.map((b) => b.textContent.trim()));
   check(
-    "nav: Home, To-Do, Jazz 3.0, Shopping, Skin & Hair (Budget hidden)",
-    JSON.stringify(nav) === '["Home","To-Do","Jazz 3.0","Shopping","Skin & Hair"]',
+    "nav: Jarvis, To-Do, Jazz 3.0, Shopping, Skin & Hair (Budget hidden)",
+    JSON.stringify(nav) === '["Jarvis","To-Do","Jazz 3.0","Shopping","Skin & Hair"]',
     nav,
   );
   check(
@@ -7593,6 +7593,257 @@ await section(
     await ctx.close();
   },
 );
+// ---------- Jarvis briefing ----------
+function briefingFixture(over = {}) {
+  const today = isoOffset(0);
+  const meta = { agent: "Weather", model: "claude-haiku-5-5", updatedAt: new Date().toISOString() };
+  return {
+    version: 1,
+    id: `${today}T10:47:00Z`,
+    date: today,
+    generatedAt: new Date().toISOString(),
+    trigger: "schedule",
+    headline: "Rain by noon <img src=x onerror=window.__pwned=1>",
+    summary: [
+      { text: "Light rain by noon; bring a jacket.", source: "weather" },
+      { text: "Rent is due Saturday.", source: "jazz" },
+      { text: "Bad source falls back", source: "<script>" },
+    ],
+    summaryBy: "jarvis",
+    cards: {
+      weather: {
+        status: "ok",
+        ...meta,
+        data: {
+          location: "Springfield, IL",
+          date: today,
+          conditions: "Light rain",
+          currentF: 51,
+          highF: 69,
+          lowF: 49,
+          humidityPct: 75,
+          rainChanceMax: 60,
+          hourlyRain: [
+            { hour: 6, chance: 10 },
+            { hour: 9, chance: 30 },
+            { hour: 12, chance: 60 },
+          ],
+          washDay: true,
+          summary: "Light rain by noon.",
+          wear: "Rain jacket.",
+          washDayNote: "Humid: expect frizz.",
+        },
+      },
+      news: {
+        status: "ok",
+        ...meta,
+        agent: "News",
+        data: {
+          stories: [
+            {
+              id: "ai-1",
+              topic: "ai",
+              title: "Safe story",
+              source: "The Verge",
+              link: "https://news.google.com/a1",
+              published: "",
+              summary: "A model did well.",
+            },
+            {
+              id: "ai-2",
+              topic: "ai",
+              title: "Evil link",
+              source: "X",
+              link: "javascript:window.__pwned=1",
+              published: "",
+              summary: "s",
+            },
+          ],
+        },
+      },
+    },
+    notes: [],
+    ...over,
+  };
+}
+
+await section("jarvis: main tab is Jarvis; empty state when not set up; ?tab=jarvis opens it", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo" });
+  check("headline is To-Do via launch param", (await page.textContent("#headline")) === "To-Do");
+  await ctx.close();
+  const a = await openApp({ query: "?tab=jarvis" });
+  check("?tab=jarvis opens the main tab", (await a.page.textContent("#headline")) === "Jarvis");
+  check("empty state shows", (await a.page.textContent("#panel-home .jv-empty")).includes("once Jarvis is set up"));
+  check("planner still renders below", await a.page.isVisible("#panel-home .home-cal"));
+  check("no JS errors", errors.length === 0 && a.errors.length === 0, [...errors, ...a.errors]);
+  await a.ctx.close();
+});
+
+await section("jarvis: stored briefing renders escaped, with agent cards and safe links only", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": briefingFixture() } });
+  const r = await page.evaluate(() => ({
+    pwned: window.__pwned || 0,
+    headline: document.querySelector(".jv-headline").textContent,
+    imgs: document.querySelectorAll("#panel-home .jv-card img").length,
+    items: [...document.querySelectorAll(".jv-summary li")].map((li) => li.textContent),
+    sources: [...document.querySelectorAll(".jv-summary .jv-src")].map((s) => s.className),
+    weatherInsight: document.querySelector("#jarvis-weather .insight").textContent,
+    wash: document.querySelector("#jarvis-weather .jv-wash")?.textContent || "",
+    bars: document.querySelectorAll("#jarvis-weather .jv-bar").length,
+    meta: document.querySelector("#jarvis-weather .jv-meta").textContent,
+    links: [...document.querySelectorAll("#jarvis-news a")].map((a) => a.getAttribute("href")),
+    titles: [...document.querySelectorAll("#jarvis-news .jv-story-title")].map((t) => t.textContent),
+    order: [...document.getElementById("panel-home").children].map((c) => c.className.split(" ")[0]).slice(0, 2),
+    newPill: !!document.querySelector(".jv-pill"),
+    seen: localStorage.getItem("jarvis-briefing-seen"),
+  }));
+  check("headline text is escaped, not markup", r.headline.includes("<img") && r.imgs === 0 && r.pwned === 0, r);
+  check("summary items render", r.items.length === 3 && r.items[0].includes("bring a jacket"), r.items);
+  check("unknown source falls back to Jarvis", r.sources[2].includes("jv-src-jarvis"), r.sources);
+  check("weather insight shows high/low and rain", r.weatherInsight === "69°/49° · 60% rain", r.weatherInsight);
+  check("wash-day note shows", r.wash.includes("frizz"), r.wash);
+  check("hourly rain bars", r.bars === 3, r.bars);
+  check("card names its agent", r.meta.startsWith("Weather agent ·"), r.meta);
+  check("only the http link is a link", JSON.stringify(r.links) === '["https://news.google.com/a1"]', r.links);
+  check("unsafe-link story still shows as text", r.titles.includes("Evil link"), r.titles);
+  check("briefing sits above the planner", r.order[0] === "jv-wrap" && r.order[1] === "home-cal", r.order);
+  check("first view shows New and marks it seen", r.newPill && r.seen === briefingFixture().id, r);
+  await page.evaluate(() => renderHome());
+  check("New goes away after it's been seen", !(await page.$(".jv-pill")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("jarvis: error cards, stale briefing and junk data", async () => {
+  const b = briefingFixture({
+    date: isoOffset(-1),
+    summaryBy: "fallback",
+    notes: ["News didn't finish: timed out after 120s"],
+  });
+  b.cards.news = {
+    status: "error",
+    agent: "News",
+    model: "m",
+    updatedAt: b.generatedAt,
+    error: "News didn't finish: timed out",
+  };
+  b.cards.weather.data.highF = "hot"; // invalid data turns the card into an error, not a crash
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  const r = await page.evaluate(() => ({
+    when: document.querySelector(".jv-when").textContent,
+    stale: document.querySelector(".jv-card").classList.contains("jv-stale"),
+    newsErr: document.querySelector("#jarvis-news .jv-error").textContent,
+    newsInsight: document.querySelector("#jarvis-news .insight").textContent,
+    weatherErr: document.querySelector("#jarvis-weather .jv-error")?.textContent || "",
+    notes: document.querySelector(".jv-notes summary").textContent,
+    fallback: document.querySelector(".jv-card > .jv-meta").textContent,
+  }));
+  check("yesterday's briefing is labeled and dimmed", r.when.startsWith("From ") && r.stale, r);
+  check("failed agent shows its error", r.newsErr.includes("timed out") && r.newsInsight === "Unavailable", r);
+  check("unreadable card data shows an error", r.weatherErr.includes("couldn't be read"), r);
+  check("notes are listed", r.notes === "1 note", r.notes);
+  check("fallback summary is labeled", r.fallback.includes("Assembled automatically"), r.fallback);
+  for (const junk of [
+    "not json",
+    JSON.stringify({ version: 2 }),
+    JSON.stringify([1, 2]),
+    JSON.stringify({ version: 1, id: "x", date: "nope" }),
+  ]) {
+    await page.evaluate((j) => {
+      localStorage.setItem("jarvis-briefing", j);
+      renderHome();
+    }, junk);
+    check(`junk briefing falls back to the empty state (${junk.slice(0, 20)})`, !!(await page.$(".jv-empty")));
+  }
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("jarvis: sync pulls the briefing from the gist, notifies in-app, and never pushes it", async () => {
+  const now = Date.now();
+  const briefing = briefingFixture();
+  const gist = {
+    id: "g0",
+    files: {
+      "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: now - 1000, data: {} }) },
+      "jazz2-briefing.json": { truncated: false, content: JSON.stringify(briefing) },
+    },
+  };
+  const patches = [];
+  const route = async (r) => {
+    const req = r.request(),
+      url = new URL(req.url());
+    const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      const files = JSON.parse(req.postData()).files;
+      patches.push(Object.keys(files));
+      Object.entries(files).forEach(([n, f]) => (gist.files[n] = { truncated: false, content: f.content }));
+      return json(200, gist);
+    }
+    return json(404, {});
+  };
+  const { ctx, page, errors } = await openApp({
+    route,
+    query: "?tab=todo",
+    seed: { "sync-token": "tok", "sync-gist-id": "g0", "data-updated-at": String(now) },
+  });
+  await page.waitForTimeout(800);
+  const r = await page.evaluate(() => ({
+    stored: JSON.parse(localStorage.getItem("jarvis-briefing") || "null")?.id,
+    toast: document.getElementById("toast").textContent,
+    dot: document.querySelector('nav.tabbar button[data-tab="home"]').classList.contains("jv-new"),
+    inSyncKeys: SYNC_KEYS.includes("jarvis-briefing"),
+  }));
+  check("briefing stored on this device", r.stored === briefing.id, r);
+  check("toast shows Jarvis's headline", r.toast.startsWith("Jarvis: Rain by noon"), r.toast);
+  check("tab gets a dot when the briefing arrives off-screen", r.dot, r);
+  check("briefing is not a synced list", !r.inSyncKeys);
+  await page.tap('nav.tabbar button[data-tab="home"]');
+  const seen = await page.evaluate(() => ({
+    dot: document.querySelector('nav.tabbar button[data-tab="home"]').classList.contains("jv-new"),
+    seen: localStorage.getItem("jarvis-briefing-seen"),
+    headline: document.querySelector(".jv-headline")?.textContent || "",
+  }));
+  check("opening Jarvis clears the dot and marks it seen", !seen.dot && seen.seen === briefing.id, seen);
+  check("briefing renders after sync", seen.headline.startsWith("Rain by noon"), seen);
+  // an edit pushes jazz2-data.json only
+  await page.evaluate(async () => {
+    todoList.push({ id: "n1", text: "New", done: false, due: null, starred: false, subitems: [], completedAt: null });
+    saveContent("todo-content", todoList, { toast: false });
+    await syncNow();
+  });
+  check(
+    "push sends only the app data file",
+    patches.length > 0 && patches.every((p) => p.join() === "jazz2-data.json"),
+    patches,
+  );
+  check("gist briefing untouched by the push", gist.files["jazz2-briefing.json"].content === JSON.stringify(briefing));
+  // an older briefing never replaces a newer one; the same one doesn't re-announce
+  const older = { ...briefing, id: "old", generatedAt: "2000-01-01T00:00:00.000Z" };
+  const after = await page.evaluate(async (o) => {
+    document.getElementById("toast").textContent = "";
+    await ingestBriefingFile({ content: JSON.stringify(o) });
+    await ingestBriefingFile({ content: localStorage.getItem("jarvis-briefing") });
+    await ingestBriefingFile({ truncated: true, raw_url: "https://evil.example/x" });
+    return {
+      id: JSON.parse(localStorage.getItem("jarvis-briefing")).id,
+      toast: document.getElementById("toast").textContent,
+    };
+  }, older);
+  check(
+    "older or repeated briefings are ignored, foreign raw URLs refused",
+    after.id === briefing.id && after.toast === "",
+    after,
+  );
+  check(
+    "sync payload and backup leave the briefing out",
+    !(await page.evaluate(() => JSON.stringify([collectLocal(), liveData()]).includes("Rain by noon"))),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

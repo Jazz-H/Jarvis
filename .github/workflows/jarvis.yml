@@ -1,0 +1,47 @@
+name: Jarvis
+
+# The morning briefing. GitHub cron is UTC and ignores daylight saving, so there are two lines:
+# 6:45am EDT and 6:45am EST. Each run checks the New York time and whether today's briefing
+# already exists, so only one delivers (agents/lib/schedule.ts). A test keeps these lines in
+# step with agents/config.ts. "Run workflow" delivers right away.
+on:
+  schedule:
+    - cron: "45 10 * * *" # 6:45am EDT
+    - cron: "45 11 * * *" # 6:45am EST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jarvis
+  cancel-in-progress: false
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: agents
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agents/package-lock.json
+      - run: npm ci
+      - run: npm run brief
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
+          JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}
+          MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jarvis-trace-${{ github.run_id }}
+          path: agents/out/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -22,3 +22,21 @@ jobs:
       - run: npm run check
       - run: npx playwright install --with-deps chromium
       - run: npm test
+
+  # Jarvis backend (agents/): typecheck and unit tests. Every external API is mocked.
+  agents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: agents
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agents/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

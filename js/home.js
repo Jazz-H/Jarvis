@@ -413,7 +413,7 @@ function renderHomePanel() {
   const openTotal = todoList.filter((t) => !t.done).length;
   list += `<button class="home-more home-all" data-action="home-open-todo">All to-dos (${openTotal}) →</button>`;
 
-  el.innerHTML = strip + hero + list;
+  el.innerHTML = jarvisHtml() + strip + hero + list; // Jarvis's briefing leads the main tab
 }
 // The calendar strip's own gestures: down opens the month, up closes it, and
 // sideways pages weeks (or months). Touches that start on it are left out of

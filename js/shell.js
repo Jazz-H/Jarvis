@@ -7,7 +7,8 @@ const TAB_ORDER = ["home", "todo", "jazz3", "wants", "skin"]; // nav bar and swi
 const HIDDEN_TABS = ["budget"];
 const isTab = (tab) => TAB_ORDER.includes(tab) || HIDDEN_TABS.includes(tab);
 // Old links to the removed closet view (?tab=style) land on Shopping
-const NAV_TAB = (tab) => (tab === "style" ? "wants" : tab === "fitness" ? "jazz3" : tab); // old links
+// ?tab=jarvis is the briefing link: Jarvis lives at the top of the main (home) tab
+const NAV_TAB = (tab) => (tab === "style" ? "wants" : tab === "fitness" ? "jazz3" : tab === "jarvis" ? "home" : tab); // old links
 let currentTab = "home";
 
 function activateTab(tab) {

@@ -3829,3 +3829,196 @@ body.todo-dragging {
     padding-right: max(24px, calc(50% - 460px));
   }
 }
+
+/* ---------- Jarvis briefing (js/jarvis.js) ---------- */
+.jv-wrap {
+  margin-bottom: 4px;
+}
+.jv-card {
+  background: linear-gradient(160deg, var(--surface-2), var(--surface));
+}
+.jv-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.jv-when {
+  margin-left: auto;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.jv-pill {
+  background: var(--gold);
+  color: var(--on-accent);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.card h2.jv-headline {
+  margin: 8px 0 10px;
+  font-size: 18px;
+  line-height: 1.3;
+}
+.jv-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.jv-summary li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  line-height: 1.4;
+}
+.jv-src {
+  flex: none;
+  min-width: 58px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.jv-src-weather {
+  color: var(--gold);
+}
+.jv-src-jazz {
+  color: var(--navy);
+}
+.jv-src-jarvis {
+  color: var(--olive);
+}
+.jv-meta {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.jv-stale {
+  opacity: 0.75;
+}
+.jv-empty p {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.jv-notes {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.jv-notes summary {
+  cursor: pointer;
+}
+.jv-notes ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.jv-error {
+  color: var(--danger-text);
+  font-size: 13.5px;
+}
+.jv-lede {
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+.jv-line {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.jv-wash {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--gold);
+}
+.jv-wash svg {
+  flex: none;
+  margin-top: 2px;
+}
+.jv-facts {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.jv-rain {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 52px;
+  margin: 10px 0 8px;
+}
+.jv-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+  padding-bottom: 14px;
+}
+.jv-bar span {
+  display: block;
+  width: 100%;
+  max-width: 14px;
+  border-radius: 3px 3px 0 0;
+  background: var(--gold);
+  opacity: 0.8;
+}
+.jv-bar i {
+  position: absolute;
+  bottom: 0;
+  font-style: normal;
+  font-size: 9.5px;
+  color: var(--text-dim);
+}
+.jv-stories {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.jv-story-title {
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+  text-decoration: none;
+}
+a.jv-story-title:hover {
+  color: var(--link);
+}
+.jv-story-src {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.jv-story p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+nav.tabbar button.jv-new {
+  position: relative;
+}
+nav.tabbar button.jv-new::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 16px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}

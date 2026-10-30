@@ -1,0 +1,15 @@
+{
+  "current": { "time": "2026-10-29T06:45", "temperature_2m": 51.4, "weather_code": 3 },
+  "hourly": {
+    "time": ["2026-10-29T05:00","2026-10-29T06:00","2026-10-29T07:00","2026-10-29T12:00","2026-10-29T17:00","2026-10-29T23:00"],
+    "precipitation_probability": [5, 10, 20, 60, 40, 90],
+    "relative_humidity_2m": [95, 90, 80, 60, 70, 99]
+  },
+  "daily": {
+    "time": ["2026-10-29"],
+    "temperature_2m_max": [68.6],
+    "temperature_2m_min": [49.2],
+    "precipitation_probability_max": [60],
+    "weather_code": [61]
+  }
+}

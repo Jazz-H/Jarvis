@@ -9,7 +9,8 @@ time with insights, the weather and a news feed tailored to me. Everything Jazz 
 Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROMPTS.md`.
 
 ## Status
-- [ ] Phase 1: Agent SDK setup, Jarvis + Weather + News, Gist output, ntfy, Jarvis tab
+- [x] Phase 1: Agent SDK setup, Jarvis + Weather + News, Gist output, in-app notice, Jarvis tab
+  (setup steps in `SETUP.md`; Settings → Jarvis and "Run now" are not built yet)
 - [ ] Phase 2: Calendar + Inbox + Shopper (Google OAuth)
 - [ ] Phase 3: Money + Budget links + Bill Guard
 - [ ] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
@@ -39,10 +40,12 @@ Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROM
 - Jarvis writes `jazz2-briefing.json` to the same private Gist the app already syncs with.
   The app reads it on load and on pull-to-refresh. The briefing is read-only in the app, so
   it is left out of `SYNC_KEYS` and the per-list merge.
-- Schedule: cron in UTC, set from `BRIEFING_TIME` + `TIMEZONE`. Also `workflow_dispatch`.
-  GitHub cron can run 5–15 minutes late.
-- Notify through ntfy.sh (topic in a secret) with Jarvis's headline and a link to
-  `?tab=jarvis`. The notifier is swappable (email via Resend is the fallback).
+- Schedule: cron in UTC, set from `briefingTime` + `timezone` in `agents/config.ts`. Two cron
+  lines (EDT and EST); each run checks the local time and skips if today's briefing exists.
+  Also `workflow_dispatch`. GitHub cron can run 5–15 minutes late.
+- Notify in the app (my preference, instead of ntfy): when a new briefing arrives during sync,
+  the app shows a "Jarvis: <headline>" toast, a dot on the Jarvis tab if it's off-screen, and a
+  "New" pill on the briefing until it's been seen. `?tab=jarvis` opens it.
 
 ## Agent design
 
@@ -91,7 +94,7 @@ Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROM
   answer goes to the Gist and the app checks for it until it arrives (about a minute).
 - Settings → Jarvis: location, briefing time and time zone, news topics and sources,
   sub-agents on or off, "Run now", and setup status for each sub-agent.
-- `docs/jarvis/SETUP.md`: steps for each secret (Google OAuth refresh token, Plaid, ntfy,
+- `docs/jarvis/SETUP.md`: steps for each secret (Google OAuth refresh token, Plaid,
   Anthropic key, Gist id and token).
 
 ## Extra sub-agents
