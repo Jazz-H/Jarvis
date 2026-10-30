@@ -8533,6 +8533,50 @@ await section("consistency: last 7 days of routine, workouts and weigh-ins in th
   await ctx.close();
 });
 
+await section("coming up: next 14 days of birthdays, car and appointments in the evening view", async () => {
+  const td = (id, text, due, kind) => ({
+    id,
+    text,
+    done: false,
+    due,
+    starred: false,
+    subitems: [],
+    completedAt: null,
+    kind,
+  });
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "todo-content": [
+        td("c1", "Mom's birthday", isoOffset(5), "birthday"),
+        td("c2", "Oil change", isoOffset(9), "car"),
+        td("c3", "Pick up stamps", isoOffset(4), "errand"),
+        td("c4", "Sam's birthday", isoOffset(20), "birthday"),
+        td("c5", "Dentist", isoOffset(1), "appointment"),
+      ],
+      "wants-content": [{ id: "w1", name: "Candle gift set", kind: "want", price: 30 }],
+    },
+  });
+  const html = await page.evaluate(() => {
+    const d = new Date();
+    d.setHours(19, 0, 0, 0);
+    return dashTomorrowHtml(loadBriefing(), d);
+  });
+  check(
+    "lists birthdays and car upkeep within 2–14 days",
+    html.includes("Mom's birthday") && html.includes("Oil change"),
+    html,
+  );
+  check(
+    "leaves out other kinds, tomorrow (already shown) and anything past 14 days",
+    !html.includes("Pick up stamps") && !html.includes("Sam's birthday") && (html.match(/Dentist/g) || []).length === 1,
+    html,
+  );
+  check("suggests the gift from Shopping when a birthday is coming", html.includes("Candle gift set"), html);
+  check("callouts use the pink style", html.includes('class="jv-coming"'));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

@@ -5137,6 +5137,36 @@ a.jv-story-title:hover {
   color: var(--text-dim);
   text-align: right;
 }
+/* Coming up: pink callouts in the evening Tomorrow view */
+.jv-coming {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.jv-coming li {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--navy) 45%, transparent);
+  background: color-mix(in srgb, var(--navy) 10%, transparent);
+}
+.jv-coming .jv-mini {
+  color: var(--navy);
+}
+.jv-coming b {
+  display: block;
+  font-size: 14.5px;
+}
+.jv-coming i {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--text-dim);
+}
 nav.tabbar button.jv-new::after {
   content: "";
   position: absolute;

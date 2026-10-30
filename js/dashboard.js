@@ -442,6 +442,7 @@ function dashTomorrowHtml(b, now = new Date()) {
   return `<section class="card jv-card jv-tomorrow" aria-label="Tomorrow">
       <div class="jv-kicker">Tomorrow · ${escapeHtml(label)}</div>
       ${lines.length ? `<ul class="jv-summary">${lines.join("")}</ul>` : `<p class="jv-empty-line">Nothing planned yet.</p>`}
+      ${dashComingUpHtml()}
       <button class="jv-open" data-action="jv-drill" data-go="tomorrow">Plan tomorrow →</button>
     </section>`;
 }
@@ -829,4 +830,35 @@ function dashConsistency() {
   };
   const rows = row("Routine", "pm", routine) + row("Workout", "am", workouts) + row("Weigh-in", "gold", weigh);
   return rows ? `<div class="jv-sub-label">Last 7 days</div><div class="jv-streak">${rows}</div>` : "";
+}
+
+// ---- coming up (layout 1, in the evening Tomorrow view): the next 14 days, called out in pink ----
+const DASH_COMING_KINDS = { birthday: "Birthday", car: "Car", appointment: "Appointment", travel: "Trip" };
+function dashComingUp() {
+  const from = addDaysIso(2),
+    to = addDaysIso(14);
+  const items = todoList
+    .filter((t) => !t.done && t.due && t.due >= from && t.due <= to && DASH_COMING_KINDS[todoKind(t)])
+    .sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0))
+    .slice(0, 5)
+    .map((t) => ({ t, kind: todoKind(t), days: daysFromToday(t.due) }));
+  // a gift idea when a birthday is coming and Shopping has something marked as a gift
+  const gift =
+    items.some((x) => x.kind === "birthday") &&
+    wantsList.find((w) => !wantsState[w.id] && /\bgift\b/i.test(`${w.name} ${w.meta || ""}`));
+  return { items, gift };
+}
+function dashComingUpHtml() {
+  const { items, gift } = dashComingUp();
+  if (!items.length) return "";
+  const when = (x) =>
+    `${noonOf(x.t.due).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · in ${x.days} days`;
+  return `<div class="jv-sub-label">Next 14 days</div><ul class="jv-coming">${items
+    .map(
+      (x) =>
+        `<li><span class="jv-mini">${DASH_COMING_KINDS[x.kind]}</span><span><b>${escapeHtml(x.t.text)}</b><i>${escapeHtml(when(x))}</i></span></li>`,
+    )
+    .join(
+      "",
+    )}${gift ? `<li><span class="jv-mini">Gift</span><span><b>${escapeHtml(gift.name)}</b><i>On your Shopping list</i></span></li>` : ""}</ul>`;
 }
