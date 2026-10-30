@@ -8577,6 +8577,61 @@ await section("coming up: next 14 days of birthdays, car and appointments in the
   await ctx.close();
 });
 
+await section("outfit: picked from the saved wardrobe by weather and day", async () => {
+  const cap = [
+    { id: "t1", title: "Classic Button-Down — white", state: "owned", cat: "Tops" },
+    { id: "t2", title: "Basic tank — white", state: "owned", cat: "Tops" },
+    { id: "b1", title: "Dark-wash slim jeans", state: "owned", cat: "Bottoms" },
+    { id: "b2", title: "Bermuda shorts", state: "owned", cat: "Bottoms" },
+    { id: "s1", title: "Black sneakers", state: "owned", cat: "Shoes" },
+    { id: "s2", title: "Black Chelsea boots", state: "owned", cat: "Shoes" },
+    { id: "p1", title: "Pending pants", state: "pending", cat: "Bottoms" },
+  ];
+  const b = briefingFixture();
+  Object.assign(b.cards.weather.data, { highF: 69, rainChanceMax: 60 });
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b, "capsule-content": cap } });
+  const pick = (dayOfWeek, high, rain) =>
+    page.evaluate(
+      ([dow, hi, r]) => {
+        const raw = loadBriefing();
+        raw.weather.data.highF = hi;
+        raw.weather.data.rainChanceMax = r;
+        const d = new Date();
+        d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7)); // a day with that weekday (same pick rules)
+        const o = dashOutfit(raw, d);
+        return o && { title: o.title, items: o.items.map((i) => i.id), needsLayer: o.needsLayer };
+      },
+      [dayOfWeek, high, rain],
+    );
+  const rainyWeekday = await pick(3, 69, 60);
+  check(
+    "rainy weekday: button-down, jeans, boots, and a note that there's no rain layer",
+    rainyWeekday.title === "Business casual, rain-ready" &&
+      JSON.stringify(rainyWeekday.items) === '["t1","b1","s2"]' &&
+      rainyWeekday.needsLayer,
+    rainyWeekday,
+  );
+  const hotWeekend = await pick(6, 88, 0);
+  check(
+    "hot dry weekend: tank, shorts, sneakers",
+    hotWeekend.title === "Weekend, warm day" && JSON.stringify(hotWeekend.items) === '["t2","b2","s1"]',
+    hotWeekend,
+  );
+  check("pending items are never picked", !JSON.stringify(hotWeekend).includes("p1"));
+  const card = await page.$(".jv-outfit");
+  if (card) {
+    await page.tap('[data-action="jv-outfit-swap"]');
+    check("Swap is remembered for today", await page.evaluate(() => dashOutfitSwapN() === 1));
+  }
+  await page.evaluate(() => {
+    capsule = capsule.filter((i) => i.cat !== "Bottoms");
+    renderHome();
+  });
+  check("no card without at least a top and a bottom", !(await page.$(".jv-outfit")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

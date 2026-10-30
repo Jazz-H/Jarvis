@@ -362,6 +362,7 @@ function dashboardHtml() {
       ${jarvisHeroHtml(b)}
       ${dashWashSwapHtml(b, d)}
       ${dashTimelineHtml(b, d)}
+      ${dashOutfitHtml(b)}
       ${dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d)}
       ${b ? jarvisNewsCard(b.news) : ""}
     </div>`;
@@ -861,4 +862,85 @@ function dashComingUpHtml() {
     .join(
       "",
     )}${gift ? `<li><span class="jv-mini">Gift</span><span><b>${escapeHtml(gift.name)}</b><i>On your Shopping list</i></span></li>` : ""}</ul>`;
+}
+
+// ---- outfit (layout 2, its own card): picked from your saved wardrobe by weather and day ----
+// No AI: a few keyword rules score each owned item; Swap cycles through the near-best ones.
+const DASH_OUTFIT_SWAP = "jv-outfit-swap"; // {date, n}: Swap taps today (device only)
+function dashOutfitSwapN() {
+  try {
+    const s = JSON.parse(localStorage.getItem(DASH_OUTFIT_SWAP) || "null");
+    return s && s.date === addDaysIso(0) && Number.isInteger(s.n) ? s.n : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+function dashOutfit(b, now = new Date()) {
+  const owned = capsule.filter((i) => !i.state || i.state === "owned");
+  const w = b && b.date === addDaysIso(0) ? dashToday(b.weather) : null;
+  const high = w ? w.highF : 70,
+    rain = !!w && w.rainChanceMax >= 50;
+  const hot = high >= 80,
+    cold = high < 60,
+    workday = now.getDay() >= 1 && now.getDay() <= 5;
+  const t = (i, re) => re.test(i.title);
+  const score = {
+    Tops: (i) =>
+      (workday && t(i, /button|collar|chambray|oxford|polo|blouse|shirt/i) ? 3 : 0) +
+      (workday && t(i, /tank|graphic/i) ? -2 : 0) +
+      (hot && t(i, /tank|tee/i) ? 2 : 0) +
+      (cold && t(i, /button|chambray|long|sweater|knit/i) ? 2 : 0) +
+      (cold && t(i, /tank/i) ? -3 : 0),
+    Bottoms: (i) =>
+      (workday && t(i, /pant|jean|chino|trouser|slack/i) ? 3 : 0) +
+      ((workday || cold) && t(i, /short/i) ? -3 : 0) +
+      (!workday && hot && t(i, /short/i) ? 3 : 0) +
+      (rain && t(i, /short/i) ? -1 : 0),
+    Shoes: (i) =>
+      (workday && t(i, /loafer|chelsea|oxford|boot|derby/i) ? 2 : 0) +
+      (rain && t(i, /boot|chelsea|timberland/i) ? 3 : 0) +
+      (rain && t(i, /vans|suede|canvas/i) ? -2 : 0) +
+      (!workday && t(i, /vans|nike|air max|sneaker/i) ? 1 : 0),
+    Outerwear: (i) =>
+      (rain && t(i, /rain|trench|shell|jacket|coat/i) ? 3 : 0) + (cold && t(i, /coat|jacket|fleece/i) ? 2 : 0),
+  };
+  const swapped = dashOutfitSwapN() > 0;
+  const dayN = Math.round(noonOf(addDaysIso(0)).getTime() / 864e5) + dashOutfitSwapN();
+  const pickFrom = (cat) => {
+    const items = owned.filter((i) => i.cat === cat);
+    if (!items.length) return null;
+    const scored = items.map((i) => ({ i, s: score[cat](i) }));
+    const best = Math.max(...scored.map((x) => x.s));
+    // the best-scoring items by default; after a Swap, the near-best too, for variety
+    const good = scored.filter((x) => x.s >= best - (swapped ? 1 : 0)).map((x) => x.i);
+    return good[dayN % good.length];
+  };
+  const top = pickFrom("Tops"),
+    bottom = pickFrom("Bottoms");
+  if (!top || !bottom) return null; // not enough of a wardrobe saved
+  const layer = rain || cold ? pickFrom("Outerwear") : null;
+  return {
+    title: `${workday ? "Business casual" : "Weekend"}${rain ? ", rain-ready" : hot ? ", warm day" : cold ? ", layered up" : ""}`,
+    items: [top, bottom, pickFrom("Shoes"), layer].filter(Boolean),
+    needsLayer: (rain || cold) && !layer,
+    rain,
+  };
+}
+function dashOutfitHtml(b) {
+  const o = dashOutfit(b);
+  if (!o) return "";
+  return `<section class="card jv-card jv-outfit" aria-label="Outfit">
+      <div class="jv-kicker">Outfit</div>
+      <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
+      <div class="jv-chips">${o.items.map((i) => `<span class="jv-chip">${escapeHtml(i.title)}</span>`).join("")}
+        <button class="jv-chip-sm" data-action="jv-outfit-swap">Swap</button>
+      </div>
+      ${o.needsLayer ? `<p class="jv-line jv-outfit-note">No ${o.rain ? "rain layer" : "coat"} saved in your wardrobe yet.</p>` : ""}
+    </section>`;
+}
+function dashOutfitSwap() {
+  try {
+    localStorage.setItem(DASH_OUTFIT_SWAP, JSON.stringify({ date: addDaysIso(0), n: dashOutfitSwapN() + 1 }));
+  } catch (e) {}
+  renderHome();
 }

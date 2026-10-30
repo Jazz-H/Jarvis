@@ -5167,6 +5167,20 @@ a.jv-story-title:hover {
   font-size: 13px;
   color: var(--text-dim);
 }
+/* Outfit card */
+.jv-outfit .jv-headline {
+  margin-bottom: 10px;
+}
+.jv-outfit .jv-chips {
+  margin-top: 0;
+}
+.jv-outfit .jv-chip {
+  cursor: default;
+}
+.jv-outfit-note {
+  margin: 10px 0 0;
+  color: var(--text-dim);
+}
 nav.tabbar button.jv-new::after {
   content: "";
   position: absolute;
