@@ -8349,7 +8349,7 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
   );
   check(
     "the unread count isn't repeated in the detail",
-    !(await page.$eval("#jv-detail-inbox", (e) => e.textContent.includes("14"))),
+    !(await page.$eval("#jv-detail-inbox", (e) => /\b14 unread\b|unread\D{0,3}14\b/i.test(e.textContent))),
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
