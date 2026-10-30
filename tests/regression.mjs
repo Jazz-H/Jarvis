@@ -7777,7 +7777,7 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
   const r = await page.evaluate(() => ({
     weatherTile: document.querySelector('.jv-tile[data-go="weather"] .jv-tile-sub').textContent,
     when: document.querySelector(".jv-when").textContent,
-    stale: document.querySelector(".jv-card").classList.contains("jv-stale"),
+    stale: document.querySelector(".jv-hero").classList.contains("jv-stale"),
     newsErr: document.querySelector("#jarvis-news .jv-error").textContent,
     newsInsight: document.querySelector("#jarvis-news .insight").textContent,
     weatherErr: document.querySelector("#jarvis-weather .jv-error")?.textContent || "",
