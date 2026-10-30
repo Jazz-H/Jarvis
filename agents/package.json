@@ -8,6 +8,7 @@
   },
   "scripts": {
     "brief": "tsx jarvis.ts",
+    "review": "tsx review.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "google-auth": "tsx google-auth.ts"

@@ -90,14 +90,61 @@ export function eventsFromIcs(raw: string, now: Date, timeZone: string): Calenda
   });
 }
 
+// How many events fall on each local day from `fromIso` to `toIso` (inclusive), for the Weekly
+// Review's look at the week ahead. Counts only: no titles or places leave this function.
+export function eventCountsByDay(raw: string, fromIso: string, toIso: string, timeZone: string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (let d = fromIso; d <= toIso && Object.keys(counts).length < 60; d = addDay(d, 1)) counts[d] = 0;
+  const parsed = ical.sync.parseICS(raw);
+  const from = new Date(Date.parse(fromIso + "T00:00:00Z") - 36 * 3600_000),
+    to = new Date(Date.parse(toIso + "T00:00:00Z") + 60 * 3600_000);
+  for (const c of Object.values(parsed)) {
+    if (!c || (c as any).type !== "VEVENT") continue;
+    const ev = c as VEvent;
+    if (ev.status === "CANCELLED") continue;
+    let instances;
+    try {
+      instances = ical.expandRecurringEvent(ev, { from, to, expandOngoing: true });
+    } catch {
+      continue;
+    }
+    for (const inst of instances) {
+      if ((inst.event as any)?.status === "CANCELLED") continue;
+      if (inst.isFullDay) {
+        const s = dateOnly(inst.start),
+          e = inst.end ? dateOnly(inst.end) : addDay(s, 1);
+        for (const d of Object.keys(counts)) if (s <= d && d < e) counts[d]++;
+        continue;
+      }
+      const d = localTime(inst.start, timeZone).date;
+      if (d in counts) counts[d]++;
+    }
+  }
+  return counts;
+}
+
+async function fetchIcs(url: string, fetchImpl: typeof fetch): Promise<string> {
+  if (!/^https:\/\//.test(url)) throw new Error("Calendar address must be an https URL");
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`Calendar feed HTTP ${res.status}`); // never echo the address
+  return res.text();
+}
+
 export async function fetchCalendar(
   url: string,
   now: Date,
   timeZone: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CalendarFacts> {
-  if (!/^https:\/\//.test(url)) throw new Error("Calendar address must be an https URL");
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`Calendar feed HTTP ${res.status}`); // never echo the address
-  return eventsFromIcs(await res.text(), now, timeZone);
+  return eventsFromIcs(await fetchIcs(url, fetchImpl), now, timeZone);
+}
+
+export async function fetchCalendarWeek(
+  url: string,
+  fromIso: string,
+  toIso: string,
+  timeZone: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Record<string, number>> {
+  return eventCountsByDay(await fetchIcs(url, fetchImpl), fromIso, toIso, timeZone);
 }

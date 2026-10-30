@@ -46,12 +46,41 @@ export function shouldDeliver(opts: {
   return { deliver: true, reason: "in the briefing window", date };
 }
 
+// Day of the week (0 = Sunday) of a YYYY-MM-DD date, independent of any time zone
+export const weekday = (iso: string) => new Date(iso + "T12:00:00Z").getUTCDay();
+
+// The Weekly Review: a scheduled run delivers on the review day (local), from 30 minutes before
+// the review time to 3 hours after, and only if this week's review hasn't been written yet.
+export function shouldDeliverReview(opts: {
+  now: Date;
+  timeZone: string;
+  reviewDay: number;
+  reviewTime: string;
+  hasThisWeek: boolean;
+}): { deliver: boolean; reason: string; date: string } {
+  const { date, minutes } = localTime(opts.now, opts.timeZone);
+  const target = toMinutes(opts.reviewTime);
+  if (weekday(date) !== opts.reviewDay) return { deliver: false, reason: "not the review day", date };
+  if (opts.hasThisWeek) return { deliver: false, reason: "this week's review already exists", date };
+  if (minutes < target - 30) return { deliver: false, reason: "too early (this is the other time zone's run)", date };
+  if (minutes > target + 180) return { deliver: false, reason: "too late for this week's review", date };
+  return { deliver: true, reason: "in the review window", date };
+}
+
 // The UTC cron lines for a local time in a zone with a standard and a daylight offset.
+// With a day of the week, the line runs that local day only (shifted if UTC crosses midnight).
 // Used by a test to keep jarvis.yml in step with config.ts.
-export function utcCronLines(localHHMM: string, leadMinutes: number, utcOffsetsHours: number[]): string[] {
+export function utcCronLines(
+  localHHMM: string,
+  leadMinutes: number,
+  utcOffsetsHours: number[],
+  dayOfWeek?: number,
+): string[] {
   const local = toMinutes(localHHMM) - leadMinutes;
   return utcOffsetsHours.map((off) => {
-    const m = (((local - off * 60) % 1440) + 1440) % 1440;
-    return `${m % 60} ${Math.floor(m / 60)} * * *`;
+    const utc = local - off * 60;
+    const m = ((utc % 1440) + 1440) % 1440;
+    const dow = dayOfWeek == null ? "*" : String((((dayOfWeek + Math.floor(utc / 1440)) % 7) + 7) % 7);
+    return `${m % 60} ${Math.floor(m / 60)} * * ${dow}`;
   });
 }

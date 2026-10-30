@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { localTime, shouldDeliver, toMinutes, utcCronLines } from "../lib/schedule.ts";
+import { localTime, shouldDeliver, shouldDeliverReview, toMinutes, utcCronLines, weekday } from "../lib/schedule.ts";
 import { CONFIG } from "../config.ts";
 
 const TZ = "America/New_York";
@@ -36,11 +36,53 @@ describe("schedule", () => {
     expect(() => toMinutes("7am")).toThrow();
   });
 
-  it("jarvis.yml's cron lines match config.ts (EDT and EST)", () => {
+  it("jarvis.yml's cron lines match config.ts (briefing and review, EDT and EST)", () => {
     const yml = readFileSync(new URL("../../.github/workflows/jarvis.yml", import.meta.url), "utf8");
     const lines = [...yml.matchAll(/cron:\s*"([^"]+)"/g)].map((m) => m[1]);
-    const expected = utcCronLines(CONFIG.briefingTime, CONFIG.briefingLeadMinutes, [-4, -5]);
-    expect(lines).toEqual(expected);
+    const briefing = utcCronLines(CONFIG.briefingTime, CONFIG.briefingLeadMinutes, [-4, -5]);
+    const review = utcCronLines(CONFIG.reviewTime, CONFIG.reviewLeadMinutes, [-4, -5], CONFIG.reviewDay);
+    expect(lines).toEqual([...briefing, ...review]);
     expect(utcCronLines("07:00", 15, [-4, -5])).toEqual(["45 10 * * *", "45 11 * * *"]);
+    expect(review).toEqual(["45 21 * * 0", "45 22 * * 0"]);
+    // the review lines are routed to the review job and kept away from the briefing job
+    const job = (name: string) => yml.slice(yml.indexOf(`\n  ${name}:`)).split("\n    runs-on:")[0];
+    for (const line of review) {
+      expect(job("review")).toContain(`github.event.schedule == '${line}'`);
+      expect(job("brief")).toContain(`github.event.schedule != '${line}'`);
+    }
+    expect(yml).toMatch(/options:\s*\n\s*- briefing\s*\n\s*- review/);
+  });
+
+  it("shifts the cron day when UTC crosses midnight", () => {
+    expect(utcCronLines("21:00", 0, [-4], 0)).toEqual(["0 1 * * 1"]); // Sun 9pm EDT = Mon 01:00 UTC
+    expect(utcCronLines("01:00", 0, [2], 0)).toEqual(["0 23 * * 6"]); // Sun 1am UTC+2 = Sat 23:00 UTC
+  });
+
+  it("weekday() reads dates without a time zone", () => {
+    expect(weekday("2026-11-01")).toBe(0);
+    expect(weekday("2026-10-26")).toBe(1);
+  });
+});
+
+describe("review schedule", () => {
+  const rgate = (iso: string, hasThisWeek = false) =>
+    shouldDeliverReview({ now: new Date(iso), timeZone: TZ, reviewDay: 0, reviewTime: "18:00", hasThisWeek });
+
+  it("delivers from the EDT line in summer and the EST line in winter", () => {
+    expect(rgate("2026-07-05T21:45:00Z").deliver).toBe(true); // Sun 5:45pm EDT
+    expect(rgate("2026-11-08T21:45:00Z")).toMatchObject({ deliver: false, reason: expect.stringMatching(/too early/) }); // 4:45pm EST
+    expect(rgate("2026-11-08T22:45:00Z").deliver).toBe(true); // 5:45pm EST
+  });
+
+  it("handles the Sunday daylight saving ends (Nov 1, 2026)", () => {
+    expect(rgate("2026-11-01T21:45:00Z").deliver).toBe(false); // 4:45pm EST already
+    expect(rgate("2026-11-01T22:45:00Z").deliver).toBe(true);
+  });
+
+  it("skips the second line once this week's review exists, other days, and very late starts", () => {
+    expect(rgate("2026-07-05T22:45:00Z", true)).toMatchObject({ deliver: false, reason: expect.stringMatching(/already exists/) });
+    expect(rgate("2026-07-06T21:45:00Z")).toMatchObject({ deliver: false, reason: "not the review day" });
+    expect(rgate("2026-07-06T01:30:00Z").deliver).toBe(false); // Sun 9:30pm EDT: too late
+    expect(rgate("2026-07-06T00:30:00Z").deliver).toBe(true); // Sun 8:30pm EDT: GitHub was late
   });
 });

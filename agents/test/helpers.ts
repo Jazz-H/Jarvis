@@ -2,6 +2,7 @@
 // Any URL without a handler fails the test, so nothing can reach the network.
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { QueryFn } from "../lib/run-agent.ts";
+import type { GistClient } from "../tools/gist.ts";
 
 export interface Call {
   url: string;
@@ -46,4 +47,17 @@ export function fakeQuery(results: Partial<Extract<SDKMessage, { type: "result" 
     })();
   };
   return { fn, seen };
+}
+
+// An in-memory Gist: reads from `files`, records every write. Nothing touches the network.
+export function memoryGist(files: Record<string, string> = {}) {
+  const writes: [string, string][] = [];
+  const gist: GistClient = {
+    readFile: async (n) => files[n] ?? null,
+    writeFile: async (n, c) => {
+      writes.push([n, c]);
+      files[n] = c;
+    },
+  };
+  return { gist, writes, files };
 }

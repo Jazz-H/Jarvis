@@ -1,5 +1,6 @@
 // GitHub Gist access. Only the Jarvis orchestrator receives a GistClient; sub-agents never do.
-// Writes touch jazz2-briefing.json only, so the app's synced jazz2-data.json is never rewritten.
+// Writes touch only the orchestrator's own files (jazz2-briefing.json, jazz2-week.json,
+// jazz2-reviews.json, and pruning jazz2-push.json), so the app's jazz2-data.json is never rewritten.
 
 export interface GistClient {
   readFile(name: string): Promise<string | null>;

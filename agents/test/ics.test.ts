@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { eventsFromIcs, fetchCalendar } from "../tools/ics.ts";
+import { eventCountsByDay, eventsFromIcs, fetchCalendar, fetchCalendarWeek } from "../tools/ics.ts";
 import { fakeFetch, text } from "./helpers.ts";
 
 const ICS = readFileSync(new URL("./fixtures/calendar.ics", import.meta.url), "utf8");
@@ -47,5 +47,26 @@ describe("calendar (iCal) tool", () => {
     expect(err.message).not.toContain("SECRET");
     const ok = fakeFetch([[secret, () => text(ICS)]]);
     expect((await fetchCalendar(secret, NOW, TZ, ok.impl)).events.length).toBe(7);
+  });
+
+  it("counts events per local day for the week ahead (repeats, all-day spans, across DST)", async () => {
+    expect(eventCountsByDay(ICS, "2026-10-30", "2026-10-31", TZ)).toEqual({ "2026-10-30": 5, "2026-10-31": 2 });
+    expect(eventCountsByDay(ICS, "2026-11-02", "2026-11-08", TZ)).toEqual({
+      "2026-11-02": 0,
+      "2026-11-03": 0,
+      "2026-11-04": 0,
+      "2026-11-05": 1,
+      "2026-11-06": 1, // the weekly standup, now in EST
+      "2026-11-07": 0,
+      "2026-11-08": 0,
+    });
+    expect(eventCountsByDay("not a calendar", "2026-11-02", "2026-11-03", TZ)).toEqual({
+      "2026-11-02": 0,
+      "2026-11-03": 0,
+    });
+    const secret = "https://calendar.google.com/calendar/ical/x/private-SECRET/basic.ics";
+    const { impl } = fakeFetch([[secret, () => text("", 500)]]);
+    const err = await fetchCalendarWeek(secret, "2026-11-02", "2026-11-08", TZ, impl).catch((e) => e);
+    expect(err.message).toBe("Calendar feed HTTP 500");
   });
 });

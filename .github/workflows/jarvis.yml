@@ -1,14 +1,25 @@
 name: Jarvis
 
-# The morning briefing. GitHub cron is UTC and ignores daylight saving, so there are two lines:
-# 6:45am EDT and 6:45am EST. Each run checks the New York time and whether today's briefing
-# already exists, so only one delivers (agents/lib/schedule.ts). A test keeps these lines in
-# step with agents/config.ts. "Run workflow" delivers right away.
+# The morning briefing and the Sunday Weekly Review. GitHub cron is UTC and ignores daylight
+# saving, so each has two lines (one for EDT, one for EST). Each run checks the New York time and
+# whether its output already exists, so only one delivers (agents/lib/schedule.ts). A test keeps
+# these lines, and the review job's `if`, in step with agents/config.ts.
+# "Run workflow" delivers right away: mode "briefing" (default) or "review".
 on:
   schedule:
-    - cron: "45 10 * * *" # 6:45am EDT
-    - cron: "45 11 * * *" # 6:45am EST
+    - cron: "45 10 * * *" # briefing, 6:45am EDT
+    - cron: "45 11 * * *" # briefing, 6:45am EST
+    - cron: "45 21 * * 0" # weekly review, Sunday 5:45pm EDT
+    - cron: "45 22 * * 0" # weekly review, Sunday 5:45pm EST
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to run"
+        type: choice
+        options:
+          - briefing
+          - review
+        default: briefing
 
 permissions:
   contents: read
@@ -19,6 +30,9 @@ concurrency:
 
 jobs:
   brief:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.mode != 'review') ||
+      (github.event_name == 'schedule' && github.event.schedule != '45 21 * * 0' && github.event.schedule != '45 22 * * 0')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -49,6 +63,41 @@ jobs:
         if: always()
         with:
           name: jarvis-trace-${{ github.run_id }}
+          path: agents/out/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # The Weekly Review needs no Gmail access: Inbox comes from the morning runs' day digests.
+  review:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'review') ||
+      github.event.schedule == '45 21 * * 0' || github.event.schedule == '45 22 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: agents
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agents/package-lock.json
+      - run: npm ci
+      - run: npm run review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
+          JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}
+          # optional: next week's event counts (counts only; no titles)
+          GOOGLE_CALENDAR_ICS_URL: ${{ secrets.GOOGLE_CALENDAR_ICS_URL }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jarvis-review-trace-${{ github.run_id }}
           path: agents/out/
           retention-days: 14
           if-no-files-found: ignore

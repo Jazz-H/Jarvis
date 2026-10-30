@@ -1,5 +1,6 @@
 // Jarvis: the orchestrator. Reads Jazz context from the Gist, runs the sub-agents in parallel,
-// gives their validated output to the Jarvis model, and writes jazz2-briefing.json.
+// gives their validated output to the Jarvis model, and writes jazz2-briefing.json (plus a small
+// day digest in jazz2-week.json for Sunday's Weekly Review, review.ts).
 // Only this file holds the Gist client. Sub-agents get public fetch + their own model, nothing else.
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
@@ -20,6 +21,7 @@ import { readSubs, sendAll, vapidSender, type PushMessage, type Sender } from ".
 import { buildJazzContext, emptyContext, addDays, type JazzContext } from "./lib/jazz-context.ts";
 import { shouldDeliver, localTime } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
+import { buildDayDigest, mergeDigest, readWeekFile } from "./lib/day-digest.ts";
 import { Trace } from "./lib/trace.ts";
 import { runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
 import { runWeather } from "./subagents/weather.ts";
@@ -240,7 +242,23 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
   if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries), trace);
+  await appendDayDigest(gist, briefing, trace);
   return { status: "delivered", briefing, cost: ledger.summary() };
+}
+
+// Adds today's digest of the validated Inbox, Deliveries and Calendar cards to jazz2-week.json
+// for Sunday's Weekly Review. Never fails the briefing.
+export async function appendDayDigest(gist: GistClient, briefing: Briefing, trace: Trace) {
+  try {
+    const digest = buildDayDigest(briefing);
+    if (!digest) return;
+    const days = readWeekFile(await gist.readFile(CONFIG.gistFiles.week));
+    const file = mergeDigest(days, digest, CONFIG.digestDaysKept);
+    await gist.writeFile(CONFIG.gistFiles.week, JSON.stringify(file));
+    trace.log("jarvis", "day digest written", { days: file.days.length });
+  } catch (e) {
+    trace.log("jarvis", "day digest failed", { error: trace.publicError(e) });
+  }
 }
 
 export function jarvisSpec(
@@ -327,7 +345,7 @@ export function pushMessages(b: Briefing, c: JazzContext, deliveries: DeliveryCa
   return out.slice(0, 3);
 }
 
-async function notifyPhones(gist: GistClient, send: Sender, messages: PushMessage[], trace: Trace) {
+export async function notifyPhones(gist: GistClient, send: Sender, messages: PushMessage[], trace: Trace) {
   try {
     const raw = await gist.readFile(CONFIG.gistFiles.push);
     const subs = readSubs(raw);
