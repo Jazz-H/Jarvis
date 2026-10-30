@@ -16,7 +16,8 @@ import type { InboxCard } from "./schemas/inbox.ts";
 import type { DeliveryCard } from "./schemas/deliveries.ts";
 import { gistClient, type GistClient } from "./tools/gist.ts";
 import { gmailClient, googleAccessToken, type Gmail } from "./tools/gmail.ts";
-import { buildJazzContext, emptyContext, type JazzContext } from "./lib/jazz-context.ts";
+import { readSubs, sendAll, vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
+import { buildJazzContext, emptyContext, addDays, type JazzContext } from "./lib/jazz-context.ts";
 import { shouldDeliver, localTime } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
 import { Trace } from "./lib/trace.ts";
@@ -86,6 +87,7 @@ export interface JarvisDeps {
   queryFn?: QueryFn;
   subagents?: Subagents;
   sources?: Sources;
+  push?: Sender | null; // phone notifications, when VAPID_PRIVATE_KEY is set
 }
 
 export type RunOutcome =
@@ -237,6 +239,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   });
   await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
+  if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries), trace);
   return { status: "delivered", briefing, cost: ledger.summary() };
 }
 
@@ -278,6 +281,59 @@ export function jarvisSpec(
     effort: "medium",
     timeoutMs: CONFIG.agentTimeoutMs,
   };
+}
+
+// Phone notifications (layouts 1 + 2): the headline, then alerts for bills that need paying by
+// hand today or tomorrow and packages arriving today. At most three.
+export function pushMessages(b: Briefing, c: JazzContext, deliveries: DeliveryCard | null | undefined): PushMessage[] {
+  const url = CONFIG.push.url;
+  const out: PushMessage[] = [{ title: "Jarvis", body: b.headline, url, tag: "briefing" }];
+  const tomorrow = addDays(c.today, 1);
+  const manual = c.billsDueSoon.filter((x) => !x.autopay && x.due <= tomorrow);
+  if (manual.length)
+    out.push({
+      title: "Bill to pay",
+      body:
+        manual
+          .slice(0, 3)
+          .map(
+            (x) =>
+              `${x.name} $${x.amount.toFixed(2)} due ${x.due < c.today ? "overdue" : x.due === c.today ? "today" : "tomorrow"}`,
+          )
+          .join("; ") + " (not on autopay)",
+      url,
+      tag: "bill",
+    });
+  const arriving = (deliveries?.packages ?? []).filter(
+    (p) => p.status === "out" || (p.eta === c.today && p.status !== "delivered"),
+  );
+  if (arriving.length)
+    out.push({
+      title: "Arriving today",
+      body: arriving
+        .slice(0, 3)
+        .map((p) => p.item + (p.etaText ? ` (${p.etaText})` : ""))
+        .join(", "),
+      url,
+      tag: "delivery",
+    });
+  return out.slice(0, 3);
+}
+
+async function notifyPhones(gist: GistClient, send: Sender, messages: PushMessage[], trace: Trace) {
+  try {
+    const raw = await gist.readFile(CONFIG.gistFiles.push);
+    const subs = readSubs(raw);
+    if (!subs.length) return;
+    const r = await sendAll(subs, messages, send);
+    trace.log("jarvis", "notifications", { phones: subs.length, sent: r.sent, gone: r.gone.length, failed: r.failed });
+    if (r.gone.length) {
+      const keep = subs.filter((x) => !r.gone.includes(x.endpoint));
+      await gist.writeFile(CONFIG.gistFiles.push, JSON.stringify({ subs: keep }));
+    }
+  } catch (e) {
+    trace.log("jarvis", "notifications failed", { error: trace.publicError(e) }); // never fails the run
+  }
 }
 
 // Used when the Jarvis model fails: plain facts, no judgment.
@@ -329,6 +385,7 @@ async function main() {
     calendarUrl ?? "",
     env.GOOGLE_CLIENT_SECRET ?? "",
     env.GOOGLE_REFRESH_TOKEN ?? "",
+    env.VAPID_PRIVATE_KEY ?? "",
   ]);
   const manual = process.argv.includes("--now") || process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
   const outDir = path.join(here, "out");
@@ -341,6 +398,9 @@ async function main() {
       fetchImpl: fetch,
       maxRunCostUsd: Number(process.env.MAX_RUN_COST_USD) || CONFIG.defaultMaxRunCostUsd,
       trace,
+      push: env.VAPID_PRIVATE_KEY
+        ? vapidSender(CONFIG.push.publicKey, env.VAPID_PRIVATE_KEY, CONFIG.push.subject)
+        : null,
       sources: {
         calendarUrl,
         gmail: google ? async () => gmailClient(await googleAccessToken(google)) : null,

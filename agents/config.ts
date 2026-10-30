@@ -43,7 +43,14 @@ export const CONFIG = {
   costEstimateUsd: { jarvis: 0.12, weather: 0.01, news: 0.06, calendar: 0.01, inbox: 0.06, deliveries: 0.02 },
   defaultMaxRunCostUsd: 0.5,
   agentTimeoutMs: 120_000,
-  gistFiles: { data: "jazz2-data.json", briefing: "jazz2-briefing.json" },
+  gistFiles: { data: "jazz2-data.json", briefing: "jazz2-briefing.json", push: "jazz2-push.json" },
+  // Web Push (phone notifications). The public key is also in js/push.js; the private key is the
+  // VAPID_PRIVATE_KEY secret.
+  push: {
+    publicKey: "BF54qprNwJg833P74vJhM1ABNGzHJYmWsgq26TZi9ik7JLLmK_F_tMAuKGpkC_S7fO4-_Ci5anNk7T2jinq4YtQ",
+    subject: "https://jazz-h.github.io/Jazz2.0/",
+    url: "./jazz2.0.html?tab=jarvis",
+  },
 };
 
 export type SubagentName = "weather" | "news" | "calendar" | "inbox" | "deliveries";

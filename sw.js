@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v129`;
+const CACHE_NAME = `${CACHE_PREFIX}v130`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -14,6 +14,7 @@ const ASSETS = [
   "./js/home.js",
   "./js/jarvis.js",
   "./js/dashboard.js",
+  "./js/push.js",
   "./js/composer.js",
   "./js/todo.js",
   "./js/skin.js",
@@ -127,4 +128,42 @@ self.addEventListener("fetch", (event) => {
       .catch((error) => console.error("asset cache update failed", error)),
   );
   event.respondWith(caches.match(event.request).then((cached) => cached || networkResponse.catch(() => cached)));
+});
+
+// Phone notifications from Jarvis (js/push.js). The payload is plain data from the Jarvis
+// Action; it's capped and the link is kept inside the app.
+self.addEventListener("push", (event) => {
+  let m = {};
+  try {
+    m = event.data ? event.data.json() : {};
+  } catch (e) {}
+  const text = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
+  const url = typeof m.url === "string" && m.url.startsWith("./") ? m.url : "./jazz2.0.html?tab=jarvis";
+  event.waitUntil(
+    self.registration.showNotification(text(m.title, 60) || "Jarvis", {
+      body: text(m.body, 240),
+      tag: text(m.tag, 30) || "jarvis",
+      icon: "./jarvis-icon-192.png",
+      badge: "./jarvis-icon-192.png",
+      data: { url },
+    }),
+  );
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(
+    (event.notification.data && event.notification.data.url) || "./jazz2.0.html?tab=jarvis",
+    self.registration.scope,
+  ).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => c.url.startsWith(self.registration.scope));
+      if (open)
+        return open.navigate(url).then(
+          (c) => (c || open).focus(),
+          () => open.focus(),
+        );
+      return self.clients.openWindow(url);
+    }),
+  );
 });

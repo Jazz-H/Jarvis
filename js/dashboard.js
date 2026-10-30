@@ -369,6 +369,7 @@ function dashboardHtml() {
       ${dashTomorrowHtml(b)}
       ${jarvisHeroHtml(b)}
       ${dashWashSwapHtml(b, d)}
+      ${pushCardHtml()}
       ${dashTimelineHtml(b, d)}
       ${dashOutfitHtml(b)}
       ${dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d)}

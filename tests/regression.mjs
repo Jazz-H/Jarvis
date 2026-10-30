@@ -8726,6 +8726,72 @@ await section("your layout: reorder and hide Home's tiles (this device only)", a
   await ctx.close();
 });
 
+await section("phone notifications: turning them on saves this phone's push address to the gist", async () => {
+  const gist = {
+    id: "g0",
+    files: {
+      "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: Date.now(), data: {} }) },
+      "jazz2-push.json": {
+        truncated: false,
+        content: JSON.stringify({ subs: [{ endpoint: "https://push.example/old", keys: { p256dh: "k", auth: "a" } }] }),
+      },
+    },
+  };
+  const patches = [];
+  const route = async (r) => {
+    const req = r.request(),
+      url = new URL(req.url());
+    const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      const files = JSON.parse(req.postData()).files;
+      patches.push(files);
+      Object.entries(files).forEach(([n, f]) => (gist.files[n] = { truncated: false, content: f.content }));
+      return json(200, gist);
+    }
+    return json(404, {});
+  };
+  const { ctx, page, errors } = await openApp({
+    route,
+    seed: { "sync-token": "tok", "sync-gist-id": "g0", "data-updated-at": String(Date.now()) },
+  });
+  await page.evaluate(() => {
+    // a fake phone: permission granted and a push address from the push service
+    Notification.requestPermission = async () => "granted";
+    Object.defineProperty(Notification, "permission", { get: () => window.__perm || "default", configurable: true });
+    const sub = { toJSON: () => ({ endpoint: "https://push.example/new", keys: { p256dh: "p256", auth: "auth" } }) };
+    Object.defineProperty(navigator.serviceWorker, "ready", {
+      value: Promise.resolve({ pushManager: { subscribe: async () => ((window.__perm = "granted"), sub) } }),
+    });
+    renderHome();
+  });
+  check("the card offers notifications when sync is on", !!(await page.$('[data-action="jv-push-on"]')));
+  await page.tap('[data-action="jv-push-on"]');
+  await page.waitForTimeout(400);
+  const pushPatch = patches.find((f) => f["jazz2-push.json"]);
+  check("only the push file is written (never the app data)", !!pushPatch && !pushPatch["jazz2-data.json"], patches);
+  const subs = JSON.parse(gist.files["jazz2-push.json"].content).subs.map((x) => x.endpoint);
+  check(
+    "this phone is added and other phones are kept",
+    JSON.stringify(subs) === '["https://push.example/old","https://push.example/new"]',
+    subs,
+  );
+  check("the card goes away once it's on", !(await page.$('[data-action="jv-push-on"]')));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+
+  const later = await openApp({ seed: { "sync-token": "tok", "sync-gist-id": "g0" }, route });
+  await later.page.evaluate(() => pushLater());
+  check("Not now hides the card on this device", !(await later.page.$('[data-action="jv-push-on"]')));
+  await later.ctx.close();
+  const nosync = await openApp();
+  check(
+    "no card without sync (there's nowhere to save the address)",
+    !(await nosync.page.$('[data-action="jv-push-on"]')),
+  );
+  await nosync.ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
