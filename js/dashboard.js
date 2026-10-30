@@ -382,7 +382,7 @@ let dashQuickText = ""; // survives re-renders while typing
 function dashQuickHtml() {
   return `<div class="jv-quick">
       <input id="jv-quick" class="jv-quick-input" type="text" autocomplete="off" enterkeyhint="done" maxlength="${TODO_MAX_LEN}"
-        aria-label="Quick add a to-do" placeholder="Add: “call mom tomorrow”"
+        aria-label="Quick add a to-do" placeholder="Add a to-do"
         data-keydown-action="jv-quick-key" data-input-action="jv-quick-input" value="${escapeAttr(dashQuickText)}" />
       <button class="jv-quick-add" data-action="jv-quick-add" aria-label="Add to-do">+</button>
     </div>`;
@@ -424,11 +424,11 @@ function dashTomorrowHtml(b, now = new Date()) {
   const lines = [];
   if (w && w.date === iso)
     lines.push(
-      `<li><span class="jv-src jv-src-weather">Weather</span><span>${escapeHtml(`${w.highF}° / ${w.lowF}° · ${w.conditions}${w.rainChanceMax ? ` · ${w.rainChanceMax}% rain` : ""}`)}</span></li>`,
+      `<li class="jv-sum-row"><span class="jv-src jv-src-weather">Weather</span><span>${escapeHtml(`${w.highF}° / ${w.lowF}° · ${w.conditions}${w.rainChanceMax ? ` · ${w.rainChanceMax}% rain` : ""}`)}</span></li>`,
     );
   if (todos.length)
     lines.push(
-      `<li><span class="jv-src jv-src-jazz">To-Do</span><span>${todos.length} · ${escapeHtml(
+      `<li class="jv-sum-row"><span class="jv-src jv-src-jazz">To-Do</span><span>${todos.length} · ${escapeHtml(
         todos
           .slice(0, 3)
           .map((t) => t.text)
@@ -437,12 +437,13 @@ function dashTomorrowHtml(b, now = new Date()) {
     );
   if (billList.length)
     lines.push(
-      `<li><span class="jv-src jv-src-news">Bills</span><span>${escapeHtml(billList.map((x) => `${x.name} ${moneyShort(billShare(x))}${x.autopay ? " (autopay)" : ""}`).join(", "))}</span></li>`,
+      `<li class="jv-sum-row"><span class="jv-src jv-src-news">Bills</span><span>${escapeHtml(billList.map((x) => `${x.name} ${moneyShort(billShare(x))}${x.autopay ? " (autopay)" : ""}`).join(", "))}</span></li>`,
     );
-  if (day.wash) lines.push(`<li><span class="jv-src jv-src-jazz">Hair</span><span>Wash day</span></li>`);
+  if (day.wash)
+    lines.push(`<li class="jv-sum-row"><span class="jv-src jv-src-jazz">Hair</span><span>Wash day</span></li>`);
   if (workouts.length || weighInDue(iso))
     lines.push(
-      `<li><span class="jv-src jv-src-jarvis">Fitness</span><span>${escapeHtml(
+      `<li class="jv-sum-row"><span class="jv-src jv-src-jarvis">Fitness</span><span>${escapeHtml(
         [...workouts.map((x) => x.name + (x.time ? ` · ${x.time}` : "")), weighInDue(iso) ? "Weigh in" : ""]
           .filter(Boolean)
           .join(", "),

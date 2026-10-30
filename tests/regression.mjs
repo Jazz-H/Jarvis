@@ -8985,6 +8985,258 @@ await section("shopping: a tick box marks an item bought, like to-dos", async ()
   await ctx.close();
 });
 
+// ---- Home polish: placeholder, briefing rows, card spacing, outfit title, news source + Read ----
+function homePolishSeed() {
+  const meta = (agent) => ({ status: "ok", agent, model: "m", updatedAt: new Date().toISOString() });
+  const b = briefingFixture({
+    summary: [
+      { text: "Light rain by noon; bring a jacket.", source: "weather" },
+      { text: "Rent is due Saturday and isn't on autopay, so pay it before the weekend gets busy.", source: "jazz" },
+      { text: "Sample headline: new reasoning models raise the bar on coding benchmarks.", source: "news" },
+    ],
+  });
+  b.cards.calendar = {
+    ...meta("Calendar"),
+    data: {
+      date: isoOffset(0),
+      summary: "Busy midday.",
+      overlaps: [],
+      events: [{ title: "Lunch", day: "today", allDay: false, start: "12:00", end: "13:00", location: "" }],
+    },
+  };
+  b.cards.deliveries = {
+    ...meta("Deliveries"),
+    data: {
+      packages: [{ item: "Desk lamp", status: "shipped", eta: isoOffset(2), etaText: null, shoppingMatch: null }],
+    },
+  };
+  b.cards.news.data.stories.push({
+    id: "cars-1",
+    topic: "cars",
+    title: "A story from a source with a very long name",
+    source: "The Extremely Long Automotive News And Reviews Network Of America",
+    link: "https://example.com/cars",
+    published: "",
+    summary: "s",
+  });
+  const cap = [
+    { id: "t1", title: "Classic Button-Down — white", state: "owned", cat: "Tops" },
+    { id: "b1", title: "Dark-wash slim jeans", state: "owned", cat: "Bottoms" },
+    { id: "s2", title: "Black Chelsea boots", state: "owned", cat: "Shoes" },
+  ];
+  return { "jarvis-briefing": b, "capsule-content": cap };
+}
+
+await section("home polish: quick add says plainly what it does", async () => {
+  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const q = await page.evaluate(() => {
+    const el = document.getElementById("jv-quick");
+    return { ph: el.getAttribute("placeholder"), label: el.getAttribute("aria-label") };
+  });
+  check("placeholder is a short 'Add a to-do'", q.ph === "Add a to-do", q);
+  check("accessible label is kept", q.label === "Quick add a to-do", q);
+  // the date words still parse even though the placeholder no longer advertises them
+  await page.fill("#jv-quick", "call mom tomorrow");
+  await page.tap('[data-action="jv-quick-add"]');
+  const t = await page.evaluate(() => todoList.find((x) => x.text === "call mom"));
+  const tomorrow = await page.evaluate(() => addDaysIso(1));
+  check("'tomorrow' still sets the due date", !!t && t.due === tomorrow, t);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("home polish: briefing items are divided rows, tag on the first line", async () => {
+  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const r = await page.evaluate(() => {
+    const hl = document.querySelector(".jv-hero .jv-headline").getBoundingClientRect();
+    const lis = [...document.querySelectorAll(".jv-hero .jv-summary > li")];
+    return {
+      headlineBottom: hl.bottom,
+      rows: lis.map((li) => {
+        const row = li.matches(".jv-sum-row") ? li : li.querySelector(".jv-sum-row");
+        const box = row.getBoundingClientRect();
+        const src = row.querySelector(".jv-src").getBoundingClientRect();
+        const txt = row.querySelector(".jv-sum-text");
+        const range = document.createRange();
+        range.selectNodeContents(txt);
+        const lines = [...range.getClientRects()];
+        const cue = row.querySelector(".jv-sum-cue");
+        const c = cue && cue.getBoundingClientRect();
+        return {
+          border: getComputedStyle(li).borderTopWidth,
+          top: box.top,
+          bottom: box.bottom,
+          height: box.height,
+          srcMid: (src.top + src.bottom) / 2,
+          line1: [lines[0].top, lines[0].bottom],
+          lineCount: new Set(lines.map((l) => Math.round(l.top))).size,
+          txtTop: txt.getBoundingClientRect().top,
+          txtBottom: txt.getBoundingClientRect().bottom,
+          cue: c && { top: c.top, bottom: c.bottom },
+          drill: row.matches("button"),
+        };
+      }),
+    };
+  });
+  check("three rows, each with a divider rule", r.rows.length === 3 && r.rows.every((x) => x.border === "1px"), r.rows);
+  check("the list sits clearly below the headline", r.rows[0].top - r.headlineBottom >= 10, r);
+  check(
+    "each tag lines up with its first text line",
+    r.rows.every((x) => x.srcMid >= x.line1[0] && x.srcMid <= x.line1[1]),
+    r.rows,
+  );
+  check(
+    "rows don't overlap and are padded",
+    r.rows.every((x, i) => i === 0 || x.top >= r.rows[i - 1].bottom) && r.rows[0].txtTop - r.rows[0].top >= 10,
+    r.rows,
+  );
+  check(
+    "long items wrap inside their row",
+    r.rows[1].lineCount >= 2 && r.rows[1].txtBottom <= r.rows[1].bottom,
+    r.rows[1],
+  );
+  const drills = r.rows.filter((x) => x.drill);
+  check(
+    "weather and news rows drill, with the › on the row (not wrapped below) and a 44px target",
+    drills.length === 2 &&
+      drills.every((x) => x.cue && x.cue.top < x.txtBottom && x.cue.bottom > x.txtTop && x.height >= 44),
+    drills,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("home polish: open details keep the same 12px gap as every Home card", async () => {
+  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const gap = (a, b) =>
+    page.evaluate(
+      ([a, b]) => {
+        const x = document.querySelector(a);
+        const y = document.querySelector(b);
+        return x && y ? Math.round(y.getBoundingClientRect().top - x.getBoundingClientRect().bottom) : null;
+      },
+      [a, b],
+    );
+  check("Your day → Outfit: 12px", (await gap(".jv-day", ".jv-outfit")) === 12, await gap(".jv-day", ".jv-outfit"));
+  for (const go of ["calendar", "deliveries"]) {
+    await page.tap(`.jv-label [data-go="${go}"]`);
+    const above = await gap(".jv-day", `#jv-detail-${go}`);
+    const below = await gap(`#jv-detail-${go}`, ".jv-outfit");
+    check(`${go} detail: 12px from Your day and 12px above Outfit`, above === 12 && below === 12, { above, below });
+    await page.tap(`.jv-label [data-go="${go}"]`);
+  }
+  check(
+    "Systems tiles → News: 12px",
+    (await gap(".jv-tiles", "#jarvis-news")) === 12,
+    await gap(".jv-tiles", "#jarvis-news"),
+  );
+  await page.tap('.jv-tile[data-go="money"]');
+  const t = await page.evaluate(() => {
+    const d = document.getElementById("jv-detail-money");
+    const tile = document.querySelector('.jv-tile[data-go="money"]').getBoundingClientRect();
+    const r = d.getBoundingClientRect();
+    // dense flow backfills the neighbour tile beside the opened one, so look for what sits below
+    const below = [...document.querySelectorAll(".jv-tiles > *, #jarvis-news")]
+      .map((e) => Math.round(e.getBoundingClientRect().top - r.bottom))
+      .filter((g) => g >= 0);
+    return { above: Math.round(r.top - tile.bottom), below: Math.min(...below) };
+  });
+  check("a Systems tile detail: 12px above and below, like the tiles", t.above === 12 && t.below === 12, t);
+  await page.tap('.jv-tile[data-go="money"]');
+  await page.tap('[data-action="jv-layout-open"]');
+  check(
+    "Customize panel → tiles: 12px",
+    (await gap(".jv-layout", ".jv-tiles")) === 12,
+    await gap(".jv-layout", ".jv-tiles"),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("home polish: the outfit title is spaced from its pieces", async () => {
+  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const o = await page.evaluate(() => {
+    const h = document.querySelector(".jv-outfit .jv-headline");
+    const li = document.querySelector(".jv-outfit-list li");
+    const lt = li.getBoundingClientRect().top;
+    const text = li.querySelector("span:last-child").getBoundingClientRect().top;
+    return {
+      gap: lt - h.getBoundingClientRect().bottom,
+      textGap: text - h.getBoundingClientRect().bottom,
+      border: getComputedStyle(li).borderTopWidth,
+      hSize: parseFloat(getComputedStyle(h).fontSize),
+      rowSize: parseFloat(getComputedStyle(li).fontSize),
+    };
+  });
+  check("a 12px gap and a rule between title and the first row", o.gap >= 11 && o.border === "1px", o);
+  check("the first piece sits well clear of the title", o.textGap >= 20, o);
+  check("title outranks the rows", o.hSize >= o.rowSize + 4, o);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("home polish: news shows 'topic · source' and one safe Read link per story", async () => {
+  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const n = await page.evaluate(() => {
+    const card = document.getElementById("jarvis-news").getBoundingClientRect();
+    return [...document.querySelectorAll("#jarvis-news .jv-story")].map((s) => {
+      const head = s.querySelector(".jv-story-head");
+      const a = s.querySelector("a");
+      const r = a && a.getBoundingClientRect();
+      return {
+        topic: head?.querySelector(".jv-story-topic")?.textContent || "",
+        src: head?.querySelector(".jv-story-src")?.textContent || "",
+        sep: !!head?.querySelector(".jv-story-sep"),
+        loneSrc: !!s.querySelector(":scope > .jv-story-src"),
+        links: s.querySelectorAll("a").length,
+        titleIsLink: !!s.querySelector("a.jv-story-title, .jv-story-title a"),
+        href: a && a.getAttribute("href"),
+        target: a && a.getAttribute("target"),
+        rel: a && a.getAttribute("rel"),
+        label: a && a.getAttribute("aria-label"),
+        text: a && a.textContent.trim(),
+        h: r && r.height,
+        w: r && r.width,
+        inside: !r || r.right <= card.right,
+        headFits: head ? head.scrollWidth <= head.clientWidth : true,
+      };
+    });
+  });
+  const [safe, evil, long] = n;
+  check(
+    "the source sits next to the topic label",
+    safe.topic === "ai" && safe.src === "The Verge" && safe.sep && !n.some((x) => x.loneSrc),
+    safe,
+  );
+  check(
+    "a Read link per safe story: new tab, noopener noreferrer, labeled, 44px",
+    safe.links === 1 &&
+      safe.text === "Read" &&
+      safe.href === "https://news.google.com/a1" &&
+      safe.target === "_blank" &&
+      /\bnoopener\b/.test(safe.rel) &&
+      /\bnoreferrer\b/.test(safe.rel) &&
+      safe.label.includes("Safe story") &&
+      safe.label.includes("The Verge") &&
+      safe.h >= 44 &&
+      safe.w >= 44,
+    safe,
+  );
+  check(
+    "the headline is plain text, not a second link",
+    n.every((x) => !x.titleIsLink),
+    n,
+  );
+  check("an unsafe link gets no Read link (source still shows)", evil.links === 0 && evil.src === "X", evil);
+  check(
+    "a long source truncates instead of pushing Read off the card",
+    long.inside && long.headFits && long.links === 1,
+    long,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

@@ -4119,23 +4119,33 @@ body.todo-dragging {
   font-weight: 700;
   line-height: 1.2;
 }
+/* Tagged summary (briefing, Tomorrow): one divided row per item, the tag column on the first
+   text line; the rule above the first row separates the list from the headline */
 .jv-summary {
   list-style: none;
-  margin: 0;
+  margin: 12px 0 0;
   padding: 0;
-  display: grid;
-  gap: 10px;
-}
-.jv-summary li {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.5;
+}
+.jv-tomorrow .jv-summary {
+  margin-top: 0; /* its kicker already carries the gap */
+}
+.jv-summary > li {
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.jv-sum-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: baseline;
+  padding: 12px 0;
+}
+.jv-summary:last-child > li:last-child > .jv-sum-row,
+.jv-summary:last-child > li.jv-sum-row:last-child {
+  padding-bottom: 0;
 }
 .jv-src {
-  flex: none;
-  width: 64px;
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -4213,8 +4223,8 @@ body.todo-dragging {
 .jv-tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: 12px; /* the Home card rhythm: 12px between every card, tile and open detail */
+  margin-bottom: 12px;
 }
 .jv-tile {
   font: inherit;
@@ -4368,29 +4378,79 @@ body.todo-dragging {
 .jv-story:first-child {
   padding-top: 0;
 }
+/* "AI · Bloomberg" on the left, the Read link on the right */
+.jv-story-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  margin-bottom: 4px;
+}
+.jv-story-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
 .jv-story-topic {
-  display: block;
+  flex: none;
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--olive);
-  margin-bottom: 2px;
+}
+.jv-story-sep {
+  color: var(--text-dim);
+}
+.jv-story-src {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
 }
 .jv-story-title {
+  display: block;
   font-weight: 600;
   font-size: 15.5px;
   line-height: 1.35;
   color: var(--text);
-  text-decoration: none;
 }
-a.jv-story-title:hover {
+/* a 44px tap target drawn as a 32px chip (like .jv-chip-sm); the negative margin keeps the row compact */
+.jv-story-read {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -6px 0;
+  text-decoration: none;
   color: var(--link);
 }
-.jv-story-src {
+.jv-story-read > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
   font-size: 12.5px;
-  color: var(--text-dim);
-  margin-top: 2px;
+  font-weight: 600;
+}
+.jv-story-read:hover > span,
+.jv-story-read:focus-visible > span {
+  border-color: var(--olive);
+}
+.jv-story-read:focus-visible {
+  outline: none;
+}
+.jv-story-read:focus-visible > span {
+  box-shadow: 0 0 0 3px var(--glow);
 }
 .jv-story p {
   margin: 4px 0 0;
@@ -4631,6 +4691,10 @@ a.jv-story-title:hover {
   border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--olive-dim);
+  margin-bottom: 12px; /* same gap as .card when it opens in the page flow (Your day, Customize) */
+}
+.jv-tiles > .jv-detail {
+  margin-bottom: 0; /* in the tile grid the grid gap spaces it */
 }
 .jv-facts {
   font-size: 13.5px;
@@ -4639,11 +4703,9 @@ a.jv-story-title:hover {
 }
 /* briefing lines that drill into Weather or News */
 .jv-sum-drill {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
   width: 100%;
-  padding: 0;
+  min-height: 44px;
   background: none;
   border: none;
   font: inherit;
@@ -4652,8 +4714,7 @@ a.jv-story-title:hover {
   cursor: pointer;
 }
 .jv-sum-cue {
-  margin-left: auto;
-  padding-left: 6px;
+  justify-self: end;
   color: var(--olive);
   font-size: 18px;
   line-height: 1;
@@ -5240,10 +5301,12 @@ a.jv-story-title:hover {
   justify-content: space-between;
   gap: 10px;
 }
-.jv-outfit .jv-headline {
-  margin-bottom: 10px;
+/* must outrank .card h2.jv-headline, which zeroes the bottom margin */
+.jv-outfit h2.jv-headline {
+  margin: 8px 0 12px;
 }
-/* one piece per row: a mono label (Top, Bottom…) and the item, divided like the other lists */
+/* one piece per row: a mono label (Top, Bottom…) and the item, divided like the briefing; the
+   rule above the first row separates the pieces from the title */
 .jv-outfit-list {
   list-style: none;
   margin: 0;
@@ -5252,23 +5315,23 @@ a.jv-story-title:hover {
 .jv-outfit-list li {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
-  gap: 10px;
+  column-gap: 12px;
   align-items: baseline;
-  padding: 9px 0;
-  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
   font-size: 14.5px;
+  line-height: 1.4;
   font-weight: 600;
 }
-.jv-outfit-list li:first-child {
-  border-top: none;
-  padding-top: 2px;
+.jv-outfit-list li:last-child {
+  padding-bottom: 0;
 }
 .jv-outfit-list .jv-mini {
   color: var(--text-dim);
   font-weight: 400;
 }
 .jv-outfit-note {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   color: var(--text-dim);
 }
 /* Money extras */
@@ -5301,10 +5364,7 @@ a.jv-story-title:hover {
   font-size: 13px;
   color: var(--text-dim);
 }
-/* Your layout: reorder / hide tiles */
-.jv-layout {
-  margin-bottom: 10px;
-}
+/* Your layout: reorder / hide tiles (a .jv-detail, so it keeps the 12px card gap) */
 .jv-layout-row {
   display: flex;
   align-items: center;

@@ -15,7 +15,7 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 it. Each fact appears once, and each tile drills down: tile → its detail → its tab.
 - **Status:** Jarvis's state (Online / Standing by / Local mode), when it last briefed you,
   and a greeting ("Good morning, Jazz."). The date is in the header.
-- **Quick add:** one line under the greeting. Type "call mom tomorrow" (or "…friday", "…today")
+- **Quick add:** one line under the greeting ("Add a to-do"). Type "call mom tomorrow" (or "…friday", "…today")
   and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
   stays ready for the next one. Sync waits while you're typing there.
 - **Tomorrow (from 5 PM):** tomorrow at a glance above the briefing: its forecast, to-dos,
@@ -24,7 +24,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   trips from your to-do types, plus a gift idea from Shopping (an item with "gift" in it) when
   a birthday is coming.
 - **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
-  came from (Jarvis, Jazz, Weather, News). Weather and News lines drill into those details.
+  came from (Jarvis, Jazz, Weather, News). Each item is its own row, divided by a thin rule,
+  with its tag lined up with the first line of text. Weather and News lines drill into those
+  details (the › on the right).
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
   older day's briefing is dimmed and labeled "From <date>". Problems from the run are listed
   under "notes".
@@ -44,7 +46,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
-  jacket. It's plain rules, no AI. Each piece is a row labeled Top, Bottom, Shoes or Layer;
+  jacket. It's plain rules, no AI. Under its title, each piece is a divided row labeled Top,
+  Bottom, Shoes or Layer;
   **Swap** (top right) shows another good option. Hidden until you've saved
   at least a top and a bottom.
 - **Systems:** six tiles (Weather, Inbox, Money, Beauty, Jazz 3.0, Shopping), each with
@@ -73,7 +76,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     top needs (tick when bought, tap to edit), and how many wants and the estimated total.
   - Each detail ends in a link to its tab.
 - **News:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with its
-  topic, a linked headline, the source and a short summary. Names its agent and time.
+  topic and source on one line ("AI · The Verge"), the headline and a short summary. **Read**
+  (top right of each story) opens the story in a new tab; a story whose link isn't a plain
+  web address gets no Read button. Names its agent and time.
 - **Offline:** everything except Weather and News is built on this device from your own lists,
   so it works offline and with Jarvis not set up.
 - **App icon badge:** the installed app's icon shows how many things still need you today:
@@ -570,6 +575,10 @@ for the accent, amber for warnings and overdue items, soft blue for AM and pink 
 - **Notification badge:** `badge.svg` → `jarvis-badge-96.png`, the small icon in Android's
   status bar. Android uses only its shape, so it's the segmented ring and "J" in white on
   transparent (the full app icon there shows as a blank square).
+
+**Spacing.** On Home every card, tile and opened detail (Calendar, Deliveries, a Systems
+tile, Customize) sits 12px from the next; section labels add 20px above. Inside cards, a
+title and its list are split by a thin rule (the briefing, Outfit).
 
 **Touch.** Rows and controls use ~44px touch targets. Text inputs are 16px on touch
 devices so iOS doesn't zoom.

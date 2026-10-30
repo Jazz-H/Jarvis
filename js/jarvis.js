@@ -278,17 +278,29 @@ function jarvisWeatherDetail(c) {
     ${list}${jvMeta(c)}`;
 }
 
-// News: a headline list (topic, linked title, source, short summary)
+// News: a headline list. Each story: "TOPIC · Source" with a Read link on the right, then the
+// title and a short summary. The Read link is the one tap target (the title is plain text), and
+// unsafe links get no Read link at all.
 function jarvisNewsCard(c) {
   if (!c) return "";
   if (c.status !== "ok")
     return collapsibleCard({ id: "jarvis-news", title: "News", insight: "Unavailable", body: jvErrorBody(c) });
   const rows = c.data.stories
     .map((s) => {
-      const title =
-        linkHtml(s.link, 'class="jv-story-title"', escapeHtml(s.title)) ||
-        `<span class="jv-story-title">${escapeHtml(s.title)}</span>`;
-      return `<li class="jv-story">${s.topic ? `<span class="jv-story-topic">${escapeHtml(s.topic)}</span>` : ""}${title}<div class="jv-story-src">${escapeHtml(s.source)}</div>${s.summary ? `<p>${escapeHtml(s.summary)}</p>` : ""}</li>`;
+      const meta = [
+        s.topic ? `<span class="jv-story-topic">${escapeHtml(s.topic)}</span>` : "",
+        s.source ? `<span class="jv-story-src">${escapeHtml(s.source)}</span>` : "",
+      ]
+        .filter(Boolean)
+        .join('<span class="jv-story-sep" aria-hidden="true">·</span>');
+      const read = linkHtml(
+        s.link,
+        `class="jv-story-read" aria-label="Read “${escapeAttr(s.title)}”${s.source ? ` on ${escapeAttr(s.source)}` : ""} (opens in a new tab)"`,
+        `<span>Read${EXTERNAL_ICON}</span>`,
+      );
+      const head =
+        meta || read ? `<div class="jv-story-head"><span class="jv-story-meta">${meta}</span>${read}</div>` : "";
+      return `<li class="jv-story">${head}<span class="jv-story-title">${escapeHtml(s.title)}</span>${s.summary ? `<p>${escapeHtml(s.summary)}</p>` : ""}</li>`;
     })
     .join("");
   const n = c.data.stories.length;
@@ -314,10 +326,11 @@ function jarvisHeroHtml(b) {
   const isNew = b.id !== localStorage.getItem(BRIEFING_SEEN_KEY);
   const items = b.summary
     .map((s) => {
-      const body = `<span class="jv-src jv-src-${s.source}">${BRIEFING_SOURCES[s.source]}</span><span>${escapeHtml(s.text)}</span>`;
+      // one divided row per item: tag column, text, then the drill cue (or an empty cue column)
+      const body = `<span class="jv-src jv-src-${s.source}">${BRIEFING_SOURCES[s.source]}</span><span class="jv-sum-text">${escapeHtml(s.text)}</span>`;
       return BRIEFING_DRILL[s.source]
-        ? `<li><button class="jv-sum-drill" data-action="jv-drill" data-go="${BRIEFING_DRILL[s.source]}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button></li>`
-        : `<li>${body}</li>`;
+        ? `<li><button class="jv-sum-row jv-sum-drill" data-action="jv-drill" data-go="${BRIEFING_DRILL[s.source]}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button></li>`
+        : `<li class="jv-sum-row">${body}</li>`;
     })
     .join("");
   const notes = b.notes.length

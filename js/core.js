@@ -72,7 +72,7 @@ function safeUrl(u) {
 }
 function linkHtml(u, attrs, inner) {
   const href = safeUrl(u);
-  return href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener" ${attrs}>${inner}</a>` : "";
+  return href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" ${attrs}>${inner}</a>` : "";
 }
 
 let styleState = {};
