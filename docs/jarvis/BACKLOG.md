@@ -4,7 +4,8 @@ Everything open, so nothing gets missed. Tick items off here as they land (and n
 branch or commit). Big phases live in `PLAN.md`; this list is the smaller work around them.
 
 ## Do next
-- Nothing right now. Next up is a Build item or the Budget decision.
+- [ ] **Phase 2 + backlog plan:** answer the decisions in `PHASE2-DISCOVERY.md` (section 8); then
+  build in its order (Phase 2 steps 1–6, then backlog steps 7–16).
 
 ## Decide
 - [ ] **Budget in the tab bar?** It's hidden; Home's Money tile is the everyday way in. Keep it
