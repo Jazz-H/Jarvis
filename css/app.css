@@ -5068,6 +5068,13 @@ a.jv-story-title:hover {
 .jv-skinwx-row.warn span:last-child {
   color: var(--warn);
 }
+/* Jarvis suggestions (wash-day swap) */
+.jv-suggest {
+  border-color: var(--trace);
+}
+.jv-suggest .jv-chips {
+  margin-top: 10px;
+}
 nav.tabbar button.jv-new::after {
   content: "";
   position: absolute;

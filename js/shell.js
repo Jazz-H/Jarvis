@@ -253,6 +253,8 @@ const SHELL_CLICK = {
   // Both only accept their own section names and card ids.
   "jv-drill": (el) => dashDrill(el.getAttribute("data-go")),
   "jv-quick-add": () => dashQuickAdd(),
+  "jv-wash-move": () => dashWashMove(), // re-checks the suggestion before changing anything
+  "jv-wash-keep": () => dashWashKeep(),
   "jv-go": (el) => dashGo(el.getAttribute("data-go"), el.getAttribute("data-card")),
   // Budget / bills. Every id, date and index is revalidated against live data; stale or forged metadata does nothing.
   "stop-click": (el, e) => e.stopPropagation(),

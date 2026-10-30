@@ -354,6 +354,7 @@ function dashboardHtml() {
       ${dashQuickHtml()}
       ${dashTomorrowHtml(b)}
       ${jarvisHeroHtml(b)}
+      ${dashWashSwapHtml(b, d)}
       ${dashTimelineHtml(b, d)}
       ${dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d)}
       ${b ? jarvisNewsCard(b.news) : ""}
@@ -710,4 +711,52 @@ function dashInboxDetail(c) {
   return `${
     rows ? `<div class="jv-mail">${rows}</div>` : `<div class="empty">Nothing urgent, nobody waiting, no bills.</div>`
   }${jvMeta(c)}`;
+}
+
+// ---- wash-day swap (layout 1): rain or humidity on a wash day, and tomorrow looks drier ----
+const DASH_WASH_KEEP = "jv-wash-keep"; // "keep today's wash day" for this date; this device only
+function dashWashSwap(b, d, now = new Date()) {
+  const today = addDaysIso(0),
+    tomorrow = addDaysIso(1);
+  if (!d.skin.r.wash || washHairDone(today)) return null;
+  try {
+    if (localStorage.getItem(DASH_WASH_KEEP) === today) return null;
+  } catch (e) {}
+  const w = b && b.date === today ? dashToday(b.weather) : null;
+  if (!w || !w.tomorrow || w.tomorrow.date !== tomorrow) return null;
+  const wet = w.rainChanceMax >= 50,
+    humid = w.humidityPct != null && w.humidityPct >= 70;
+  if (!(wet || humid) || w.tomorrow.rainChanceMax >= 40 || now.getHours() >= 21) return null;
+  return {
+    day: noonOf(tomorrow).toLocaleDateString("en-US", { weekday: "long" }),
+    why: [wet ? `${w.rainChanceMax}% rain` : "", humid ? `${w.humidityPct}% humidity` : ""].filter(Boolean).join(" + "),
+    tomorrowRain: w.tomorrow.rainChanceMax,
+  };
+}
+function dashWashSwapHtml(b, d) {
+  const s = dashWashSwap(b, d);
+  if (!s) return "";
+  return `<section class="card jv-card jv-suggest" aria-label="Wash day suggestion">
+      <div class="jv-kicker">Jarvis suggests</div>
+      <h2 class="jv-headline">Move wash day to ${escapeHtml(s.day)}?</h2>
+      <p class="jv-line">${escapeHtml(`${s.why} today; ${s.day} looks drier (${s.tomorrowRain}% rain).`)}</p>
+      <div class="jv-chips">
+        <button class="jv-chip-sm on" data-action="jv-wash-move">Move to ${escapeHtml(s.day)}</button>
+        <button class="jv-chip-sm" data-action="jv-wash-keep">Keep today</button>
+      </div>
+    </section>`;
+}
+// Moving shifts the whole schedule: tomorrow becomes the anchor, same every-N-days rhythm
+function dashWashMove() {
+  const s = dashWashSwap(loadBriefing(), { skin: dashSkinData() });
+  if (!s) return;
+  skinRoutine.wash = { anchor: addDaysIso(1), everyDays: washSchedule().everyDays };
+  saveRoutine();
+  showToast(`Wash day moved to ${s.day}`);
+}
+function dashWashKeep() {
+  try {
+    localStorage.setItem(DASH_WASH_KEEP, addDaysIso(0));
+  } catch (e) {}
+  renderHome();
 }

@@ -8378,7 +8378,9 @@ await section("skin weather: UV with SPF advice and air quality, on Weather and 
   );
   check(
     "Weather detail shows UV with SPF advice and the hours, and air quality",
-    rows.length === 2 && rows[0].endsWith("High (7) 11a–3p: SPF 50, reapply every 2 h") && rows[1].endsWith("Good (AQI 42)"),
+    rows.length === 2 &&
+      rows[0].endsWith("High (7) 11a–3p: SPF 50, reapply every 2 h") &&
+      rows[1].endsWith("Good (AQI 42)"),
     rows,
   );
   await page.evaluate(() => {
@@ -8395,6 +8397,70 @@ await section("skin weather: UV with SPF advice and air quality, on Weather and 
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
+});
+
+await section("wash-day swap: suggests a drier day, moves the schedule, or keeps today", async () => {
+  const routine = {
+    am: [],
+    pm: [],
+    washPm: [{ id: "ws1", label: "Shampoo", product: "x" }],
+    wash: { anchor: isoOffset(0), everyDays: 7 },
+  };
+  const wet = () => {
+    const b = briefingFixture();
+    Object.assign(b.cards.weather.data, {
+      rainChanceMax: 60,
+      humidityPct: 78,
+      tomorrow: { date: isoOffset(1), conditions: "Clear", highF: 70, lowF: 50, rainChanceMax: 10 },
+    });
+    return b;
+  };
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": wet(), "skin-routine-content": routine } });
+  const head = await page.evaluate(() => {
+    // the suggestion is hidden after 9 PM; check its content with a daytime clock
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    return dashWashSwap(loadBriefing(), { skin: dashSkinData() }, d);
+  });
+  check(
+    "suggests moving a rainy, humid wash day to a drier tomorrow",
+    !!head && head.why === "60% rain + 78% humidity",
+    head,
+  );
+  const card = await page.$(".jv-suggest");
+  if (card && new Date().getHours() < 21) {
+    await page.tap('[data-action="jv-wash-move"]');
+    const after = await page.evaluate(() => ({
+      anchor: skinRoutine.wash.anchor,
+      every: skinRoutine.wash.everyDays,
+      card: !!document.querySelector(".jv-suggest"),
+    }));
+    check(
+      "Move shifts the schedule to tomorrow, same rhythm",
+      after.anchor === isoOffset(1) && after.every === 7 && !after.card,
+      after,
+    );
+  }
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+
+  const k = await openApp({ seed: { "jarvis-briefing": wet(), "skin-routine-content": routine } });
+  await k.page.evaluate(() => dashWashKeep());
+  check(
+    "Keep hides it for today",
+    !(await k.page.$(".jv-suggest")) &&
+      (await k.page.evaluate(() => localStorage.getItem("jv-wash-keep") === addDaysIso(0))),
+  );
+  await k.ctx.close();
+
+  const dry = wet();
+  dry.cards.weather.data.tomorrow.rainChanceMax = 70;
+  const n = await openApp({ seed: { "jarvis-briefing": dry, "skin-routine-content": routine } });
+  check(
+    "no suggestion when tomorrow is wet too",
+    !(await n.page.evaluate(() => dashWashSwap(loadBriefing(), { skin: dashSkinData() }))),
+  );
+  await n.ctx.close();
 });
 
 await browser.close();
