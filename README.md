@@ -19,12 +19,20 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
   stays ready for the next one. Sync waits while you're typing there.
 - **Tomorrow (from 5 PM):** tomorrow at a glance above the briefing: its forecast, to-dos,
-  bills, wash day and workouts. **Plan tomorrow** opens tomorrow in the Planner.
+  bills, wash day and workouts. **Plan tomorrow** opens tomorrow in the Planner. Under it,
+  **Next 14 days** calls out (in pink) upcoming birthdays, car maintenance, appointments and
+  trips from your to-do types, plus a gift idea from Shopping (an item with "gift" in it) when
+  a birthday is coming.
 - **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
   came from (Jarvis, Jazz, Weather, News). Weather and News lines drill into those details.
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
   older day's briefing is dimmed and labeled "From <date>". Problems from the run are listed
   under "notes".
+- **Wash-day swap:** on a wash day with 50%+ rain or 70%+ humidity, when tomorrow looks drier,
+  Jarvis suggests moving wash day to tomorrow. **Move it** moves just this one; **Keep today**
+  hides the suggestion for today (this device).
+- **Notifications:** a card offers **Turn on** for phone notifications (needs sync on; see
+  SETUP section 7). **Not now** hides it on this device for 2 weeks.
 - **Your day:** a timeline of today in time order: calendar events (all-day first; past ones
   dimmed; overlapping ones flagged), when rain is likely, Amazon deliveries arriving, the to-dos
   left, bills due today and wash day. Each row drills in: events open the **Calendar** detail
@@ -32,20 +40,32 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   **Mark bought** when it's on your Shopping list, then each package's Ordered → Shipped → Out →
   Delivered progress), to-dos go to the Planner, rain to Weather. Until the calendar is connected
   the timeline offers **Connect your calendar** with the setup steps.
+- **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
+  a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
+  jacket. It's plain rules, no AI. **Swap** shows another good option. Hidden until you've saved
+  at least a top and a bottom.
 - **Systems:** six tiles (Weather, Inbox, Money, Skin & Hair, Jazz 3.0, Shopping), each with
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
-  under it (one at a time; tap again to close).
+  under it (one at a time; tap again to close). **Customize** lets you reorder (↑ ↓) or hide
+  tiles; the layout is saved on this device.
   - **Inbox:** the tile shows unread mail and what needs you; the detail lists urgent mail,
     people waiting on a reply, and bills found in email, each checked against Budget (a
     mismatch shows the Budget amount and opens Budget).
   - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
-    hour-by-hour list (every 3 hours: temperature, conditions, rain). Names its agent and time.
-  - **Money:** bills due in the next 7 days (tick to pay, tap to edit), then the current pay
-    period (payday to payday) as a bar of paid vs. due with what's left; tap it for Budget.
+    hour-by-hour list (every 3 hours: temperature, conditions, rain). Skin weather sits in
+    the detail: the UV peak and its hours with SPF advice, and air quality (both from
+    Open-Meteo). Names its agent and time.
+  - **Money:** a warning for bills due within 3 days that aren't on autopay, bills due in the
+    next 7 days (tick to pay, tap to edit), then the current pay period (payday to payday):
+    **Safe to spend** until payday (with the countdown) and a bar of paid vs. due; tap it for
+    Budget. The tile names a not-autopay bill when one is due soon.
   - **Skin & Hair:** AM and PM checklists side by side, each headed by its count and a bar
-    per step (tap a header for Skin & Hair), plus the streak.
+    per step (tap a header for Skin & Hair), plus the streak. The tile adds "UV 7 · SPF" on
+    high-UV days.
   - **Jazz 3.0:** a bar for the weight goal and each goal section. Tap one to open that card
-    on the Jazz 3.0 tab. Today's workouts follow.
+    on the Jazz 3.0 tab. Then **one goal item for today** (an unfinished Jazz 3.0 item, the
+    same all day; **Done** ticks it, **Another** picks a different one), today's workouts, and
+    **Last 7 days**: a row of squares each for routine (AM + PM), workouts and weigh-ins.
   - **Shopping:** a line from Jarvis's briefing when it mentions one of your needs, then the
     top needs (tick when bought, tap to edit), and how many wants and the estimated total.
   - Each detail ends in a link to its tab.
@@ -369,18 +389,24 @@ Setup: `docs/jarvis/SETUP.md`.
   Every sub-agent's output is checked with zod and retried once if invalid. **Jarvis**
   (`claude-opus-5-5`) gets only that checked output plus the app data and writes the summary.
   The orchestrator then writes `jazz2-briefing.json` to the gist.
+- **Phone notifications:** after the briefing is written, the orchestrator sends Web Push
+  (`agents/tools/push.ts`, `web-push`) to every phone that turned them on (addresses in
+  `jazz2-push.json` in the gist; the app writes only that file for this). Up to 3 messages: the
+  headline, a bill not on autopay due by tomorrow, and a package arriving today. Signed with the
+  `VAPID_PRIVATE_KEY` secret (the public key is in `js/push.js` and `agents/config.ts`). Phones
+  that revoked access are removed; a push failure never fails the run.
 - **Safety:**
   - Every agent runs with no tools, no MCP servers, no repo settings or `CLAUDE.md`, and no
     secrets except the Anthropic key.
   - Headlines and app text go to models as clearly marked untrusted data.
   - News links come from code, never from a model.
-  - Only the orchestrator holds the gist token, and it writes only the briefing file.
+  - Only the orchestrator holds the gist token, and it writes only the briefing file (and
+    prunes revoked phones from the push file).
 - **Limits:** each run is capped by `MAX_RUN_COST_USD` (default $0.50). Optional sub-agents are
   skipped if they won't fit. A failed sub-agent shows as an error card and the rest still ships.
 - **Trace:** each run uploads timings, outcomes and token costs per agent (no inputs) as a
   workflow artifact.
-- **Settings:** location, time, feeds and models live in `agents/config.ts`. A Settings → Jarvis
-  screen comes in a later phase.
+- **Settings:** location, time, feeds and models live in `agents/config.ts`.
 
 ## Development
 

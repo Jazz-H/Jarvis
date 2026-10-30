@@ -89,6 +89,23 @@ Jarvis reads only headers and Gmail's short preview snippet: never full emails o
 removing access at myaccount.google.com/permissions) ends the sign-in. Run
 `npm run google-auth` again and update `GOOGLE_REFRESH_TOKEN`.
 
+## 7. Phone notifications (optional): `VAPID_PRIVATE_KEY`
+The morning headline (plus a bill to pay by hand due by tomorrow, and a package arriving today)
+as a notification on your lock screen. The key pair is already made: the public half is in the
+app, and the private half is in `agents/.env` on your computer (gitignored).
+1. On your computer, open `agents/.env` and copy the value after `VAPID_PRIVATE_KEY=`.
+2. GitHub → repo → Settings → Secrets and variables → Actions → **New repository secret**, name
+   **`VAPID_PRIVATE_KEY`**, paste it. Don't paste it anywhere else (not in chat, not in the app).
+3. On your phone, open Jarvis (sync must be on) and tap **Turn on** on the Notifications card,
+   then **Allow**. Do this on each phone you want notified.
+   - **Android:** works in Chrome or the installed app.
+   - **iPhone:** iOS 16.4+, and only from the app added to the Home Screen (Share → Add to
+     Home Screen), not from Safari.
+4. Actions → Jarvis → **Run workflow** to test it.
+
+**Not now** hides the card on that phone for 2 weeks. If you blocked notifications, allow them
+again in the phone's settings for Jarvis (or the site settings in Chrome); the card then returns.
+
 ## When it runs
 - Every morning so it's there by about **7:00am Eastern**. GitHub's cron is UTC-only and can start
   5–15 minutes late (sometimes more), so the workflow fires at 6:45am EDT and 6:45am EST, and only

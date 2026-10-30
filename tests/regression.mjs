@@ -8780,15 +8780,31 @@ await section("phone notifications: turning them on saves this phone's push addr
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 
+  // headless Chrome reports notifications as blocked; pretend this phone hasn't been asked yet
+  const unasked = (pg) =>
+    pg.evaluate(() => {
+      Object.defineProperty(Notification, "permission", { get: () => "default", configurable: true });
+      renderHome();
+    });
+  const card = (pg) => pg.$('[data-action="jv-push-on"]');
   const later = await openApp({ seed: { "sync-token": "tok", "sync-gist-id": "g0" }, route });
-  await later.page.evaluate(() => pushLater());
-  check("Not now hides the card on this device", !(await later.page.$('[data-action="jv-push-on"]')));
+  await unasked(later.page);
+  check("the card shows before Not now", !!(await card(later.page)));
+  await later.page.tap('[data-action="jv-push-later"]');
+  check("Not now hides the card on this device", !(await card(later.page)));
+  await unasked(later.page);
+  check("and it stays hidden (for 2 weeks)", !(await card(later.page)));
   await later.ctx.close();
+  const stale = await openApp({
+    seed: { "sync-token": "tok", "sync-gist-id": "g0", "push-later": String(Date.now() - 15 * 864e5) },
+    route,
+  });
+  await unasked(stale.page);
+  check("the card comes back 2 weeks after Not now", !!(await card(stale.page)));
+  await stale.ctx.close();
   const nosync = await openApp();
-  check(
-    "no card without sync (there's nowhere to save the address)",
-    !(await nosync.page.$('[data-action="jv-push-on"]')),
-  );
+  await unasked(nosync.page);
+  check("no card without sync (there's nowhere to save the address)", !(await card(nosync.page)));
   await nosync.ctx.close();
 });
 

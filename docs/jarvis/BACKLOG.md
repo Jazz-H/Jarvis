@@ -6,29 +6,23 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 ## Do next
 - [ ] **Connect Google** (you): Calendar's secret iCal address (2 min, phone) and the one-time
   Gmail sign-in (15 min, computer). Steps: SETUP.md section 6.
-- [ ] **Backlog build** (steps 7–16 in `PHASE2-DISCOVERY.md`), with the layouts you picked.
+- [ ] **Phone notifications secret** (you, at the computer): copy `VAPID_PRIVATE_KEY` from
+  `agents/.env` into a repo secret, then tap **Turn on** on your phone. SETUP.md section 7.
+- [ ] **Google workflow env** (me, once you approve the `workflow` scope): the Google and VAPID
+  secrets added to `jarvis.yml` (branch `jarvis/google-workflow`).
 
 ## Decide
-- [ ] **Budget in the tab bar?** It's hidden; Home's Money tile is the everyday way in. Keep it
-  that way, or put Budget back in the bar.
+- (nothing open)
 
 ## Build
-- [ ] **Real phone notifications.** The Jarvis Action sends the morning headline as a Web Push
-  notification (VAPID key in a secret; works for home-screen apps on iOS 16.4+), instead of
-  only the in-app notice.
-- [ ] **Outfit from your closet.** Jarvis picks today's outfit from your saved wardrobe using the
-  weather and business-casual days.
-- [ ] **Skin weather.** UV index and air quality from Open-Meteo; an SPF nudge when UV is high.
-- [ ] **Wash-day swap.** When rain or humidity hits a wash day, offer to move it a day with one tap.
-- [ ] **One goal item a day.** Jarvis picks one unfinished Glow or Leadership item.
-- [ ] **Consistency score.** Routine, workouts and weigh-ins as one streak.
-- [ ] **Money extras.** Safe to spend until payday; a paycheck countdown; a warning when a bill
-  without autopay is due soon. (Fits Phase 3.)
-- [ ] **Coming up.** Upcoming birthdays and car maintenance from your to-do types, with gift
-  ideas from Shopping.
-- [ ] **Your layout.** Reorder or hide Home's tiles; pin the detail you open most.
+- (nothing open; add ideas here)
 
 ## Done
+- [x] Budget stays out of the tab bar; Home's Money tile is the way in (decided Oct 30)
+- [x] Backlog build, steps 7–16 (Oct 30, `main`): skin weather (UV + SPF, air quality), wash-day
+  swap, one goal item a day, consistency (last 7 days), money extras (safe to spend, payday
+  countdown, not-autopay warning), coming up (next 14 days, gift idea), outfit from your closet,
+  your layout (reorder/hide tiles), real phone notifications (Web Push)
 - [x] Phase 2 built: Calendar, Inbox and Deliveries agents; Your day timeline; Inbox tile;
   Calendar and Deliveries details; Google setup guide and `npm run google-auth`
 - [x] Loading skeleton on Home while the app starts

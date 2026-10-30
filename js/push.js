@@ -9,7 +9,8 @@
 const PUSH_PUBLIC_KEY = "BF54qprNwJg833P74vJhM1ABNGzHJYmWsgq26TZi9ik7JLLmK_F_tMAuKGpkC_S7fO4-_Ci5anNk7T2jinq4YtQ";
 const PUSH_FILE = "jazz2-push.json";
 const PUSH_ENDPOINT_KEY = "push-endpoint"; // this phone's push address, once on (this device only)
-const PUSH_LATER_KEY = "push-later"; // "Not now" (this device only)
+const PUSH_LATER_KEY = "push-later"; // when "Not now" was tapped (this device only)
+const PUSH_LATER_MS = 14 * 864e5; // the card comes back after 2 weeks
 
 function pushSupported() {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -69,13 +70,14 @@ async function enablePush() {
 }
 function pushLater() {
   try {
-    localStorage.setItem(PUSH_LATER_KEY, "1");
+    localStorage.setItem(PUSH_LATER_KEY, String(Date.now()));
   } catch (e) {}
   renderHome();
 }
 // A small card on Home until notifications are on (or "Not now"), only where they can work
 function pushCardHtml() {
-  if (pushState() !== "off" || !localStorage.getItem("sync-token") || localStorage.getItem(PUSH_LATER_KEY)) return "";
+  const later = Number(localStorage.getItem(PUSH_LATER_KEY)) || 0;
+  if (pushState() !== "off" || !localStorage.getItem("sync-token") || Date.now() - later < PUSH_LATER_MS) return "";
   return `<section class="card jv-card jv-suggest" aria-label="Notifications">
       <div class="jv-kicker">Notifications</div>
       <h2 class="jv-headline">Get Jarvis on your lock screen</h2>

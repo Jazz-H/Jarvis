@@ -1,6 +1,7 @@
 # Phase 2 discovery: Calendar, Inbox and Shopper (+ the backlog)
 
-Status: **proposal, waiting on the decisions at the end.** Nothing here is built yet.
+Status: **built (Oct 30).** All 16 steps in section 7 are in, with the layouts picked in
+section 8. Still yours: connect Google (SETUP section 6) and add `VAPID_PRIVATE_KEY` (section 7).
 Design and layout options are on the design canvas (see *Design options*).
 
 ## 1. Goal
