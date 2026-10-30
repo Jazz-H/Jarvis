@@ -1,1 +1,3 @@
 node_modules/
+agents/.env
+agents/node_modules/
