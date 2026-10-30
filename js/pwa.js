@@ -1,37 +1,53 @@
 // pwa.js - PWA: hard refresh, view resume and service-worker registration.
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
-async function hardRefresh(){
-  try{
-    if ("caches" in window){
+async function hardRefresh() {
+  try {
+    if ("caches" in window) {
       const keys = await caches.keys();
-      await Promise.all(keys.filter(k => k.startsWith(APP_CACHE_PREFIX)).map(k => caches.delete(k)));
+      await Promise.all(keys.filter((k) => k.startsWith(APP_CACHE_PREFIX)).map((k) => caches.delete(k)));
     }
-    if ("serviceWorker" in navigator){
+    if ("serviceWorker" in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
       const scriptUrl = new URL("sw.js", location.href).href;
-      await Promise.all(regs.filter(r =>
-        [r.active, r.waiting, r.installing].some(worker => worker && worker.scriptURL === scriptUrl)
-      ).map(r => r.unregister()));
+      await Promise.all(
+        regs
+          .filter((r) => [r.active, r.waiting, r.installing].some((worker) => worker && worker.scriptURL === scriptUrl))
+          .map((r) => r.unregister()),
+      );
     }
-  }catch(e){ console.error("hard refresh cleanup failed", e); }
+  } catch (e) {
+    console.error("hard refresh cleanup failed", e);
+  }
   // come back to the same tab and spot after the reload (this tab only)
-  try{ sessionStorage.setItem("resume-view", JSON.stringify({tab:currentTab, scroll:document.querySelector("main").scrollTop})); }catch(e){}
+  try {
+    sessionStorage.setItem(
+      "resume-view",
+      JSON.stringify({ tab: currentTab, scroll: document.querySelector("main").scrollTop }),
+    );
+  } catch (e) {}
   location.reload();
 }
-function resumeView(){
+function resumeView() {
   let v = null;
-  try{ v = JSON.parse(sessionStorage.getItem("resume-view")); sessionStorage.removeItem("resume-view"); }catch(e){}
+  try {
+    v = JSON.parse(sessionStorage.getItem("resume-view"));
+    sessionStorage.removeItem("resume-view");
+  } catch (e) {}
   if (!v || !isTab(v.tab) || v.tab === currentTab) return;
   activateTab(v.tab);
   const y = Number(v.scroll) || 0;
-  if (y) requestAnimationFrame(() => { document.querySelector("main").scrollTop = y; });
+  if (y)
+    requestAnimationFrame(() => {
+      document.querySelector("main").scrollTop = y;
+    });
 }
 
-
 // ---------- PWA: service worker registration (only works when hosted on a real http(s) origin) ----------
-if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js", {updateViaCache:"none"}).catch(err => console.log("SW registration skipped:", err));
+    navigator.serviceWorker
+      .register("sw.js", { updateViaCache: "none" })
+      .catch((err) => console.log("SW registration skipped:", err));
   });
 }

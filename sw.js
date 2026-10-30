@@ -33,38 +33,48 @@ const ASSETS = [
   "./js/boot.js",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      const results = await Promise.allSettled(ASSETS.map((url) => fetch(url, {cache:"reload"}).then((res) => {
-        if (!res.ok) throw new Error(url + " " + res.status);
-        return cache.put(url, res);
-      })));
+      const results = await Promise.allSettled(
+        ASSETS.map((url) =>
+          fetch(url, { cache: "reload" }).then((res) => {
+            if (!res.ok) throw new Error(url + " " + res.status);
+            return cache.put(url, res);
+          }),
+        ),
+      );
       const failed = results.find((result) => result.status === "rejected");
       if (failed) {
         await caches.delete(CACHE_NAME);
         throw failed.reason;
       }
-    })
+    }),
   );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k))),
+      ),
   );
   self.clients.claim();
 });
 
-function isAppShellRequest(request){
-  return request.mode === "navigate" || request.destination === "document" ||
-    request.url.endsWith("/jazz2.0.html") || request.url.endsWith("/index.html");
+function isAppShellRequest(request) {
+  return (
+    request.mode === "navigate" ||
+    request.destination === "document" ||
+    request.url.endsWith("/jazz2.0.html") ||
+    request.url.endsWith("/index.html")
+  );
 }
 
 self.addEventListener("fetch", (event) => {
@@ -72,27 +82,41 @@ self.addEventListener("fetch", (event) => {
   // sync) — the cache-first branch below would serve stale sync data forever.
   if (new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.method !== "GET") return;
-  if (isAppShellRequest(event.request)){
+  if (isAppShellRequest(event.request)) {
     // Network-first for the HTML shell so a normal reload always picks up the
     // latest deploy instead of getting stuck on whatever was cached at install.
     const networkResponse = fetch(event.request);
-    event.waitUntil(networkResponse.then((response) => {
-      if (!response || !response.ok) return;
-      return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
-    }, () => {}).catch((error) => console.error("app shell cache update failed", error)));
+    event.waitUntil(
+      networkResponse
+        .then(
+          (response) => {
+            if (!response || !response.ok) return;
+            return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+          },
+          () => {},
+        )
+        .catch((error) => console.error("app shell cache update failed", error)),
+    );
     event.respondWith(
       networkResponse
         // ?tab=… launch shortcuts must find the cached page offline too
-        .catch(() => caches.match(event.request, {ignoreSearch:true}).then((hit) => hit || caches.match("./jazz2.0.html")))
+        .catch(() =>
+          caches.match(event.request, { ignoreSearch: true }).then((hit) => hit || caches.match("./jazz2.0.html")),
+        ),
     );
     return;
   }
   const networkResponse = fetch(event.request);
-  event.waitUntil(networkResponse.then((response) => {
-    if (!response || !response.ok) return;
-    return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
-  }, () => {}).catch((error) => console.error("asset cache update failed", error)));
-  event.respondWith(caches.match(event.request).then((cached) =>
-    cached || networkResponse.catch(() => cached)
-  ));
+  event.waitUntil(
+    networkResponse
+      .then(
+        (response) => {
+          if (!response || !response.ok) return;
+          return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+        },
+        () => {},
+      )
+      .catch((error) => console.error("asset cache update failed", error)),
+  );
+  event.respondWith(caches.match(event.request).then((cached) => cached || networkResponse.catch(() => cached)));
 });

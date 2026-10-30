@@ -9,12 +9,12 @@
 // The app can stay open past midnight: when the date changes, everything that
 // says "today" (header, Home, the routine, budget) is redrawn for the new day
 let renderedDay = addDaysIso(0);
-function setHeaderDate(){
+function setHeaderDate() {
   const now = new Date();
   document.getElementById("header-date").textContent =
-    `${now.toLocaleDateString('en-US',{weekday:'short'})} · ${now.toLocaleDateString('en-US',{month:'short', day:'numeric'})}`;
+    `${now.toLocaleDateString("en-US", { weekday: "short" })} · ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
-function checkDayChange(){
+function checkDayChange() {
   const today = addDaysIso(0);
   if (today === renderedDay) return;
   renderedDay = today;
@@ -22,13 +22,23 @@ function checkDayChange(){
   homeAnchor = null;
   setHeaderDate();
   archiveOldTodos();
-  if (processAutopay()){ writeQuietly("bills-content", bills); writeQuietly("bill-payments", billPayments); }
-  renderSkin(); renderBudget(); renderFitness(); renderHome();
+  if (processAutopay()) {
+    writeQuietly("bills-content", bills);
+    writeQuietly("bill-payments", billPayments);
+  }
+  renderSkin();
+  renderBudget();
+  renderFitness();
+  renderHome();
 }
-function writeQuietly(key, value){
-  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error("write failed", key, e); }
+function writeQuietly(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error("write failed", key, e);
+  }
 }
-(async function init(){
+(async function init() {
   loadAllContent();
   archiveOldTodos();
 
@@ -47,4 +57,4 @@ function writeQuietly(key, value){
   if (!location.search) resumeView();
   initSync();
   importFromLink();
-})();
+})();

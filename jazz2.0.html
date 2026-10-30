@@ -1,144 +1,251 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jazz 3.0</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jazz 3.0</title>
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0c0c0d">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jazz 3.0">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="stylesheet" href="css/app.css">
-</head>
-<body data-tab="home">
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0c0c0d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Jazz 3.0" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body data-tab="home">
+    <header>
+      <div class="header-row">
+        <h1 id="headline">Home</h1>
+        <div class="header-meta">
+          <div class="eyebrow" id="header-date"></div>
+        </div>
+        <button
+          class="sync-btn"
+          id="sync-btn"
+          data-state="off"
+          data-action="open-sync"
+          title="Sync &amp; backup"
+          aria-label="Sync and backup"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+          </svg>
+        </button>
+        <button
+          class="hard-refresh-btn"
+          data-action="hard-refresh"
+          title="Clear cached app files and reload (your data is kept)"
+          aria-label="Hard refresh"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M23 4v6h-6" />
+            <path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" />
+          </svg>
+        </button>
+      </div>
+    </header>
 
-<header>
-  <div class="header-row">
-    <h1 id="headline">Home</h1>
-    <div class="header-meta">
-      <div class="eyebrow" id="header-date"></div>
-    </div>
-    <button class="sync-btn" id="sync-btn" data-state="off" data-action="open-sync" title="Sync &amp; backup" aria-label="Sync and backup">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+    <main>
+      <div id="pull-indicator"><span class="pull-spinner"></span><span class="pull-label">Pull to refresh</span></div>
+      <!-- HOME -->
+      <section class="tabpanel active" id="panel-home"></section>
+      <!-- TO-DO -->
+      <section class="tabpanel" id="panel-todo"></section>
+      <!-- SKIN / HAIR -->
+      <section class="tabpanel" id="panel-jazz3"></section>
+      <section class="tabpanel" id="panel-skin"></section>
+      <!-- BUDGET -->
+      <section class="tabpanel" id="panel-budget"></section>
+      <!-- WANTS -->
+      <section class="tabpanel" id="panel-wants">
+        <div class="skeleton">
+          <div class="skel-line"></div>
+          <div class="skel-line"></div>
+          <div class="skel-line"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" aria-live="polite"></div>
+
+    <button class="fab" id="fab" data-action="open-composer" aria-label="Add a to-do">
+      <svg
+        viewBox="0 0 24 24"
+        width="26"
+        height="26"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.4"
+        stroke-linecap="round"
+      >
+        <path d="M12 5v14M5 12h14" />
+      </svg>
     </button>
-    <button class="hard-refresh-btn" data-action="hard-refresh" title="Clear cached app files and reload (your data is kept)" aria-label="Hard refresh">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
-    </button>
-  </div>
-</header>
 
-<main>
-  <div id="pull-indicator"><span class="pull-spinner"></span><span class="pull-label">Pull to refresh</span></div>
-  <!-- HOME -->
-  <section class="tabpanel active" id="panel-home"></section>
-  <!-- TO-DO -->
-  <section class="tabpanel" id="panel-todo"></section>
-  <!-- SKIN / HAIR -->
-  <section class="tabpanel" id="panel-jazz3"></section>
-  <section class="tabpanel" id="panel-skin"></section>
-  <!-- BUDGET -->
-  <section class="tabpanel" id="panel-budget"></section>
-  <!-- WANTS -->
-  <section class="tabpanel" id="panel-wants">
-    <div class="skeleton"><div class="skel-line"></div><div class="skel-line"></div><div class="skel-line"></div></div>
-  </section>
-</main>
-
-<div class="toast" id="toast" aria-live="polite"></div>
-
-<button class="fab" id="fab" data-action="open-composer" aria-label="Add a to-do">
-  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-</button>
-
-<div class="composer-backdrop" id="composer" aria-hidden="true" data-action="composer-backdrop">
-  <div class="composer-sheet" id="composer-sheet" role="dialog" aria-modal="true" aria-labelledby="composer-title">
-    <div class="composer-grab" aria-hidden="true"></div>
-    <div class="modal-head">
-      <h3 id="composer-title"><span id="composer-heading">New to-do</span> <span class="insight" id="composer-count"></span></h3>
-      <button class="modal-x" data-action="close-composer" aria-label="Close">&times;</button>
+    <div class="composer-backdrop" id="composer" aria-hidden="true" data-action="composer-backdrop">
+      <div class="composer-sheet" id="composer-sheet" role="dialog" aria-modal="true" aria-labelledby="composer-title">
+        <div class="composer-grab" aria-hidden="true"></div>
+        <div class="modal-head">
+          <h3 id="composer-title">
+            <span id="composer-heading">New to-do</span> <span class="insight" id="composer-count"></span>
+          </h3>
+          <button class="modal-x" data-action="close-composer" aria-label="Close">&times;</button>
+        </div>
+        <textarea
+          id="composer-text"
+          rows="2"
+          maxlength="200"
+          enterkeyhint="send"
+          autocomplete="off"
+          data-input-action="composer-text"
+        ></textarea>
+        <div class="composer-chips" id="composer-chips"></div>
+        <div class="composer-chips" id="composer-chips2" hidden></div>
+        <div class="composer-row" id="composer-buy" hidden>
+          <input id="cx-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price" />
+          <input id="cx-link" type="url" inputmode="url" placeholder="Link" />
+        </div>
+        <div id="composer-extra" hidden></div>
+        <input
+          type="date"
+          id="composer-date"
+          class="composer-date-input"
+          tabindex="-1"
+          aria-hidden="true"
+          data-change-action="composer-date"
+        />
+        <button class="modal-btn primary composer-add" id="composer-add-btn" data-action="composer-add">
+          Add to-do
+        </button>
+      </div>
     </div>
-    <textarea id="composer-text" rows="2" maxlength="200" enterkeyhint="send" autocomplete="off" data-input-action="composer-text"></textarea>
-    <div class="composer-chips" id="composer-chips"></div>
-    <div class="composer-chips" id="composer-chips2" hidden></div>
-    <div class="composer-row" id="composer-buy" hidden>
-      <input id="cx-price" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price">
-      <input id="cx-link" type="url" inputmode="url" placeholder="Link">
-    </div>
-    <div id="composer-extra" hidden></div>
-    <input type="date" id="composer-date" class="composer-date-input" tabindex="-1" aria-hidden="true"
-      data-change-action="composer-date">
-    <button class="modal-btn primary composer-add" id="composer-add-btn" data-action="composer-add">Add to-do</button>
-  </div>
-</div>
 
-<div class="modal-backdrop" id="modal-backdrop" data-action="modal-backdrop">
-  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
-    <div class="modal-head">
-      <h3 id="modal-heading">Edit</h3>
-      <button class="modal-x" data-action="close-modal" aria-label="Close">&times;</button>
+    <div class="modal-backdrop" id="modal-backdrop" data-action="modal-backdrop">
+      <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
+        <div class="modal-head">
+          <h3 id="modal-heading">Edit</h3>
+          <button class="modal-x" data-action="close-modal" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-actions">
+          <button class="modal-btn danger" id="modal-delete-btn" data-action="modal-delete">Delete</button>
+          <button class="modal-btn primary" data-action="modal-save">Save</button>
+        </div>
+      </div>
     </div>
-    <div class="modal-body" id="modal-body"></div>
-    <div class="modal-actions">
-      <button class="modal-btn danger" id="modal-delete-btn" data-action="modal-delete">Delete</button>
-      <button class="modal-btn primary" data-action="modal-save">Save</button>
-    </div>
-  </div>
-</div>
 
-<nav class="tabbar" aria-label="Sections">
-  <button data-tab="home" class="active" aria-current="page">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
-    Home
-  </button>
-  <button data-tab="todo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    To-Do
-  </button>
-  <button data-tab="jazz3" class="j3-tab">
-    <span class="j3-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L19 9.7l-4.1 3.3 1.4 5.3L12 15.4l-4.3 2.9 1.4-5.3L5 9.7l5.2-1.8z"/></svg></span>
-    <span class="j3-label">Jazz 3.0</span>
-  </button>
-  <button data-tab="wants">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>
-    Shopping
-  </button>
-  <button data-tab="skin">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"/></svg>
-    Skin &amp; Hair
-  </button>
-</nav>
+    <nav class="tabbar" aria-label="Sections">
+      <button data-tab="home" class="active" aria-current="page">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9" />
+        </svg>
+        Home
+      </button>
+      <button data-tab="todo">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+        To-Do
+      </button>
+      <button data-tab="jazz3" class="j3-tab">
+        <span class="j3-orb"
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 3l1.8 4.9L19 9.7l-4.1 3.3 1.4 5.3L12 15.4l-4.3 2.9 1.4-5.3L5 9.7l5.2-1.8z" /></svg
+        ></span>
+        <span class="j3-label">Jazz 3.0</span>
+      </button>
+      <button data-tab="wants">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4M3 6h18M16 10a4 4 0 0 1-8 0" />
+        </svg>
+        Shopping
+      </button>
+      <button data-tab="skin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path
+            d="M12 21s-7-4.6-9.3-9.2C1 8 2.7 4.6 6 4.1c2-.3 3.7.9 4.5 2.3.8-1.4 2.5-2.6 4.5-2.3 3.3.5 5 3.9 3.3 7.7C19 16.4 12 21 12 21z"
+          />
+        </svg>
+        Skin &amp; Hair
+      </button>
+    </nav>
 
-<script src="js/constants.js"></script>
-<script src="js/core.js"></script>
-<script src="js/defaults.js"></script>
-<script src="js/modal.js"></script>
-<script src="js/todo-dates.js"></script>
-<script src="js/holidays.js"></script>
-<script src="js/home.js"></script>
-<script src="js/composer.js"></script>
-<script src="js/todo.js"></script>
-<script src="js/skin.js"></script>
-<script src="js/shopping.js"></script>
-<script src="js/budget-bills.js"></script>
-<script src="js/budget-income.js"></script>
-<script src="js/budget-goals.js"></script>
-<script src="js/budget-import.js"></script>
-<script src="js/budget-view.js"></script>
-<script src="js/fitness.js"></script>
-<script src="js/jazz3.js"></script>
-<script src="js/shell.js"></script>
-<script src="js/gestures.js"></script>
-<script src="js/drag-reorder.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/backup.js"></script>
-<script src="js/data-load.js"></script>
-<script src="js/import-link.js"></script>
-<script src="js/pwa.js"></script>
-<script src="js/boot.js"></script>
-</body>
+    <script src="js/constants.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/defaults.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/todo-dates.js"></script>
+    <script src="js/holidays.js"></script>
+    <script src="js/home.js"></script>
+    <script src="js/composer.js"></script>
+    <script src="js/todo.js"></script>
+    <script src="js/skin.js"></script>
+    <script src="js/shopping.js"></script>
+    <script src="js/budget-bills.js"></script>
+    <script src="js/budget-income.js"></script>
+    <script src="js/budget-goals.js"></script>
+    <script src="js/budget-import.js"></script>
+    <script src="js/budget-view.js"></script>
+    <script src="js/fitness.js"></script>
+    <script src="js/jazz3.js"></script>
+    <script src="js/shell.js"></script>
+    <script src="js/gestures.js"></script>
+    <script src="js/drag-reorder.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/backup.js"></script>
+    <script src="js/data-load.js"></script>
+    <script src="js/import-link.js"></script>
+    <script src="js/pwa.js"></script>
+    <script src="js/boot.js"></script>
+  </body>
 </html>
