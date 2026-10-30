@@ -600,6 +600,22 @@ const SHELL_CLICK = {
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
   "console-go": (el) => consoleGo(el.getAttribute("data-go")),
+  // Weekly Review (review.js): the Console card / row and Home's line open it; the sheet's arrows,
+  // links and suggestion chips. Ids, directions, stat keys and indexes are all re-checked.
+  "review-open": (el) => openReview(el.getAttribute("data-review-id")),
+  "review-close": () => closeReview(),
+  "review-backdrop": (el, e) => {
+    if (e.target === el) closeReview();
+  },
+  "review-step": (el) => {
+    const d = el.getAttribute("data-dir");
+    if (d === "older" || d === "newer") reviewStep(d);
+  },
+  "review-go": (el) => reviewGo(el.getAttribute("data-stat"), el.getAttribute("data-index")),
+  "review-chip": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d$/.test(i || "")) reviewAddChip(Number(i));
+  },
   "home-cal-open": (el) => {
     const open = el.getAttribute("data-open");
     if (open === "true" || open === "false") setHomeCalOpen(open === "true");

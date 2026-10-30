@@ -1,6 +1,6 @@
 # Phase 4 discovery: turning the Jazz 3.0 tab into Jarvis's Console
 
-Status: **approved Oct 30; building steps 1–5.** Phase 4 work ("Ask Jarvis, Weekly Review, suggested
+Status: **approved Oct 30; steps 1–5 built** (step 5, the Weekly Review UI, is `js/review.js`). Phase 4 work ("Ask Jarvis, Weekly Review, suggested
 to-dos" in `PLAN.md`). Decisions are recorded at the end of section 8. Mockup:
 https://claude.ai/artifact/JXypPxJC97xFRZ6r7n9xq2 (the "A layout + B design" screen).
 

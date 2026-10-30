@@ -220,6 +220,17 @@
       </div>
     </div>
 
+    <!-- Weekly Review (js/review.js): a sheet on phones, a dialog on desktop; filled when opened -->
+    <div class="modal-backdrop rv-backdrop" id="review-sheet" aria-hidden="true" inert data-action="review-backdrop">
+      <div
+        class="modal-sheet rv-sheet"
+        id="review-body"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rv-title"
+      ></div>
+    </div>
+
     <div class="modal-backdrop" id="modal-backdrop" inert data-action="modal-backdrop">
       <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
         <div class="modal-head">
@@ -323,6 +334,7 @@
     <script src="js/fitness.js"></script>
     <script src="js/jazz3.js"></script>
     <script src="js/console.js"></script>
+    <script src="js/review.js"></script>
     <script src="js/shell.js"></script>
     <script src="js/gestures.js"></script>
     <script src="js/drag-reorder.js"></script>

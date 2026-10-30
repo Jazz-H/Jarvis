@@ -7806,7 +7806,7 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
     when: document.querySelector(".jv-when").textContent,
     stale: document.querySelector(".jv-hero").classList.contains("jv-stale"),
     newsErr: document.querySelector("#jarvis-news .jv-error").textContent,
-    newsInsight: document.querySelector("#jarvis-news .insight").textContent,
+    newsInsight: document.querySelector(".jv-news-label .jv-label-count").textContent,
     weatherErr: document.querySelector("#jarvis-weather .jv-error")?.textContent || "",
     notes: document.querySelector(".jv-notes summary").textContent,
     fallback: document.querySelector(".jv-card > .jv-meta").textContent,
@@ -9143,9 +9143,9 @@ await section("home polish: open details keep the same 12px gap as every Home ca
     await page.tap(`.jv-label [data-go="${go}"]`);
   }
   check(
-    "Systems tiles → News: 12px",
-    (await gap(".jv-tiles", "#jarvis-news")) === 12,
-    await gap(".jv-tiles", "#jarvis-news"),
+    "News has a section label like Systems, 10px above its card",
+    (await gap(".jv-news-label", "#jarvis-news")) === 10,
+    await gap(".jv-news-label", "#jarvis-news"),
   );
   await page.tap('.jv-tile[data-go="money"]');
   const t = await page.evaluate(() => {
@@ -10101,6 +10101,696 @@ await section("Console: feed normalizer drops junk, caps 7 days / 50 entries, su
     days,
   );
   check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// ---------- Weekly Review (js/review.js) ----------
+// A review whose Sunday is `end` days from today (0 = today), with week id `id`
+function reviewFixture(id, end = 0, over = {}) {
+  return {
+    version: 1,
+    id,
+    weekStart: isoOffset(end - 6),
+    weekEnd: isoOffset(end),
+    generatedAt: new Date().toISOString(),
+    trigger: "schedule",
+    headline: "Routine held at 5/7; two to-dos slipped",
+    stats: {
+      todos: { done: 3, due: 4, dueDone: 2, missed: 2, carried: 1, starredDone: 1 },
+      routine: { fullDays: 5, amOnly: 1, streak: 2 },
+      workouts: { done: 3, planned: 4, missedDays: [isoOffset(end - 4)] },
+      weight: { weighIns: 2, current: 192.5, change: -1.5, pct: 38, eta: "2027-01-28" },
+      goals: [{ name: "Glow", doneThisWeek: null, done: 1, total: 2 }],
+      bills: {
+        paid: 2,
+        autopaid: 1,
+        paidTotal: 160,
+        unpaidPastDue: ["Gym", "Rent"],
+        dueNextWeek: 2,
+        dueNextWeekTotal: 110,
+      },
+      spending: {
+        total: 117.75,
+        byCat: [{ name: "Groceries", spent: 90.5, limitWeek: 70.33, monthSpent: 20, limitMonth: 310 }],
+      },
+      shopping: { bought: null, boughtCount: null, needsOpen: 2, estOpen: 160 },
+      nextWeek: {
+        start: isoOffset(end + 1),
+        end: isoOffset(end + 7),
+        events: null,
+        busiestDay: isoOffset(end + 6),
+        todosDue: 2,
+        billsDue: 2,
+        workouts: 3,
+        washDays: [isoOffset(end + 3)],
+      },
+      inbox: { days: 2, awaitingReply: 1, billMismatches: 1 },
+    },
+    wins: [{ text: "Routine done 5 of 7 days.", stat: "routine" }],
+    slips: [{ text: "2 to-dos due this week are still open.", stat: "todos" }],
+    focus: [{ text: "Pay Gym and Rent first thing Monday." }],
+    suggestions: [
+      { kind: "todo", text: "Pay Rent", due: isoOffset(end + 1) },
+      { kind: "shopping", text: "Protein powder" },
+    ],
+    summaryBy: "jarvis",
+    snapshot: { plan3Done: [], wantsBought: [] },
+    notes: ["Goals and Shopping are tracked from this review on."],
+    ...over,
+  };
+}
+const reviewsFile = (...reviews) => ({ version: 1, reviews });
+
+await section(
+  "weekly review: sync pulls jazz2-reviews.json, keeps it on this device only, never pushes it",
+  async () => {
+    const now = Date.now();
+    const file = reviewsFile(reviewFixture("2030-W02", 0), reviewFixture("2030-W01", -7));
+    const gist = {
+      id: "g0",
+      files: {
+        "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: now - 1000, data: {} }) },
+        "jazz2-reviews.json": { truncated: false, content: JSON.stringify(file) },
+      },
+    };
+    const patches = [];
+    const route = async (r) => {
+      const req = r.request(),
+        url = new URL(req.url());
+      const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+      if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+      if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+        const files = JSON.parse(req.postData()).files;
+        patches.push(Object.keys(files));
+        Object.entries(files).forEach(([n, f]) => (gist.files[n] = { truncated: false, content: f.content }));
+        return json(200, gist);
+      }
+      return json(404, {});
+    };
+    const { ctx, page, errors } = await openApp({
+      route,
+      query: "?tab=todo",
+      seed: { "sync-token": "tok", "sync-gist-id": "g0", "data-updated-at": String(now) },
+    });
+    await page.waitForTimeout(800);
+    const r = await page.evaluate(() => {
+      const stored = JSON.parse(localStorage.getItem("jarvis-reviews") || "null");
+      return {
+        ids: ((stored && stored.reviews) || []).map((x) => x.id),
+        snapshot: !!stored && "snapshot" in stored.reviews[0],
+        toast: document.getElementById("toast").textContent,
+        inSyncKeys: SYNC_KEYS.includes("jarvis-reviews") || SYNC_KEYS.includes("jarvis-review-seen"),
+        card: !!document.querySelector("#panel-console .rv-card"),
+      };
+    });
+    check("reviews stored on this device, newest first", r.ids.join() === "2030-W02,2030-W01", r);
+    check("stored already cleaned (no snapshot)", !r.snapshot, r);
+    check("toast says the review is ready", r.toast === "Your week in review is ready", r.toast);
+    check("reviews are not synced lists", !r.inSyncKeys);
+    check("Console shows the card once it arrives", r.card);
+    await page.evaluate(async () => {
+      todoList.push({ id: "n1", text: "New", done: false, due: null, starred: false, subitems: [], completedAt: null });
+      saveContent("todo-content", todoList, { toast: false });
+      await syncNow();
+    });
+    check(
+      "push sends only the app data file",
+      patches.length > 0 && patches.every((p) => p.join() === "jazz2-data.json"),
+      patches,
+    );
+    check("gist reviews untouched", gist.files["jazz2-reviews.json"].content === JSON.stringify(file));
+    const after = await page.evaluate(async (f) => {
+      document.getElementById("toast").textContent = "";
+      const before = localStorage.getItem("jarvis-reviews");
+      await ingestReviewFile({ content: JSON.stringify(f) }); // the same file again
+      await ingestReviewFile({ truncated: true, raw_url: "https://evil.example/x" });
+      await ingestReviewFile({ content: "not json" });
+      await ingestReviewFile({ content: JSON.stringify({ version: 1, reviews: [] }) });
+      await ingestReviewFile(undefined);
+      return {
+        same: localStorage.getItem("jarvis-reviews") === before,
+        toast: document.getElementById("toast").textContent,
+      };
+    }, file);
+    check("repeats, junk and foreign raw URLs change nothing", after.same && after.toast === "", after);
+    check(
+      "sync payload and backup leave the reviews out",
+      !(await page.evaluate(() => JSON.stringify([collectLocal(), liveData()]).includes("Routine held"))),
+    );
+    check("no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
+
+await section("weekly review: normalizer drops junk, caps sizes, clamps numbers, escapes text", async () => {
+  const { ctx, page, errors } = await openApp();
+  const r = await page.evaluate(
+    (good) => {
+      const big = "x".repeat(500);
+      const evil = '<img src=x onerror="window.__pwn=1"><script>window.__pwn=1</script>';
+      const hostile = {
+        ...good,
+        id: "2030-W05",
+        headline: evil + big,
+        stats: {
+          ...good.stats,
+          todos: { done: NaN, due: Infinity, dueDone: 99, missed: -5, carried: "7", starredDone: 1e9 },
+          routine: { fullDays: 12, amOnly: null, streak: 3.6 },
+          weight: { weighIns: 1, current: "190", change: NaN, pct: 400, eta: "soon" },
+          goals: Array.from({ length: 9 }, (_, i) => ({ name: i ? evil : "", done: 1, total: 0 })),
+          spending: { total: -50, byCat: Array.from({ length: 12 }, () => ({ name: big, spent: 1, limitWeek: "x" })) },
+          shopping: { bought: [evil, 5, ...Array(20).fill("item")], boughtCount: -1.4, needsOpen: 1, estOpen: 1 },
+          nextWeek: { ...good.stats.nextWeek, washDays: ["2030-02-30", "nope", good.stats.nextWeek.washDays[0]] },
+          inbox: "junk",
+        },
+        wins: [
+          { text: evil, stat: "toString" },
+          { text: "", stat: "todos" },
+          ...Array(5).fill({ text: "w", stat: "todos" }),
+        ],
+        slips: "junk",
+        focus: [{ text: big }],
+        suggestions: [
+          { kind: "evil", text: "x" },
+          { kind: "todo", text: evil + big, due: "2030-13-01" },
+          { kind: "shopping", text: "eggs", due: "2030-01-01" },
+          { kind: "todo", text: "a" },
+          { kind: "todo", text: "b" },
+        ],
+        summaryBy: "other",
+        notes: [evil, 3, ...Array(20).fill("n")],
+      };
+      const list = normalizeReviews({
+        version: 1,
+        reviews: [
+          hostile,
+          { ...good, id: "2030-W5" },
+          { ...good, id: "2030-W06", version: 2 },
+          { ...good, id: "2030-W07", weekEnd: "2030-02-31" },
+          { ...good, id: "2030-W08", headline: "" },
+          { ...good, id: "2030-W09", stats: null },
+          "junk",
+          null,
+          { ...good, id: "2030-W05", headline: "duplicate" },
+          ...Array.from({ length: 15 }, (_, i) => ({ ...good, id: `2029-W${String(i + 10).padStart(2, "0")}` })),
+        ],
+      });
+      const h = list[0];
+      localStorage.setItem("jarvis-reviews", JSON.stringify({ version: 1, reviews: [hostile] }));
+      localStorage.removeItem("jarvis-review-seen");
+      renderConsole();
+      openReview("2030-W05");
+      const html = document.getElementById("review-sheet").innerHTML + document.getElementById("cn-review").innerHTML;
+      closeReview();
+      return {
+        count: list.length,
+        first: list[0].id,
+        headLen: h.headline.length,
+        todos: h.stats.todos,
+        routine: h.stats.routine,
+        weight: h.stats.weight,
+        goals: h.stats.goals.length,
+        goalTotal: h.stats.goals[0].total,
+        cats: h.stats.spending.byCat.length,
+        catName: h.stats.spending.byCat[0].name.length,
+        limitWeek: h.stats.spending.byCat[0].limitWeek,
+        total: h.stats.spending.total,
+        bought: h.stats.shopping.bought.length,
+        boughtCount: h.stats.shopping.boughtCount,
+        wash: h.stats.nextWeek.washDays.length,
+        inbox: h.stats.inbox,
+        wins: h.wins.length,
+        winStat: h.wins[0].stat,
+        slips: h.slips.length,
+        focusLen: h.focus[0].text.length,
+        chips: h.suggestions,
+        summaryBy: h.summaryBy,
+        notes: h.notes.length,
+        pwn: !!window.__pwn,
+        rawTags: /<img|<script/i.test(html),
+        escaped: html.includes("&lt;img"),
+        links: (html.match(/<a\s/g) || []).length,
+      };
+    },
+    reviewFixture("2030-W04", 0),
+  );
+  check("bad version, id, dates, headline and stats are dropped; one per id; at most 12", r.count === 12, r.count);
+  check("newest first", r.first === "2030-W05", r.first);
+  check("headline capped at 100", r.headLen === 100, r.headLen);
+  check(
+    "counts: NaN/Infinity/strings/negatives become 0, done-of-due capped",
+    r.todos.done === 0 && r.todos.due === 0 && r.todos.dueDone === 0 && r.todos.missed === 0 && r.todos.carried === 0,
+    r.todos,
+  );
+  check("routine days capped at 7, streak rounded", r.routine.fullDays === 7 && r.routine.streak === 4, r.routine);
+  check(
+    "weight: strings and NaN become null, pct capped, bad eta null",
+    r.weight.current === null && r.weight.change === null && r.weight.pct === 100 && r.weight.eta === null,
+    r.weight,
+  );
+  check("goals capped at 6, unnamed dropped, total ≥ done", r.goals === 6 && r.goalTotal === 1, r);
+  check("categories capped at 8 and names at 40", r.cats === 8 && r.catName === 40, r);
+  check("bad limit is null, negative money is 0", r.limitWeek === null && r.total === 0, r);
+  check("bought capped at 8, non-strings dropped, bad count clamped", r.bought === 8 && r.boughtCount === 0, r);
+  check("impossible wash days dropped", r.wash === 1, r.wash);
+  check("a non-object inbox is left out", r.inbox === null, r.inbox);
+  check("wins capped at 3, empty dropped, inherited stat names unlinked", r.wins === 3 && r.winStat === null, r);
+  check("a non-list slips is empty", r.slips === 0);
+  check("focus text capped at 200", r.focusLen === 200);
+  check(
+    "chips: bad kinds dropped, text capped at 120, bad dates dropped, Shopping has no date, at most 3",
+    r.chips.length === 3 &&
+      r.chips[0].text.length === 120 &&
+      r.chips[0].due === null &&
+      r.chips[1].kind === "shopping" &&
+      r.chips[1].due === null,
+    r.chips,
+  );
+  check("unknown summaryBy reads as jarvis", r.summaryBy === "jarvis");
+  check("notes capped at 10", r.notes === 10, r.notes);
+  check("hostile text is escaped and never runs", !r.pwn && !r.rawTags && r.escaped, r);
+  check("no links are made from review text", r.links === 0, r.links);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("weekly review: Console card while new or Sunday–Tuesday, one line after, quiet when none", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=console" });
+  const state = (file, seen) =>
+    page.evaluate(
+      ({ file, seen }) => {
+        if (file) localStorage.setItem("jarvis-reviews", JSON.stringify(file));
+        else localStorage.removeItem("jarvis-reviews");
+        if (seen) localStorage.setItem("jarvis-review-seen", seen);
+        else localStorage.removeItem("jarvis-review-seen");
+        renderConsole();
+        const el = document.getElementById("cn-review");
+        const row = el.querySelector(".rv-row");
+        return {
+          card: !!el.querySelector(".rv-card"),
+          pill: !!el.querySelector(".jv-pill"),
+          row: row ? row.textContent.replace(/\s+/g, " ").trim() : "",
+          text: el.textContent.replace(/\s+/g, " ").trim(),
+          visible: getComputedStyle(el).display !== "none",
+          overflow: document.scrollingElement.scrollWidth > innerWidth,
+        };
+      },
+      { file, seen },
+    );
+  const sunday = await state(reviewsFile(reviewFixture("2030-W02", 0)), null);
+  check("on its Sunday the card shows with a New pill", sunday.card && sunday.pill, sunday);
+  check(
+    "card: kicker, headline, one line of numbers, Open review",
+    /Week in review/i.test(sunday.text) &&
+      sunday.text.includes("Routine held at 5/7") &&
+      sunday.text.includes("2/4 to-dos · 5/7 routine · 3/4 workouts · $118 spent") &&
+      sunday.text.includes("Open review"),
+    sunday.text,
+  );
+  check("no sideways scroll at phone width", !sunday.overflow);
+  const tue = await state(reviewsFile(reviewFixture("2030-W02", -2)), "2030-W02");
+  check("still the card on Tuesday once seen, without the pill", tue.card && !tue.pill, tue);
+  const wed = await state(reviewsFile(reviewFixture("2030-W02", -3)), "2030-W02");
+  check(
+    "after Tuesday: one line, Last week: numbers",
+    !wed.card && wed.row.startsWith("Last week") && wed.row.includes("2/4 to-dos · 5/7 routine"),
+    wed,
+  );
+  const wedNew = await state(reviewsFile(reviewFixture("2030-W02", -3)), "2030-W01");
+  check("an unopened review keeps the card through the week", wedNew.card && wedNew.pill, wedNew);
+  const old = await state(reviewsFile(reviewFixture("2030-W02", -10)), "2030-W02");
+  check("an older review says which week", old.row.startsWith("Week of"), old.row);
+  const none = await state(null, null);
+  check("no review, no sync: nothing shows", !none.visible && none.text === "", none);
+  const withSync = await page.evaluate(() => {
+    localStorage.setItem("sync-token", "t");
+    const html = consoleReviewHtml();
+    localStorage.removeItem("sync-token");
+    return html;
+  });
+  check(
+    "no review yet with sync on: one quiet line",
+    withSync.includes("first weekly review arrives Sunday"),
+    withSync,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("weekly review: the sheet opens, marks seen, steps through weeks, holds and returns focus", async () => {
+  const file = reviewsFile(
+    reviewFixture("2030-W03", 0),
+    reviewFixture("2030-W02", -7, { headline: "Second week" }),
+    reviewFixture("2030-W01", -14, { headline: "First week", summaryBy: "fallback" }),
+  );
+  for (const phone of [true, false]) {
+    const { ctx, page, errors } = await openApp({ phone, query: "?tab=console", seed: { "jarvis-reviews": file } });
+    const tag = phone ? "phone" : "desktop";
+    await page.focus("#panel-console .rv-open");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => {
+      const sheet = document.getElementById("review-sheet");
+      const body = document.getElementById("review-body");
+      const box = body.getBoundingClientRect();
+      return {
+        open: sheet.classList.contains("open"),
+        sheetInert: sheet.inert,
+        mainInert: document.querySelector("main").inert,
+        navInert: document.querySelector("nav.tabbar").inert,
+        focus: document.activeElement.id,
+        title: document.getElementById("rv-title").textContent,
+        seen: localStorage.getItem("jarvis-review-seen"),
+        pill: !!document.querySelector("#cn-review .jv-pill"),
+        bars: [...body.querySelectorAll(".rv-bar .rv-bar-k")].map((x) => x.textContent),
+        lines: [...body.querySelectorAll(".rv-line-k")].map((x) => x.textContent),
+        heads: [...body.querySelectorAll(".rv-h")].map((x) => x.textContent),
+        text: body.textContent.replace(/\s+/g, " "),
+        pos: body.querySelector(".rv-pos").textContent,
+        newerDisabled: body.querySelector('[data-dir="newer"]').disabled,
+        overflow: body.scrollWidth > body.clientWidth,
+        centered: box.bottom < innerHeight - 4,
+        small: [...body.querySelectorAll("button")].filter((b) => {
+          const q = b.getBoundingClientRect();
+          return q.width && (q.height < 44 || q.width < 44);
+        }).length,
+        tiny: [...body.querySelectorAll("*")].filter(
+          (e) => e.childElementCount === 0 && e.textContent.trim() && parseFloat(getComputedStyle(e).fontSize) < 11,
+        ).length,
+      };
+    });
+    check(`${tag}: opens, the page behind goes inert`, r.open && !r.sheetInert && r.mainInert && r.navInert, r);
+    check(`${tag}: focus moves to the headline`, r.focus === "rv-title" && r.title.startsWith("Routine held"), r);
+    check(`${tag}: opening marks it seen and drops the pill`, r.seen === "2030-W03" && !r.pill, r);
+    check(
+      `${tag}: numbers as bars for to-dos, routine, workouts, spending`,
+      r.bars.join() === "To-dos,Routine,Workouts,Spent",
+      r.bars,
+    );
+    check(
+      `${tag}: lines for weight, goals, bills, shopping`,
+      ["Weight", "Glow", "Bills", "Shopping"].every((k) => r.lines.includes(k)),
+      r.lines,
+    );
+    check(
+      `${tag}: Wins, Slipped, focus and next week sections`,
+      ["Wins", "Slipped", "Next week · focus"].every((h) => r.heads.includes(h)) &&
+        r.heads.some((h) => h.startsWith("Next week ·") && h !== "Next week · focus"),
+      r.heads,
+    );
+    check(
+      `${tag}: nulls read not tracked yet / not connected`,
+      r.text.includes("not tracked yet") && r.text.includes("Calendar: not connected"),
+      r.text,
+    );
+    check(
+      `${tag}: inbox and notes show`,
+      r.text.includes("waiting on a reply") && r.text.includes("tracked from this review on"),
+    );
+    check(`${tag}: history position, nothing newer than the newest`, r.pos === "1 of 3" && r.newerDisabled, r);
+    check(`${tag}: no sideways overflow`, !r.overflow);
+    check(`${tag}: buttons are at least 44px`, r.small === 0, r.small);
+    check(`${tag}: no text under 11px`, r.tiny === 0, r.tiny);
+    if (!phone) check("desktop: a centered dialog", r.centered, r);
+    await page.click('#review-body [data-dir="older"]');
+    await page.click('#review-body [data-dir="older"]');
+    const older = await page.evaluate(() => ({
+      title: document.getElementById("rv-title").textContent,
+      pos: document.querySelector("#review-body .rv-pos").textContent,
+      olderDisabled: document.querySelector('#review-body [data-dir="older"]').disabled,
+      meta: document.querySelector("#review-body .rv-meta").textContent,
+      focus: document.activeElement.id,
+      seen: localStorage.getItem("jarvis-review-seen"),
+    }));
+    check(
+      `${tag}: ‹ goes back through past weeks`,
+      older.title === "First week" && older.pos === "3 of 3" && older.olderDisabled,
+      older,
+    );
+    check(`${tag}: a fallback review is labelled`, older.meta.includes("Assembled automatically"), older.meta);
+    check(`${tag}: at the oldest, focus goes to the headline`, older.focus === "rv-title", older.focus);
+    check(`${tag}: stepping back doesn't un-see the newest`, older.seen === "2030-W03", older.seen);
+    await page.click('#review-body [data-dir="newer"]');
+    check(`${tag}: › steps forward`, (await page.textContent("#rv-title")) === "Second week");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(250);
+    const closed = await page.evaluate(() => ({
+      open: document.getElementById("review-sheet").classList.contains("open"),
+      inert: document.getElementById("review-sheet").inert,
+      mainInert: document.querySelector("main").inert,
+      focus: document.activeElement.getAttribute("data-action"),
+    }));
+    check(
+      `${tag}: Esc closes it, focus returns to Open review`,
+      !closed.open && closed.inert && !closed.mainInert && closed.focus === "review-open",
+      closed,
+    );
+    const back = await page.evaluate(() => {
+      openReview("2030-W02");
+      document.getElementById("review-sheet").click();
+      const a = document.getElementById("review-sheet").classList.contains("open");
+      const bad = openReview("<x>") || openReview("2030-W99") || openReview(null);
+      return { a, bad, open: document.getElementById("review-sheet").classList.contains("open") };
+    });
+    check(`${tag}: the backdrop closes it; unknown ids are inert`, !back.a && !back.bad && !back.open, back);
+    check(`${tag}: no JS errors`, errors.length === 0, errors);
+    await ctx.close();
+  }
+});
+
+await section("weekly review: chips add only when tapped, with their date, and Undo takes them back", async () => {
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: { "jarvis-reviews": reviewsFile(reviewFixture("2030-W03", 0)), "todo-content": [], "wants-content": [] },
+  });
+  const counts = () =>
+    page.evaluate(() => ({
+      todos: todoList.filter((t) => t.text === "Pay Rent"),
+      wants: wantsList.filter((w) => w.name === "Protein powder").length,
+      stored: JSON.parse(localStorage.getItem("todo-content") || "[]").filter((t) => t.text === "Pay Rent").length,
+    }));
+  await page.click("#panel-console .rv-open");
+  await page.waitForTimeout(250);
+  const before = await counts();
+  check("opening the review adds nothing", before.todos.length === 0 && before.wants === 0, before);
+  await page.click('#review-body .rv-chip[data-index="0"]');
+  await page.waitForTimeout(200);
+  const added = await counts();
+  const chip = await page.evaluate(() => {
+    const c = document.querySelector('#review-body .rv-chip[data-index="0"]');
+    return {
+      cls: c.className,
+      text: c.textContent,
+      focus: document.activeElement.getAttribute("data-index"),
+      toast: document.getElementById("toast").textContent,
+      open: document.getElementById("review-sheet").classList.contains("open"),
+      tomorrow: addDaysIso(1),
+    };
+  });
+  check(
+    "tapping the to-do chip adds it with its due date (saved)",
+    added.todos.length === 1 && added.todos[0].due === chip.tomorrow && added.stored === 1,
+    added,
+  );
+  check(
+    "the chip shows as added and keeps focus",
+    chip.cls.includes("added") && chip.text.includes("Added") && chip.focus === "0",
+    chip,
+  );
+  check(
+    "an Undo toast, and the sheet stays open",
+    chip.toast.includes("Added to To-Do") && chip.toast.includes("Undo") && chip.open,
+    chip,
+  );
+  // an added chip is aria-disabled (Playwright won't click it), so tap it directly
+  await page.evaluate(() => document.querySelector('#review-body .rv-chip[data-index="0"]').click());
+  check("tapping it again adds nothing", (await counts()).todos.length === 1);
+  await page.evaluate(() => document.querySelector("#toast .toast-action").click());
+  await page.waitForTimeout(200);
+  const undone = await counts();
+  const chipAfter = await page.evaluate(
+    () => document.querySelector('#review-body .rv-chip[data-index="0"]').className,
+  );
+  check(
+    "Undo removes the to-do and the chip can be tapped again",
+    undone.todos.length === 0 && undone.stored === 0 && !chipAfter.includes("added"),
+    { undone, chipAfter },
+  );
+  await page.click('#review-body .rv-chip[data-index="1"]');
+  await page.waitForTimeout(200);
+  check("the Shopping chip adds a Shopping item", (await counts()).wants === 1);
+  const forged = await page.evaluate(() => {
+    const n = todoList.length + wantsList.length;
+    const b = document.createElement("button");
+    b.setAttribute("data-action", "review-chip");
+    b.setAttribute("data-index", "7");
+    document.getElementById("review-body").appendChild(b);
+    b.click();
+    b.setAttribute("data-index", "x");
+    b.click();
+    b.remove();
+    return todoList.length + wantsList.length === n;
+  });
+  check("forged chip indexes are inert", forged);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("weekly review: links go to the right tab and card", async () => {
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: {
+      "jarvis-reviews": reviewsFile(reviewFixture("2030-W03", 0)),
+      "plan3-content": [{ id: "p1", cat: "Glow", item: "Water", note: "", done: true }],
+    },
+  });
+  const go = async (sel) => {
+    await page.evaluate(() => {
+      activateTab("console");
+      openReview("2030-W03");
+    });
+    await page.click(sel);
+    await page.waitForTimeout(200);
+    return page.evaluate(() => ({
+      tab: currentTab,
+      open: document.getElementById("review-sheet").classList.contains("open"),
+      mainInert: document.querySelector("main").inert,
+    }));
+  };
+  const cases = [
+    ['#review-body .rv-bar[data-stat="todos"]', "todo"],
+    ['#review-body .rv-bar[data-stat="routine"]', "skin"],
+    ['#review-body .rv-bar[data-stat="workouts"]', "jazz3"],
+    ['#review-body .rv-bar[data-stat="spending"]', "budget"],
+    ['#review-body .rv-line[data-stat="bills"]', "budget"],
+    ['#review-body .rv-line[data-stat="shopping"]', "wants"],
+    ['#review-body .rv-line[data-stat="weight"]', "jazz3"],
+    ['#review-body .jv-sum-drill[data-stat="todos"]', "todo"],
+    ["#review-body .rv-next", "todo"],
+  ];
+  for (const [sel, tab] of cases) {
+    const r = await go(sel);
+    check(`${sel.split(" ")[1]} → ${tab}, and the sheet closes`, r.tab === tab && !r.open && !r.mainInert, r);
+  }
+  await go('#review-body .rv-line[data-stat="goals"]');
+  const goal = await page.evaluate(() => ({ tab: currentTab, open: openPinned.has("p3-glow") }));
+  check("a goal opens its own Jazz 3.0 card", goal.tab === "jazz3" && goal.open, goal);
+  const forged = await page.evaluate(() => {
+    activateTab("console");
+    openReview("2030-W03");
+    reviewGo("__proto__");
+    reviewGo("constructor");
+    return { tab: currentTab, open: document.getElementById("review-sheet").classList.contains("open") };
+  });
+  check("unknown stat keys are inert", forged.tab === "console" && forged.open, forged);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("weekly review: ?tab=console&review= opens it, now or when sync brings it", async () => {
+  const file = reviewsFile(reviewFixture("2030-W03", 0), reviewFixture("2030-W02", -7, { headline: "Second week" }));
+  const a = await openApp({ query: "?tab=console&review=2030-W02", seed: { "jarvis-reviews": file } });
+  const r = await a.page.evaluate(() => ({
+    tab: currentTab,
+    open: document.getElementById("review-sheet").classList.contains("open"),
+    title: (document.getElementById("rv-title") || {}).textContent,
+    url: location.search,
+  }));
+  check("the deep link opens Console and that review", r.tab === "console" && r.open && r.title === "Second week", r);
+  check("the query is cleared", r.url === "", r.url);
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+  const b = await openApp({ query: "?tab=console&review=2030-W03" });
+  const before = await b.page.evaluate(() => document.getElementById("review-sheet").classList.contains("open"));
+  await b.page.evaluate(async (f) => ingestReviewFile({ content: JSON.stringify(f) }), file);
+  const after = await b.page.evaluate(() => ({
+    open: document.getElementById("review-sheet").classList.contains("open"),
+    title: (document.getElementById("rv-title") || {}).textContent || "",
+  }));
+  check(
+    "a review not synced yet opens once it arrives",
+    !before && after.open && after.title.startsWith("Routine held"),
+    after,
+  );
+  await b.ctx.close();
+  const c = await openApp({ query: "?tab=console&review=%3Cscript%3E", seed: { "jarvis-reviews": file } });
+  check(
+    "a malformed review id opens nothing",
+    !(await c.page.evaluate(() => document.getElementById("review-sheet").classList.contains("open"))) &&
+      c.errors.length === 0,
+    c.errors,
+  );
+  await c.ctx.close();
+});
+
+await section("weekly review: Home's Today in 60 seconds shows one line while it's unseen", async () => {
+  const briefing = briefingFixture();
+  const { ctx, page, errors } = await openApp({
+    seed: { "jarvis-reviews": reviewsFile(reviewFixture("2030-W03", 0)), "jarvis-briefing": briefing },
+  });
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll("#panel-home .jv-hero .jv-summary > li")].map((li) =>
+      li.textContent.replace(/\s+/g, " ").trim(),
+    ),
+  );
+  check(
+    "the line leads the briefing's rows, which are all still there",
+    rows[0].includes("Your week in review is ready") && rows.length === briefing.summary.length + 1,
+    rows,
+  );
+  await page.click('#panel-home [data-action="review-open"]');
+  await page.waitForTimeout(250);
+  const opened = await page.evaluate(() => ({
+    open: document.getElementById("review-sheet").classList.contains("open"),
+    row: !!document.querySelector('#panel-home [data-action="review-open"]'),
+  }));
+  check("tapping it opens the review, and the line goes", opened.open && !opened.row, opened);
+  await page.keyboard.press("Escape");
+  const empty = await page.evaluate(() => {
+    localStorage.removeItem("jarvis-briefing");
+    localStorage.removeItem("jarvis-review-seen");
+    renderHome();
+    return !!document.querySelector('#panel-home .jv-empty [data-action="review-open"]');
+  });
+  check("the line also shows before the first briefing", empty);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("home: a briefing row opens its tile with the detail in view, not behind the tab bar", async () => {
+  const b = briefingFixture();
+  b.summary = [{ text: "Rent is due Sunday and isn't on autopay.", source: "jazz" }, ...b.summary.slice(0, 2)];
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  await page.tap('.jv-hero [data-action="jv-drill"][data-go="money"]');
+  await page.waitForTimeout(900); // smooth scroll
+  const r = await page.evaluate(() => {
+    const d = document.getElementById("jv-detail-money").getBoundingClientRect();
+    const t = document.querySelector('.jv-tile[data-go="money"]').getBoundingClientRect();
+    const bar = document.querySelector("nav.tabbar").getBoundingClientRect().top;
+    const top = document.querySelector("main").getBoundingClientRect().top;
+    return { tileTop: t.top, detailTop: d.top, bar, top };
+  });
+  check(
+    "the tile is on screen and its detail starts above the tab bar",
+    r.tileTop >= r.top && r.detailTop < r.bar - 40,
+    r,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("briefing headline: a crammed two-part headline is split for display", async () => {
+  const { ctx, page } = await openApp();
+  const p = await page.evaluate(() => [
+    briefingHeadParts("Pay rent ($612.50, not on autopay) by Sunday; Claude API credit is down to $2.10"),
+    briefingHeadParts("Rain moves in by noon"),
+  ]);
+  check(
+    "main point as the headline, the rest underneath",
+    p[0].title === "Pay rent by Sunday" && p[0].sub === "$612.50, not on autopay · Claude API credit is down to $2.10",
+    p[0],
+  );
+  check("a plain headline is left alone", p[1].title === "Rain moves in by noon" && p[1].sub === "", p[1]);
   await ctx.close();
 });
 

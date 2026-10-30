@@ -213,10 +213,7 @@ function consoleAddedText(todos, shop) {
 }
 
 // ---- rendering ----
-// Step 5 (Weekly Review UI) fills this slot; until then it renders nothing.
-function consoleReviewHtml() {
-  return "";
-}
+// consoleReviewHtml() (the Weekly Review card in this slot) lives in review.js
 function consoleShellHtml() {
   return `<div class="cn">
     <div class="cn-switch" role="group" aria-label="Mode">

@@ -29,9 +29,9 @@ function dashDrill(key) {
     return;
   }
   if (key === "news") {
-    openPinned.add("jarvis-news");
     renderHome();
-    const el = document.getElementById("jarvis-news");
+    // land on the NEWS section label, so the card shows under its header
+    const el = document.querySelector("#panel-home .jv-news-label") || document.getElementById("jarvis-news");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -40,7 +40,18 @@ function dashDrill(key) {
   renderHome();
   const target =
     document.querySelector(`#panel-home .jv-tile[data-go="${key}"]`) || document.getElementById(dashDetailId(key));
-  if (target && dashOpenKey) target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (target && dashOpenKey) dashReveal(target, document.getElementById(dashDetailId(key)));
+}
+// Show a tile (or timeline) and the detail that just opened under it. If either is off screen
+// or behind the tab bar, the tile goes to the top so the detail opens in view below it.
+function dashReveal(top, detail) {
+  const main = document.querySelector("main").getBoundingClientRect();
+  const bar = document.querySelector("nav.tabbar");
+  const floor = (bar ? bar.getBoundingClientRect().top : innerHeight) - 8;
+  const t = top.getBoundingClientRect(),
+    d = (detail || top).getBoundingClientRect();
+  if (t.top >= main.top && d.bottom <= floor) return; // both already in view
+  top.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 // Go to a section's tab; Jazz 3.0 can also open and scroll to one of its cards
 const DASH_J3_CARD = /^(weight-card|p3-[a-z0-9-]+)$/;

@@ -173,7 +173,29 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     the text back in the box.
 - **Ask** isn't switched on yet (the backend is a later step). A question is kept in the feed
   with "Ask Jarvis isn't switched on yet — this question is saved here"; nothing is sent.
-- **Weekly Review:** a slot under the box, empty until the review is built.
+- **Weekly Review:** Jarvis's Sunday-evening look back at the week (Mon–Sun), under the hint
+  line. From the review's Sunday through Tuesday, and any time it hasn't been opened yet, it's a
+  card: "Week in review · Oct 26 – Nov 1" with a **New** pill until opened, the headline, one
+  line of numbers ("2/4 to-dos · 5/7 routine · 3/4 workouts · $118 spent") and **Open review ›**.
+  After that it shrinks to one row, "Last week: 2/4 to-dos · 5/7 routine ›". With sync on and no
+  review yet, a quiet line says the first one arrives Sunday evening.
+  - **The review** opens as a sheet on phones and a centered dialog on desktop (Esc or the
+    backdrop closes it; focus moves in and returns). It shows the numbers as bars (to-dos due and
+    done, routine days, workouts, spending against the weekly share of your limits, with each
+    category), lines for weight, goals, bills and Shopping, **Wins**, **Slipped**, **Next week ·
+    focus**, the week ahead (to-dos, bills, workouts, wash days, busiest day, calendar events,
+    Inbox), and Jarvis's notes. Anything the review can't count yet says "not tracked yet" or
+    "not connected".
+  - Every bar, line, win and slip links to its place: To-Do, Beauty, Jazz 3.0's Weight card or
+    the goal's own card, Budget, Shopping.
+  - **Suggestion chips** ("+ Pay Rent · Mon") add a to-do with its date, or a Shopping item,
+    only when tapped, with Undo. A tapped chip shows as Added; one already on your list says so.
+  - **‹ ›** step through the past reviews kept on this device (up to 12).
+  - The Sunday notification opens `?tab=console&review=<id>`; if that review hasn't synced to
+    the device yet it opens as soon as it arrives. While the newest review is unopened, Home's
+    Today in 60 seconds starts with "Your week in review is ready ›".
+  - The numbers are counted by code in the Jarvis Action; only the wording comes from Jarvis.
+    The app only reads the review: it's never edited, synced back or backed up.
 - **Feed:** what you did here this week, grouped Today, Yesterday, then earlier days
   ("Added 2 to-dos and 1 Shopping item" with links to To-Do and Shopping, marked Undone if you
   undid it). Kept on this device only: the last 7 days, at most 50 entries.
@@ -416,7 +438,8 @@ only turning sync off still asks first.
    | `shopping.js` | Shopping tab and wardrobe items |
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, month calendar, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
-   | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`; `consoleReviewHtml` is the Weekly Review slot) |
+   | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
+   | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
    | `shell.js` | Tab switching and the delegated `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_INPUT` / `SHELL_CHANGE` tables |
    | `gestures.js`, `drag-reorder.js` | Swipe between tabs and pull-to-refresh; press-to-drag and sortable lists |
    | `sync.js`, `backup.js` | Gist sync; backup download/restore |
@@ -562,6 +585,13 @@ Everything lives in `localStorage` on the device:
 | `console-feed` | Console's feed: `[{id, at (ms), kind: "ask" \| "capture", text, todos?, shop?, undone?}]`, newest first, last 7 days, at most 50. This device only: not in `SYNC_KEYS`, never pushed, not in backups; cleaned by `normalizeConsoleFeed()` on every load and sync |
 | `console-moved-seen` | The one-time "Jazz 3.0 moved" notice was shown (this device only) |
 | `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
+| `jarvis-reviews`, `jarvis-review-seen` | The Weekly Reviews pulled from the gist's `jazz2-reviews.json`, stored already cleaned by `normalizeReviews()` (`{version: 1, reviews}`, newest first, at most 12, every field capped), and the id of the newest review opened. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
+
+**Gist files written only by the Jarvis Action** (the app never writes them): `jazz2-briefing.json`
+(the morning briefing), `jazz2-reviews.json` (the Weekly Reviews, `{version: 1, reviews}`, last 12)
+and `jazz2-week.json` (a small digest of each morning's briefing, last 8 days, which the Sunday review
+reads; the app doesn't use it). Sync reads the first two on every pull, normalizes them and keeps a
+local copy; it only ever pushes `jazz2-data.json`.
 
 Lists still on their built-in defaults have no key until first edited.
 

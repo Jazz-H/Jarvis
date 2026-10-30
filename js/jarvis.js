@@ -283,8 +283,11 @@ function jarvisWeatherDetail(c) {
 // unsafe links get no Read link at all.
 function jarvisNewsCard(c) {
   if (!c) return "";
-  if (c.status !== "ok")
-    return collapsibleCard({ id: "jarvis-news", title: "News", insight: "Unavailable", body: jvErrorBody(c) });
+  // a section label like Systems (NEWS ─── count), then the stories in a plain card
+  const section = (count, body) =>
+    `<div class="jv-label jv-news-label"><span>News</span><i></i><span class="jv-label-count">${count}</span></div>
+    <section class="card jv-card jv-news" id="jarvis-news" aria-label="News">${body}</section>`;
+  if (c.status !== "ok") return section("Unavailable", jvErrorBody(c));
   const rows = c.data.stories
     .map((s) => {
       const meta = [
@@ -304,12 +307,7 @@ function jarvisNewsCard(c) {
     })
     .join("");
   const n = c.data.stories.length;
-  return collapsibleCard({
-    id: "jarvis-news",
-    title: "News",
-    insight: `${n} stor${n === 1 ? "y" : "ies"}`,
-    body: `<ul class="jv-stories">${rows}</ul>${jvMeta(c)}`,
-  });
+  return section(`${n} stor${n === 1 ? "y" : "ies"}`, `<ul class="jv-stories">${rows}</ul>${jvMeta(c)}`);
 }
 
 // The briefing (layout 1): headline, then the tagged summary. Weather and News lines drill into
@@ -339,12 +337,26 @@ function briefingTag(s) {
   const a = BRIEFING_AREAS.find((x) => x.re.test(s.text)) || { area: "todo", label: "To-do", go: "todo" };
   return { cls: a.area, label: a.label, go: a.go };
 }
+// A headline crammed with details ("Pay rent ($612.50, not on autopay) by Sunday; Credit is low")
+// shows its main point as the headline and the rest as a smaller line under it
+function briefingHeadParts(h) {
+  const [first, ...rest] = h.split(/;\s+/);
+  const m = first.match(/^(.*?)\s*\(([^)]*)\)\s*(.*)$/);
+  const title = m && m[1] ? `${m[1]} ${m[3]}`.trim() : first;
+  const sub = [m && m[1] ? m[2] : "", ...rest]
+    .map((s) => s.trim().replace(/[.;]$/, ""))
+    .filter(Boolean)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" · ");
+  return { title, sub };
+}
 function jarvisHeroHtml(b) {
   if (!b)
     return `<section class="card jv-card jv-hero jv-empty">
       <div class="jv-kicker">Standing by</div>
       <h2 class="jv-headline">Your briefing arrives each morning.</h2>
       <p>Your morning briefing will show up here once Jarvis is set up (docs/jarvis/SETUP.md) and sync is on.</p>
+      ${reviewHomeRowHtml() ? `<ul class="jv-summary">${reviewHomeRowHtml()}</ul>` : ""}
     </section>`;
   const today = addDaysIso(0);
   const isNew = b.id !== localStorage.getItem(BRIEFING_SEEN_KEY);
@@ -364,9 +376,9 @@ function jarvisHeroHtml(b) {
   markBriefingSeen(b);
   return `<section class="card jv-card jv-hero${b.date === today ? "" : " jv-stale"}">
       <div class="jv-kicker">Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}</div>
-      ${b.headline ? `<h2 class="jv-headline">${escapeHtml(b.headline)}</h2>` : ""}
+      ${((p) => (b.headline ? `<h2 class="jv-headline">${escapeHtml(p.title)}</h2>${p.sub ? `<p class="jv-headsub">${escapeHtml(p.sub)}</p>` : ""}` : ""))(briefingHeadParts(b.headline || ""))}
       ${b.date === today ? "" : `<div class="jv-when">From ${noonOf(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>`}
-      <ul class="jv-summary">${items}</ul>
+      <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${notes}
     </section>`;

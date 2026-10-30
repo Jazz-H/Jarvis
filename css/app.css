@@ -4100,6 +4100,13 @@ body.todo-dragging {
   text-transform: uppercase;
   color: var(--olive);
 }
+/* the rest of a two-part headline (briefingHeadParts) */
+.jv-headsub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
 .jv-when {
   margin-top: 4px;
   font-size: 12.5px;
@@ -4240,6 +4247,14 @@ body.todo-dragging {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px; /* the Home card rhythm: 12px between every card, tile and open detail */
   margin-bottom: 12px;
+}
+/* drill-downs scroll these to the top (dashReveal): leave a little room under the header */
+.jv-tile,
+.jv-day,
+.jv-detail,
+.jv-label,
+.jv-planner-label {
+  scroll-margin-top: 12px;
 }
 .jv-tile {
   font: inherit;
@@ -5201,6 +5216,355 @@ body.todo-dragging {
 .cn-j3 small {
   font-size: 12.5px;
   color: var(--text-dim);
+}
+/* Weekly Review (js/review.js): the Console card, the one-line row after Tuesday, and the sheet */
+.rv-card {
+  padding: 14px 14px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.rv-kicker > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.rv-headline {
+  margin: 6px 0 8px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.rv-nums {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.rv-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin: 0 -4px 0 auto;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+.rv-row {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+}
+.rv-row-k {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--olive);
+  white-space: nowrap;
+}
+.rv-row-t {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rv-cue {
+  color: var(--olive);
+  font-size: 18px;
+  line-height: 1;
+}
+.rv-first {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.rv-sheet {
+  max-height: 90vh;
+  padding-top: 10px;
+  overscroll-behavior: contain;
+}
+.rv-head {
+  margin-bottom: 8px;
+}
+.rv-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rv-step {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+}
+.rv-step:disabled {
+  color: var(--text-dim);
+  opacity: 0.45;
+}
+.rv-pos {
+  min-width: 52px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.rv-x {
+  min-width: 44px;
+  min-height: 44px;
+}
+.rv-title {
+  margin: 6px 0 14px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.rv-title:focus {
+  outline: none;
+}
+.rv-numbers {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.rv-bar {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.rv-bar-k,
+.rv-line-k {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.rv-bar b {
+  min-width: 44px;
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.rv-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--track);
+  overflow: hidden;
+}
+.rv-track span {
+  display: block;
+  height: 100%;
+  background: var(--olive);
+}
+.rv-track.pink span {
+  background: var(--navy);
+}
+.rv-track.warn span {
+  background: var(--warn);
+}
+.rv-track.gold span {
+  background: var(--gold);
+}
+.rv-track.over span {
+  background: var(--danger);
+}
+.rv-sub {
+  margin: -6px 0 6px 90px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+.rv-section .rv-sub {
+  margin: 6px 0 0;
+}
+.rv-cats {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 6px 0 0;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 60%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.rv-cats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rv-cats li > span:first-child {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.rv-cats li > span:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rv-cats li.over > span:last-child {
+  color: var(--danger-text);
+}
+.rv-lines {
+  margin-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.rv-line {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: left;
+}
+.rv-line:last-child {
+  border-bottom: none;
+}
+.rv-line-k {
+  overflow-wrap: anywhere;
+}
+.rv-line-t {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rv-next {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-bottom: none;
+  font-size: 14px;
+}
+.rv-section,
+.rv-box {
+  margin-top: 18px;
+}
+.rv-h {
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.rv-h.slips {
+  color: var(--warn);
+}
+.rv-points {
+  margin-top: 6px;
+}
+.rv-point {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+.rv-box {
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.rv-box .rv-h {
+  color: var(--text-dim);
+}
+.rv-focus {
+  margin: 4px 0 10px;
+  padding-left: 18px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.rv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rv-chip {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 6px 14px;
+  border-radius: 22px;
+  border: 1px solid var(--olive-dim);
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.rv-chip small {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.rv-chip.added {
+  border-style: dashed;
+  border-color: var(--line);
+  color: var(--text);
+  cursor: default;
+}
+.rv-hint,
+.rv-meta {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.rv-meta {
+  margin-top: 16px;
+}
+.rv-notes {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+@media (min-width: 768px) {
+  .rv-sheet {
+    max-width: 600px;
+    max-height: 86vh;
+  }
 }
 /* Evening: tomorrow at a glance */
 .jv-tomorrow {

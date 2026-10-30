@@ -99,11 +99,14 @@ document.addEventListener("keydown", (e) => {
 function syncSheets() {
   const modal = document.getElementById("modal-backdrop"),
     comp = document.getElementById("composer");
+  const review = document.getElementById("review-sheet"); // the Weekly Review (review.js)
   const mo = modal.classList.contains("open"),
-    co = comp.classList.contains("open");
+    co = comp.classList.contains("open"),
+    ro = !!review && review.classList.contains("open");
   modal.inert = !mo;
   comp.inert = !co || mo;
-  document.querySelectorAll("body > header, main, #fab, nav.tabbar").forEach((x) => (x.inert = mo || co));
+  if (review) review.inert = !ro || mo || co;
+  document.querySelectorAll("body > header, main, #fab, nav.tabbar").forEach((x) => (x.inert = mo || co || ro));
 }
 function closeModal() {
   document.getElementById("modal-backdrop").classList.remove("open");

@@ -337,5 +337,7 @@ function applyLaunchParams() {
   if (action === "addtodo") activateTab("todo");
   else if (tab && (isTab(NAV_TAB(tab)) || tab === "style") && tab !== "home") activateTab(tab);
   if (action === "addtodo") openComposer("todo");
+  const review = params.get("review"); // ?tab=console&review=2026-W44 (the Sunday push)
+  if (review) reviewDeepLink(review);
   history.replaceState(null, "", location.pathname);
 }

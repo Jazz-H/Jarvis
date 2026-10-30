@@ -20,6 +20,12 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
   - [x] Step 1: the orb opens **Console**; Jazz 3.0 is a hidden tab (Home tile, Console, links).
   - [x] Step 2: Console shell + local Capture (`js/console.js`): preview, Add with Undo, device-only
     feed. Ask is designed but not switched on (questions are kept in the feed).
+  - [x] Steps 3–4: week stats in code (`agents/lib/week-stats.ts`), the morning run's day digest
+    (`jazz2-week.json`), and the Sunday ~6pm review job (`agents/review.ts`, `jazz2-reviews.json`, push).
+  - [ ] Steps 6–9: Ask Jarvis backend + UI, queue fallback, Sort with Jarvis (Ask transport not decided).
+  - [x] Step 5: Weekly Review UI (`js/review.js`): `jazz2-reviews.json` pulled by sync and
+    normalized, the Console card / Last week row, the review sheet with ‹ › history, tap-to-add
+    chips with Undo, links into each section, the `?review=` link and Home's "ready" line.
 
 ## My preferences
 - Location: Springfield, IL
