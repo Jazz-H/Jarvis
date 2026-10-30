@@ -27,6 +27,7 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Your layout.** Reorder or hide Home's tiles; pin the detail you open most.
 
 ## Done
+- [x] Loading skeleton on Home while the app starts
 - [x] New Jarvis app icon: reactor core with a Rajdhani "J" (`icon.svg`, `npm run icons`)
 - [x] App sync on (private gist) and all three Jarvis secrets added; first briefing delivered
   Oct 30 (Weather, News and Jarvis all succeeded, about $0.05 for the run)

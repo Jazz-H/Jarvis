@@ -8196,6 +8196,23 @@ await section("home quick wins: quick add, evening Tomorrow view, icon badge, pu
   await ctx.close();
 });
 
+await section("loading skeleton shows before the scripts run, then gives way to Home", async () => {
+  const html = await readFile(path.join(ROOT, "jazz2.0.html"), "utf8");
+  check(
+    "the page ships a skeleton in Home, marked busy",
+    /id="panel-home" aria-busy="true"/.test(html) && html.includes("sk-tiles"),
+  );
+  const { ctx, page, errors } = await openApp();
+  const r = await page.evaluate(() => ({
+    busy: document.getElementById("panel-home").hasAttribute("aria-busy"),
+    skeleton: !!document.querySelector("#panel-home .sk"),
+    dashboard: !!document.querySelector("#panel-home .jv-wrap"),
+  }));
+  check("after load the skeleton is replaced by the dashboard", !r.busy && !r.skeleton && r.dashboard, r);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

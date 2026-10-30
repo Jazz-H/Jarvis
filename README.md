@@ -51,6 +51,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   appears, the Home tab gets a dot if you're elsewhere, and the briefing shows **New** until
   seen. `?tab=jarvis` (or `?tab=home`) opens it.
 - **Not set up:** the briefing panel says so and points to `docs/jarvis/SETUP.md`.
+- **Loading:** while the scripts load, Home shows a shimmering skeleton of its layout (a gentle
+  pulse with Reduce Motion on); the dashboard fades in once when it replaces it.
 
 **The Planner** (below the dashboard on Home) is a day planner.
 - **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash

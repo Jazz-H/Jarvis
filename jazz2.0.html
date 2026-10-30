@@ -122,7 +122,30 @@
     <main>
       <div id="pull-indicator"><span class="pull-spinner"></span><span class="pull-label">Pull to sync</span></div>
       <!-- HOME -->
-      <section class="tabpanel active" id="panel-home"></section>
+      <!-- the skeleton shows while the scripts load; renderHome() replaces it -->
+      <section class="tabpanel active" id="panel-home" aria-busy="true">
+        <div class="sk-wrap" aria-hidden="true">
+          <div class="sk sk-line sk-w30"></div>
+          <div class="sk sk-line sk-title"></div>
+          <div class="sk sk-input"></div>
+          <div class="sk-card">
+            <div class="sk sk-line sk-w40"></div>
+            <div class="sk sk-line sk-head"></div>
+            <div class="sk sk-line"></div>
+            <div class="sk sk-line sk-w80"></div>
+            <div class="sk sk-line sk-w60"></div>
+          </div>
+          <div class="sk-tiles">
+            <div class="sk sk-tile"></div>
+            <div class="sk sk-tile"></div>
+            <div class="sk sk-tile"></div>
+            <div class="sk sk-tile"></div>
+            <div class="sk sk-tile"></div>
+            <div class="sk sk-tile"></div>
+          </div>
+        </div>
+        <span class="sk-label">Loading Jarvis…</span>
+      </section>
       <!-- TO-DO -->
       <section class="tabpanel" id="panel-todo"></section>
       <!-- SKIN / HAIR -->

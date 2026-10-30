@@ -417,6 +417,12 @@ function renderHomePanel() {
   const openTotal = todoList.filter((t) => !t.done).length;
   list += `<button class="home-more home-all" data-action="home-open-todo">All to-dos (${openTotal}) →</button>`;
 
+  // the first render replaces the loading skeleton (jazz2.0.html) and fades in once
+  if (el.hasAttribute("aria-busy")) {
+    el.removeAttribute("aria-busy");
+    el.classList.add("jv-first");
+    setTimeout(() => el.classList.remove("jv-first"), 400);
+  }
   // Jarvis's dashboard leads the main tab; the day planner follows
   el.innerHTML = dashboardHtml() + `<div class="jv-label jv-planner-label">Planner</div>` + strip + hero + list;
 }
