@@ -11,6 +11,8 @@ export interface JazzContext {
   washDay: boolean;
   washTomorrow: boolean;
   shoppingNeeds: string[]; // open "need" items, high priority first
+  shoppingItems: string[]; // every open item (needs and wants), to match deliveries against
+  budgetBills: { name: string; amount: number }[]; // every unpaid bill, to check bill emails against
   goals: { name: string; done: number; total: number }[]; // Jazz 3.0 sections
   weightGoalPct: number | null; // how far from start weight to goal weight
 }
@@ -51,6 +53,8 @@ export function emptyContext(today: string): JazzContext {
     washDay: false,
     washTomorrow: false,
     shoppingNeeds: [],
+    shoppingItems: [],
+    budgetBills: [],
     goals: [],
     weightGoalPct: null,
   };
@@ -65,6 +69,16 @@ function shoppingNeeds(data: any): string[] {
     .filter((w: any) => w.kind === "need" || (w.kind !== "want" && !!w.wardrobeCat))
     .sort((a: any, b: any) => Number(b.priority === "high") - Number(a.priority === "high"))
     .slice(0, 6)
+    .map((w: any) => clip(w.name, 60))
+    .filter(Boolean);
+}
+
+function shoppingItems(data: any): string[] {
+  const list = Array.isArray(data["wants-content"]) ? data["wants-content"] : [];
+  const bought = data["wants-state"] && typeof data["wants-state"] === "object" ? data["wants-state"] : {};
+  return list
+    .filter((w: any) => w && !bought[w.id] && !w.later)
+    .slice(0, 40)
     .map((w: any) => clip(w.name, 60))
     .filter(Boolean);
 }
@@ -134,6 +148,11 @@ export function buildJazzContext(raw: string | null, today: string): JazzContext
     washDay: isWashDate(today, routine),
     washTomorrow: isWashDate(addDays(today, 1), routine),
     shoppingNeeds: shoppingNeeds(data),
+    shoppingItems: shoppingItems(data),
+    budgetBills: bills
+      .filter((b: any) => b && !b.done && typeof b.name === "string")
+      .slice(0, 30)
+      .map((b: any) => ({ name: clip(b.name, 60), amount: share(b) })),
     goals: goals(data),
     weightGoalPct: weightGoalPct(data),
   };

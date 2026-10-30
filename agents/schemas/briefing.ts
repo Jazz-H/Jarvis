@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { WeatherCard } from "./weather.ts";
 import { NewsCard } from "./news.ts";
+import { CalendarCard } from "./calendar.ts";
+import { InboxCard } from "./inbox.ts";
+import { DeliveryCard } from "./deliveries.ts";
 
-export const SummarySource = z.enum(["weather", "news", "jazz", "jarvis"]);
+export const SummarySource = z.enum(["weather", "news", "jazz", "jarvis", "calendar", "inbox", "deliveries"]);
 
 // What the Jarvis agent returns.
 export const JarvisOutput = z.object({
@@ -29,7 +32,14 @@ export const Briefing = z.object({
   headline: z.string().max(100),
   summary: JarvisOutput.shape.summary,
   summaryBy: z.enum(["jarvis", "fallback"]),
-  cards: z.object({ weather: BriefingCard(WeatherCard), news: BriefingCard(NewsCard) }),
+  // calendar, inbox and deliveries are left out until their source is connected (SETUP.md)
+  cards: z.object({
+    weather: BriefingCard(WeatherCard),
+    news: BriefingCard(NewsCard),
+    calendar: BriefingCard(CalendarCard).optional(),
+    inbox: BriefingCard(InboxCard).optional(),
+    deliveries: BriefingCard(DeliveryCard).optional(),
+  }),
   notes: z.array(z.string().max(200)).max(10),
 });
 export type Briefing = z.infer<typeof Briefing>;
