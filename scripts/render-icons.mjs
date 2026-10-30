@@ -1,4 +1,4 @@
-// Renders icon.svg to icon-192.png and icon-512.png (`npm run icons`).
+// Renders icon.svg to jarvis-icon-192.png and jarvis-icon-512.png (new names make installed apps fetch the new icon) (`npm run icons`).
 // Uses Playwright's Chromium (already a dev dependency for the tests) so the SVG's glow filters
 // and the self-hosted Rajdhani font render exactly as in the app. Each size is rendered from the
 // vector source rather than downsampled.
@@ -27,7 +27,7 @@ for (const size of [192, 512]) {
     { waitUntil: "load" },
   );
   await page.evaluate(() => document.fonts.ready);
-  const file = path.join(outDir, `icon-${size}.png`);
+  const file = path.join(outDir, `jarvis-icon-${size}.png`);
   await page.screenshot({ path: file, omitBackground: false });
   console.log("wrote", path.relative(process.cwd(), file));
   await page.close();

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v127`;
+const CACHE_NAME = `${CACHE_PREFIX}v128`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -35,8 +35,8 @@ const ASSETS = [
   "./js/pwa.js",
   "./js/boot.js",
   "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png",
+  "./jarvis-icon-192.png",
+  "./jarvis-icon-512.png",
   "./fonts/inter-latin-var.woff2",
   "./fonts/rajdhani-500.woff2",
   "./fonts/rajdhani-600.woff2",

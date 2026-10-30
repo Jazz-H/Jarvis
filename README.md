@@ -293,7 +293,7 @@ only turning sync off still asks first.
 | `index.html` | Redirects the bare site URL to `jazz2.0.html`. |
 | `manifest.json` | PWA manifest: name, icons, standalone display, home-screen shortcuts. |
 | `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys, with the cached page as the offline fallback (query strings ignored, so `?tab=` shortcuts work offline). Icons and the manifest are served from cache and refreshed in the background. Install never caches an error response and removes a partial cache if installation fails. Activation only removes older Jazz-owned caches; unrelated origin caches are preserved. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
-| `icon.svg`, `icon-192.png`, `icon-512.png` | App icon source and its rendered PNGs (`npm run icons`). See *Design system*. |
+| `icon.svg`, `jarvis-icon-192.png`, `jarvis-icon-512.png` | App icon source and its rendered PNGs (`npm run icons`). See *Design system*. |
 | `tests/regression.mjs` | Regression suite (see *Development*). |
 | `scripts/check.mjs` | Dependency-free quality check (`npm run check`). |
 | `package.json` | Holds the `check`/`test` scripts and the test dependency (Playwright). The app itself needs no install. |
@@ -532,7 +532,7 @@ for the accent, amber for warnings and overdue items, soft blue for AM and pink 
   with faint circuit traces at the edges.
 - **Safe zone:** full-bleed for maskable use; the rings and the "J" sit inside the central 80%
   circle, so Android's round crop only trims the circuit traces.
-- **Source:** `icon.svg`. `npm run icons` renders `icon-192.png` and `icon-512.png` from it in
+- **Source:** `icon.svg`. `npm run icons` renders `jarvis-icon-192.png` and `jarvis-icon-512.png` from it in
   Chromium (Playwright), with the self-hosted Rajdhani embedded. Bump `CACHE_NAME` in `sw.js`
   after changing them.
 
