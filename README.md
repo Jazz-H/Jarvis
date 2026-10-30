@@ -32,7 +32,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   Jarvis suggests moving wash day to tomorrow. **Move it** moves just this one; **Keep today**
   hides the suggestion for today (this device).
 - **Notifications:** a card offers **Turn on** for phone notifications (needs sync on; see
-  SETUP section 7). **Not now** hides it on this device for 2 weeks.
+  SETUP section 7). **Not now** hides it on this device for 2 weeks. Once on, the app checks
+  each day that this phone is still registered and quietly re-registers it if not (after
+  reinstalling the app, for example).
 - **Your day:** a timeline of today in time order: calendar events (all-day first; past ones
   dimmed; overlapping ones flagged), when rain is likely, Amazon deliveries arriving, the to-dos
   left, bills due today and wash day. Each row drills in: events open the **Calendar** detail

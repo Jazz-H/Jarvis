@@ -57,4 +57,5 @@ function writeQuietly(key, value) {
   if (!location.search) resumeView();
   initSync();
   importFromLink();
+  pushCheck();
 })();

@@ -9,6 +9,7 @@
 const PUSH_PUBLIC_KEY = "BF54qprNwJg833P74vJhM1ABNGzHJYmWsgq26TZi9ik7JLLmK_F_tMAuKGpkC_S7fO4-_Ci5anNk7T2jinq4YtQ";
 const PUSH_FILE = "jazz2-push.json";
 const PUSH_ENDPOINT_KEY = "push-endpoint"; // this phone's push address, once on (this device only)
+const PUSH_SAVED_KEY = "push-saved"; // the day this phone's address was last saved to the gist
 const PUSH_LATER_KEY = "push-later"; // when "Not now" was tapped (this device only)
 const PUSH_LATER_MS = 14 * 864e5; // the card comes back after 2 weeks
 
@@ -39,6 +40,35 @@ async function savePushSubs(update) {
     body: JSON.stringify({ files: { [PUSH_FILE]: { content: JSON.stringify({ subs: update(subs) }) } } }),
   });
 }
+// Adds this phone's address to the push file (replacing an old copy) and remembers it here
+async function pushSave(sub) {
+  const j = sub.toJSON();
+  await savePushSubs((subs) =>
+    [...subs.filter((x) => x.endpoint !== j.endpoint), { endpoint: j.endpoint, keys: j.keys }].slice(-10),
+  );
+  localStorage.setItem(PUSH_ENDPOINT_KEY, j.endpoint);
+  localStorage.setItem(PUSH_SAVED_KEY, addDaysIso(0));
+}
+// On start, once notifications are on: the phone can drop its push address (reinstalling the
+// app, clearing Chrome's data) and Jarvis drops addresses that stop working. So get a new one if
+// it changed, and re-save it once a day so a dropped one comes back. Quiet: no toasts.
+async function pushCheck() {
+  if (pushState() !== "on" || !localStorage.getItem("sync-token")) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    const changed = !sub || sub.endpoint !== localStorage.getItem(PUSH_ENDPOINT_KEY);
+    if (!changed && localStorage.getItem(PUSH_SAVED_KEY) === addDaysIso(0)) return;
+    if (!sub)
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: pushKeyBytes(PUSH_PUBLIC_KEY),
+      });
+    await pushSave(sub);
+  } catch (e) {
+    console.error("push check failed", e);
+  }
+}
 async function enablePush() {
   if (!localStorage.getItem("sync-token")) {
     showToast("Turn on sync first (the cloud button)", true);
@@ -52,15 +82,9 @@ async function enablePush() {
       return;
     }
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: pushKeyBytes(PUSH_PUBLIC_KEY),
-    });
-    const j = sub.toJSON();
-    await savePushSubs((subs) =>
-      [...subs.filter((x) => x.endpoint !== j.endpoint), { endpoint: j.endpoint, keys: j.keys }].slice(-10),
+    await pushSave(
+      await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushKeyBytes(PUSH_PUBLIC_KEY) }),
     );
-    localStorage.setItem(PUSH_ENDPOINT_KEY, j.endpoint);
     showToast("Notifications on: you'll get tomorrow's briefing");
   } catch (e) {
     console.error("push setup failed", e);

@@ -8826,6 +8826,74 @@ await section("a long notice wraps on a phone instead of running off the screen"
   await ctx.close();
 });
 
+await section("phone notifications repair themselves when the phone's push address goes away", async () => {
+  const gist = {
+    id: "g0",
+    files: {
+      "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: Date.now(), data: {} }) },
+      "jazz2-push.json": { truncated: false, content: JSON.stringify({ subs: [] }) }, // Jarvis pruned it
+    },
+  };
+  let patches = 0;
+  const route = async (r) => {
+    const req = r.request(),
+      url = new URL(req.url());
+    const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      patches++;
+      Object.entries(JSON.parse(req.postData()).files).forEach(
+        ([n, f]) => (gist.files[n] = { truncated: false, content: f.content }),
+      );
+      return json(200, gist);
+    }
+    return json(404, {});
+  };
+  const { ctx, page, errors } = await openApp({
+    route,
+    seed: {
+      "sync-token": "tok",
+      "sync-gist-id": "g0",
+      "data-updated-at": String(Date.now()),
+      "push-endpoint": "https://push.example/gone",
+    },
+  });
+  // the phone allowed notifications earlier, but its old push address is gone (reinstalled app)
+  await page.evaluate(() => {
+    Object.defineProperty(Notification, "permission", { get: () => "granted", configurable: true });
+    const sub = { endpoint: "https://push.example/fresh" };
+    sub.toJSON = () => ({ endpoint: sub.endpoint, keys: { p256dh: "p256", auth: "auth" } });
+    window.__sub = null;
+    Object.defineProperty(navigator.serviceWorker, "ready", {
+      value: Promise.resolve({
+        pushManager: { getSubscription: async () => window.__sub, subscribe: async () => (window.__sub = sub) },
+      }),
+    });
+  });
+  await page.evaluate(() => pushCheck());
+  const endpoints = () => JSON.parse(gist.files["jazz2-push.json"].content).subs.map((x) => x.endpoint);
+  check(
+    "a new push address is made and saved",
+    JSON.stringify(endpoints()) === '["https://push.example/fresh"]',
+    endpoints(),
+  );
+  check(
+    "and remembered on this phone",
+    (await page.evaluate(() => localStorage.getItem("push-endpoint"))) === "https://push.example/fresh",
+  );
+  const n = patches;
+  await page.evaluate(() => pushCheck());
+  check("no extra gist writes the same day", patches === n, patches);
+  // Jarvis dropped it from the gist, but the phone still has it: the next day it's saved again
+  gist.files["jazz2-push.json"].content = JSON.stringify({ subs: [] });
+  await page.evaluate(() => localStorage.setItem("push-saved", "2000-01-01"));
+  await page.evaluate(() => pushCheck());
+  check("re-saved once a day, so a dropped address comes back", endpoints().length === 1, endpoints());
+  check("no toasts for this background repair", !(await page.$("#toast.show")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
