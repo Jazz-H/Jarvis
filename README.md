@@ -2,7 +2,7 @@
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
 docs) into one place, now named **Jarvis**, with five tabs: **Home, To-Do, Jazz 3.0, Shopping,
-Skin & Hair** (Budget opens from Home). Jarvis, an AI chief of staff that runs in GitHub
+Beauty** (Budget opens from Home). Jarvis, an AI chief of staff that runs in GitHub
 Actions, writes a morning briefing that leads Home (see *Jarvis* below and `docs/jarvis/`).
 Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
 was removed; its data is still loaded, synced and backed up, just not shown.)
@@ -44,7 +44,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
   jacket. It's plain rules, no AI. **Swap** shows another good option. Hidden until you've saved
   at least a top and a bottom.
-- **Systems:** six tiles (Weather, Inbox, Money, Skin & Hair, Jazz 3.0, Shopping), each with
+- **Systems:** six tiles (Weather, Inbox, Money, Beauty, Jazz 3.0, Shopping), each with
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
   under it (one at a time; tap again to close). **Customize** lets you reorder (↑ ↓) or hide
   tiles; the layout is saved on this device.
@@ -59,8 +59,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     next 7 days (tick to pay, tap to edit), then the current pay period (payday to payday):
     **Safe to spend** until payday (with the countdown) and a bar of paid vs. due; tap it for
     Budget. The tile names a not-autopay bill when one is due soon.
-  - **Skin & Hair:** AM and PM checklists side by side, each headed by its count and a bar
-    per step (tap a header for Skin & Hair), plus the streak. The tile adds "UV 7 · SPF" on
+  - **Beauty:** AM and PM checklists side by side, each headed by its count and a bar
+    per step (tap a header for Beauty), plus the streak. The tile adds "UV 7 · SPF" on
     high-UV days.
   - **Jazz 3.0:** a bar for the weight goal and each goal section. Tap one to open that card
     on the Jazz 3.0 tab. Then **one goal item for today** (an unfinished Jazz 3.0 item, the
@@ -133,7 +133,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
 - **Completed.** Finished items sit behind a "N completed" toggle with Restore, Duplicate,
   Delete, and Clear completed. They're archived after 7 days.
 
-**Skin & Hair** is built around doing the routine, not just reading it. Cards, top to bottom:
+**Beauty** is built around doing the routine, not just reading it. Cards, top to bottom:
 - **Today:** a checklist of AM and PM steps with done/total counts, the wash-day badge, and
   an N-day streak (days with both AM and PM finished). Check-offs reset daily and sync
   across devices.
@@ -208,7 +208,7 @@ the starting items.
   to-dos with those names and adds the given ones (a repeat starts today; skipped if already there)
   ; with `{"app":"jazz3-routine", steps:[{band:"am"|"pm"|"washPm", label, product, note, days, before}],
   updateSteps:[{band, product, days, note}], doneItems:[names], planNotes:[{item, note}]}` it adds
-  Skin & Hair routine steps (before the step named by `before`; skipped if that product is already
+  Beauty routine steps (before the step named by `before`; skipped if that product is already
   in the band; wash-day steps only when there's a wash-day list), changes the days/note of the step
   with that product, ticks those Jazz 3.0 plan items and rewrites their notes
   (after a confirm, with Undo). Personal numbers never go in the repo; they travel only in
@@ -272,10 +272,10 @@ shared bottom sheet whose fields fit the tab:
   and a category; bills take a due date, a repeat, Autopay, and a pay link.
 
 Every mode adds several in a row: Enter saves and clears, and the header counts the adds.
-Skin & Hair has no + because adding routine steps is a rare edit there.
+Beauty has no + because adding routine steps is a rare edit there.
 
 **Reordering.** Press and drag works everywhere a list's order is yours: to-dos and
-sub-items (To-Do and Home), routine steps and key rules (Skin & Hair), and each paycheck's
+sub-items (To-Do and Home), routine steps and key rules (Beauty), and each paycheck's
 plan lines, goals and spending categories (Budget). There are no grip handles. Bills
 (by due date) and Shopping (priority, need, price) sort themselves.
 
@@ -314,6 +314,7 @@ only turning sync off still asks first.
 | `manifest.json` | PWA manifest: name, icons, standalone display, home-screen shortcuts. |
 | `sw.js` | Service worker. HTML is network-first so a normal reload picks up new deploys, with the cached page as the offline fallback (query strings ignored, so `?tab=` shortcuts work offline). Icons and the manifest are served from cache and refreshed in the background. Install never caches an error response and removes a partial cache if installation fails. Activation only removes older Jazz-owned caches; unrelated origin caches are preserved. Cross-origin and non-GET requests are never intercepted, so GitHub API calls can't be served stale. |
 | `icon.svg`, `jarvis-icon-192.png`, `jarvis-icon-512.png` | App icon source and its rendered PNGs (`npm run icons`). See *Design system*. |
+| `badge.svg`, `jarvis-badge-96.png` | Notification badge (Android's status-bar icon): white on transparent (`npm run icons`). |
 | `tests/regression.mjs` | Regression suite (see *Development*). |
 | `scripts/check.mjs` | Dependency-free quality check (`npm run check`). |
 | `package.json` | Holds the `check`/`test` scripts and the test dependency (Playwright). The app itself needs no install. |
@@ -344,10 +345,10 @@ only turning sync off still asks first.
    | `holidays.js` | US holidays by rule |
    | `home.js` | Home calendar strip, day agenda, `renderHome` |
    | `jarvis.js` | Jarvis briefing: normalizing, the new-briefing notice, `ingestBriefingFile` (called by sync), and the briefing, Weather detail and News card |
-   | `dashboard.js` | Home's dashboard: status, tiles and their drill-down details for Weather, Money, Skin & Hair, Jazz 3.0 and Shopping (`dashboardHtml`, `dashDrill`, `dashGo`) |
+   | `dashboard.js` | Home's dashboard: status, tiles and their drill-down details for Weather, Money, Beauty, Jazz 3.0 and Shopping (`dashboardHtml`, `dashDrill`, `dashGo`) |
    | `composer.js` | The floating + button's add sheet |
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
-   | `skin.js` | Skin & Hair routine, wash-day schedule, rules |
+   | `skin.js` | Beauty routine, wash-day schedule, rules |
    | `shopping.js` | Shopping tab and wardrobe items |
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, month calendar, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
@@ -481,7 +482,7 @@ Everything lives in `localStorage` on the device:
 | `todo-archive-content` | Completed to-dos older than 7 days (newest 200) |
 | `skin-routine-content` | `{am, pm, washPm, wash?: {anchor, everyDays}}`; steps are `{id, label, product, note?, days?}`, where `days` uses weekday numbers and 0 = Sun |
 | `routine-checks` | Daily check-offs by date: `{am: [ids], pm: [ids], amDone, pmDone}`, about a year kept |
-| `skin-rules-content` | Skin & Hair key rules |
+| `skin-rules-content` | Beauty key rules |
 | `style-rules-content`, `sizes-content`, `capsule-content` | From the removed closet view (fit rules, sizes, owned clothes). Kept, synced and backed up so nothing is lost; not shown |
 | `wants-content` | Shopping list: `{id, name, meta, price, link, estimated?, priority?, kind?: "need" \| "want", wardrobeCat?, moto?}` |
 | `wants-state` | Bought flags, by want id |
@@ -561,15 +562,18 @@ for the accent, amber for warnings and overdue items, soft blue for AM and pink 
 - **Source:** `icon.svg`. `npm run icons` renders `jarvis-icon-192.png` and `jarvis-icon-512.png` from it in
   Chromium (Playwright), with the self-hosted Rajdhani embedded. Bump `CACHE_NAME` in `sw.js`
   after changing them.
+- **Notification badge:** `badge.svg` → `jarvis-badge-96.png`, the small icon in Android's
+  status bar. Android uses only its shape, so it's the segmented ring and "J" in white on
+  transparent (the full app icon there shows as a blank square).
 
 **Touch.** Rows and controls use ~44px touch targets. Text inputs are 16px on touch
 devices so iOS doesn't zoom.
 
 ## Known limitations and ideas
-- **No push notifications.** A static web page can't wake itself up to alert you, and iOS
-  blocks this even for installed PWAs. Jarvis's notice is in-app only (it shows the next time
-  the app syncs). The planned workaround for to-dos is "Add to calendar" on dated to-dos (an
-  `.ics` file with an alarm).
+- **Notifications come only from Jarvis's morning run.** The app can't wake itself up, so
+  phone notifications are sent by the GitHub Action (headline, bills, deliveries). There are no
+  per-to-do reminders; an idea is "Add to calendar" on dated to-dos (an `.ics` file with an
+  alarm). On iPhone, notifications need the app on the Home Screen (iOS 16.4+).
 - **Home's short step names** (`STEP_SHORT_NAMES`) are a code lookup. Unmapped labels fall
   back to the full label.
 - **Sync push replaces the gist file.** A device on an outdated app version can drop keys

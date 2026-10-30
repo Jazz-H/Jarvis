@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Jarvis notification badge (source): the small icon in Android's status bar. Android uses
+       only its shape (alpha), so it's white on transparent: the segmented ring and the "J" from
+       icon.svg, bolder so it reads at 24 px. Render with `npm run icons`. -->
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#fff" stroke-width="44" stroke-dasharray="85.6 17" transform="rotate(-90 256 256)" />
+  <text x="256" y="256" dy="0.35em" text-anchor="middle" font-family="Rajdhani, sans-serif" font-weight="700" font-size="300" fill="#fff">J</text>
+</svg>

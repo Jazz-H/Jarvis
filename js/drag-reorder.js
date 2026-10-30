@@ -482,7 +482,7 @@ const byIds = (list, ids, key = (x) => x.id) =>
     .map((id) => list.find((x) => String(key(x)) === id))
     .filter(Boolean)
     .concat(list.filter((x) => !ids.includes(String(key(x))))); // anything not shown keeps its place at the end
-// Skin & Hair: routine steps within their band, and the key rules
+// Beauty: routine steps within their band, and the key rules
 sortable(
   document.getElementById("panel-skin"),
   ".band[data-band] > .step.editable",

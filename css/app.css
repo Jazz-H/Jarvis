@@ -1975,7 +1975,7 @@ nav.tabbar button.j3-tab::before {
   margin: 8px 0 0;
   font-style: italic;
 }
-/* routine checklist (Skin & Hair "Today" card) */
+/* routine checklist (Beauty "Today" card) */
 .routine-band {
   padding-top: 6px;
 }
@@ -2285,7 +2285,11 @@ nav.tabbar button.j3-tab::before {
     opacity 0.2s,
     transform 0.2s;
   z-index: 40; /* above the composer sheet */
-  white-space: nowrap;
+  /* one line when it fits; a long message (a Jarvis headline) wraps instead of running off */
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 .toast.show {
   opacity: 1;
@@ -4382,7 +4386,7 @@ a.jv-story-title:hover {
 .jv-period-keys .neg {
   color: var(--danger);
 }
-/* Skin & Hair: step progress + AM/PM checklist */
+/* Beauty: step progress + AM/PM checklist */
 .jv-mini {
   font-family: var(--font-mono);
   font-size: 12px;

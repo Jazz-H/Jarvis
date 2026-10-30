@@ -722,7 +722,7 @@ await section("composer: + on Home, hidden elsewhere, launch shortcut opens it",
   const { ctx, page } = await openApp();
   check("+ shows on Home", await page.isVisible("#fab"));
   await page.evaluate(() => activateTab("skin"));
-  check("+ hidden on Skin & Hair", !(await page.isVisible("#fab")));
+  check("+ hidden on Beauty", !(await page.isVisible("#fab")));
   const labels = await page.evaluate(() =>
     ["home", "todo", "wants", "budget"].map((t) => {
       activateTab(t);
@@ -1369,8 +1369,8 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   });
   const nav = await page.$$eval("nav.tabbar button", (bs) => bs.map((b) => b.textContent.trim()));
   check(
-    "nav: Home, To-Do, Jazz 3.0, Shopping, Skin & Hair (Budget hidden)",
-    JSON.stringify(nav) === '["Home","To-Do","Jazz 3.0","Shopping","Skin & Hair"]',
+    "nav: Home, To-Do, Jazz 3.0, Shopping, Beauty (Budget hidden)",
+    JSON.stringify(nav) === '["Home","To-Do","Jazz 3.0","Shopping","Beauty"]',
     nav,
   );
   check(
@@ -3161,7 +3161,7 @@ await section("Routine import link: add a PM step on set days", async () => {
     r,
   );
   check("it shows on a Tuesday PM and not on a Monday", r.tue && !r.mon, r);
-  check("the Glow plan item is ticked and Skin & Hair opens", r.done === true && r.tab === "skin", r);
+  check("the Glow plan item is ticked and Beauty opens", r.done === true && r.tab === "skin", r);
   check(
     "opening the link again adds nothing",
     await page.evaluate((d) => {
@@ -4090,7 +4090,7 @@ await section("refresh stays on the same tab; Wash hair opens its card", async (
     tab: currentTab,
     open: document.getElementById("wash-card").classList.contains("open"),
   }));
-  check("tapping Wash hair opens the Wash day card on Skin & Hair", w.tab === "skin" && w.open, w);
+  check("tapping Wash hair opens the Wash day card on Beauty", w.tab === "skin" && w.open, w);
   await page.evaluate(() => {
     activateTab("budget");
     sessionStorage.setItem("resume-view", JSON.stringify({ tab: currentTab, scroll: 0 }));
@@ -8371,7 +8371,7 @@ await section("skin weather: UV with SPF advice and air quality, on Weather and 
   Object.assign(b.cards.weather.data, { uvMax: 7, uvHigh: { from: 11, to: 15 }, aqi: 42 });
   const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
   const skinSub = await page.$eval('.jv-tile[data-go="skin"] .jv-tile-sub', (e) => e.textContent);
-  check("Skin & Hair tile flags a high-UV day", skinSub.includes("UV 7 · SPF"), skinSub);
+  check("Beauty tile flags a high-UV day", skinSub.includes("UV 7 · SPF"), skinSub);
   await page.tap('.jv-tile[data-go="weather"]');
   const rows = await page.$$eval("#jarvis-weather .jv-skinwx-row", (els) =>
     els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
@@ -8806,6 +8806,24 @@ await section("phone notifications: turning them on saves this phone's push addr
   await unasked(nosync.page);
   check("no card without sync (there's nowhere to save the address)", !(await card(nosync.page)));
   await nosync.ctx.close();
+});
+
+await section("a long notice wraps on a phone instead of running off the screen", async () => {
+  const { ctx, page, errors } = await openApp();
+  const r = await page.evaluate(() => {
+    showToast("Jarvis: Rent ($612.50) is due Sunday and isn't on autopay, so pay it today before the weekend");
+    const t = document.getElementById("toast").getBoundingClientRect();
+    return { left: t.left, right: t.right, vw: innerWidth, lines: Math.round(t.height / 16) };
+  });
+  check("the notice stays inside the screen", r.left >= 0 && r.right <= r.vw, r);
+  check("and wraps onto more lines", r.lines >= 2, r);
+  const short = await page.evaluate(() => {
+    showToast("Saved");
+    return document.getElementById("toast").getBoundingClientRect().width;
+  });
+  check("a short notice stays a small pill", short < 120, short);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
 });
 
 await browser.close();

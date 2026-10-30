@@ -4,7 +4,7 @@
 // ---------- COMPOSER (the floating + button's sheet) ----------
 // One bottom sheet for adding things, in a mode picked by the current tab:
 // to-dos (Home, To-Do), shopping items (Shopping), spending/bills/goals (Budget).
-// Skin & Hair has no + button: adding routine steps is a rare edit there, and the
+// Beauty has no + button: adding routine steps is a rare edit there, and the
 // tab's everyday action is ticking steps off.
 // Every mode is built for adding several in a row: Enter (or Add) saves, clears
 // the text, keeps the keyboard up, and counts adds in the header; the sheet stays

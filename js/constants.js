@@ -6,7 +6,7 @@ const HEADLINES = {
   home: "Home",
   todo: "To-Do",
   jazz3: "Jazz 3.0",
-  skin: "Skin & Hair",
+  skin: "Beauty",
   wants: "Shopping",
   budget: "Budget",
 };

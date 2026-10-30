@@ -9,7 +9,7 @@
 // from this device's own data, so it works offline and without Jarvis set up. Rows tick off in
 // place with the same data-action handlers as their own tabs.
 // Detail layouts (chosen per card): Weather summary + hour by hour; Money due-this-week list +
-// pay-period bar; Skin & Hair AM/PM checklists with progress; Jazz 3.0 goal bars; Shopping needs list.
+// pay-period bar; Beauty AM/PM checklists with progress; Jazz 3.0 goal bars; Shopping needs list.
 const JARVIS_OWNER = "Jazz";
 const DASH_TABS = { todo: "todo", money: "budget", skin: "skin", jazz3: "jazz3", shop: "wants" };
 // tiles (and timeline rows) that open a detail; calendar and deliveries open under the timeline
@@ -154,7 +154,7 @@ function dashMoneyDetail(d) {
 }
 function dashSkinDetail(d) {
   const { r, c } = d;
-  // each column's header is its progress (count + a bar per step) and opens Skin & Hair
+  // each column's header is its progress (count + a bar per step) and opens Beauty
   const col = (band, label, steps, done) =>
     `<div class="jv-skin-col">
       <button class="jv-skin-head" data-action="jv-go" data-go="skin"><span class="jv-mini ${band}">${label} ${done}/${steps.length}</span>${
@@ -174,7 +174,7 @@ function dashSkinDetail(d) {
   return (
     `<div class="jv-skin-cols">${col("am", "AM", r.am, d.amDone)}${col("pm", r.wash ? "PM · wash" : "PM", r.pm, d.pmDone)}</div>` +
     (d.streak ? `<div class="jv-skin-meta">${d.streak}-day streak</div>` : "") +
-    dashOpen("skin", "Open Skin &amp; Hair")
+    dashOpen("skin", "Open Beauty")
   );
 }
 function dashJazz3Detail(d) {
@@ -280,7 +280,7 @@ function dashTilesHtml(b, progress, d) {
     },
     {
       go: "skin",
-      label: "Skin & Hair",
+      label: "Beauty",
       value: skinAm ? `AM ${d.skin.amDone}/${d.skin.r.am.length}` : `PM ${d.skin.pmDone}/${d.skin.r.pm.length}`,
       // skin weather on the tile (layout 2): a high-UV day says SPF
       sub: [
@@ -564,7 +564,7 @@ function dashDayRows(b, d) {
       }),
     );
   if (d.skin.r.wash)
-    rows.push({ sort: 24 * 60 + 10, time: "Tonight", title: "Wash day", sub: "Skin & Hair", tone: "pink", go: "skin" });
+    rows.push({ sort: 24 * 60 + 10, time: "Tonight", title: "Wash day", sub: "Beauty", tone: "pink", go: "skin" });
   return rows.sort((a, c) => a.sort - c.sort);
 }
 

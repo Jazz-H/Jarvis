@@ -177,7 +177,7 @@ function homeCalHtml() {
 }
 // Wash day as a to-do: a row derived from the wash schedule rather than stored in
 // todoList. Its checkbox ticks the wash-only PM steps (the ones regular PM
-// doesn't have: shampoo, mask), so it stays in step with Skin & Hair. Only
+// doesn't have: shampoo, mask), so it stays in step with Beauty. Only
 // today's can be ticked; other days show the droplet instead.
 function isWashDay(d) {
   return isWashDate(d) && skinRoutine.washPm.length > 0;

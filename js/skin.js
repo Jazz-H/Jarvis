@@ -1,4 +1,4 @@
-// skin.js - Skin & Hair tab: routine, wash-day schedule and rules.
+// skin.js - Beauty tab: routine, wash-day schedule and rules.
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
 // ---------- RENDER: SKIN/HAIR ----------

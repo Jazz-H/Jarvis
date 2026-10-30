@@ -1,4 +1,5 @@
-// Renders icon.svg to jarvis-icon-192.png and jarvis-icon-512.png (new names make installed apps fetch the new icon) (`npm run icons`).
+// Renders icon.svg to jarvis-icon-192.png and jarvis-icon-512.png (new names make installed apps fetch the new icon),
+// and badge.svg to jarvis-badge-96.png, the transparent status-bar icon for notifications (`npm run icons`).
 // Uses Playwright's Chromium (already a dev dependency for the tests) so the SVG's glow filters
 // and the self-hosted Rajdhani font render exactly as in the app. Each size is rendered from the
 // vector source rather than downsampled.
@@ -10,25 +11,31 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.resolve(process.argv[2] || ROOT);
-const svg = await readFile(path.join(ROOT, "icon.svg"), "utf8");
+const icon = await readFile(path.join(ROOT, "icon.svg"), "utf8");
+const badge = await readFile(path.join(ROOT, "badge.svg"), "utf8");
 // embedded as a data URL: a page set from a string can't load local font files
 const font =
   "data:font/woff2;base64," + (await readFile(path.join(ROOT, "fonts", "rajdhani-700.woff2"))).toString("base64");
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-for (const size of [192, 512]) {
+const renders = [
+  { svg: icon, size: 192, name: "jarvis-icon-192.png", bg: "#02060b" },
+  { svg: icon, size: 512, name: "jarvis-icon-512.png", bg: "#02060b" },
+  { svg: badge, size: 96, name: "jarvis-badge-96.png", bg: "transparent" },
+];
+for (const { svg, size, name, bg } of renders) {
   const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
   await page.setContent(
     `<!doctype html><style>
       @font-face { font-family: "Rajdhani"; font-weight: 700; src: url("${font}") format("woff2"); }
-      html, body { margin: 0; background: #02060b; }
+      html, body { margin: 0; background: ${bg}; }
       svg { display: block; width: ${size}px; height: ${size}px; }
     </style>${svg}`,
     { waitUntil: "load" },
   );
   await page.evaluate(() => document.fonts.ready);
-  const file = path.join(outDir, `jarvis-icon-${size}.png`);
-  await page.screenshot({ path: file, omitBackground: false });
+  const file = path.join(outDir, name);
+  await page.screenshot({ path: file, omitBackground: bg === "transparent" });
   console.log("wrote", path.relative(process.cwd(), file));
   await page.close();
 }
