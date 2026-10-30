@@ -3,6 +3,7 @@
 // suggestion chips, from the stats, the week's day digests and last week's stats. If the model
 // fails, a plain review is built from the stats alone. Writes jazz2-reviews.json (newest first,
 // last 12) and sends one phone notification. Only this orchestrator holds the Gist client.
+// Afterwards it answers any Ask questions still waiting (ask.ts, option B); that never fails the run.
 //
 //   npm run review                (scheduled behaviour: delivers only in the Sunday window)
 //   npm run review -- --now       (deliver now, like a manual run; replaces this week's review)
@@ -28,7 +29,12 @@ import { localTime, shouldDeliverReview } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
 import { Trace } from "./lib/trace.ts";
 import { runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
-import { notifyPhones } from "./jarvis.ts";
+import { notifyPhones } from "./lib/notify.ts";
+import { tidy } from "./lib/text.ts";
+import { readReviews } from "./lib/reviews-file.ts";
+import { answerPendingQuietly, askLimits, type AskLimits } from "./ask.ts";
+
+export { readReviews };
 
 export const REVIEW_SYSTEM = `You are Jarvis, the chief of staff behind a personal dashboard app called Jazz.
 Each Sunday evening you write the owner's Weekly Review of the Monday-to-Sunday week that is ending.
@@ -65,29 +71,14 @@ export interface ReviewDeps {
   queryFn?: QueryFn;
   calendarUrl?: string | null; // the secret iCal address, for next week's event counts
   push?: Sender | null;
+  // Ask fallback (option B): after the review, answer questions still waiting in jazz2-ask.json
+  // under Ask's own limits and usage counts. Off when left out.
+  ask?: AskLimits | null;
 }
 
 export type ReviewOutcome =
   | { status: "skipped"; reason: string }
   | { status: "delivered"; review: WeeklyReview; cost: ReturnType<CostLedger["summary"]> };
-
-// The stored reviews that still pass the schema (anything else is dropped, never trusted)
-export function readReviews(raw: string | null): { reviews: WeeklyReview[]; junk: boolean } {
-  if (!raw) return { reviews: [], junk: false };
-  let j: any;
-  try {
-    j = JSON.parse(raw);
-  } catch {
-    return { reviews: [], junk: true };
-  }
-  const list = Array.isArray(j?.reviews) ? j.reviews.slice(0, 50) : [];
-  const reviews: WeeklyReview[] = [];
-  for (const r of list) {
-    const p = WeeklyReview.safeParse(r);
-    if (p.success && !reviews.some((x) => x.id === p.data.id)) reviews.push(p.data);
-  }
-  return { reviews, junk: reviews.length < list.length || !Array.isArray(j?.reviews) };
-}
 
 export function reviewSpec(
   week: ReviewWeek,
@@ -110,8 +101,6 @@ export function reviewSpec(
 
 // Code checks on the model's output: no links, each win/slip tied to a stat that exists this
 // week, a to-do chip's date inside next week, no duplicate chips.
-const URLISH = /\b(?:[a-z][a-z0-9+.-]*:\/\/|www\.)\S*/gi;
-const tidy = (s: string, n: number) => s.replace(URLISH, "").replace(/\s+/g, " ").trim().slice(0, n);
 export function cleanReviewOutput(out: ReviewOutput, stats: WeekStats): ReviewOutput {
   const has = (k: StatKey) => stats[k] !== undefined;
   const points = (list: ReviewOutput["wins"]) =>
@@ -331,6 +320,16 @@ export async function runReview(deps: ReviewDeps): Promise<ReviewOutcome> {
     kept: reviews.length,
   });
   if (deps.push) await notifyPhones(gist, deps.push, [reviewPush(review)], trace);
+  if (deps.ask)
+    await answerPendingQuietly({
+      gist,
+      now: deps.now,
+      trigger: "review",
+      limits: deps.ask,
+      trace,
+      queryFn: deps.queryFn,
+      push: deps.push,
+    });
   return { status: "delivered", review, cost: ledger.summary() };
 }
 
@@ -361,6 +360,7 @@ async function main() {
       trace,
       calendarUrl,
       push: env.VAPID_PRIVATE_KEY ? vapidSender(CONFIG.push.publicKey, env.VAPID_PRIVATE_KEY, CONFIG.push.subject) : null,
+      ask: askLimits(env),
     });
     // the repo is public: the log names the week, never the review's text
     if (outcome.status === "skipped") console.log(`Skipped: ${outcome.reason}`);

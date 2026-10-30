@@ -150,21 +150,36 @@ function todoStats(data: Obj, w: ReviewWeek, timeZone: string): WeekStats["todos
   };
 }
 
-// Open to-dos per day of the week ahead, with repeating ones projected (js/todo-dates.js occursOn)
-function todosAhead(data: Obj, w: ReviewWeek): Map<string, number> {
-  const per = new Map<string, number>();
-  const add = (d: string) => per.set(d, (per.get(d) ?? 0) + 1);
+// Open to-dos due from `from` to `to`, with repeating ones projected (js/todo-dates.js occursOn).
+// Also used by the Ask context (lib/ask-context.ts).
+export interface TodoRow {
+  text: string;
+  due: string;
+  starred: boolean;
+  repeats: boolean;
+}
+export function todoOccurrences(data: Obj, from: string, to: string): TodoRow[] {
+  const out: TodoRow[] = [];
   for (const t of arr(data["todo-content"])) {
-    if (!isObj(t) || t.done || !isIso(t.due) || t.due > w.nextEnd) continue;
-    if (t.due >= w.nextStart) add(t.due);
-    if (!TODO_REPEATS.has(t.repeat)) continue;
+    if (!isObj(t) || t.done || !isIso(t.due) || t.due > to) continue;
+    const repeats = TODO_REPEATS.has(t.repeat);
+    const add = (due: string) => out.push({ text: clip(t.text, 120), due, starred: t.starred === true, repeats });
+    if (t.due >= from) add(t.due);
+    if (!repeats) continue;
     let d: string | null = t.due;
     for (let i = 0; i < 800 && d; i++) {
       d = todoNext(d, t);
-      if (!d || d > w.nextEnd) break;
-      if (d >= w.nextStart) add(d);
+      if (!d || d > to) break;
+      if (d >= from) add(d);
     }
   }
+  return out;
+}
+
+// Open to-dos per day of the week ahead
+function todosAhead(data: Obj, w: ReviewWeek): Map<string, number> {
+  const per = new Map<string, number>();
+  for (const t of todoOccurrences(data, w.nextStart, w.nextEnd)) per.set(t.due, (per.get(t.due) ?? 0) + 1);
   return per;
 }
 
@@ -174,18 +189,25 @@ function routineStats(data: Obj, w: ReviewWeek): WeekStats["routine"] {
   const day = (k: string) => (isObj(checks[k]) ? checks[k] : null);
   const full = (k: string) => !!(day(k)?.amDone && day(k)?.pmDone);
   const days = range(w.weekStart, w.weekEnd);
-  // routineStreak(): consecutive full days ending Sunday, counting Sunday only once it's done
-  let d = full(w.weekEnd) ? w.weekEnd : addDays(w.weekEnd, -1),
+  return {
+    fullDays: days.filter(full).length,
+    amOnly: days.filter((k) => !!day(k)?.amDone && !day(k)?.pmDone).length,
+    streak: routineStreak(data, w.weekEnd),
+  };
+}
+
+// js/skin.js routineStreak(): consecutive days with AM and PM both done, ending `asOf` and
+// counting `asOf` only once it's done
+export function routineStreak(data: Obj, asOf: string): number {
+  const checks = isObj(data["routine-checks"]) ? data["routine-checks"] : {};
+  const full = (k: string) => isObj(checks[k]) && !!(checks[k].amDone && checks[k].pmDone);
+  let d = full(asOf) ? asOf : addDays(asOf, -1),
     streak = 0;
   while (streak < 1000 && full(d)) {
     streak++;
     d = addDays(d, -1);
   }
-  return {
-    fullDays: days.filter(full).length,
-    amOnly: days.filter((k) => !!day(k)?.amDone && !day(k)?.pmDone).length,
-    streak,
-  };
+  return streak;
 }
 
 // ---- workouts ----
@@ -195,8 +217,8 @@ interface Workout {
   every: number;
   anchor: string;
 }
-const sundayOf = (iso: string) => addDays(iso, -weekday(iso)); // js/fitness.js weekStartIso
-function workoutOn(p: Workout, iso: string): boolean {
+export const sundayOf = (iso: string) => addDays(iso, -weekday(iso)); // js/fitness.js weekStartIso
+export function workoutOn(p: Workout, iso: string): boolean {
   if (!p.days.includes(weekday(iso))) return false;
   if (iso < sundayOf(p.anchor)) return false; // the plan starts the week of its start date
   if (p.every <= 1) return true;
@@ -208,7 +230,7 @@ function fitnessOf(data: Obj): Obj {
 }
 // Plans whose id isn't a safe token get a fresh random id in the app on every load, so their
 // checks can't be matched; they're left out here.
-function workoutPlan(data: Obj, asOf: string): Workout[] {
+export function workoutPlan(data: Obj, asOf: string): Workout[] {
   return arr(fitnessOf(data).plan)
     .filter((p) => isObj(p) && SAFE_ID.test(String(p.id)))
     .map((p) => ({
@@ -219,12 +241,17 @@ function workoutPlan(data: Obj, asOf: string): Workout[] {
     }));
 }
 function workoutStats(data: Obj, w: ReviewWeek): WeekStats["workouts"] {
-  const plan = workoutPlan(data, w.weekEnd);
+  return workoutsBetween(data, w.weekStart, w.weekEnd, w.weekEnd);
+}
+// Planned workouts from `from` to `to` (at most a week) and how many were ticked; `asOf` stands in
+// for "today" where a plan has no start date. Also used by the Ask context.
+export function workoutsBetween(data: Obj, from: string, to: string, asOf: string): WeekStats["workouts"] {
+  const plan = workoutPlan(data, asOf);
   const checks = isObj(fitnessOf(data).checks) ? fitnessOf(data).checks : {};
   let planned = 0,
     done = 0;
   const missedDays: string[] = [];
-  for (const iso of range(w.weekStart, w.weekEnd)) {
+  for (const iso of range(from, to).slice(0, 7)) {
     const on = plan.filter((p) => workoutOn(p, iso));
     const ok = on.filter((p) => !!checks[`${iso}|${p.id}`]).length;
     planned += on.length;
@@ -239,54 +266,93 @@ const lbs = (v: unknown) => {
   const n = Number(v);
   return v != null && v !== "" && Number.isFinite(n) && n >= 40 && n <= 800 ? r1(n) : null;
 };
-function weightStats(data: Obj, w: ReviewWeek): WeekStats["weight"] {
-  const f = fitnessOf(data);
-  const all = arr(f.weights)
+function weighIns(data: Obj): { date: string; lbs: number }[] {
+  return arr(fitnessOf(data).weights)
     .filter((x) => isObj(x) && isIso(x.date) && lbs(x.lbs) != null)
     .map((x) => ({ date: x.date as string, lbs: lbs(x.lbs)! }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  const upTo = all.filter((x) => x.date <= w.weekEnd); // as of Sunday
-  const week = upTo.filter((x) => x.date >= w.weekStart);
+}
+
+// js/fitness.js weightStatus() as of a date: pct of the way from start to goal, the pace in lbs a
+// week (first to last weigh-in over the last 8 weeks; with fewer than 3 there, all of them) and
+// the day the goal is reached at that pace. Also used by the Ask context.
+export interface WeightStatus {
+  current: number | null;
+  start: number | null;
+  goal: number | null;
+  toGo: number | null;
+  pct: number | null;
+  ratePerWeek: number | null;
+  eta: string | null;
+  reached: boolean;
+  lastWeighIn: string | null;
+}
+export function weightStatus(data: Obj, asOf: string): WeightStatus {
+  const f = fitnessOf(data);
+  const upTo = weighIns(data).filter((x) => x.date <= asOf);
   const cur = upTo.length ? upTo[upTo.length - 1].lbs : null;
+  const goal = lbs(f.goal);
+  const start = lbs(f.start) ?? (upTo[0]?.lbs ?? null);
+  const out: WeightStatus = {
+    current: cur,
+    start,
+    goal,
+    toGo: null,
+    pct: null,
+    ratePerWeek: null,
+    eta: null,
+    reached: false,
+    lastWeighIn: upTo.length ? upTo[upTo.length - 1].date : null,
+  };
+  if (cur == null || goal == null) return out;
+  const reached =
+    start != null && start !== goal ? (goal > start ? cur >= goal : cur <= goal) : Math.abs(goal - cur) < 0.05;
+  out.reached = reached;
+  out.toGo = r1(Math.abs(goal - cur));
+  out.pct =
+    start != null && goal !== start
+      ? Math.max(0, Math.min(100, Math.round(((cur - start) / (goal - start)) * 100)))
+      : reached
+        ? 100
+        : 0;
+  let recent = upTo.filter((x) => x.date >= addDays(asOf, -56));
+  if (recent.length < 3 && upTo.length > recent.length) recent = upTo;
+  if (recent.length >= 2) {
+    const weeks = (dayNum(recent[recent.length - 1].date) - dayNum(recent[0].date)) / 7;
+    if (weeks >= 1) {
+      const rate = r1((recent[recent.length - 1].lbs - recent[0].lbs) / weeks);
+      out.ratePerWeek = rate;
+      if (!reached && rate && Math.sign(rate) === Math.sign(goal - cur))
+        out.eta = addDays(asOf, Math.min(36500, Math.ceil((Math.abs(goal - cur) / Math.abs(rate)) * 7)));
+    }
+  }
+  return out;
+}
+
+function weightStats(data: Obj, w: ReviewWeek): WeekStats["weight"] {
+  const upTo = weighIns(data).filter((x) => x.date <= w.weekEnd); // as of Sunday
+  const week = upTo.filter((x) => x.date >= w.weekStart);
   const before = upTo.filter((x) => x.date < w.weekStart).pop();
   const base = before ?? (week.length >= 2 ? week[0] : null);
   const change = week.length && base ? r1(week[week.length - 1].lbs - base.lbs) : null;
-  let pct: number | null = null,
-    eta: string | null = null;
-  const goal = lbs(f.goal);
-  const start = lbs(f.start) ?? (upTo[0]?.lbs ?? null);
-  if (cur != null && goal != null) {
-    const reached =
-      start != null && start !== goal ? (goal > start ? cur >= goal : cur <= goal) : Math.abs(goal - cur) < 0.05;
-    pct =
-      start != null && goal !== start
-        ? Math.max(0, Math.min(100, Math.round(((cur - start) / (goal - start)) * 100)))
-        : reached
-          ? 100
-          : 0;
-    // pace: first to last weigh-in over the last 8 weeks; with fewer than 3 there, all of them
-    let recent = upTo.filter((x) => x.date >= addDays(w.weekEnd, -56));
-    if (recent.length < 3 && upTo.length > recent.length) recent = upTo;
-    if (recent.length >= 2) {
-      const weeks = (dayNum(recent[recent.length - 1].date) - dayNum(recent[0].date)) / 7;
-      if (weeks >= 1) {
-        const rate = r1((recent[recent.length - 1].lbs - recent[0].lbs) / weeks);
-        if (!reached && rate && Math.sign(rate) === Math.sign(goal - cur))
-          eta = addDays(w.weekEnd, Math.min(36500, Math.ceil((Math.abs(goal - cur) / Math.abs(rate)) * 7)));
-      }
-    }
-  }
-  return { weighIns: count(week.length), current: cur, change, pct, eta };
+  const st = weightStatus(data, w.weekEnd);
+  return { weighIns: count(week.length), current: st.current, change, pct: st.pct, eta: st.eta };
 }
 
 // ---- goals (Jazz 3.0 sections) ----
+// js/jazz3.js normalizePlan3: items with text, each in its section ("Goals" by default), saved order
+export function goalItems(data: Obj): Obj[] {
+  return arr(data["plan3-content"]).filter((x) => isObj(x) && String(x.item ?? "").trim());
+}
+export const goalSection = (x: Obj) => clip(String(x.cat || "Goals").trim().slice(0, 30), 40) || "Goals";
+
 function goalStats(data: Obj, prev: Snapshot | null): { goals: WeekStats["goals"]; doneIds: string[] } {
-  const items = arr(data["plan3-content"]).filter((x) => isObj(x) && String(x.item ?? "").trim());
+  const items = goalItems(data);
   const before = prev ? new Set(prev.plan3Done) : null;
   const out: WeekStats["goals"] = [];
   const doneIds: string[] = [];
   for (const x of items) {
-    const name = clip(String(x.cat || "Goals").trim().slice(0, 30), 40) || "Goals";
+    const name = goalSection(x);
     let g = out.find((o) => o.name === name);
     if (!g) out.push((g = { name, doneThisWeek: before ? 0 : null, done: 0, total: 0 }));
     g.total++;
@@ -301,7 +367,7 @@ function goalStats(data: Obj, prev: Snapshot | null): { goals: WeekStats["goals"
 }
 
 // ---- bills ----
-interface Bill {
+export interface Bill {
   id: string;
   name: string;
   amount: number; // your share (billShare)
@@ -312,7 +378,7 @@ interface Bill {
   day: number;
   hold: string | null;
 }
-function readBills(data: Obj): Bill[] {
+export function readBills(data: Obj): Bill[] {
   // a bill without a valid due date gets "today" in the app; here it's left out
   return arr(data["bills-content"])
     .filter((b) => isObj(b) && isIso(b.due))
@@ -332,18 +398,39 @@ function readBills(data: Obj): Bill[] {
       };
     });
 }
-function billStats(data: Obj, w: ReviewWeek): { bills: WeekStats["bills"]; perDay: Map<string, number> } {
-  const bills = readBills(data);
-  const payments = arr(data["bill-payments"])
+export interface Payment {
+  id: string;
+  billId: string;
+  name: string;
+  amount: number;
+  due: string; // the due date it paid
+  date: string; // the day it was paid
+  auto: boolean;
+}
+export function readPayments(data: Obj): Payment[] {
+  return arr(data["bill-payments"])
     .filter((p) => isObj(p) && isIso(p.due) && isIso(p.date))
-    .map((p) => ({ id: String(p.id ?? ""), amount: amt(p.amount), date: p.date as string, auto: !!p.auto }));
-  // processAutopay(): the app logs autopay bills only when it's opened, so a payment that came due
-  // since then is logged here the same way (same derived id, so it's never counted twice)
+    .map((p) => ({
+      id: String(p.id ?? ""),
+      billId: String(p.billId ?? ""),
+      name: clip(p.name, 60) || "Bill",
+      amount: amt(p.amount),
+      due: p.due as string,
+      date: p.date as string,
+      auto: !!p.auto,
+    }));
+}
+
+// processAutopay(): the app logs autopay bills only when it's opened, so a payment that came due
+// up to `upTo` since then is logged here the same way (same derived id, so it's never counted
+// twice) and the bill moves to its next due date. Changes `bills` and `payments` in place.
+export function settleAutopay(bills: Bill[], payments: Payment[], upTo: string) {
   for (const b of bills) {
     if (!b.autopay || b.done) continue;
-    for (let i = 0; i < 60 && b.due <= w.weekEnd && b.due !== b.hold; i++) {
+    for (let i = 0; i < 60 && b.due <= upTo && b.due !== b.hold; i++) {
       const id = `pay-auto-${b.id}-${b.due}`;
-      if (!payments.some((p) => p.id === id)) payments.push({ id, amount: b.amount, date: b.due, auto: true });
+      if (!payments.some((p) => p.id === id))
+        payments.push({ id, billId: b.id, name: b.name, amount: b.amount, due: b.due, date: b.due, auto: true });
       const next = nextBillIso(b.due, b.repeat, b.day);
       if (next) b.due = next;
       else {
@@ -352,21 +439,35 @@ function billStats(data: Obj, w: ReviewWeek): { bills: WeekStats["bills"]; perDa
       }
     }
   }
+}
+
+// Unpaid bill dues from `from` to `to`: each bill's current due date and its projected repeats
+// (js/budget-bills.js billsInMonth)
+export function billDuesBetween(bills: Bill[], from: string, to: string): { bill: Bill; due: string }[] {
+  const out: { bill: Bill; due: string }[] = [];
+  for (const b of bills) {
+    if (b.done) continue;
+    let d: string | null = b.due;
+    for (let i = 0; i < 800 && d && d <= to; i++) {
+      if (d >= from) out.push({ bill: b, due: d });
+      d = nextBillIso(d, b.repeat, b.day);
+    }
+  }
+  return out;
+}
+
+function billStats(data: Obj, w: ReviewWeek): { bills: WeekStats["bills"]; perDay: Map<string, number> } {
+  const bills = readBills(data);
+  const payments = readPayments(data);
+  settleAutopay(bills, payments, w.weekEnd);
   const paid = payments.filter((p) => p.date >= w.weekStart && p.date <= w.weekEnd);
   const perDay = new Map<string, number>();
   let dueNext = 0,
     dueNextTotal = 0;
-  for (const b of bills) {
-    if (b.done) continue;
-    let d: string | null = b.due;
-    for (let i = 0; i < 800 && d && d <= w.nextEnd; i++) {
-      if (d >= w.nextStart) {
-        dueNext++;
-        dueNextTotal += b.amount;
-        perDay.set(d, (perDay.get(d) ?? 0) + 1);
-      }
-      d = nextBillIso(d, b.repeat, b.day);
-    }
+  for (const { bill, due } of billDuesBetween(bills, w.nextStart, w.nextEnd)) {
+    dueNext++;
+    dueNextTotal += bill.amount;
+    perDay.set(due, (perDay.get(due) ?? 0) + 1);
   }
   return {
     bills: {
@@ -386,7 +487,8 @@ function billStats(data: Obj, w: ReviewWeek): { bills: WeekStats["bills"]; perDa
 }
 
 // ---- spending ----
-function spendingStats(data: Obj, w: ReviewWeek): WeekStats["spending"] {
+// js/budget-view.js normalizeBudgetData: categories with monthly limits, and dated expenses
+function readSpending(data: Obj) {
   const budget = isObj(data["budget-content"]) ? data["budget-content"] : {};
   const cats = arr(budget.categories)
     .filter(isObj)
@@ -394,6 +496,33 @@ function spendingStats(data: Obj, w: ReviewWeek): WeekStats["spending"] {
   const exps = arr(budget.expenses)
     .filter((e) => isObj(e) && isIso(e.date))
     .map((e) => ({ amount: amt(e.amount), cat: e.cat == null ? "" : String(e.cat), date: e.date as string }));
+  return { cats, exps };
+}
+
+// Spending this calendar month up to `asOf`, by category against its monthly limit (null = no
+// limit). left is the limit minus what's spent (negative when over). Used by the Ask context.
+export function monthSpending(data: Obj, asOf: string) {
+  const { cats, exps } = readSpending(data);
+  const month = asOf.slice(0, 7);
+  const mtd = exps.filter((e) => e.date.slice(0, 7) === month && e.date <= asOf);
+  const sum = (list: { amount: number }[]) => money(list.reduce((s, e) => s + e.amount, 0));
+  const known = new Set(cats.map((c) => c.id));
+  const rows = cats.map((c) => {
+    const spent = sum(mtd.filter((e) => e.cat === c.id));
+    return { name: c.name, spent, limit: c.limit ? money(c.limit) : null, left: c.limit ? Math.round((c.limit - spent) * 100) / 100 : null };
+  });
+  const orphan = mtd.filter((e) => !known.has(e.cat));
+  if (orphan.length) rows.push({ name: "Uncategorized", spent: sum(orphan), limit: null, left: null });
+  return {
+    month,
+    total: sum(mtd),
+    byCat: rows.filter((r) => r.spent > 0 || r.limit != null).slice(0, 12),
+    overLimit: rows.filter((r) => r.left != null && r.left < 0).map((r) => r.name),
+  };
+}
+
+function spendingStats(data: Obj, w: ReviewWeek): WeekStats["spending"] {
+  const { cats, exps } = readSpending(data);
   const month = w.weekEnd.slice(0, 7);
   const week = exps.filter((e) => e.date >= w.weekStart && e.date <= w.weekEnd);
   const mtd = exps.filter((e) => e.date.slice(0, 7) === month && e.date <= w.weekEnd);
@@ -428,12 +557,21 @@ function spendingStats(data: Obj, w: ReviewWeek): WeekStats["spending"] {
 }
 
 // ---- shopping ----
+// js/shopping.js wantKind(): wardrobe items without a kind count as needs
+export const isShoppingNeed = (x: Obj) => x.kind === "need" || (x.kind !== "want" && !!x.wardrobeCat);
+// js/dashboard.js dashShopData: still to buy = not bought and not "later"
+export function pendingShopping(data: Obj): Obj[] {
+  const state = isObj(data["wants-state"]) ? data["wants-state"] : {};
+  return arr(data["wants-content"]).filter((x) => isObj(x) && !state[String(x.id)] && !x.later);
+}
+export const shoppingPrice = (x: Obj) => amt(x.price);
+
 function shoppingStats(data: Obj, prev: Snapshot | null): { shopping: WeekStats["shopping"]; boughtIds: string[] } {
   const list = arr(data["wants-content"]).filter(isObj);
   const state = isObj(data["wants-state"]) ? data["wants-state"] : {};
   const isBought = (x: Obj) => !!state[String(x.id)];
-  const pending = list.filter((x) => !isBought(x) && !x.later);
-  const isNeed = (x: Obj) => x.kind === "need" || (x.kind !== "want" && !!x.wardrobeCat);
+  const pending = pendingShopping(data);
+  const isNeed = isShoppingNeed;
   const boughtNow = list.filter((x) => isBought(x) && SAFE_ID.test(String(x.id)));
   const before = prev ? new Set(prev.wantsBought) : null;
   const fresh = before ? boughtNow.filter((x) => !before.has(String(x.id))) : null;

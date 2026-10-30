@@ -1,6 +1,7 @@
 // Jarvis: the orchestrator. Reads Jazz context from the Gist, runs the sub-agents in parallel,
 // gives their validated output to the Jarvis model, and writes jazz2-briefing.json (plus a small
-// day digest in jazz2-week.json for Sunday's Weekly Review, review.ts).
+// day digest in jazz2-week.json for Sunday's Weekly Review, review.ts). Afterwards it answers any
+// Ask questions still waiting in jazz2-ask.json (ask.ts, option B), which can never fail the run.
 // Only this file holds the Gist client. Sub-agents get public fetch + their own model, nothing else.
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
@@ -17,7 +18,9 @@ import type { InboxCard } from "./schemas/inbox.ts";
 import type { DeliveryCard } from "./schemas/deliveries.ts";
 import { gistClient, type GistClient } from "./tools/gist.ts";
 import { gmailClient, googleAccessToken, type Gmail } from "./tools/gmail.ts";
-import { readSubs, sendAll, vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
+import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
+import { notifyPhones } from "./lib/notify.ts";
+import { answerPendingQuietly, askLimits, type AskLimits } from "./ask.ts";
 import { buildJazzContext, emptyContext, addDays, type JazzContext } from "./lib/jazz-context.ts";
 import { shouldDeliver, localTime } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
@@ -30,6 +33,8 @@ import { runCalendar } from "./subagents/calendar.ts";
 import { runInbox } from "./subagents/inbox.ts";
 import { runShopper } from "./subagents/shopper.ts";
 import type { SubagentDeps } from "./subagents/types.ts";
+
+export { notifyPhones }; // moved to lib/notify.ts; kept here for older imports
 
 export const JARVIS_SYSTEM = `You are Jarvis, the chief of staff behind a personal dashboard app called Jazz.
 Each morning you write "Today in 60 seconds" for its owner.
@@ -93,6 +98,9 @@ export interface JarvisDeps {
   subagents?: Subagents;
   sources?: Sources;
   push?: Sender | null; // phone notifications, when VAPID_PRIVATE_KEY is set
+  // Ask fallback (option B): after the briefing, answer questions still waiting in jazz2-ask.json
+  // under Ask's own limits and usage counts. Off when left out.
+  ask?: AskLimits | null;
 }
 
 export type RunOutcome =
@@ -246,6 +254,16 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
   if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries), trace);
   await appendDayDigest(gist, briefing, trace);
+  if (deps.ask)
+    await answerPendingQuietly({
+      gist,
+      now: deps.now,
+      trigger: "briefing",
+      limits: deps.ask,
+      trace,
+      queryFn: deps.queryFn,
+      push: deps.push,
+    });
   return { status: "delivered", briefing, cost: ledger.summary() };
 }
 
@@ -348,22 +366,6 @@ export function pushMessages(b: Briefing, c: JazzContext, deliveries: DeliveryCa
   return out.slice(0, 3);
 }
 
-export async function notifyPhones(gist: GistClient, send: Sender, messages: PushMessage[], trace: Trace) {
-  try {
-    const raw = await gist.readFile(CONFIG.gistFiles.push);
-    const subs = readSubs(raw);
-    if (!subs.length) return;
-    const r = await sendAll(subs, messages, send);
-    trace.log("jarvis", "notifications", { phones: subs.length, sent: r.sent, gone: r.gone.length, failed: r.failed });
-    if (r.gone.length) {
-      const keep = subs.filter((x) => !r.gone.includes(x.endpoint));
-      await gist.writeFile(CONFIG.gistFiles.push, JSON.stringify({ subs: keep }));
-    }
-  } catch (e) {
-    trace.log("jarvis", "notifications failed", { error: trace.publicError(e) }); // never fails the run
-  }
-}
-
 // Used when the Jarvis model fails: plain facts, no judgment.
 export function fallbackSummary(c: JazzContext, w: WeatherCard | null, n: NewsCard | null): JarvisOutput {
   const items: JarvisOutput["summary"] = [];
@@ -429,6 +431,7 @@ async function main() {
       push: env.VAPID_PRIVATE_KEY
         ? vapidSender(CONFIG.push.publicKey, env.VAPID_PRIVATE_KEY, CONFIG.push.subject)
         : null,
+      ask: askLimits(env),
       sources: {
         calendarUrl,
         gmail: google ? async () => gmailClient(await googleAccessToken(google)) : null,

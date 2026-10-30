@@ -525,4 +525,9 @@ Steps 1–5 deliver value with **no new credentials** and can ship on their own.
   a single-line box with the send button inside, the suggestions as **one swipeable row right under
   the box**, then the hint line, the week's review card (headline, one line of numbers, Open review),
   and the feed.
-- **Ask transport (3): not decided yet.** Steps 1–5 don't need it; decide before step 6.
+- **Ask transport (3): A + B (Oct 30).** Dispatch with the owner's fine-grained Ask key; questions
+  without it (or when dispatch fails) wait for the next morning/Sunday run. **Limits:** 1,000 chars a
+  question; per run 5 questions and $0.40; per day 10 questions and $1; per week 40; per month $8
+  (`ASK_MONTHLY_BUDGET_USD`). Over a limit → `over_limit` at no model cost.
+- **Voice (added Oct 30):** a mic in Console's box and Home's quick add (Web Speech API); the
+  transcript fills the box and is never sent automatically.

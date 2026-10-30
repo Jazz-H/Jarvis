@@ -106,6 +106,34 @@ app, and the private half is in `agents/.env` on your computer (gitignored).
 **Not now** hides the card on that phone for 2 weeks. If you blocked notifications, allow them
 again in the phone's settings for Jarvis (or the site settings in Chrome); the card then returns.
 
+## 8. Ask Jarvis (optional): the Ask key
+Questions typed in Console go to your private gist; the Ask key lets the app start Jarvis right
+away, so answers come back in about a minute (and as a notification). Without the key, questions
+wait for the next morning run.
+
+The key can **only** start, re-run or cancel this repo's Actions. It can't read your secrets,
+your gist, or your code, and it can't push anything. A run with no question waiting does nothing.
+1. Open https://github.com/settings/personal-access-tokens/new (a **fine-grained** token).
+2. **Token name:** `Jarvis Ask`. **Expiration:** custom, 1 year (the app warns you 2 weeks before).
+3. **Repository access:** *Only select repositories* → **Jazz2.0**.
+4. **Permissions** → **Repository permissions** → **Actions: Read and write**. (Metadata: Read is
+   added automatically.) Leave everything else as *No access*.
+5. **Generate token** and copy it (it starts with `github_pat_`).
+6. In Jarvis on your phone: the cloud button (Sync) → **Ask Jarvis key** → paste → Save. Do this on
+   each device you ask from. Don't paste it anywhere else (not in chat, not in a note).
+
+**Limits** (enforced by the Action, so they hold whatever the app does): 1,000 characters a
+question, 5 questions and $0.40 per run, 10 questions and $1 a day, 40 a week, and $8 a month.
+Over a limit, Jarvis answers "over the limit" at no cost. Typical use is about $1 a week. To change
+a dollar cap, add a repository **variable** (Settings → Secrets and variables → Actions →
+Variables): `ASK_MONTHLY_BUDGET_USD` (default 8, max 40), `ASK_DAILY_BUDGET_USD` (default 1, max 5)
+or `MAX_ASK_COST_USD` per run (default 0.40, max 2). A question that doesn't fit a run's cap stays
+queued for the next run.
+
+**If Ask says the key isn't working:** it expired or was deleted. Make a new one (steps 1–5) and
+replace it in Sync. If a phone is lost, delete the token at
+https://github.com/settings/personal-access-tokens; nothing else needs changing.
+
 ## When it runs
 - Every morning so it's there by about **7:00am Eastern**. GitHub's cron is UTC-only and can start
   5–15 minutes late (sometimes more), so the workflow fires at 6:45am EDT and 6:45am EST, and only

@@ -9,6 +9,7 @@
   "scripts": {
     "brief": "tsx jarvis.ts",
     "review": "tsx review.ts",
+    "ask": "tsx ask.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "google-auth": "tsx google-auth.ts"

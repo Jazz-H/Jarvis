@@ -59,6 +59,10 @@ jobs:
           # optional: phone notifications (SETUP section 7)
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}
+          # Ask fallback: queued questions are answered after the main work, under the Ask limits
+          MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
+          ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
+          ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -94,6 +98,10 @@ jobs:
           GOOGLE_CALENDAR_ICS_URL: ${{ secrets.GOOGLE_CALENDAR_ICS_URL }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}
+          # Ask fallback: queued questions are answered after the main work, under the Ask limits
+          MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
+          ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
+          ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

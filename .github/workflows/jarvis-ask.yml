@@ -1,0 +1,111 @@
+name: Jarvis Ask
+
+# Ask Jarvis (docs/jarvis/PHASE4-JAZZ3-REDESIGN.md section 5). The app adds a question to
+# jazz2-ask.json in the private gist, then dispatches this workflow with only an opaque id.
+# The run answers EVERY pending question (not just that id), writes jazz2-answers.json and sends
+# one phone notification. Limits and cost caps are enforced in agents/ask.ts.
+# This repo is public: question text never appears in inputs, the run name, logs or artifacts.
+# The id input is checked and otherwise never printed.
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "Question id (opaque; the question itself stays in the private gist)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One Ask run at a time, never cancelled: a queued run answers whatever is still pending
+concurrency:
+  group: jarvis-ask
+  cancel-in-progress: false
+
+jobs:
+  ask:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check the question id
+        env:
+          ASK_ID: ${{ inputs.id }}
+        run: |
+          if [[ ! "$ASK_ID" =~ ^[a-z0-9-]{8,40}$ ]]; then
+            echo "::error::The dispatch input isn't a valid question id; nothing was run."
+            exit 1
+          fi
+          echo "Question id is valid."
+
+      # Cheap early exit before npm ci: read the gist with the server-side token and stop if no
+      # question is waiting (and no history needs clearing). Prints only yes/no. If the check
+      # itself fails, the full run goes ahead (it fails closed on its own gist reads).
+      - name: Anything pending?
+        id: pending
+        env:
+          GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
+          GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}
+        run: |
+          work=yes
+          if resp=$(curl -fsS --max-time 20 \
+              -H "Authorization: Bearer $GIST_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/gists/$GIST_ID" 2>/dev/null); then
+            work=$(printf '%s' "$resp" | jq -r '
+              def file(f): (.files[f] // null) as $x
+                | if $x == null then null
+                  elif ($x.truncated // false) then "truncated"
+                  else ($x.content // "" | try fromjson catch "bad") end;
+              file("jazz2-ask.json") as $ask
+              | file("jazz2-answers.json") as $ans
+              | if ($ask == "truncated" or $ans == "truncated" or $ans == "bad") then "yes"
+                elif ($ask | type) != "object" then "no"
+                else
+                  ($ask.clearBefore | if type == "string" then . else "" end) as $cb
+                  | [ $ans | if type == "object" then (.answers // []) else [] end
+                      | if type == "array" then .[] else empty end | objects ] as $done
+                  | [ $ask.items | if type == "array" then .[] else empty end | objects
+                      | select(.kind == "ask" and (.id | type) == "string" and (.id | test("\\A[a-z0-9-]{8,40}\\z")))
+                      | select((.at | type) == "string" and ($cb == "" or .at >= $cb))
+                      | .id as $i | select(any($done[]; .id == $i) | not) ] as $pending
+                  | [ $done[] | .askedAt | strings | select($cb != "" and . < $cb) ] as $prune
+                  | if (($pending | length) + ($prune | length)) > 0 then "yes" else "no" end
+                end' 2>/dev/null) || work=yes
+          fi
+          [[ "$work" == "no" ]] || work=yes
+          echo "work=$work" >> "$GITHUB_OUTPUT"
+          if [[ "$work" == "no" ]]; then echo "Nothing pending; stopping before npm ci."; fi
+
+      - uses: actions/checkout@v4
+        if: steps.pending.outputs.work == 'yes'
+      - uses: actions/setup-node@v4
+        if: steps.pending.outputs.work == 'yes'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agents/package-lock.json
+      - name: Install
+        if: steps.pending.outputs.work == 'yes'
+        working-directory: agents
+        run: npm ci
+      - name: Answer pending questions
+        if: steps.pending.outputs.work == 'yes'
+        working-directory: agents
+        run: npm run ask
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
+          JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
+          ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
+          ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}
+      # Timings, outcomes, ids and cost only (agents/out/ask-trace.json, ask-cost.json)
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.pending.outputs.work == 'yes'
+        with:
+          name: jarvis-ask-trace-${{ github.run_id }}
+          path: agents/out/
+          retention-days: 14
+          if-no-files-found: ignore
