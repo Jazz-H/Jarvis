@@ -4644,6 +4644,57 @@ a.jv-story-title:hover {
   font-size: 13.5px;
   cursor: pointer;
 }
+/* Quick add on Home */
+.jv-quick {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.jv-quick-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* no zoom on iOS */
+}
+.jv-quick-input::placeholder {
+  color: var(--text-dim);
+}
+.jv-quick-input:focus {
+  outline: none;
+  border-color: var(--olive);
+  box-shadow: 0 0 0 3px var(--glow);
+}
+.jv-quick-add {
+  flex: none;
+  width: 46px;
+  min-height: 46px;
+  border-radius: 12px;
+  border: none;
+  background: var(--olive);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* Evening: tomorrow at a glance */
+.jv-tomorrow {
+  border-color: var(--olive-dim);
+}
+.jv-tomorrow .jv-kicker {
+  margin-bottom: 10px;
+}
+.jv-empty-line {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
 nav.tabbar button.jv-new::after {
   content: "";
   position: absolute;

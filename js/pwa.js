@@ -1,6 +1,20 @@
 // pwa.js - PWA: hard refresh, view resume and service-worker registration.
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
+// Pull-to-refresh (a normal pull): sync, which also brings in a new Jarvis briefing, and redraw.
+// A long pull still does hardRefresh() below, the escape hatch for a stuck update.
+async function refreshData() {
+  checkDayChange();
+  if (localStorage.getItem("sync-token")) {
+    try {
+      await pullSync();
+      showToast("Up to date");
+    } catch (e) {
+      showToast("Sync failed — check your connection", true);
+    }
+  } else showToast("Refreshed");
+  renderHome();
+}
 async function hardRefresh() {
   try {
     if ("caches" in window) {

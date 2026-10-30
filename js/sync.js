@@ -115,9 +115,11 @@ function scheduleSyncPush() {
 // other. The gist is always re-read right before writing.
 const SYNC_BASE_KEY = "sync-base";
 function isEditing() {
+  const active = document.activeElement;
   return (
     document.getElementById("modal-backdrop").classList.contains("open") ||
-    document.getElementById("composer").classList.contains("open")
+    document.getElementById("composer").classList.contains("open") ||
+    !!(active && active.id === "jv-quick") // typing in Home's quick add
   );
 }
 function localSnapshot() {

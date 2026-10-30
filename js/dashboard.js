@@ -17,10 +17,10 @@ const DASH_SHOP_MAX = 5;
 let dashOpenKey = null; // the tile whose detail is open (not saved: the tab opens clean)
 const dashDetailId = (key) => (key === "weather" ? "jarvis-weather" : "jv-detail-" + key);
 
-// Tap a tile: open or close its detail. To-Do jumps to the Planner; News to its card.
+// Tap a tile: open or close its detail. To-Do (and the evening Tomorrow panel) jump to the Planner; News to its card.
 function dashDrill(key) {
-  if (key === "todo") {
-    homeDate = null; // the Planner shows today
+  if (key === "todo" || key === "tomorrow") {
+    homeDate = key === "tomorrow" ? addDaysIso(1) : null; // the Planner shows that day
     renderHome();
     const el = document.querySelector("#panel-home .jv-planner-label");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -347,10 +347,105 @@ function dashboardHtml() {
     jazz3: dashJazz3Data(),
     shop: dashShopData(),
   };
+  updateAppBadge(dashBadgeCount(d.todo));
   return `<div class="jv-wrap">
       ${dashGreetingHtml(b)}
+      ${dashQuickHtml()}
+      ${dashTomorrowHtml(b)}
       ${jarvisHeroHtml(b)}
       ${dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d)}
       ${b ? jarvisNewsCard(b.news) : ""}
     </div>`;
+}
+
+// ---- quick add: one line on Home, "call mom tomorrow" style (same parsing as the + sheet) ----
+let dashQuickText = ""; // survives re-renders while typing
+function dashQuickHtml() {
+  return `<div class="jv-quick">
+      <input id="jv-quick" class="jv-quick-input" type="text" autocomplete="off" enterkeyhint="done" maxlength="${TODO_MAX_LEN}"
+        aria-label="Quick add a to-do" placeholder="Add: “call mom tomorrow”"
+        data-keydown-action="jv-quick-key" data-input-action="jv-quick-input" value="${escapeAttr(dashQuickText)}" />
+      <button class="jv-quick-add" data-action="jv-quick-add" aria-label="Add to-do">+</button>
+    </div>`;
+}
+function dashQuickAdd() {
+  const el = document.getElementById("jv-quick");
+  const raw = String((el && el.value) || dashQuickText)
+    .trim()
+    .slice(0, TODO_MAX_LEN);
+  if (!raw) {
+    if (el) el.focus();
+    return;
+  }
+  const { text, due } = parseQuickAdd(raw);
+  const t = { id: genId("todo"), text, done: false, due, starred: false, subitems: [], completedAt: null };
+  // new items go to the top of their group, like the + sheet
+  const at = todoList.findIndex((x) => !x.done && todoGroup(x) === todoGroup(t));
+  if (at >= 0) todoList.splice(at, 0, t);
+  else todoList.push(t);
+  dashQuickText = "";
+  saveContent("todo-content", todoList, { toast: false });
+  renderHome();
+  showToast(due ? `Added for ${dueLabel(due)}` : "Added");
+  const again = document.getElementById("jv-quick");
+  if (again) again.focus(); // ready for the next one
+}
+
+// ---- evening: tomorrow at a glance (from 5 PM) ----
+const DASH_EVENING_HOUR = 17;
+function dashTomorrowHtml(b, now = new Date()) {
+  if (now.getHours() < DASH_EVENING_HOUR) return "";
+  const iso = addDaysIso(1);
+  const day = homeDayItems(iso);
+  const todos = [...day.open, ...(day.repeats || [])];
+  const dayBills = billsOnDay(iso);
+  const billList = [...dayBills.open, ...dayBills.projected];
+  const workouts = workoutsOn(iso);
+  const w = b && b.weather && b.weather.status === "ok" ? b.weather.data.tomorrow : null;
+  const lines = [];
+  if (w && w.date === iso)
+    lines.push(
+      `<li><span class="jv-src jv-src-weather">Weather</span><span>${escapeHtml(`${w.highF}° / ${w.lowF}° · ${w.conditions}${w.rainChanceMax ? ` · ${w.rainChanceMax}% rain` : ""}`)}</span></li>`,
+    );
+  if (todos.length)
+    lines.push(
+      `<li><span class="jv-src jv-src-jazz">To-Do</span><span>${todos.length} · ${escapeHtml(
+        todos
+          .slice(0, 3)
+          .map((t) => t.text)
+          .join(", "),
+      )}${todos.length > 3 ? "…" : ""}</span></li>`,
+    );
+  if (billList.length)
+    lines.push(
+      `<li><span class="jv-src jv-src-news">Bills</span><span>${escapeHtml(billList.map((x) => `${x.name} ${moneyShort(billShare(x))}${x.autopay ? " (autopay)" : ""}`).join(", "))}</span></li>`,
+    );
+  if (day.wash) lines.push(`<li><span class="jv-src jv-src-jazz">Hair</span><span>Wash day</span></li>`);
+  if (workouts.length || weighInDue(iso))
+    lines.push(
+      `<li><span class="jv-src jv-src-jarvis">Fitness</span><span>${escapeHtml(
+        [...workouts.map((x) => x.name + (x.time ? ` · ${x.time}` : "")), weighInDue(iso) ? "Weigh in" : ""]
+          .filter(Boolean)
+          .join(", "),
+      )}</span></li>`,
+    );
+  const label = noonOf(iso).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  return `<section class="card jv-card jv-tomorrow" aria-label="Tomorrow">
+      <div class="jv-kicker">Tomorrow · ${escapeHtml(label)}</div>
+      ${lines.length ? `<ul class="jv-summary">${lines.join("")}</ul>` : `<p class="jv-empty-line">Nothing planned yet.</p>`}
+      <button class="jv-open" data-action="jv-drill" data-go="tomorrow">Plan tomorrow →</button>
+    </section>`;
+}
+
+// ---- the app icon's badge: what still needs you today (installed app only) ----
+function dashBadgeCount(todo) {
+  const today = addDaysIso(0);
+  const billsDue = bills.filter((b) => !b.done && b.due && b.due <= today).length;
+  return todo.left + billsDue;
+}
+let dashBadgeShown = -1;
+function updateAppBadge(n) {
+  if (n === dashBadgeShown || !("setAppBadge" in navigator)) return;
+  dashBadgeShown = n;
+  (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
 }

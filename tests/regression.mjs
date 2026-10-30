@@ -8060,6 +8060,124 @@ await section("home dashboard: tiles drill into details, details into tabs, noth
   await ctx.close();
 });
 
+await section("home quick wins: quick add, evening Tomorrow view, icon badge, pull to sync", async () => {
+  const tomorrowIso = isoOffset(1);
+  const b = briefingFixture();
+  b.cards.weather.data.tomorrow = {
+    date: tomorrowIso,
+    conditions: "Partly cloudy",
+    highF: 72,
+    lowF: 52,
+    rainChanceMax: 20,
+  };
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "jarvis-briefing": b,
+      "todo-content": [
+        {
+          id: "late",
+          text: "Late one",
+          done: false,
+          due: isoOffset(-1),
+          starred: false,
+          subitems: [],
+          completedAt: null,
+        },
+        {
+          id: "tm",
+          text: "Oil change",
+          done: false,
+          due: tomorrowIso,
+          starred: false,
+          subitems: [],
+          completedAt: null,
+        },
+      ],
+      "bills-content": [
+        {
+          id: "b1",
+          name: "Rent",
+          amount: 1450,
+          due: tomorrowIso,
+          repeat: "monthly",
+          autopay: false,
+          group: "personal",
+        },
+        { id: "b2", name: "Gym", amount: 30, due: isoOffset(0), repeat: "monthly", autopay: false, group: "personal" },
+      ],
+    },
+  });
+
+  // quick add: parses the date, clears, keeps focus for the next one
+  await page.fill("#jv-quick", "Call mom tomorrow");
+  await page.press("#jv-quick", "Enter");
+  const added = await page.evaluate(() => ({
+    t: todoList.find((t) => t.text === "Call mom"),
+    value: document.getElementById("jv-quick").value,
+    focused: document.activeElement && document.activeElement.id,
+    toast: document.getElementById("toast").textContent,
+  }));
+  check("quick add parses the date like the + sheet", !!added.t && added.t.due === tomorrowIso, added);
+  check("quick add clears and stays ready", added.value === "" && added.focused === "jv-quick", added);
+  check("quick add confirms", added.toast.startsWith("Added for"), added.toast);
+  const n0 = await page.evaluate(() => todoList.length);
+  await page.press("#jv-quick", "Enter");
+  check("empty quick add does nothing", (await page.evaluate(() => todoList.length)) === n0);
+  await page.fill("#jv-quick", "Draft in progress");
+  const kept = await page.evaluate(() => {
+    const busy = isEditing();
+    renderHome();
+    return { busy, value: document.getElementById("jv-quick").value };
+  });
+  check("sync waits while typing in quick add", kept.busy, kept);
+  check("typed text survives a re-render", kept.value === "Draft in progress", kept);
+  await page.click(".jv-quick-add");
+  check("the + button adds too", await page.evaluate(() => todoList.some((t) => t.text === "Draft in progress")));
+
+  // Tomorrow: evening only, with forecast, to-dos, bills; drills to the Planner
+  const tm = await page.evaluate(() => {
+    const at = (h) => {
+      const d = new Date();
+      d.setHours(h, 0, 0, 0);
+      return d;
+    };
+    return { morning: dashTomorrowHtml(loadBriefing(), at(9)), evening: dashTomorrowHtml(loadBriefing(), at(19)) };
+  });
+  check("no Tomorrow view in the morning", tm.morning === "", tm.morning);
+  check(
+    "evening Tomorrow view has the forecast, to-dos and bills",
+    tm.evening.includes("72° / 52° · Partly cloudy · 20% rain") &&
+      tm.evening.includes("Oil change") &&
+      tm.evening.includes("Rent $1,450"),
+    tm.evening,
+  );
+  await page.evaluate(() => dashDrill("tomorrow"));
+  check("Plan tomorrow opens tomorrow in the Planner", await page.evaluate(() => homeDate === addDaysIso(1)));
+
+  // icon badge: open to-dos for today (incl. overdue) + unpaid bills due today or earlier
+  const badge = await page.evaluate(() => {
+    window.__badge = [];
+    navigator.setAppBadge = (n) => (window.__badge.push(n), Promise.resolve());
+    navigator.clearAppBadge = () => (window.__badge.push(0), Promise.resolve());
+    dashBadgeShown = -1;
+    renderHome();
+    renderHome(); // unchanged count isn't sent twice
+    return { calls: window.__badge, expected: dashBadgeCount(dashTodoData()) };
+  });
+  check(
+    "app badge shows what still needs you today",
+    JSON.stringify(badge.calls) === "[2]" && badge.expected === 2,
+    badge,
+  );
+
+  // pull to sync: without sync it just redraws
+  await page.evaluate(() => refreshData());
+  check("refresh without sync says so", (await page.textContent("#toast")) === "Refreshed");
+  check("pull label says sync", (await page.textContent("#pull-indicator .pull-label")) === "Pull to sync");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

@@ -252,6 +252,7 @@ const SHELL_CLICK = {
   // Jarvis dashboard: tiles and briefing lines drill into details; links go to a tab (and a Jazz 3.0 card).
   // Both only accept their own section names and card ids.
   "jv-drill": (el) => dashDrill(el.getAttribute("data-go")),
+  "jv-quick-add": () => dashQuickAdd(),
   "jv-go": (el) => dashGo(el.getAttribute("data-go"), el.getAttribute("data-card")),
   // Budget / bills. Every id, date and index is revalidated against live data; stale or forged metadata does nothing.
   "stop-click": (el, e) => e.stopPropagation(),
@@ -576,11 +577,22 @@ const SHELL_CLICK = {
   },
 };
 const SHELL_KEYDOWN = {
+  "jv-quick-key": (el, e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      dashQuickAdd();
+    }
+  },
   "subitem-add-key": (el, e) => {
     if (e.key === "Enter") subitemAddFrom(el);
   },
 };
-const SHELL_INPUT = { "composer-text": () => composerTextChanged() };
+const SHELL_INPUT = {
+  "composer-text": () => composerTextChanged(),
+  "jv-quick-input": (el) => {
+    dashQuickText = el.value; // kept across re-renders while typing
+  },
+};
 const SHELL_CHANGE = {
   "tde-date": (el) => {
     const f = el.getAttribute("data-field");

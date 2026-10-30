@@ -37,8 +37,8 @@
   );
 })();
 
-// Pull-to-refresh: clear Jazz-owned caches and unregister its worker before
-// reloading, without disturbing other apps hosted on the same origin.
+// Pull-to-refresh: a normal pull syncs (refreshData); pulling all the way down reloads the app,
+// clearing Jazz-owned caches and its worker without disturbing other apps on the same origin.
 (function () {
   const mainEl = document.querySelector("main");
   const indicator = document.getElementById("pull-indicator");
@@ -83,9 +83,11 @@
       indicator.classList.remove("animated");
       const pull = Math.min(dy * 0.5, MAX_PULL);
       indicator.style.height = pull + "px";
-      const ready = pull >= THRESHOLD;
+      const ready = pull >= THRESHOLD,
+        deep = pull >= MAX_PULL;
       indicator.classList.toggle("ready", ready);
-      label.textContent = ready ? "Release to refresh" : "Pull to refresh";
+      indicator.classList.toggle("deep", deep);
+      label.textContent = deep ? "Release to reload the app" : ready ? "Release to sync" : "Pull to sync";
     },
     { passive: false },
   );
@@ -99,11 +101,19 @@
       }
       dragging = false;
       indicator.classList.add("animated");
-      if (indicator.classList.contains("ready")) {
+      if (indicator.classList.contains("deep")) {
         indicator.classList.add("refreshing");
-        label.textContent = "Refreshing…";
+        label.textContent = "Reloading…";
         indicator.style.height = THRESHOLD + "px";
         hardRefresh();
+      } else if (indicator.classList.contains("ready")) {
+        indicator.classList.add("refreshing");
+        label.textContent = "Syncing…";
+        indicator.style.height = THRESHOLD + "px";
+        refreshData().finally(() => {
+          indicator.classList.remove("refreshing", "ready");
+          indicator.style.height = "0px";
+        });
       } else {
         indicator.style.height = "0px";
       }

@@ -15,6 +15,11 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 it. Each fact appears once, and each tile drills down: tile → its detail → its tab.
 - **Status:** Jarvis's state (Online / Standing by / Local mode), when it last briefed you,
   and a greeting ("Good morning, Jazz."). The date is in the header.
+- **Quick add:** one line under the greeting. Type "call mom tomorrow" (or "…friday", "…today")
+  and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
+  stays ready for the next one. Sync waits while you're typing there.
+- **Tomorrow (from 5 PM):** tomorrow at a glance above the briefing: its forecast, to-dos,
+  bills, wash day and workouts. **Plan tomorrow** opens tomorrow in the Planner.
 - **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
   came from (Jarvis, Jazz, Weather, News). Weather and News lines drill into those details.
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
@@ -39,6 +44,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   topic, a linked headline, the source and a short summary. Names its agent and time.
 - **Offline:** everything except Weather and News is built on this device from your own lists,
   so it works offline and with Jarvis not set up.
+- **App icon badge:** the installed app's icon shows how many things still need you today:
+  open to-dos due today or overdue, plus unpaid bills due today or earlier (where the system
+  supports badges, e.g. iOS 16.4+ home-screen apps).
 - **New briefing notice:** when sync brings in a new briefing, a "Jarvis: <headline>" toast
   appears, the Home tab gets a dot if you're elsewhere, and the briefing shows **New** until
   seen. `?tab=jarvis` (or `?tab=home`) opens it.
@@ -253,10 +261,12 @@ only turning sync off still asks first.
 - **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
   column (760px, or 920px at ≥1440px).
 - **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`).
-- **Hard refresh:** pull down from the top of a tab (or use the refresh button on
-  desktop). It clears Jazz's service worker caches, unregisters Jazz's worker, and reloads
-  back onto the same tab and scroll position. Other apps' caches and workers on the origin,
-  and your data, are left alone.
+- **Pull to sync:** pull down from the top of a tab to sync (which also brings in a new Jarvis
+  briefing) and redraw. Without sync it just redraws.
+- **Hard refresh:** pull all the way down ("Release to reload the app"), or use the refresh
+  button on desktop. It clears Jazz's service worker caches, unregisters Jazz's worker, and
+  reloads back onto the same tab and scroll position. Other apps' caches and workers on the
+  origin, and your data, are left alone.
 - **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Shopping,
   Budget, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.

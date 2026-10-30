@@ -44,6 +44,16 @@ function normalizeBriefing(b) {
       wear: str(d.wear, 160),
       washDay: d.washDay === true,
       washDayNote: str(d.washDayNote, 160),
+      tomorrow:
+        isObj(d.tomorrow) && isoDay(d.tomorrow.date) && num(d.tomorrow.highF, -80, 150) != null
+          ? {
+              date: d.tomorrow.date,
+              conditions: str(d.tomorrow.conditions, 60),
+              highF: num(d.tomorrow.highF, -80, 150),
+              lowF: num(d.tomorrow.lowF, -80, 150),
+              rainChanceMax: num(d.tomorrow.rainChanceMax, 0, 100) || 0,
+            }
+          : null,
     };
     return w.highF == null || w.lowF == null || !w.summary ? null : w;
   };
