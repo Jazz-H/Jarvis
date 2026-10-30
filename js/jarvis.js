@@ -296,7 +296,7 @@ function jarvisNewsCard(c) {
       const read = linkHtml(
         s.link,
         `class="jv-story-read" aria-label="Read “${escapeAttr(s.title)}”${s.source ? ` on ${escapeAttr(s.source)}` : ""} (opens in a new tab)"`,
-        `<span>Read${EXTERNAL_ICON}</span>`,
+        `<span>${EXTERNAL_ICON}</span>`,
       );
       const head =
         meta || read ? `<div class="jv-story-head"><span class="jv-story-meta">${meta}</span>${read}</div>` : "";
@@ -314,7 +314,31 @@ function jarvisNewsCard(c) {
 
 // The briefing (layout 1): headline, then the tagged summary. Weather and News lines drill into
 // their details. The time it was made shows once, in the status line above, unless it's old.
-const BRIEFING_DRILL = { weather: "weather", news: "news" };
+const BRIEFING_DRILL = {
+  weather: "weather",
+  news: "news",
+  calendar: "calendar",
+  inbox: "inbox",
+  deliveries: "deliveries",
+};
+// Items from your own lists come tagged "jazz"; name the part of the app they're about instead
+// (Budget, Beauty…) and open its detail. First match wins; anything else is a to-do.
+const BRIEFING_AREAS = [
+  {
+    area: "budget",
+    label: "Budget",
+    go: "money",
+    re: /\b(bills?|rent|autopay|paycheck|payday|budget|spend|owe|due)\b|\$\d/i,
+  },
+  { area: "beauty", label: "Beauty", go: "skin", re: /\b(wash day|wash|routine|spf|skin|hair|night serum|serum)\b/i },
+  { area: "shopping", label: "Shopping", go: "shop", re: /\b(shopping|your list|buy|bought|order)\b/i },
+  { area: "fitness", label: "Fitness", go: "jazz3", re: /\b(weigh[- ]?in|weight|workout|gym|run|lift)\b/i },
+];
+function briefingTag(s) {
+  if (s.source !== "jazz") return { cls: s.source, label: BRIEFING_SOURCES[s.source], go: BRIEFING_DRILL[s.source] };
+  const a = BRIEFING_AREAS.find((x) => x.re.test(s.text)) || { area: "todo", label: "To-do", go: "todo" };
+  return { cls: a.area, label: a.label, go: a.go };
+}
 function jarvisHeroHtml(b) {
   if (!b)
     return `<section class="card jv-card jv-hero jv-empty">
@@ -327,9 +351,10 @@ function jarvisHeroHtml(b) {
   const items = b.summary
     .map((s) => {
       // one divided row per item: tag column, text, then the drill cue (or an empty cue column)
-      const body = `<span class="jv-src jv-src-${s.source}">${BRIEFING_SOURCES[s.source]}</span><span class="jv-sum-text">${escapeHtml(s.text)}</span>`;
-      return BRIEFING_DRILL[s.source]
-        ? `<li><button class="jv-sum-row jv-sum-drill" data-action="jv-drill" data-go="${BRIEFING_DRILL[s.source]}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button></li>`
+      const tag = briefingTag(s);
+      const body = `<span class="jv-src jv-src-${tag.cls}">${tag.label}</span><span class="jv-sum-text">${escapeHtml(s.text)}</span>`;
+      return tag.go
+        ? `<li><button class="jv-sum-row jv-sum-drill" data-action="jv-drill" data-go="${tag.go}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button></li>`
         : `<li class="jv-sum-row">${body}</li>`;
     })
     .join("");

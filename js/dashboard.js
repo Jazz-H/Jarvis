@@ -612,25 +612,61 @@ function dashCalendarDetail(c) {
   if (c.status !== "ok") return jvErrorBody(c);
   const cal = c.data;
   const overlapping = new Set(cal.overlaps.flatMap((o) => [o.a, o.b]));
-  const day = (which, label) => {
-    // all-day first, then by start time (the same order as Your day)
-    const at = (e) => (e.allDay || !e.start ? -1 : dashMins(e.start));
-    const evs = cal.events.filter((e) => e.day === which).sort((a, b) => at(a) - at(b));
-    return `<div class="jv-sub-label">${label}</div>${
-      evs.length
-        ? `<div class="jv-agenda">${evs
-            .map(
-              (e) => `<div class="jv-agenda-row${overlapping.has(e.title) && which === "today" ? " warn" : ""}">
-            <span class="jv-agenda-time">${e.allDay ? "All day" : `${dashTime(e.start)}${e.end ? `–${dashTime(e.end)}` : ""}`}</span>
-            <span class="jv-agenda-what"><b>${escapeHtml(e.title)}</b>${e.location ? `<span>${escapeHtml(e.location)}</span>` : ""}</span>
-            ${overlapping.has(e.title) && which === "today" ? '<span class="jv-agenda-flag">overlaps</span>' : ""}
-          </div>`,
-            )
-            .join("")}</div>`
-        : `<div class="empty">Nothing on the calendar.</div>`
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  // Each day: a header (name, date, count), all-day events as chips, then timed events in order,
+  // each with its start/end, a colored bar (amber when it overlaps), and Now / Next badges today.
+  const day = (which, label, iso) => {
+    const evs = cal.events.filter((e) => e.day === which);
+    const allDay = evs.filter((e) => e.allDay || !e.start);
+    const timed = evs.filter((e) => !e.allDay && e.start).sort((a, b) => dashMins(a.start) - dashMins(b.start));
+    const isToday = which === "today";
+    const next = isToday ? timed.find((e) => dashMins(e.start) > nowMin) : null;
+    const badge = (e) => {
+      if (!isToday) return "";
+      const s = dashMins(e.start),
+        end = e.end ? dashMins(e.end) : s + 60;
+      if (s <= nowMin && nowMin < end) return '<span class="jv-cal-badge now">Now</span>';
+      if (e !== next) return "";
+      const m = s - nowMin;
+      return `<span class="jv-cal-badge">Next · in ${m < 60 ? `${m} min` : `${Math.round(m / 60)} h`}</span>`;
+    };
+    const row = (e) => {
+      const warn = isToday && overlapping.has(e.title);
+      const past = isToday && dashMins(e.end || e.start) <= nowMin;
+      return `<li class="jv-cal-ev${warn ? " warn" : ""}${past ? " past" : ""}">
+          <span class="jv-cal-time"><b>${dashTime(e.start)}</b>${e.end ? `<span>${dashTime(e.end)}</span>` : ""}</span>
+          <span class="jv-cal-what"><b>${escapeHtml(e.title)}</b>${e.location ? `<span>${escapeHtml(e.location)}</span>` : ""}${
+            warn || badge(e)
+              ? `<span class="jv-cal-badges">${badge(e)}${warn ? '<span class="jv-cal-badge warn">Overlaps</span>' : ""}</span>`
+              : ""
+          }</span>
+        </li>`;
+    };
+    const date = noonOf(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return `<div class="jv-cal-day"><span class="jv-mini">${label}</span><span>${date}</span><span class="jv-cal-count">${
+      evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "Free"
+    }</span></div>${
+      allDay.length
+        ? `<div class="jv-cal-allday">${allDay.map((e) => `<span>${escapeHtml(e.title)}</span>`).join("")}</div>`
+        : ""
+    }${timed.length ? `<ol class="jv-cal-list">${timed.map(row).join("")}</ol>` : ""}${
+      evs.length ? "" : '<div class="empty">Nothing on the calendar.</div>'
     }`;
   };
-  return `${cal.summary ? `<p class="jv-lede">${escapeHtml(cal.summary)}</p>` : ""}${day("today", "Today")}${day("tomorrow", "Tomorrow")}${jvMeta(c)}`;
+  // the same head as the Outfit card: a kicker, the summary as the headline, then context chips
+  const today = cal.events.filter((e) => e.day === "today");
+  const upcoming = today
+    .filter((e) => !e.allDay && e.start && dashMins(e.start) > nowMin)
+    .sort((a, b) => dashMins(a.start) - dashMins(b.start))[0];
+  const chips = [
+    today.length ? `${today.length} today` : "Free today",
+    cal.overlaps.length ? `${cal.overlaps.length} overlap${cal.overlaps.length === 1 ? "" : "s"}` : "",
+    upcoming ? `Next: ${dashTime(upcoming.start)} ${upcoming.title}` : "",
+  ].filter(Boolean);
+  const head = `<div class="jv-kicker">Calendar</div>
+    <h2 class="jv-headline">${escapeHtml(cal.summary || (today.length ? "Your day ahead" : "A clear day"))}</h2>
+    <div class="jv-ctx">${chips.map((x) => `<span>${escapeHtml(x)}</span>`).join("")}</div>`;
+  return `${head}${day("today", "Today", addDaysIso(0))}${day("tomorrow", "Tomorrow", addDaysIso(1))}${jvMeta(c)}`;
 }
 
 // Deliveries detail (layouts 1 + 2): arriving today with Mark bought, then each package's progress
@@ -936,22 +972,50 @@ function dashOutfit(b, now = new Date()) {
     items: [top, bottom, pickFrom("Shoes"), layer].filter(Boolean),
     needsLayer: (rain || cold) && !layer,
     rain,
+    wx: w ? { high: w.highF, rain: w.rainChanceMax } : null,
+    workday,
   };
 }
+// Outfit card: the day's context as chips, then one tile per piece (2 × 2) with a line icon;
+// a missing rain layer or coat is a dashed tile that leads to Shopping.
+const DASH_PIECES = {
+  Tops: {
+    label: "Top",
+    icon: '<path d="M8 3 3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/>',
+  },
+  Bottoms: { label: "Bottom", icon: '<path d="M7 3h10l1 18h-4l-2-11-2 11H6z"/>' },
+  Shoes: { label: "Shoes", icon: '<path d="M3 17v-6l5 1 3-3 3 4 6 2a2 2 0 0 1 1 2v0H3z"/><path d="M3 20h18"/>' },
+  Outerwear: {
+    label: "Layer",
+    icon: '<path d="M9 3 4 6v15h5v-9m0-9 3 3 3-3m-6 0h6m0 0 5 3v15h-5v-9m-3-6v15"/>',
+  },
+};
+const DASH_PIECE_SVG = (paths) =>
+  `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const SWAP_ICON = DASH_PIECE_SVG('<path d="M7 4 4 7l3 3M4 7h13M17 20l3-3-3-3M20 17H7"/>');
 function dashOutfitHtml(b) {
   const o = dashOutfit(b);
   if (!o) return "";
-  const part = { Tops: "Top", Bottoms: "Bottom", Shoes: "Shoes", Outerwear: "Layer" };
+  const chips = [
+    o.wx ? `${Math.round(o.wx.high)}° high` : "",
+    o.wx && o.wx.rain >= 20 ? `${o.wx.rain}% rain` : "",
+    o.workday ? "Workday" : "Weekend",
+  ].filter(Boolean);
+  const tile = (i) => {
+    const p = DASH_PIECES[i.cat] || { label: "", icon: "" };
+    return `<li class="jv-piece">${DASH_PIECE_SVG(p.icon)}<span class="jv-mini">${p.label}</span><b>${escapeHtml(i.title)}</b></li>`;
+  };
+  const missing = o.needsLayer
+    ? `<li class="jv-piece jv-piece-missing"><button data-action="jv-go" data-go="shop">${DASH_PIECE_SVG(DASH_PIECES.Outerwear.icon)}<span class="jv-mini">Layer</span><b>No ${o.rain ? "rain layer" : "coat"} yet</b><span>Add one in Shopping&nbsp;›</span></button></li>`
+    : "";
   return `<section class="card jv-card jv-outfit" aria-label="Outfit">
       <div class="jv-outfit-head">
         <div class="jv-kicker">Outfit</div>
-        <button class="jv-chip-sm" data-action="jv-outfit-swap" aria-label="Swap for another outfit">Swap</button>
+        <button class="jv-outfit-swap" data-action="jv-outfit-swap" aria-label="Swap for another outfit">${SWAP_ICON}</button>
       </div>
       <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
-      <ul class="jv-outfit-list">${o.items
-        .map((i) => `<li><span class="jv-mini">${part[i.cat] || ""}</span><span>${escapeHtml(i.title)}</span></li>`)
-        .join("")}</ul>
-      ${o.needsLayer ? `<p class="jv-line jv-outfit-note">No ${o.rain ? "rain layer" : "coat"} saved in your wardrobe yet.</p>` : ""}
+      <div class="jv-ctx">${chips.map((c) => `<span>${escapeHtml(c)}</span>`).join("")}</div>
+      <ul class="jv-outfit-grid">${o.items.map(tile).join("")}${missing}</ul>
     </section>`;
 }
 function dashOutfitSwap() {

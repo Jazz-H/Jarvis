@@ -24,9 +24,11 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   trips from your to-do types, plus a gift idea from Shopping (an item with "gift" in it) when
   a birthday is coming.
 - **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
-  came from (Jarvis, Jazz, Weather, News). Each item is its own row, divided by a thin rule,
-  with its tag lined up with the first line of text. Weather and News lines drill into those
-  details (the › on the right).
+  came from (Jarvis, Weather, News, Calendar, Inbox, Amazon). Items from your own lists are
+  tagged by what they're about instead: Budget (bills, rent), Beauty (wash day, routine),
+  Shopping, Fitness (weigh-ins, workouts) or To-do. Each item is its own row, divided by a thin
+  rule, with its tag lined up with the first line of text. Every row except Jarvis's own drills
+  into its detail (the › on the right): Budget opens Money, To-do the Planner, and so on.
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
   older day's briefing is dimmed and labeled "From <date>". Problems from the run are listed
   under "notes".
@@ -40,15 +42,19 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
 - **Your day:** a timeline of today in time order: calendar events (all-day first; past ones
   dimmed; overlapping ones flagged), when rain is likely, Amazon deliveries arriving, the to-dos
   left, bills due today and wash day. Each row drills in: events open the **Calendar** detail
-  (today and tomorrow as an agenda), deliveries open **Deliveries** (arriving today with
+  (styled like the Outfit card: a "Calendar" label, the day's summary as its headline, and chips
+  for today's count, overlaps and what's next; then Today and Tomorrow, each with its date and
+  event count, all-day events as chips, and timed events with start/end times, a colored bar
+  (amber when they overlap), Now / Next · in 40 min badges, and past events dimmed), deliveries open **Deliveries** (arriving today with
   **Mark bought** when it's on your Shopping list, then each package's Ordered → Shipped → Out →
   Delivered progress), to-dos go to the Planner, rain to Weather. Until the calendar is connected
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
-  jacket. It's plain rules, no AI. Under its title, each piece is a divided row labeled Top,
-  Bottom, Shoes or Layer;
-  **Swap** (top right) shows another good option. Hidden until you've saved
+  jacket. It's plain rules, no AI. Under its title, chips give the day's context (high, rain,
+  Workday/Weekend), then each piece is a tile with its icon (Top, Bottom, Shoes, Layer), two
+  across. A missing rain layer or coat is a dashed tile that opens Shopping. The round swap
+  button (top right) shows another good option. Hidden until you've saved
   at least a top and a bottom.
 - **Systems:** six tiles (Weather, Inbox, Money, Beauty, Jazz 3.0, Shopping), each with
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
@@ -76,9 +82,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     top needs (tick when bought, tap to edit), and how many wants and the estimated total.
   - Each detail ends in a link to its tab.
 - **News:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with its
-  topic and source on one line ("AI · The Verge"), the headline and a short summary. **Read**
-  (top right of each story) opens the story in a new tab; a story whose link isn't a plain
-  web address gets no Read button. Names its agent and time.
+  topic and source on one line ("AI · The Verge"), the headline and a short summary. The link
+  icon (top right of each story) opens the story in a new tab; a story whose link isn't a plain
+  web address gets no link. Names its agent and time.
 - **Offline:** everything except Weather and News is built on this device from your own lists,
   so it works offline and with Jarvis not set up.
 - **App icon badge:** the installed app's icon shows how many things still need you today:

@@ -8328,22 +8328,33 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
 
   // Calendar detail (agenda list) opens from its chip and from an event row
   await page.tap('.jv-chip-sm[data-go="calendar"]');
-  const agenda = await page.$$eval("#jarvis-calendar .jv-agenda-row, #jv-detail-calendar .jv-agenda-row", (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
-  );
+  const cal = await page.evaluate(() => {
+    const d = document.getElementById("jv-detail-calendar");
+    const ev = [...d.querySelectorAll(".jv-cal-ev")];
+    return {
+      head: d.querySelector(".jv-headline")?.textContent,
+      days: [...d.querySelectorAll(".jv-cal-day")].map((e) => [...e.children].map((c) => c.textContent).join(" ")),
+      allDay: [...d.querySelectorAll(".jv-cal-allday span")].map((e) => e.textContent),
+      timed: ev.map(
+        (e) => e.querySelector(".jv-cal-time b").textContent + " " + e.querySelector(".jv-cal-what b").textContent,
+      ),
+      warn: ev.filter((e) => e.classList.contains("warn") && e.querySelector(".jv-cal-badge.warn")).length,
+    };
+  });
+  check("the summary is the detail's headline, like the Outfit card", cal.head === "Busy midday.", cal);
   check(
-    "calendar detail lists today and tomorrow",
-    agenda.length === 5 && agenda.at(-1).includes("Oil change"),
-    agenda,
+    "calendar detail: a header per day with its date and count",
+    cal.days.length === 2 && /^Today .*\d+ events$/.test(cal.days[0]) && /^Tomorrow .*1 event$/.test(cal.days[1]),
+    cal.days,
   );
+  check("all-day events are chips (escaped)", cal.allDay.length === 1 && cal.allDay[0].startsWith("<img"), cal.allDay);
   check(
-    "calendar detail is in time order: all-day first, then by start",
-    agenda
-      .slice(0, 4)
-      .map((r) => r.split(" ")[0])
-      .join(",") === "All,12p–1p,12:30p–1p,3p–4p",
-    agenda,
+    "timed events in time order, tomorrow's after today's",
+    JSON.stringify(cal.timed) ===
+      JSON.stringify(["12p Lunch with Sam", "12:30p Call with the bank", "3p Dentist", "10a Oil change"]),
+    cal.timed,
   );
+  check("overlapping events get an amber bar and an Overlaps badge", cal.warn === 2, cal);
   await page.tap('.jv-chip-sm[data-go="calendar"]');
   check("tapping again closes it", !(await page.$("#jv-detail-calendar")));
 
@@ -8654,10 +8665,14 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
   const card = await page.$(".jv-outfit");
   check("the outfit card is on Home", !!card);
   if (card) {
-    const rows = await page.$$eval(".jv-outfit-list li", (els) =>
-      els.map((e) => [...e.children].map((c) => c.textContent.trim()).join(" ")),
+    const rows = await page.$$eval(".jv-outfit-grid .jv-piece", (els) =>
+      els.map((e) => e.querySelector(".jv-mini").textContent + " " + e.querySelector("b").textContent),
     );
-    check("one labeled row per piece", rows.length >= 3 && /^Top /.test(rows[0]) && /^Bottom /.test(rows[1]), rows);
+    check("one labeled tile per piece", rows.length >= 3 && /^Top /.test(rows[0]) && /^Bottom /.test(rows[1]), rows);
+    check(
+      "each tile has its icon",
+      (await page.$$eval(".jv-outfit-grid .jv-piece svg", (els) => els.length)) === rows.length,
+    );
     check(
       "Swap sits in the card header, not among the pieces",
       !!(await page.$('.jv-outfit-head [data-action="jv-outfit-swap"]')),
@@ -9097,8 +9112,8 @@ await section("home polish: briefing items are divided rows, tag on the first li
   );
   const drills = r.rows.filter((x) => x.drill);
   check(
-    "weather and news rows drill, with the › on the row (not wrapped below) and a 44px target",
-    drills.length === 2 &&
+    "every row drills (weather, Budget, news), with the › on the row (not wrapped below) and a 44px target",
+    drills.length === 3 &&
       drills.every((x) => x.cue && x.cue.top < x.txtBottom && x.cue.bottom > x.txtTop && x.height >= 44),
     drills,
   );
@@ -9157,20 +9172,18 @@ await section("home polish: the outfit title is spaced from its pieces", async (
   const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
   const o = await page.evaluate(() => {
     const h = document.querySelector(".jv-outfit .jv-headline");
-    const li = document.querySelector(".jv-outfit-list li");
-    const lt = li.getBoundingClientRect().top;
-    const text = li.querySelector("span:last-child").getBoundingClientRect().top;
+    const ctx = document.querySelector(".jv-outfit .jv-ctx");
+    const tile = document.querySelector(".jv-outfit-grid .jv-piece");
     return {
-      gap: lt - h.getBoundingClientRect().bottom,
-      textGap: text - h.getBoundingClientRect().bottom,
-      border: getComputedStyle(li).borderTopWidth,
+      ctxGap: ctx.getBoundingClientRect().top - h.getBoundingClientRect().bottom,
+      tileGap: tile.getBoundingClientRect().top - ctx.getBoundingClientRect().bottom,
       hSize: parseFloat(getComputedStyle(h).fontSize),
-      rowSize: parseFloat(getComputedStyle(li).fontSize),
+      rowSize: parseFloat(getComputedStyle(tile.querySelector("b")).fontSize),
     };
   });
-  check("a 12px gap and a rule between title and the first row", o.gap >= 11 && o.border === "1px", o);
-  check("the first piece sits well clear of the title", o.textGap >= 20, o);
-  check("title outranks the rows", o.hSize >= o.rowSize + 4, o);
+  check("the context chips sit clear of the title", o.ctxGap >= 8, o);
+  check("the pieces sit clear of the chips", o.tileGap >= 12, o);
+  check("title outranks the pieces", o.hSize >= o.rowSize + 4, o);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -9209,9 +9222,9 @@ await section("home polish: news shows 'topic · source' and one safe Read link 
     safe,
   );
   check(
-    "a Read link per safe story: new tab, noopener noreferrer, labeled, 44px",
+    "a link icon per safe story: new tab, noopener noreferrer, labeled, 44px",
     safe.links === 1 &&
-      safe.text === "Read" &&
+      safe.text === "" && // icon only; the aria-label names it
       safe.href === "https://news.google.com/a1" &&
       safe.target === "_blank" &&
       /\bnoopener\b/.test(safe.rel) &&
