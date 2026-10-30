@@ -3702,7 +3702,7 @@ await section("shopping: Later list", async () => {
     openPinned.add("wants-later-card");
     renderWants();
   });
-  await page.click("#wants-later-card .later-btn");
+  await page.click('#wants-later-card [data-action="want-later"]');
   check(
     "Back to list returns it",
     await page.evaluate(
@@ -4383,7 +4383,7 @@ await section("handlers: wants card vs buttons, filter chips; routine, budget, f
   const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
   const first = "#wants-pending-card .want-card >> nth=0";
   const id0 = await page.evaluate(() => [...wantsList].filter((w) => !wantsState[w.id]).sort(wantsOrder)[0].id);
-  await page.click(`${first} >> .toggle`);
+  await page.click(`${first} >> .todo-check`);
   check(
     "Mark bought marks it without opening the editor",
     (await page.evaluate((i) => !!wantsState[i], id0)) && !(await modalOpen()),
@@ -4484,7 +4484,7 @@ await section("handlers: hostile ids stay inert through load, restore and sync, 
       activateTab("wants");
       renderWants();
     });
-    await page.click(`#wants-pending-card .want-card:has-text("Evil want") >> .toggle`);
+    await page.click(`#wants-pending-card .want-card:has-text("Evil want") >> .todo-check`);
     check(
       `${label}: want action works`,
       await page.evaluate(() => {
@@ -8960,6 +8960,29 @@ await section("weight by month: colored by whether it moved toward the goal", as
   check("with a higher goal it's the other way round", JSON.stringify(gaining) === '["wm-toward","wm-away"]', gaining);
   const none = await tones({ start: null, goal: null, weights, plan: [], checks: {} });
   check("no goal: plain up/down colors", JSON.stringify(none) === '["wm-up","wm-down"]', none);
+});
+
+await section("shopping: a tick box marks an item bought, like to-dos", async () => {
+  const { ctx, page, errors } = await openApp({
+    seed: { "wants-content": [{ id: "w1", name: "Shampoo", kind: "need", price: 18 }] },
+  });
+  await page.evaluate(() => activateTab("wants"));
+  const box = '#wants-pending-card .want-card .todo-check[role="checkbox"]';
+  check("each row leads with an unticked box", (await page.getAttribute(box, "aria-checked")) === "false");
+  check("no Mark bought button anymore", !(await page.$("#wants-panel .toggle, #panel-wants .toggle")));
+  check("Later is still on the row", !!(await page.$('#wants-pending-card [data-action="want-later"]')));
+  await page.click(box);
+  const bought = '#wants-purchased-card .want-card.bought .todo-check[aria-checked="true"]';
+  check(
+    "ticking moves it to Purchased, ticked",
+    (await page.evaluate(() => !!wantsState.w1)) && !!(await page.$(bought)),
+  );
+  check("no Later on a bought item", !(await page.$('#wants-purchased-card [data-action="want-later"]')));
+  // the folded Purchased card sits low on the page, under the tab bar and the Undo notice
+  await page.$eval(bought, (e) => e.click());
+  check("unticking puts it back", await page.evaluate(() => !wantsState.w1));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
 });
 
 await browser.close();

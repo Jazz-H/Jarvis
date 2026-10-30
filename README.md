@@ -168,7 +168,8 @@ clothes, moto gear, and everything else.
 - **Categories.** Each item's form has a Category select: General, **Moto** (motorcycle
   gear, `moto: true`, shown with a "Moto" tag), or a wardrobe category (`wardrobeCat`,
   shown as "Wardrobe · Tops"). They're mutually exclusive.
-- **Buying.** Mark bought moves the item to Purchased; tap Purchased to undo.
+- **Buying.** Tick an item's box (the same box as to-dos) to move it to Purchased, crossed
+  out; untick it there to undo. **Later** on the right saves it for later.
 - **Later.** Tap **Later** under an item (or the Later chip when adding, or the box in Edit)
   to move it off To buy into a folded **Later** card, left out of the counts and totals;
   **Back to list** brings it back.

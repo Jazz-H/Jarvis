@@ -118,7 +118,12 @@ function renderWants() {
     const priceStr =
       w.price != null ? `${w.estimated ? "~" : ""}$${fmtMoney(w.price)}${w.estimated ? " (est.)" : ""}` : "—";
     const linkLine = linkHtml(w.link, 'class="link"', "View product →");
-    return `<div class="want-card">
+    // bought is a tick box, like to-dos (Later items get theirs back with Back to list)
+    const check = isLater
+      ? ""
+      : `<button class="todo-check" role="checkbox" aria-checked="${isDone}" aria-label="${isDone ? "Not bought" : "Bought"}: ${escapeAttr(w.name)}" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
+    return `<div class="want-card${isDone ? " bought" : ""}">
+        ${check}
         <div class="body" role="button" tabindex="0" aria-label="Edit ${escapeAttr(w.name)}" data-action="want-edit" data-want-id="${escapeAttr(w.id)}">
           <div class="name">${escapeHtml(w.name)} <span class="badges"><span class="badge kind-${wantKind(w)}">${wantKind(w) === "need" ? "Need" : "Want"}</span>${w.priority === "high" && !isDone ? '<span class="badge high">High</span>' : ""}</span></div>
           ${w.wardrobeCat ? `<div class="want-tag">${SHIRT_ICON}Wardrobe · ${escapeHtml(w.wardrobeCat)}</div>` : ""}
@@ -127,14 +132,15 @@ function renderWants() {
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
           ${linkLine}
         </div>
-        <div class="want-actions">
-          ${
-            isLater
-              ? `<button class="toggle later-btn" data-action="want-later" data-want-id="${escapeAttr(w.id)}" data-later="false">Back to list</button>`
-              : `<button class="toggle ${isDone ? "done" : ""}" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">${isDone ? "Purchased" : "Mark bought"}</button>
-               ${isDone ? "" : `<button class="later-chip" data-action="want-later" data-want-id="${escapeAttr(w.id)}" data-later="true" aria-label="Save ${escapeAttr(w.name)} for later">${LATER_ICON}Later</button>`}`
-          }
-        </div>
+        ${
+          isDone
+            ? ""
+            : `<div class="want-actions">${
+                isLater
+                  ? `<button class="later-chip" data-action="want-later" data-want-id="${escapeAttr(w.id)}" data-later="false" aria-label="Move ${escapeAttr(w.name)} back to the list">Back to list</button>`
+                  : `<button class="later-chip" data-action="want-later" data-want-id="${escapeAttr(w.id)}" data-later="true" aria-label="Save ${escapeAttr(w.name)} for later">${LATER_ICON}Later</button>`
+              }</div>`
+        }
       </div>`;
   };
   pendingItems.forEach((w) => {

@@ -1853,6 +1853,16 @@ nav.tabbar button.j3-tab::before {
 }
 .want-card .body {
   flex: 1;
+  min-width: 0;
+}
+/* the bought tick box leads the row, centered on the name's line (44px to tap) */
+.want-card .todo-check {
+  order: 0;
+  margin: -12px -8px -12px -10px;
+}
+.want-card.bought .name {
+  color: var(--text-dim);
+  text-decoration: line-through;
 }
 .want-card .name {
   font-size: 13.5px;
