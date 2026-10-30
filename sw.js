@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v132`;
+const CACHE_NAME = `${CACHE_PREFIX}v133`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -144,7 +144,6 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(text(m.title, 60) || "Jarvis", {
       body: text(m.body, 240),
       tag: text(m.tag, 30) || "jarvis",
-      icon: "./jarvis-icon-192.png",
       badge: "./jarvis-badge-96.png",
       data: { url },
     }),

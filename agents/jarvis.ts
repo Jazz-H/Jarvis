@@ -285,22 +285,32 @@ export function jarvisSpec(
 
 // Phone notifications (layouts 1 + 2): the headline, then alerts for bills that need paying by
 // hand today or tomorrow and packages arriving today. At most three.
+// A notification shows the app's name and icon already, so the title names the day and the body
+// puts each point on its own line ("A; B" headlines are split). A bill the headline already names
+// isn't sent again.
+const lines = (parts: string[]) => parts.map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join("\n");
 export function pushMessages(b: Briefing, c: JazzContext, deliveries: DeliveryCard | null | undefined): PushMessage[] {
   const url = CONFIG.push.url;
-  const out: PushMessage[] = [{ title: "Jarvis", body: b.headline, url, tag: "briefing" }];
+  const day = new Date(c.today + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+  const points = b.headline
+    .split(/;\s+/)
+    .map((x) => x.trim().replace(/[.;]$/, ""))
+    .filter(Boolean);
+  const out: PushMessage[] = [{ title: `${day}'s briefing`, body: lines(points), url, tag: "briefing" }];
   const tomorrow = addDays(c.today, 1);
-  const manual = c.billsDueSoon.filter((x) => !x.autopay && x.due <= tomorrow);
+  const said = b.headline.toLowerCase();
+  const manual = c.billsDueSoon.filter((x) => !x.autopay && x.due <= tomorrow && !said.includes(x.name.toLowerCase()));
   if (manual.length)
     out.push({
-      title: "Bill to pay",
-      body:
+      title: manual.length > 1 ? "Bills to pay (not on autopay)" : "Bill to pay (not on autopay)",
+      body: lines(
         manual
           .slice(0, 3)
           .map(
             (x) =>
-              `${x.name} $${x.amount.toFixed(2)} due ${x.due < c.today ? "overdue" : x.due === c.today ? "today" : "tomorrow"}`,
-          )
-          .join("; ") + " (not on autopay)",
+              `${x.name} $${x.amount.toFixed(2)}, ${x.due < c.today ? "overdue" : x.due === c.today ? "due today" : "due tomorrow"}`,
+          ),
+      ),
       url,
       tag: "bill",
     });
@@ -310,10 +320,7 @@ export function pushMessages(b: Briefing, c: JazzContext, deliveries: DeliveryCa
   if (arriving.length)
     out.push({
       title: "Arriving today",
-      body: arriving
-        .slice(0, 3)
-        .map((p) => p.item + (p.etaText ? ` (${p.etaText})` : ""))
-        .join(", "),
+      body: lines(arriving.slice(0, 3).map((p) => p.item + (p.etaText ? ` (${p.etaText})` : ""))),
       url,
       tag: "delivery",
     });

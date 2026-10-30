@@ -66,16 +66,31 @@ describe("notification messages", () => {
       ],
     };
     expect(pushMessages(b, c, d)).toEqual([
-      { title: "Jarvis", body: "Rain by noon", url: "./jazz2.0.html?tab=jarvis", tag: "briefing" },
+      { title: "Friday's briefing", body: "Rain by noon", url: "./jazz2.0.html?tab=jarvis", tag: "briefing" },
       {
-        title: "Bill to pay",
-        body: "Rent $1450.00 due tomorrow (not on autopay)",
+        title: "Bill to pay (not on autopay)",
+        body: "Rent $1450.00, due tomorrow",
         url: "./jazz2.0.html?tab=jarvis",
         tag: "bill",
       },
       { title: "Arriving today", body: "Rain jacket (by 8 PM)", url: "./jazz2.0.html?tab=jarvis", tag: "delivery" },
     ]);
     expect(pushMessages(b, emptyContext(today), null)).toHaveLength(1);
+  });
+
+  it("puts each point of the headline on its own line and doesn't repeat a bill it names", () => {
+    const h = { headline: "Pay rent ($612.50, not on autopay) by Sunday; Claude API credit is down to $2.10." } as any;
+    const c = {
+      ...emptyContext(today),
+      billsDueSoon: [
+        { name: "Rent", amount: 612.5, due: "2026-10-31", autopay: false },
+        { name: "Phone", amount: 80, due: "2026-10-29", autopay: false },
+      ],
+    };
+    const [brief, bill, ...rest] = pushMessages(h, c, null);
+    expect(brief.body).toBe("Pay rent ($612.50, not on autopay) by Sunday\nClaude API credit is down to $2.10");
+    expect(bill).toMatchObject({ title: "Bill to pay (not on autopay)", body: "Phone $80.00, overdue" });
+    expect(rest).toEqual([]);
   });
 });
 
