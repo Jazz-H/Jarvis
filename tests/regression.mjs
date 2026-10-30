@@ -8463,6 +8463,36 @@ await section("wash-day swap: suggests a drier day, moves the schedule, or keeps
   await n.ctx.close();
 });
 
+await section("goal of the day: one unfinished item, Done ticks it, Another picks a different one", async () => {
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "plan3-content": [
+        { id: "g1", cat: "Glow", item: "Hand cream", note: "Hand cream" },
+        { id: "g2", cat: "Glow", item: "Morning routine", note: "" },
+        { id: "g3", cat: "Leadership", item: "Join a speaking club", note: "", done: true },
+      ],
+    },
+  });
+  const pick = () => page.evaluate(() => dashGoalOfDay() && dashGoalOfDay().id);
+  const first = await pick();
+  check("picks an unfinished item", first === "g1" || first === "g2", first);
+  const tileSub = await page.$eval('.jv-tile[data-go="jazz3"] .jv-tile-sub', (e) => e.textContent);
+  check("the Jazz 3.0 tile names today's goal", tileSub.startsWith("Today: "), tileSub);
+  check("the pick is stable on re-render", (await page.evaluate(() => (renderHome(), dashGoalOfDay().id))) === first);
+  await page.tap('.jv-tile[data-go="jazz3"]');
+  await page.tap('[data-action="jv-goal-another"]');
+  const second = await pick();
+  check("Another picks a different item", second && second !== first, [first, second]);
+  await page.tap(`#jv-detail-jazz3 [data-action="plan3-toggle"][data-plan3-id="${second}"]`);
+  check(
+    "Done ticks it off in Jazz 3.0",
+    await page.evaluate((id) => plan3.find((x) => x.id === id).done === true, second),
+  );
+  check("the next pick is still unfinished", (await pick()) !== second);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

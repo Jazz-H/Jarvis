@@ -52,6 +52,7 @@ function plan3Cats() {
 function savePlan3() {
   saveContent("plan3-content", plan3, { toast: false });
   renderFitness();
+  renderHome(); // Home's Jazz 3.0 tile, goal bars and goal of the day
 }
 function togglePlan3(id) {
   const x = plan3.find((p) => p.id === id);

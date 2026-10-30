@@ -201,6 +201,7 @@ function dashJazz3Detail(d) {
         .join("")}</div>`
     : "";
   return (
+    dashGoalHtml() +
     (bars ? `<div class="jv-goals">${bars}</div>` : `<div class="empty">No goals yet.</div>`) +
     today +
     dashOpen("jazz3", "Open Jazz 3.0")
@@ -288,7 +289,11 @@ function dashTilesHtml(b, progress, d) {
       go: "jazz3",
       label: "Jazz 3.0",
       value: j3.ws.pct != null ? `${j3.ws.pct}%` : `${j3Done}/${j3Total}`,
-      sub: j3.ws.pct != null ? "to weight goal" : "goal items done",
+      sub: dashGoalOfDay()
+        ? `Today: ${dashGoalOfDay().item}`
+        : j3.ws.pct != null
+          ? "to weight goal"
+          : "goal items done",
       pct: j3.ws.pct != null ? j3.ws.pct : dashPct(j3Done, j3Total),
       tone: "accent",
       detail: true,
@@ -759,4 +764,41 @@ function dashWashKeep() {
     localStorage.setItem(DASH_WASH_KEEP, addDaysIso(0));
   } catch (e) {}
   renderHome();
+}
+
+// ---- goal of the day (layout 2, on Jazz 3.0): one unfinished goal item, picked by date ----
+const DASH_GOAL_SKIP = "jv-goal-skip"; // {date, n}: how many times Another was tapped today (device only)
+function dashGoalOfDay() {
+  const open = plan3.filter((x) => !x.done);
+  if (!open.length) return null;
+  const today = addDaysIso(0);
+  let skip = 0;
+  try {
+    const s = JSON.parse(localStorage.getItem(DASH_GOAL_SKIP) || "null");
+    if (s && s.date === today && Number.isInteger(s.n)) skip = s.n;
+  } catch (e) {}
+  // the day number keeps the pick stable all day and moves it along each day
+  const dayN = Math.round(noonOf(today).getTime() / 864e5);
+  return open[(dayN + skip) % open.length];
+}
+function dashGoalAnother() {
+  const today = addDaysIso(0);
+  let n = 0;
+  try {
+    const s = JSON.parse(localStorage.getItem(DASH_GOAL_SKIP) || "null");
+    if (s && s.date === today && Number.isInteger(s.n)) n = s.n;
+    localStorage.setItem(DASH_GOAL_SKIP, JSON.stringify({ date: today, n: n + 1 }));
+  } catch (e) {}
+  renderHome();
+}
+function dashGoalHtml() {
+  const g = dashGoalOfDay();
+  if (!g) return "";
+  return `<div class="jv-goalday">
+      <div class="jv-goalday-text"><span class="jv-mini">Today · ${escapeHtml(g.cat)}</span><b>${escapeHtml(g.item)}</b>${g.note ? `<span>${escapeHtml(g.note)}</span>` : ""}</div>
+      <div class="jv-chips">
+        <button class="jv-chip-sm on" data-action="plan3-toggle" data-plan3-id="${escapeAttr(g.id)}">Done</button>
+        <button class="jv-chip-sm" data-action="jv-goal-another">Another</button>
+      </div>
+    </div>`;
 }

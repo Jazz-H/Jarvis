@@ -5075,6 +5075,33 @@ a.jv-story-title:hover {
 .jv-suggest .jv-chips {
   margin-top: 10px;
 }
+/* Goal of the day (Jazz 3.0 detail) */
+.jv-goalday {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.jv-goalday-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jv-goalday-text .jv-mini {
+  color: var(--olive);
+}
+.jv-goalday-text span:last-child:not(.jv-mini) {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.jv-goalday .jv-chips {
+  margin: 0;
+  flex: none;
+}
 nav.tabbar button.jv-new::after {
   content: "";
   position: absolute;
