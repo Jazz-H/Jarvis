@@ -6,11 +6,12 @@ money, weather, news), puts their findings together, and delivers a daily briefi
 time with insights, the weather and a news feed tailored to me. Everything Jazz already does
 (Home, To-Do, Budget, Shopping, Skin & Hair, Gist sync, backups) keeps working unchanged.
 
-Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROMPTS.md`.
+Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROMPTS.md`. Smaller open
+work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 
 ## Status
 - [x] Phase 1: Agent SDK setup, Jarvis + Weather + News, Gist output, in-app notice, Jarvis tab
-  (setup steps in `SETUP.md`; Settings → Jarvis and "Run now" are not built yet)
+  (setup steps in `SETUP.md`). Smaller open work is tracked in `BACKLOG.md`.
 - [ ] Phase 2: Calendar + Inbox + Shopper (Google OAuth)
 - [ ] Phase 3: Money + Budget links + Bill Guard
 - [ ] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
@@ -93,8 +94,8 @@ Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROM
 - Calendar events on the Home strip as a distinct read-only type; Amazon spending in Budget.
 - **Ask Jarvis**: a question box that triggers `workflow_dispatch` with the question; the
   answer goes to the Gist and the app checks for it until it arrives (about a minute).
-- Settings → Jarvis: location, briefing time and time zone, news topics and sources,
-  sub-agents on or off, "Run now", and setup status for each sub-agent.
+- ~~Settings → Jarvis~~: dropped (Oct 30). Location, briefing time, news topics and sources
+  stay in `agents/config.ts`; "Run now" is Actions → Jarvis → Run workflow.
 - `docs/jarvis/SETUP.md`: steps for each secret (Google OAuth refresh token, Plaid,
   Anthropic key, Gist id and token).
 
