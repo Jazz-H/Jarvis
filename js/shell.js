@@ -249,7 +249,10 @@ const SHELL_CLICK = {
   // Generated Home links (more anytime / All to-dos) both open the To-Do tab through the existing tab route.
   "home-open-todo": () => activateTab("todo"),
   "theme-cycle": () => cycleTheme(),
-  "jv-go": (el) => dashGo(el.getAttribute("data-go")), // dashGo only accepts its own section names
+  // Jarvis dashboard: tiles and briefing lines drill into details; links go to a tab (and a Jazz 3.0 card).
+  // Both only accept their own section names and card ids.
+  "jv-drill": (el) => dashDrill(el.getAttribute("data-go")),
+  "jv-go": (el) => dashGo(el.getAttribute("data-go"), el.getAttribute("data-card")),
   // Budget / bills. Every id, date and index is revalidated against live data; stale or forged metadata does nothing.
   "stop-click": (el, e) => e.stopPropagation(),
   "bill-row-open": (el) => {

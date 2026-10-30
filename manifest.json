@@ -1,8 +1,8 @@
 {
   "id": "./jazz2.0.html",
-  "name": "Jazz 3.0",
-  "short_name": "Jazz 3.0",
-  "description": "Jarvis, To-Do, Jazz 3.0, Shopping, and Skin & Hair: Jazz 3.0 personal dashboard",
+  "name": "Jarvis",
+  "short_name": "Jarvis",
+  "description": "Jarvis: your personal dashboard. Home, To-Do, Jazz 3.0, Shopping, and Skin & Hair.",
   "start_url": "./jazz2.0.html",
   "scope": "./",
   "display": "standalone",

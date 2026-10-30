@@ -818,7 +818,7 @@ await section("home: day agenda completes in place", async () => {
   }); // no Wash hair row, whatever day the suite runs
   await page.tap('#panel-home .home-list .todo-check[aria-label="Complete: Due today"]');
   check("completed from Home", await page.evaluate(() => todoList[0].done));
-  check("still on Home", (await page.textContent("#headline")) === "Jarvis");
+  check("still on Home", (await page.textContent("#headline")) === "Home");
   const r = await page.evaluate(() => ({
     struck:
       !document.querySelector('#panel-home .home-list .todo-check[aria-label="Mark not done: Due today"]') &&
@@ -1022,7 +1022,7 @@ await section("home: calendar strip picks any day", async () => {
   const title0 = await page.textContent(".home-cal-title");
   await swipe(-120, 0);
   check("swipe left pages to the next month", (await page.textContent(".home-cal-title")) !== title0);
-  check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Jarvis");
+  check("still on Home after a sideways swipe", (await page.textContent("#headline")) === "Home");
   await swipe(0, -120);
   check(
     "swipe up closes back to the week",
@@ -1365,8 +1365,8 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   });
   const nav = await page.$$eval("nav.tabbar button", (bs) => bs.map((b) => b.textContent.trim()));
   check(
-    "nav: Jarvis, To-Do, Jazz 3.0, Shopping, Skin & Hair (Budget hidden)",
-    JSON.stringify(nav) === '["Jarvis","To-Do","Jazz 3.0","Shopping","Skin & Hair"]',
+    "nav: Home, To-Do, Jazz 3.0, Shopping, Skin & Hair (Budget hidden)",
+    JSON.stringify(nav) === '["Home","To-Do","Jazz 3.0","Shopping","Skin & Hair"]',
     nav,
   );
   check(
@@ -2816,7 +2816,7 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
     s: weightStatus(),
     title: document.title,
   }));
-  check("app is Jazz 3.0", r.title === "Jazz 3.0", r.title);
+  check("app is named Jarvis", r.title === "Jarvis", r.title);
   check(
     "import link fills Fitness and opens the Jazz 3.0 tab",
     r.tab === "jazz3" && r.start === 100 && r.goal === 120 && r.n === 2 && r.plan.length === 2 && r.hash === "",
@@ -7678,7 +7678,7 @@ await section("jarvis: main tab is Jarvis; empty state when not set up; ?tab=jar
   check("headline is To-Do via launch param", (await page.textContent("#headline")) === "To-Do");
   await ctx.close();
   const a = await openApp({ query: "?tab=jarvis" });
-  check("?tab=jarvis opens the main tab", (await a.page.textContent("#headline")) === "Jarvis");
+  check("?tab=jarvis opens the main tab", (await a.page.textContent("#headline")) === "Home");
   check("empty state shows", (await a.page.textContent("#panel-home .jv-empty")).includes("once Jarvis is set up"));
   check("planner still renders below", await a.page.isVisible("#panel-home .home-cal"));
   check("no JS errors", errors.length === 0 && a.errors.length === 0, [...errors, ...a.errors]);
@@ -7687,13 +7687,25 @@ await section("jarvis: main tab is Jarvis; empty state when not set up; ?tab=jar
 
 await section("jarvis: stored briefing renders escaped, with agent cards and safe links only", async () => {
   const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": briefingFixture() } });
+  const first = await page.evaluate(() => ({
+    newPill: !!document.querySelector(".jv-pill"),
+    seen: localStorage.getItem("jarvis-briefing-seen"),
+    weatherOpen: !!document.getElementById("jarvis-weather"),
+    tile: document.querySelector('.jv-tile[data-go="weather"] .jv-tile-value').textContent,
+  }));
+  check(
+    "weather tile shows high/low; its detail starts closed",
+    first.tile === "69° / 49°" && !first.weatherOpen,
+    first,
+  );
+  await page.tap('.jv-sum-drill[data-go="weather"]'); // a Weather line in the briefing drills into Weather
   const r = await page.evaluate(() => ({
     pwned: window.__pwned || 0,
     headline: document.querySelector(".jv-headline").textContent,
     imgs: document.querySelectorAll("#panel-home .jv-card img").length,
     items: [...document.querySelectorAll(".jv-summary li")].map((li) => li.textContent),
     sources: [...document.querySelectorAll(".jv-summary .jv-src")].map((s) => s.className),
-    weatherInsight: document.querySelector("#jarvis-weather .insight").textContent,
+    expanded: document.querySelector('.jv-tile[data-go="weather"]').getAttribute("aria-expanded"),
     wash: document.querySelector("#jarvis-weather .jv-wash")?.textContent || "",
     hours: [...document.querySelectorAll("#jarvis-weather .jv-hour")].map((h) =>
       h.textContent.replace(/\s+/g, " ").trim(),
@@ -7702,13 +7714,11 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
     links: [...document.querySelectorAll("#jarvis-news a")].map((a) => a.getAttribute("href")),
     titles: [...document.querySelectorAll("#jarvis-news .jv-story-title")].map((t) => t.textContent),
     order: [...document.getElementById("panel-home").children].map((c) => c.className.split(" ")[0]).slice(0, 3),
-    newPill: !!document.querySelector(".jv-pill"),
-    seen: localStorage.getItem("jarvis-briefing-seen"),
   }));
   check("headline text is escaped, not markup", r.headline.includes("<img") && r.imgs === 0 && r.pwned === 0, r);
   check("summary items render", r.items.length === 3 && r.items[0].includes("bring a jacket"), r.items);
   check("unknown source falls back to Jarvis", r.sources[2].includes("jv-src-jarvis"), r.sources);
-  check("weather insight shows high/low and rain", r.weatherInsight === "69°/49° · 60% rain", r.weatherInsight);
+  check("briefing weather line opens the Weather detail", r.expanded === "true", r.expanded);
   check("wash-day note shows", r.wash.includes("frizz"), r.wash);
   check(
     "hour-by-hour list (every third hour, temp and conditions when present)",
@@ -7723,7 +7733,7 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
     r.order[0] === "jv-wrap" && r.order[1] === "jv-label" && r.order[2] === "home-cal",
     r.order,
   );
-  check("first view shows New and marks it seen", r.newPill && r.seen === briefingFixture().id, r);
+  check("first view shows New and marks it seen", first.newPill && first.seen === briefingFixture().id, first);
   await page.evaluate(() => renderHome());
   check("New goes away after it's been seen", !(await page.$(".jv-pill")));
   check("no JS errors", errors.length === 0, errors);
@@ -7745,7 +7755,9 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
   };
   b.cards.weather.data.highF = "hot"; // invalid data turns the card into an error, not a crash
   const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  await page.tap('.jv-tile[data-go="weather"]');
   const r = await page.evaluate(() => ({
+    weatherTile: document.querySelector('.jv-tile[data-go="weather"] .jv-tile-sub').textContent,
     when: document.querySelector(".jv-when").textContent,
     stale: document.querySelector(".jv-card").classList.contains("jv-stale"),
     newsErr: document.querySelector("#jarvis-news .jv-error").textContent,
@@ -7756,7 +7768,11 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
   }));
   check("yesterday's briefing is labeled and dimmed", r.when.startsWith("From ") && r.stale, r);
   check("failed agent shows its error", r.newsErr.includes("timed out") && r.newsInsight === "Unavailable", r);
-  check("unreadable card data shows an error", r.weatherErr.includes("couldn't be read"), r);
+  check(
+    "unreadable card data shows an error",
+    r.weatherErr.includes("couldn't be read") && r.weatherTile === "Unavailable",
+    r,
+  );
   check("notes are listed", r.notes === "1 note", r.notes);
   check("fallback summary is labeled", r.fallback.includes("Assembled automatically"), r.fallback);
   for (const junk of [
@@ -7899,7 +7915,7 @@ await section("theme: follows the system, cycles system → light → dark, stay
   await ctx.close();
 });
 
-await section("jarvis dashboard: greeting, tiles and live section cards feed from the app", async () => {
+await section("home dashboard: tiles drill into details, details into tabs, nothing shown twice", async () => {
   const td = (id, text, due, extra = {}) => ({
     id,
     text,
@@ -7950,70 +7966,96 @@ await section("jarvis dashboard: greeting, tiles and live section cards feed fro
       },
     },
   });
+  const tiles = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll(".jv-tile")].map((t) => ({
+        go: t.dataset.go,
+        value: t.querySelector(".jv-tile-value").textContent,
+        open: t.getAttribute("aria-expanded"),
+      })),
+    );
   const r = await page.evaluate(() => ({
     hello: document.querySelector(".jv-hello").textContent,
-    sub: document.querySelector(".jv-greet-sub").textContent,
-    tiles: [...document.querySelectorAll(".jv-tile")].map((t) => [
-      t.dataset.go,
-      t.querySelector(".jv-tile-value").textContent,
-    ]),
-    todo: [...document.querySelectorAll("#jv-todo .title")].map((t) => t.textContent.trim()),
-    money: [...document.querySelectorAll("#jv-money .bill-home .title")].map((t) => t.textContent.trim()),
-    jazz3: document.querySelector("#jv-jazz3 .insight").textContent,
-    shop: document.querySelector("#jv-shop .jv-shop-count b").textContent,
-    match: document.querySelector("#jv-shop .jv-shop-match")?.textContent || "",
-    cards: [...document.querySelectorAll(".jv-wrap .pinned")].map((c) => c.id),
+    status: document.querySelector(".jv-status").textContent,
+    details: document.querySelectorAll(".jv-detail").length,
+    oldCards: ["jv-todo", "jv-money", "jv-skin", "jv-jazz3", "jv-shop"].filter((id) => document.getElementById(id)),
   }));
+  const t0 = await tiles();
+  const needN = await page.evaluate(() => dashShopData().needs.length); // built-in wardrobe needs count too
   check("greeting names Jazz", /^Good (morning|afternoon|evening), Jazz\.$/.test(r.hello), r.hello);
-  check("greeting carries the forecast", r.sub.includes("Springfield") && r.sub.includes("51°"), r.sub);
+  check(
+    "status says when Jarvis briefed (once)",
+    r.status.includes("Online") && r.status.includes("Briefed"),
+    r.status,
+  );
   check(
     "six tiles, one per feed",
-    JSON.stringify(r.tiles.map((t) => t[0])) === '["weather","todo","money","skin","jazz3","shop"]',
-    r.tiles,
+    JSON.stringify(t0.map((t) => t.go)) === '["weather","todo","money","skin","jazz3","shop"]',
+    t0,
   );
-  check("to-do tile counts overdue + today", r.tiles[1][1] === "3 left", r.tiles);
-  check("money tile totals bills due this week", r.tiles[2][1] === "$1,450", r.tiles);
-  check("jazz 3.0 tile shows weight-goal progress", r.tiles[4][1] === "50%", r.tiles);
-  const needN = await page.evaluate(() => dashShopData().needs.length); // built-in wardrobe needs count too
-  check("shopping tile counts needs", r.tiles[5][1] === `${needN} need${needN === 1 ? "" : "s"}`, [r.tiles, needN]);
-  check(
-    "to-do card: overdue first, then today (starred first)",
-    r.todo.join("|") === "Late thing|Starred today|Today thing",
-    r.todo,
-  );
-  check("money card: only bills due within 7 days", r.money.length === 1 && r.money[0].endsWith("Pay Rent"), r.money);
-  check("jazz 3.0 card", r.jazz3 === "Weight 50%", r.jazz3);
-  check("shopping card counts needs", r.shop === r.tiles[5][1], r.shop);
-  check("shopping card shows Jarvis's matching line", r.match.includes("rain jacket"), r.match);
-  check(
-    "cards in order",
-    r.cards.join() === "jarvis-weather,jv-todo,jv-money,jv-skin,jv-jazz3,jv-shop,jarvis-news",
-    r.cards,
-  );
+  check("details start closed and there are no duplicate cards", r.details === 0 && r.oldCards.length === 0, r);
+  check("to-do tile counts overdue + today", t0[1].value === "3 left", t0);
+  check("money tile totals bills due this week", t0[2].value === "$1,450", t0);
+  check("jazz 3.0 tile shows weight-goal progress", t0[4].value === "50%", t0);
+  check("shopping tile counts needs", t0[5].value === `${needN} need${needN === 1 ? "" : "s"}`, [t0, needN]);
 
-  // tick things off in place, with the same actions as their own tabs
-  await page.tap('#jv-todo .todo-check[aria-label="Complete: Today thing"]');
-  check("to-do completes from the dashboard", await page.evaluate(() => todoList.find((t) => t.id === "a").done));
-  await page.tap('#jv-money .todo-check[aria-label="Mark paid: Rent"]');
-  check("bill pays from the dashboard", await page.evaluate(() => billPayments.some((p) => p.billId === "b1")));
-  const step = await page.evaluate(() => routineForDate(new Date()).am[0].id);
-  await page.tap(`#jv-skin .jv-step[data-band="am"][data-step-id="${step}"]`);
-  check("routine step ticks from the dashboard", await page.evaluate((id) => todayChecks().am.includes(id), step));
-  await page.tap("#jv-shop .coll-head");
-  await page.tap('#jv-shop .todo-check[aria-label="Bought: Rain jacket"]');
-  check("shopping need ticks from the dashboard", await page.evaluate(() => !!wantsState.w1));
-
-  // tiles open their tabs
+  // Money: open its detail, pay a bill in place, then drill on to Budget
   await page.tap('.jv-tile[data-go="money"]');
-  check("money tile opens Budget", (await page.textContent("#headline")) === "Budget");
-  await page.evaluate(() => activateTab("home"));
+  let m = await page.evaluate(() => ({
+    open: [...document.querySelectorAll(".jv-detail")].map((d) => d.id),
+    bills: [...document.querySelectorAll("#jv-detail-money .bill-home .title")].map((t) => t.textContent.trim()),
+  }));
+  check("money tile opens its detail", JSON.stringify(m.open) === '["jv-detail-money"]', m);
+  check("money detail: only bills due within 7 days", m.bills.length === 1 && m.bills[0].endsWith("Pay Rent"), m);
+  await page.tap('#jv-detail-money .todo-check[aria-label="Mark paid: Rent"]');
+  check("bill pays from the detail", await page.evaluate(() => billPayments.some((p) => p.billId === "b1")));
+
+  // one detail at a time; tapping the open tile closes it
   await page.tap('.jv-tile[data-go="skin"]');
-  check("skin tile opens Skin & Hair", (await page.textContent("#headline")) === "Skin & Hair");
+  m = await page.evaluate(() => [...document.querySelectorAll(".jv-detail")].map((d) => d.id));
+  check("opening another tile closes the first", JSON.stringify(m) === '["jv-detail-skin"]', m);
+  const step = await page.evaluate(() => routineForDate(new Date()).am[0].id);
+  await page.tap(`#jv-detail-skin .jv-step[data-band="am"][data-step-id="${step}"]`);
+  check("routine step ticks from the detail", await page.evaluate((id) => todayChecks().am.includes(id), step));
+  await page.tap('.jv-tile[data-go="skin"]');
+  check("tapping the open tile closes it", (await page.$$(".jv-detail")).length === 0);
+
+  // Shopping: Jarvis's matching line, tick a need, tap a name to edit it
+  await page.tap('.jv-tile[data-go="shop"]');
+  const shop = await page.evaluate(() => document.querySelector("#jv-detail-shop .jv-shop-match")?.textContent || "");
+  check("shopping detail shows Jarvis's matching line", shop.includes("rain jacket"), shop);
+  await page.tap('#jv-detail-shop .jv-shop-name[data-want-id="w1"]');
+  check("tapping a need opens its editor", await page.isVisible("#modal-backdrop.open"));
+  await page.evaluate(() => closeModal());
+  await page.tap('#jv-detail-shop .todo-check[aria-label="Bought: Rain jacket"]');
+  check("need ticks off from the detail", await page.evaluate(() => !!wantsState.w1));
+
+  // Jazz 3.0: a goal bar drills into its own card on the Jazz 3.0 tab
+  await page.tap('.jv-tile[data-go="jazz3"]');
+  const glow = await page.evaluate(() => "p3-" + plan3Slug(plan3Cats()[0]));
+  await page.tap(`#jv-detail-jazz3 .jv-goal[data-card="${glow}"]`);
+  check(
+    "goal bar opens Jazz 3.0 with that section open",
+    (await page.textContent("#headline")) === "Jazz 3.0" &&
+      (await page.evaluate((id) => document.getElementById(id).classList.contains("open"), glow)),
+  );
+
+  // To-Do: its tile goes to the Planner (today's list) rather than repeating it
   await page.evaluate(() => {
     activateTab("home");
-    dashGo("nope"); // unknown targets do nothing
+    homeDate = addDaysIso(3);
+    renderHome();
   });
-  check("unknown tile target is inert", (await page.textContent("#headline")) === "Jarvis");
+  await page.tap('.jv-tile[data-go="todo"]');
+  check("to-do tile shows today in the Planner", await page.evaluate(() => homeDate === null));
+
+  // forged targets do nothing
+  await page.evaluate(() => {
+    dashDrill("constructor");
+    dashGo("nope");
+    dashGo("jazz3", "../x");
+  });
+  check("unknown drill targets are inert", (await page.textContent("#headline")) === "Jazz 3.0");
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

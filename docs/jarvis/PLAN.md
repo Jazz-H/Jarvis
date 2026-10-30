@@ -44,7 +44,7 @@ Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROM
   lines (EDT and EST); each run checks the local time and skips if today's briefing exists.
   Also `workflow_dispatch`. GitHub cron can run 5–15 minutes late.
 - Notify in the app (my preference, instead of ntfy): when a new briefing arrives during sync,
-  the app shows a "Jarvis: <headline>" toast, a dot on the Jarvis tab if it's off-screen, and a
+  the app shows a "Jarvis: <headline>" toast, a dot on the Home tab if it's off-screen, and a
   "New" pill on the briefing until it's been seen. `?tab=jarvis` opens it.
 
 ## Agent design
@@ -84,7 +84,8 @@ Rules for both assistants are in `/AGENTS.md`. Step-by-step prompts are in `PROM
 - Logging: a per-agent trace (inputs redacted) is saved as a workflow artifact.
 
 ## App UI
-- **Jarvis is the app's main view** (see My preferences), pulling in the existing sections.
+- **The app is named Jarvis; its main view is the Home tab** (see My preferences), a dashboard
+  pulling in the existing sections as tiles that drill down into details and then their tabs.
   It shows:
   - the 60-second summary and suggested to-do chips
   - cards for Weather, Calendar, Inbox, Deliveries, Money and News

@@ -3,7 +3,7 @@
 
 const APP_CACHE_PREFIX = "jazz2-cache-";
 const HEADLINES = {
-  home: "Jarvis",
+  home: "Home",
   todo: "To-Do",
   jazz3: "Jazz 3.0",
   skin: "Skin & Hair",

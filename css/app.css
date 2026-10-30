@@ -3994,10 +3994,6 @@ body.todo-dragging {
   font-weight: 700;
   line-height: 1.1;
 }
-.jv-greet-sub {
-  font-size: 14.5px;
-  color: var(--text-dim);
-}
 .jv-card {
   position: relative;
   background: var(--surface);
@@ -4027,65 +4023,6 @@ body.todo-dragging {
 }
 .jv-hero {
   box-shadow: 0 0 28px var(--glow);
-}
-.jv-hero-top {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  margin-bottom: 14px;
-}
-.jv-hero-ring {
-  position: relative;
-  width: 108px;
-  height: 108px;
-  flex: none;
-}
-.jv-ring-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.jv-ring-label b {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.jv-ring-label span {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-.jv-ring-dots {
-  fill: none;
-  stroke: var(--olive-dim);
-  stroke-width: 1;
-  stroke-dasharray: 1 5;
-}
-.jv-ring-track {
-  fill: none;
-  stroke: var(--track);
-  stroke-width: 8;
-}
-.jv-ring-fill {
-  fill: none;
-  stroke: var(--olive);
-  stroke-width: 8;
-  stroke-linecap: round;
-}
-.jv-ring-inner {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1;
-}
-.jv-hero-text {
-  min-width: 0;
 }
 .jv-kicker {
   display: flex;
@@ -4256,8 +4193,10 @@ body.todo-dragging {
   line-height: 1.35;
   color: var(--text-dim);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .jv-tile-bar {
   margin-top: auto;
@@ -4301,28 +4240,6 @@ body.todo-dragging {
   text-align: left;
 }
 /* Weather: compact summary + hour by hour */
-.jv-wx {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 10px;
-}
-.jv-wx-now {
-  font-family: var(--font-display);
-  font-size: 46px;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.jv-wx-sum {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.jv-wx-sum span {
-  font-size: 13.5px;
-  color: var(--text-dim);
-}
 .jv-lede {
   margin: 0 0 8px;
   font-size: 15px;
@@ -4466,17 +4383,6 @@ a.jv-story-title:hover {
   color: var(--danger);
 }
 /* Skin & Hair: step progress + AM/PM checklist */
-.jv-skin-progress {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.jv-skin-row {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-}
 .jv-mini {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -4602,33 +4508,7 @@ a.jv-story-title:hover {
   gap: 8px;
   margin-top: 14px;
 }
-.jv-chip {
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
-  font-size: 13.5px;
-  cursor: pointer;
-}
-/* Shopping: count + needs list */
-.jv-shop-count {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.jv-shop-count b {
-  font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 700;
-}
-.jv-shop-count span {
-  font-size: 13.5px;
-  color: var(--text-dim);
-}
+/* Shopping: needs list */
 .jv-shop-match {
   font-size: 14px;
   color: var(--olive);
@@ -4641,10 +4521,6 @@ a.jv-story-title:hover {
   min-height: 44px;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
-.jv-shop-name {
-  flex: 1;
-  font-size: 14.5px;
-}
 .jv-shop-price {
   font-size: 13px;
   color: var(--text-dim);
@@ -4654,6 +4530,119 @@ a.jv-story-title:hover {
   .jv-tiles {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+/* Drill-downs: a tile opens its detail full-width right under it; dense flow backfills its neighbor */
+.jv-tiles {
+  grid-auto-flow: row dense;
+}
+.jv-tile-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.jv-tile-cue {
+  display: inline-flex;
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.jv-tile-cue svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
+}
+.jv-tile.open {
+  border-color: var(--olive);
+  box-shadow: 0 0 16px var(--glow);
+}
+.jv-tile.open .jv-tile-cue svg {
+  transform: rotate(180deg);
+}
+.jv-detail {
+  grid-column: 1 / -1;
+  padding: 14px 16px 6px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--olive-dim);
+}
+.jv-facts {
+  font-size: 13.5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+/* briefing lines that drill into Weather or News */
+.jv-sum-drill {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.jv-sum-cue {
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--olive);
+  font-size: 18px;
+  line-height: 1;
+}
+/* tappable blocks inside details */
+.jv-period,
+.jv-goal,
+.jv-skin-head,
+.jv-shop-name {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.jv-period-head,
+.jv-goal-head,
+.jv-period-keys {
+  display: flex;
+}
+.jv-period-bar {
+  display: flex;
+}
+.jv-goal {
+  min-height: 44px;
+}
+.jv-skin-head {
+  display: grid;
+  gap: 6px;
+  min-height: 44px;
+  margin-bottom: 4px;
+}
+.jv-shop-name {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14.5px;
+}
+.jv-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
 }
 nav.tabbar button.jv-new::after {
   content: "";

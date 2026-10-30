@@ -11,7 +11,7 @@ const BRIEFING_FILENAME = "jazz2-briefing.json";
 const BRIEFING_KEY = "jarvis-briefing";
 const BRIEFING_SEEN_KEY = "jarvis-briefing-seen"; // id of the last briefing shown on screen
 const BRIEFING_SOURCES = { weather: "Weather", news: "News", jazz: "Jazz", jarvis: "Jarvis" };
-["jarvis-weather", "jarvis-news"].forEach((id) => openPinned.add(id));
+openPinned.add("jarvis-news");
 
 function normalizeBriefing(b) {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -154,35 +154,12 @@ function jvRainWindow(hours) {
   const wet = hours.filter((h) => h.chance >= 50);
   return wet.length ? `${jvHourLabel(wet[0].hour)}–${jvHourLabel((wet[wet.length - 1].hour + 1) % 24)}` : "";
 }
-// A ring gauge: `pct` 0–100 of the way round, with a dotted outer ring
-function jvRingSvg(pct, size = 108) {
-  const c = size / 2,
-    r = c - 12,
-    circ = 2 * Math.PI * r,
-    fill = (Math.max(0, Math.min(100, pct)) / 100) * circ;
-  return `<svg class="jv-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
-      <circle cx="${c}" cy="${c}" r="${c - 3}" class="jv-ring-dots" />
-      <circle cx="${c}" cy="${c}" r="${r}" class="jv-ring-track" />
-      <circle cx="${c}" cy="${c}" r="${r}" class="jv-ring-fill" stroke-dasharray="${fill.toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 ${c} ${c})" />
-      <circle cx="${c}" cy="${c}" r="${r - 11}" class="jv-ring-inner" />
-    </svg>`;
-}
-
-// Weather: the compact summary (layout 1) over an hour-by-hour list (layout 3)
-function jarvisWeatherCard(c) {
+// Weather detail (under the Weather tile, which already shows high/low, now and rain): the
+// summary, what to wear, a wash-day note, then an hour-by-hour list
+function jarvisWeatherDetail(c) {
   if (!c) return "";
-  if (c.status !== "ok")
-    return collapsibleCard({ id: "jarvis-weather", title: "Weather", insight: "Unavailable", body: jvErrorBody(c) });
+  if (c.status !== "ok") return jvErrorBody(c);
   const w = c.data;
-  const rainWin = jvRainWindow(w.hourlyRain);
-  const now = w.currentF != null ? w.currentF : w.highF;
-  const compact = `<div class="jv-wx">
-      <div class="jv-wx-now">${now}°</div>
-      <div class="jv-wx-sum"><b>${escapeHtml(w.conditions)}</b><span>H ${w.highF}° · L ${w.lowF}°${w.rainChanceMax != null ? ` · ${w.rainChanceMax}% rain${rainWin ? ` ${rainWin}` : ""}` : ""}${w.humidityPct != null ? ` · ${w.humidityPct}% humid` : ""}</span></div>
-    </div>
-    <p class="jv-lede">${escapeHtml(w.summary)}</p>
-    ${w.wear ? `<p class="jv-line"><b>Wear:</b> ${escapeHtml(w.wear)}</p>` : ""}
-    ${w.washDay && w.washDayNote ? `<p class="jv-line jv-wash">${DROPLET_ICON}<span>${escapeHtml(w.washDayNote)}</span></p>` : ""}`;
   // every third waking hour keeps the list short
   const hours = w.hourlyRain.filter((h) => h.hour % 3 === 0);
   const list = hours.length
@@ -197,13 +174,13 @@ function jarvisWeatherCard(c) {
         )
         .join("")}</div>`
     : "";
-  return collapsibleCard({
-    id: "jarvis-weather",
-    title: "Weather",
-    insight: escapeHtml(`${w.highF}°/${w.lowF}°${w.rainChanceMax != null ? ` · ${w.rainChanceMax}% rain` : ""}`),
-    body: compact + list + jvMeta(c),
-  });
+  return `<p class="jv-lede">${escapeHtml(w.summary)}</p>
+    ${w.wear ? `<p class="jv-line"><b>Wear:</b> ${escapeHtml(w.wear)}</p>` : ""}
+    ${w.washDay && w.washDayNote ? `<p class="jv-line jv-wash">${DROPLET_ICON}<span>${escapeHtml(w.washDayNote)}</span></p>` : ""}
+    <div class="jv-facts">${escapeHtml(w.conditions)}${w.humidityPct != null ? ` · ${w.humidityPct}% humidity` : ""}</div>
+    ${list}${jvMeta(c)}`;
 }
+
 // News: a headline list (topic, linked title, source, short summary)
 function jarvisNewsCard(c) {
   if (!c) return "";
@@ -226,39 +203,36 @@ function jarvisNewsCard(c) {
   });
 }
 
-// The hero: the day's progress ring beside Jarvis's headline, then the tagged summary (briefing layout 1)
-function jarvisHeroHtml(b, progress) {
-  const ring = `<div class="jv-hero-ring">${jvRingSvg(progress.total ? (progress.done / progress.total) * 100 : 0)}
-      <div class="jv-ring-label"><b>${progress.done}/${progress.total}</b><span>Done</span></div></div>`;
+// The briefing (layout 1): headline, then the tagged summary. Weather and News lines drill into
+// their details. The time it was made shows once, in the status line above, unless it's old.
+const BRIEFING_DRILL = { weather: "weather", news: "news" };
+function jarvisHeroHtml(b) {
   if (!b)
     return `<section class="card jv-card jv-hero jv-empty">
-      <div class="jv-hero-top">${ring}<div class="jv-hero-text"><div class="jv-kicker">Standing by</div><h2 class="jv-headline">Your briefing arrives each morning.</h2></div></div>
+      <div class="jv-kicker">Standing by</div>
+      <h2 class="jv-headline">Your briefing arrives each morning.</h2>
       <p>Your morning briefing will show up here once Jarvis is set up (docs/jarvis/SETUP.md) and sync is on.</p>
     </section>`;
   const today = addDaysIso(0);
   const isNew = b.id !== localStorage.getItem(BRIEFING_SEEN_KEY);
-  const when =
-    b.date === today
-      ? `Today${b.generatedAt ? ` · ${jvTime(b.generatedAt)}` : ""}`
-      : `From ${noonOf(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`;
   const items = b.summary
-    .map(
-      (s) =>
-        `<li><span class="jv-src jv-src-${s.source}">${BRIEFING_SOURCES[s.source]}</span><span>${escapeHtml(s.text)}</span></li>`,
-    )
+    .map((s) => {
+      const body = `<span class="jv-src jv-src-${s.source}">${BRIEFING_SOURCES[s.source]}</span><span>${escapeHtml(s.text)}</span>`;
+      return BRIEFING_DRILL[s.source]
+        ? `<li><button class="jv-sum-drill" data-action="jv-drill" data-go="${BRIEFING_DRILL[s.source]}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button></li>`
+        : `<li>${body}</li>`;
+    })
     .join("");
   const notes = b.notes.length
     ? `<details class="jv-notes"><summary>${b.notes.length} note${b.notes.length === 1 ? "" : "s"}</summary><ul>${b.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul></details>`
     : "";
   markBriefingSeen(b);
   return `<section class="card jv-card jv-hero${b.date === today ? "" : " jv-stale"}">
-      <div class="jv-hero-top">${ring}<div class="jv-hero-text">
-        <div class="jv-kicker">Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}</div>
-        ${b.headline ? `<h2 class="jv-headline">${escapeHtml(b.headline)}</h2>` : ""}
-        <div class="jv-when">${escapeHtml(when)}</div>
-      </div></div>
+      <div class="jv-kicker">Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}</div>
+      ${b.headline ? `<h2 class="jv-headline">${escapeHtml(b.headline)}</h2>` : ""}
+      ${b.date === today ? "" : `<div class="jv-when">From ${noonOf(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>`}
       <ul class="jv-summary">${items}</ul>
-      <div class="jv-meta">${b.summaryBy === "fallback" ? "Assembled automatically (Jarvis didn't finish)" : "Jarvis"}</div>
+      ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${notes}
     </section>`;
 }

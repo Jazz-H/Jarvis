@@ -1,9 +1,9 @@
-# Jazz 3.0 — Personal Dashboard PWA
+# Jarvis — Personal Dashboard PWA
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
-docs) into one place with five tabs: **Jarvis (Home), To-Do, Budget, Shopping, Skin & Hair.**
-**Jarvis**, an AI chief of staff that runs in GitHub Actions, writes a morning briefing that
-leads the main tab (see *Jarvis* below and `docs/jarvis/`).
+docs) into one place, now named **Jarvis**, with five tabs: **Home, To-Do, Jazz 3.0, Shopping,
+Skin & Hair** (Budget opens from Home). Jarvis, an AI chief of staff that runs in GitHub
+Actions, writes a morning briefing that leads Home (see *Jarvis* below and `docs/jarvis/`).
 Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
 was removed; its data is still loaded, synced and backed up, just not shown.)
 
@@ -11,40 +11,40 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 
 ## Using the app
 
-**Jarvis** is the main tab (`home` in code; the bar says Jarvis). It's a dashboard fed by
-the whole app, with Home's day planner below it. In order:
-- **Greeting:** "Good morning, Jazz." with Jarvis's status (when it last briefed you), the
-  date, and the current weather.
-- **Today in 60 seconds:** a ring with how much of today's list is done, Jarvis's headline,
-  and 3–5 ranked items tagged with where each came from (Jarvis, Jazz, Weather, News). If the
-  Jarvis model didn't finish, the items are assembled automatically and say so. Problems from
-  the run are listed under "notes".
+**Home** is the main tab. It's a dashboard fed by the whole app, with the day Planner below
+it. Each fact appears once, and each tile drills down: tile → its detail → its tab.
+- **Status:** Jarvis's state (Online / Standing by / Local mode), when it last briefed you,
+  and a greeting ("Good morning, Jazz."). The date is in the header.
+- **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
+  came from (Jarvis, Jazz, Weather, News). Weather and News lines drill into those details.
+  If the Jarvis model didn't finish, the items are assembled automatically and say so; an
+  older day's briefing is dimmed and labeled "From <date>". Problems from the run are listed
+  under "notes".
 - **Systems:** six tiles (Weather, To-Do, Money, Skin & Hair, Jazz 3.0, Shopping), each with
-  a headline number, a line of detail and a progress bar. Tap one to open its tab (Weather
-  scrolls to its card).
-- **Cards** (each folds; each ends in a link to its tab):
-  - **Weather:** now, high/low, rain chance and the hours it's likely, humidity, what to wear,
-    a wash-day note, then an hour-by-hour list (every 3 hours: temperature, conditions, rain).
-  - **To-Do:** overdue then today's to-dos (starred first), up to 6, ticked off in place.
-  - **Money:** bills due in the next 7 days (tick to pay), then the current pay period
-    (payday to payday) as a bar of paid vs. due, with what's left of the paycheck.
-  - **Skin & Hair:** AM and PM progress bars, the next step and the streak, then both
-    checklists side by side to tick off.
-  - **Jazz 3.0:** a bar for the weight goal and for each goal section, then chips for each
-    section and today's workouts.
-  - **Shopping:** how many needs and wants (and the estimated total), a line from Jarvis's
-    briefing when it mentions one of your needs, and the top needs to tick off as bought.
-  - **News:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with its
-    topic, a linked headline, the source and a short summary.
-- **Weather and News** name the agent that made them and when, and show an error if it failed.
-  Everything else is built on this device from your own lists, so it works offline and with
-  Jarvis not set up.
+  a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
+  under it (one at a time; tap again to close). To-Do has no separate detail: it goes to the
+  Planner, which is today's list.
+  - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
+    hour-by-hour list (every 3 hours: temperature, conditions, rain). Names its agent and time.
+  - **Money:** bills due in the next 7 days (tick to pay, tap to edit), then the current pay
+    period (payday to payday) as a bar of paid vs. due with what's left; tap it for Budget.
+  - **Skin & Hair:** AM and PM checklists side by side, each headed by its count and a bar
+    per step (tap a header for Skin & Hair), plus the streak.
+  - **Jazz 3.0:** a bar for the weight goal and each goal section. Tap one to open that card
+    on the Jazz 3.0 tab. Today's workouts follow.
+  - **Shopping:** a line from Jarvis's briefing when it mentions one of your needs, then the
+    top needs (tick when bought, tap to edit), and how many wants and the estimated total.
+  - Each detail ends in a link to its tab.
+- **News:** 5–8 ranked stories (AI, tech, cars, trending; from Google News), each with its
+  topic, a linked headline, the source and a short summary. Names its agent and time.
+- **Offline:** everything except Weather and News is built on this device from your own lists,
+  so it works offline and with Jarvis not set up.
 - **New briefing notice:** when sync brings in a new briefing, a "Jarvis: <headline>" toast
-  appears, the tab gets a dot if you're elsewhere, and the briefing shows **New** until seen.
-  An older day's briefing is dimmed and labeled "From <date>". `?tab=jarvis` opens the tab.
+  appears, the Home tab gets a dot if you're elsewhere, and the briefing shows **New** until
+  seen. `?tab=jarvis` (or `?tab=home`) opens it.
 - **Not set up:** the briefing panel says so and points to `docs/jarvis/SETUP.md`.
 
-**Home** (the Planner, below the dashboard) is a day planner.
+**The Planner** (below the dashboard on Home) is a day planner.
 - **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
@@ -302,8 +302,8 @@ only turning sync off still asks first.
    | `todo-dates.js` | To-do dates, quick-add parsing, recurring to-dos |
    | `holidays.js` | US holidays by rule |
    | `home.js` | Home calendar strip, day agenda, `renderHome` |
-   | `jarvis.js` | Jarvis briefing: normalizing, the new-briefing notice, `ingestBriefingFile` (called by sync), and the briefing, Weather and News cards |
-   | `dashboard.js` | The Jarvis tab: greeting, tiles and the live To-Do, Money, Skin & Hair, Jazz 3.0 and Shopping cards (`dashboardHtml`) |
+   | `jarvis.js` | Jarvis briefing: normalizing, the new-briefing notice, `ingestBriefingFile` (called by sync), and the briefing, Weather detail and News card |
+   | `dashboard.js` | Home's dashboard: status, tiles and their drill-down details for Weather, Money, Skin & Hair, Jazz 3.0 and Shopping (`dashboardHtml`, `dashDrill`, `dashGo`) |
    | `composer.js` | The floating + button's add sheet |
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
    | `skin.js` | Skin & Hair routine, wash-day schedule, rules |
