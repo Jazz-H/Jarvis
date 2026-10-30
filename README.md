@@ -138,7 +138,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     200 characters.
 - **Groups.** Overdue (red), Today, Anytime (no date), Tomorrow, the next five weekdays, and
   Later.
-- **Completing.** Only the left checkbox completes an item, and a 5-second Undo follows.
+- **Completing.** Only the left checkbox completes an item, and an 8-second Undo follows.
   Tapping the text opens the edit form: title, a date picker, and "add sub-items, one per
   line".
 - **Other actions.** Star an item to float it to the top of its group. Press and drag a
@@ -301,7 +301,9 @@ Shopping items, plan lines…), tap its checkbox to tick it off. There are no Ed
 spending categories have an Edit link inside when opened (new to-dos, shopping items, and
 budget entries come from the + button). Edit forms are a bottom sheet on phones and
 a centered dialog on desktop. Esc closes them and Enter saves. **Delete** happens right away
-with a 5-second **Undo** (it restores a snapshot of every list, so linked data comes back too);
+with an 8-second **Undo** (paused while you hover or focus it). Undo puts back only what the
+delete changed, in any list, so linked data comes back too and anything you edited in the
+meantime stays. A "Saved" notice never replaces a pending Undo;
 only turning sync off still asks first.
 
 **Navigation.**
@@ -529,8 +531,10 @@ Lists still on their built-in defaults have no key until first edited.
   it returns to the foreground.
 - **Conflicts:** merged per list. Each device remembers every list as of its last sync
   (`sync-base`). Lists this device changed are sent up; lists only the other device changed
-  are taken from the gist; if both changed the same list, the device syncing now wins for
-  that list only. The gist is re-read right before every write, and sync waits while an
+  are taken from the gist; if both changed the same list, it's merged item by item (each side's
+  adds and deletes, and the other side's edits to items this side left alone); only when both
+  changed the very same item does the device syncing now win for that item. A failed sync
+  retries when the connection comes back or the app is reopened. The gist is re-read right before every write, and sync waits while an
   edit form is open. A device's very first sync falls back to "newest copy wins".
 
 **Backup.** The same dialog has **Download backup** and **Restore…**.

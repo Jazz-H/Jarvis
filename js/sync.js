@@ -110,10 +110,51 @@ function scheduleSyncPush() {
 // Sync is a three-way merge per list (each SYNC_KEYS entry). "sync-base" keeps
 // every list as it was at the last successful sync. A list this device changed
 // since then is sent up; a list only the other device changed is taken from
-// the gist. If both changed the same list, this device's copy wins for that
-// list only, so edits to different lists on two devices never clobber each
-// other. The gist is always re-read right before writing.
+// the gist. If both changed the same list, it's merged item by item (mergeLists),
+// so a to-do added on the phone and another ticked on the laptop both survive;
+// only when both changed the very same item does this device's copy of it win.
+// The gist is always re-read right before writing.
 const SYNC_BASE_KEY = "sync-base";
+// base/local/remote are one list's parsed values. Lists of {id} items merge per item (adds and
+// deletes from both sides, the other side's edits to items this side left alone); plain objects
+// (flag maps, settings) merge per field the same way. Anything else: this device wins.
+function mergeLists(base, local, remote) {
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const byId = (x) => Array.isArray(x) && x.every((i) => i && typeof i === "object" && "id" in i);
+  const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+  if (byId(base) && byId(local) && byId(remote)) {
+    const b = new Map(base.map((i) => [i.id, i])),
+      r = new Map(remote.map((i) => [i.id, i]));
+    const out = [];
+    local.forEach((item) => {
+      const was = b.get(item.id),
+        theirs = r.get(item.id);
+      if (was && !theirs) {
+        if (same(item, was)) return; // deleted there, untouched here
+        out.push(item); // deleted there but edited here: keep the edit
+      } else if (was && theirs && same(item, was))
+        out.push(theirs); // only they changed it
+      else out.push(item);
+    });
+    // added on the other device: insert after the item it followed there
+    remote.forEach((item, idx) => {
+      if (b.has(item.id) || out.some((x) => x.id === item.id)) return;
+      const prev = idx > 0 ? out.findIndex((x) => x.id === remote[idx - 1].id) : -1;
+      out.splice(prev + 1, 0, item);
+    });
+    return out;
+  }
+  if (isObj(base) && isObj(local) && isObj(remote)) {
+    const out = { ...local };
+    new Set([...Object.keys(base), ...Object.keys(remote)]).forEach((f) => {
+      if (!same(local[f], base[f]) || same(remote[f], base[f])) return; // changed here, or not there
+      if (f in remote) out[f] = remote[f];
+      else delete out[f];
+    });
+    return out;
+  }
+  return local;
+}
 function isEditing() {
   const active = document.activeElement;
   return (
@@ -192,7 +233,13 @@ async function syncNow() {
         const l = local[k],
           r = remoteStr[k],
           b = base[k];
-        if (l !== b) {
+        if (l !== b && r !== undefined && b !== undefined && l !== undefined && r !== b && l !== r) {
+          // changed on both devices: merge item by item
+          const m = JSON.stringify(mergeLists(JSON.parse(b), JSON.parse(l), JSON.parse(r)));
+          merged[k] = m;
+          if (m !== r) sendUp = true;
+          if (m !== l) takeRemote.push(k);
+        } else if (l !== b) {
           if (l !== undefined) merged[k] = l;
           if (l !== r) sendUp = true;
         } // changed here
@@ -239,10 +286,16 @@ async function pushSync() {
   try {
     await syncNow();
   } catch (e) {
-    showToast("Sync failed — will retry on next change", true);
+    showToast("Sync failed — will retry when you're back online", true);
     throw e;
   }
 }
 function pullSync() {
   return syncNow();
 }
+// A failed sync (offline, a GitHub hiccup) tries again when the connection comes back or the app
+// is opened again, not only on the next edit
+window.addEventListener("online", scheduleSyncPush);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleSyncPush();
+});

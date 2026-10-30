@@ -9301,6 +9301,101 @@ await section("undo: survives a quick edit after it and only puts back what was 
   await ctx.close();
 });
 
+await section("sync: both devices changed the same list → merged item by item", async () => {
+  const t = (id, extra = {}) => ({
+    id,
+    text: id,
+    done: false,
+    due: null,
+    starred: false,
+    subitems: [],
+    completedAt: null,
+    ...extra,
+  });
+  const { ctx: c0, page: p0 } = await openApp();
+  const m = await p0.evaluate(() => {
+    const b = [
+      { id: "a", v: 1 },
+      { id: "b", v: 1 },
+      { id: "c", v: 1 },
+    ];
+    const l = [
+      { id: "a", v: 2 },
+      { id: "b", v: 1 },
+      { id: "c", v: 1 },
+      { id: "n", v: 1 },
+    ]; // edited a, added n
+    const r = [
+      { id: "a", v: 1 },
+      { id: "x", v: 1 },
+      { id: "b", v: 3 },
+    ]; // deleted c, added x after a, edited b
+    const both = mergeLists([{ id: "a", v: 1 }], [{ id: "a", v: 2 }], [{ id: "a", v: 3 }]);
+    const flags = mergeLists({ p: 1, q: 1 }, { p: 2, q: 1 }, { p: 1, q: 1, z: 1 });
+    return { list: mergeLists(b, l, r), both, flags, odd: mergeLists("x", "y", "z") };
+  });
+  check(
+    "lists: both sides' adds, their delete and edit, my edit",
+    JSON.stringify(m.list) ===
+      JSON.stringify([
+        { id: "a", v: 2 },
+        { id: "x", v: 1 },
+        { id: "b", v: 3 },
+        { id: "n", v: 1 },
+      ]),
+    m.list,
+  );
+  check("the same item edited on both: this device wins", m.both[0].v === 2, m.both);
+  check("flag maps merge per field", JSON.stringify(m.flags) === '{"p":2,"q":1,"z":1}', m.flags);
+  check("anything else: this device wins", m.odd === "y", m.odd);
+  await c0.close();
+
+  // end to end: added a to-do here while the other device ticked a different one
+  const base = [t("a"), t("b")];
+  const gist = {
+    id: "g0",
+    files: {
+      "jazz2-data.json": {
+        truncated: false,
+        content: JSON.stringify({ updatedAt: Date.now(), data: { "todo-content": [t("a", { done: true }), t("b")] } }),
+      },
+    },
+  };
+  let sent = null;
+  const route = async (r) => {
+    const req = r.request(),
+      url = new URL(req.url());
+    const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      sent = JSON.parse(JSON.parse(req.postData()).files["jazz2-data.json"].content).data;
+      gist.files["jazz2-data.json"].content = JSON.stringify({ updatedAt: Date.now(), data: sent });
+      return json(200, gist);
+    }
+    return json(404, {});
+  };
+  const { ctx, page, errors } = await openApp({
+    route,
+    seed: {
+      "sync-token": "tok",
+      "sync-gist-id": "g0",
+      "todo-content": [...base, t("c")],
+      "sync-base": JSON.stringify({ "todo-content": JSON.stringify(base) }),
+      "data-updated-at": String(Date.now()),
+    },
+  });
+  await page.evaluate(() => syncNow());
+  const here = await page.evaluate(() => todoList.map((x) => `${x.id}${x.done ? "✓" : ""}`));
+  check("this device keeps its new to-do and gets the other's tick", JSON.stringify(here) === '["a✓","b","c"]', here);
+  check(
+    "and the gist gets both",
+    !!sent && JSON.stringify(sent["todo-content"].map((x) => `${x.id}${x.done ? "✓" : ""}`)) === '["a✓","b","c"]',
+    sent && sent["todo-content"],
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
