@@ -4,10 +4,7 @@ Everything open, so nothing gets missed. Tick items off here as they land (and n
 branch or commit). Big phases live in `PLAN.md`; this list is the smaller work around them.
 
 ## Do next
-- [ ] **Turn on app sync** (cloud button, gist-only token) so Jarvis has a gist to deliver to.
-- [ ] **Add the Jarvis secrets** so the morning briefing runs: `ANTHROPIC_API_KEY`,
-  `JARVIS_GIST_ID`, `JARVIS_GIST_TOKEN` (steps in `SETUP.md`). Then Actions → Jarvis →
-  Run workflow once to test.
+- Nothing right now. Next up is a Build item or the Budget decision.
 
 ## Decide
 - [ ] **Budget in the tab bar?** It's hidden; Home's Money tile is the everyday way in. Keep it
@@ -34,6 +31,8 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Your layout.** Reorder or hide Home's tiles; pin the detail you open most.
 
 ## Done
+- [x] App sync on (private gist) and all three Jarvis secrets added; first briefing delivered
+  Oct 30 (Weather, News and Jarvis all succeeded, about $0.05 for the run)
 - [x] Pushed to GitHub (Oct 30): `main` live on Pages; Tests workflow green (app + agents)
 - [x] Month-end test failures: the app was right; three tests assumed "2 days from now" stays in
   the same month or Sun–Sat week. They now pick dates inside it (`isoInMonth`, `isoInWeek`).
