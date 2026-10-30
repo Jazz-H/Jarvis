@@ -19,6 +19,7 @@ describe("open-meteo tool", () => {
     expect(u.searchParams.get("temperature_unit")).toBe("fahrenheit");
     expect(u.searchParams.get("timezone")).toBe("America/New_York");
     expect(u.searchParams.get("latitude")).toBe("39.7817");
+    expect(u.searchParams.get("forecast_days")).toBe("2");
   });
 
   it("turns the response into facts, keeping waking hours only", async () => {
@@ -37,6 +38,14 @@ describe("open-meteo tool", () => {
     });
     expect(f.hourlyRain.map((h) => h.hour)).toEqual([6, 7, 12, 17]); // 5am and 11pm dropped
     expect(f.hourlyRain[2]).toEqual({ hour: 12, chance: 60, tempF: 61, conditions: "Light rain" });
+    expect(f.hourlyRain).toHaveLength(4); // tomorrow's hours are left out
+    expect(f.tomorrow).toEqual({
+      date: "2026-10-30",
+      conditions: "Partly cloudy",
+      highF: 72,
+      lowF: 52,
+      rainChanceMax: 20,
+    });
     expect(f.humidityPct).toBe(75); // mean of 90, 80, 60, 70
   });
 

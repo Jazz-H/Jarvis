@@ -51,7 +51,7 @@ export function forecastUrl(q: WeatherQuery): string {
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
     temperature_unit: "fahrenheit",
     timezone: q.timezone,
-    forecast_days: "1",
+    forecast_days: "2", // today, plus tomorrow for the evening view
   });
   return `https://api.open-meteo.com/v1/forecast?${p}`;
 }
@@ -72,7 +72,9 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
   const codes: unknown[] = j?.hourly?.weather_code ?? [];
   const hourlyRain: WeatherFacts["hourlyRain"] = [];
   const dayHumidity: number[] = [];
+  const today = String(j?.daily?.time?.[0] ?? "");
   times.forEach((t, i) => {
+    if (today && !t.startsWith(today)) return; // the hourly list and humidity are about today
     const hour = Number(t.slice(11, 13));
     if (hour < 6 || hour > 22) return; // waking hours only
     if (typeof rain[i] === "number")
@@ -85,9 +87,28 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
     if (typeof humidity[i] === "number") dayHumidity.push(humidity[i] as number);
   });
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
+  // Tomorrow's outlook, for the app's evening Tomorrow view (null if the second day is missing)
+  const d1 = (k: string) => j?.daily?.[k]?.[1];
+  const tomorrow =
+    typeof d1("time") === "string" &&
+    [d1("weather_code"), d1("temperature_2m_max"), d1("temperature_2m_min")].every(
+      (v) => typeof v === "number" && Number.isFinite(v),
+    )
+      ? {
+          date: d1("time") as string,
+          conditions: describeWeatherCode(d1("weather_code")),
+          highF: Math.round(d1("temperature_2m_max")),
+          lowF: Math.round(d1("temperature_2m_min")),
+          rainChanceMax:
+            typeof d1("precipitation_probability_max") === "number"
+              ? Math.round(d1("precipitation_probability_max"))
+              : 0,
+        }
+      : null;
   return WeatherFacts.parse({
+    tomorrow,
     location: q.name,
-    date: String(j?.daily?.time?.[0] ?? ""),
+    date: today,
     conditions: describeWeatherCode(num(j?.daily?.weather_code?.[0], "daily weather code")),
     currentF: Math.round(num(j?.current?.temperature_2m, "current temperature")),
     highF: Math.round(num(j?.daily?.temperature_2m_max?.[0], "high")),

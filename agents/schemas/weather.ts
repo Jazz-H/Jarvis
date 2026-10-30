@@ -22,6 +22,17 @@ export const WeatherFacts = z.object({
     )
     .max(24),
   washDay: z.boolean(),
+  // tomorrow's outlook, shown by the app's evening Tomorrow view
+  tomorrow: z
+    .object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      conditions: z.string(),
+      highF: z.number(),
+      lowF: z.number(),
+      rainChanceMax: z.number().min(0).max(100),
+    })
+    .nullable()
+    .optional(),
 });
 export type WeatherFacts = z.infer<typeof WeatherFacts>;
 
