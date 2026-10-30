@@ -4,9 +4,7 @@ Everything open, so nothing gets missed. Tick items off here as they land (and n
 branch or commit). Big phases live in `PLAN.md`; this list is the smaller work around them.
 
 ## Do next
-- [ ] **Push to GitHub.** `main` and the newer `jarvis/quick-wins` commits are only on this
-  computer, so the live site still runs the old app. Push both, then merge `jarvis/quick-wins`
-  into `main`.
+- [ ] **Turn on app sync** (cloud button, gist-only token) so Jarvis has a gist to deliver to.
 - [ ] **Add the Jarvis secrets** so the morning briefing runs: `ANTHROPIC_API_KEY`,
   `JARVIS_GIST_ID`, `JARVIS_GIST_TOKEN` (steps in `SETUP.md`). Then Actions → Jarvis →
   Run workflow once to test.
@@ -36,6 +34,7 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Your layout.** Reorder or hide Home's tiles; pin the detail you open most.
 
 ## Done
+- [x] Pushed to GitHub (Oct 30): `main` live on Pages; Tests workflow green (app + agents)
 - [x] Month-end test failures: the app was right; three tests assumed "2 days from now" stays in
   the same month or Sun–Sat week. They now pick dates inside it (`isoInMonth`, `isoInWeek`).
 - [x] `.mcp.json` untracked and gitignored (still on this computer)
