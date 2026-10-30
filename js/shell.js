@@ -257,6 +257,9 @@ const SHELL_CLICK = {
   "jv-wash-keep": () => dashWashKeep(),
   "jv-goal-another": () => dashGoalAnother(),
   "jv-outfit-swap": () => dashOutfitSwap(),
+  "jv-layout-open": () => dashLayoutToggleOpen(),
+  "jv-layout-move": (el) => dashLayoutMove(el.getAttribute("data-go"), Number(el.getAttribute("data-dir"))),
+  "jv-layout-toggle": (el) => dashLayoutToggle(el.getAttribute("data-go")),
   "jv-go": (el) => dashGo(el.getAttribute("data-go"), el.getAttribute("data-card")),
   // Budget / bills. Every id, date and index is revalidated against live data; stale or forged metadata does nothing.
   "stop-click": (el, e) => e.stopPropagation(),

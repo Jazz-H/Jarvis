@@ -328,7 +328,7 @@ function dashTilesHtml(b, progress, d) {
             : key === "jazz3"
               ? dashJazz3Detail(d.jazz3)
               : dashShopDetail(d.shop, b);
-  const html = tiles
+  const html = dashArrange(tiles)
     .map((t) => {
       const open = t.detail && dashOpenKey === t.go;
       const aria = t.detail
@@ -347,7 +347,8 @@ function dashTilesHtml(b, progress, d) {
         : tile;
     })
     .join("");
-  return `<div class="jv-label"><span>Systems</span><i></i><span>Tap for details</span></div>
+  return `<div class="jv-label"><span>Systems</span><i></i><button class="jv-chip-sm${dashLayoutOpen ? " on" : ""}" data-action="jv-layout-open" aria-expanded="${dashLayoutOpen}">Customize</button></div>
+    ${dashLayoutOpen ? dashLayoutHtml(tiles) : ""}
     <div class="jv-tiles">${html}</div>`;
 }
 
@@ -970,4 +971,75 @@ function dashDueWord(iso) {
 function dashPaydayIn(iso) {
   const n = daysFromToday(iso);
   return n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
+}
+
+// ---- your layout (layout 2, a list in a sheet): reorder or hide Home's tiles (this device only) ----
+const DASH_LAYOUT_KEY = "home-tiles"; // {order: [keys], hidden: [keys]}
+let dashLayoutOpen = false;
+function dashLayout() {
+  try {
+    const v = JSON.parse(localStorage.getItem(DASH_LAYOUT_KEY) || "null");
+    const keys = (a) => (Array.isArray(a) ? a.filter((k) => typeof k === "string" && /^[a-z0-9]+$/.test(k)) : []);
+    return v && typeof v === "object" ? { order: keys(v.order), hidden: keys(v.hidden) } : { order: [], hidden: [] };
+  } catch (e) {
+    return { order: [], hidden: [] };
+  }
+}
+function dashSaveLayout(l) {
+  try {
+    localStorage.setItem(DASH_LAYOUT_KEY, JSON.stringify(l));
+  } catch (e) {}
+}
+// saved order first (unknown keys ignored), then any tiles it doesn't mention, in their usual place
+function dashOrdered(tiles) {
+  const { order } = dashLayout();
+  const rank = (t) => {
+    const i = order.indexOf(t.go);
+    return i < 0 ? order.length + tiles.indexOf(t) : i;
+  };
+  return [...tiles].sort((a, b) => rank(a) - rank(b));
+}
+function dashArrange(tiles) {
+  const { hidden } = dashLayout();
+  return dashOrdered(tiles).filter((t) => !hidden.includes(t.go));
+}
+function dashLayoutHtml(tiles) {
+  const { hidden } = dashLayout();
+  const list = dashOrdered(tiles);
+  return `<section class="jv-detail jv-layout" aria-label="Customize tiles">${list
+    .map((t, i) => {
+      const on = !hidden.includes(t.go);
+      return `<div class="jv-layout-row">
+        <span class="jv-layout-name${on ? "" : " off"}">${t.label}</span>
+        <button class="jv-icon-btn" data-action="jv-layout-move" data-go="${t.go}" data-dir="-1" aria-label="Move ${t.label} up"${i === 0 ? " disabled" : ""}>↑</button>
+        <button class="jv-icon-btn" data-action="jv-layout-move" data-go="${t.go}" data-dir="1" aria-label="Move ${t.label} down"${i === list.length - 1 ? " disabled" : ""}>↓</button>
+        <button class="jv-switch${on ? " on" : ""}" role="switch" aria-checked="${on}" aria-label="Show ${t.label}" data-action="jv-layout-toggle" data-go="${t.go}"><i></i></button>
+      </div>`;
+    })
+    .join("")}<button class="jv-open" data-action="jv-layout-open">Done</button></section>`;
+}
+function dashLayoutToggleOpen() {
+  dashLayoutOpen = !dashLayoutOpen;
+  renderHome();
+}
+const DASH_TILE_KEYS = ["weather", "inbox", "money", "skin", "jazz3", "shop"];
+function dashLayoutMove(key, dir) {
+  if (!DASH_TILE_KEYS.includes(key) || (dir !== 1 && dir !== -1)) return;
+  const l = dashLayout();
+  const order = dashOrdered(DASH_TILE_KEYS.map((go) => ({ go }))).map((t) => t.go);
+  const i = order.indexOf(key),
+    j = i + dir;
+  if (j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  dashSaveLayout({ order, hidden: l.hidden });
+  renderHome();
+}
+function dashLayoutToggle(key) {
+  if (!DASH_TILE_KEYS.includes(key)) return;
+  const l = dashLayout();
+  const hidden = l.hidden.includes(key) ? l.hidden.filter((k) => k !== key) : [...l.hidden, key];
+  if (hidden.length >= DASH_TILE_KEYS.length) return; // keep at least one tile
+  dashSaveLayout({ order: l.order, hidden });
+  if (hidden.includes(dashOpenKey)) dashOpenKey = null;
+  renderHome();
 }

@@ -8694,6 +8694,38 @@ await section("money extras: safe to spend, payday countdown, and bills that are
   await ctx.close();
 });
 
+await section("your layout: reorder and hide Home's tiles (this device only)", async () => {
+  const { ctx, page, errors } = await openApp();
+  const order = () => page.$$eval(".jv-tile", (els) => els.map((e) => e.dataset.go).join(","));
+  check("default order", (await order()) === "weather,inbox,money,skin,jazz3,shop", await order());
+  await page.tap('[data-action="jv-layout-open"]');
+  await page.tap('[data-action="jv-layout-move"][data-go="money"][data-dir="-1"]');
+  await page.tap('[data-action="jv-layout-move"][data-go="money"][data-dir="-1"]');
+  await page.tap('[data-action="jv-layout-toggle"][data-go="shop"]');
+  check("Money moved to the top, Shopping hidden", (await order()) === "money,weather,inbox,skin,jazz3", await order());
+  check(
+    "the first row can't move up",
+    await page.$eval('[data-action="jv-layout-move"][data-go="money"][data-dir="-1"]', (b) => b.disabled),
+  );
+  await page.reload();
+  await page.waitForTimeout(500);
+  check("the layout survives a reload", (await order()) === "money,weather,inbox,skin,jazz3", await order());
+  await page.evaluate(() => {
+    ["money", "weather", "inbox", "skin", "jazz3"].forEach((k) => dashLayoutToggle(k));
+    dashLayoutMove("constructor", 1);
+    dashLayoutMove("money", 7);
+  });
+  check("at least one tile always stays", (await order()).split(",").filter(Boolean).length === 1, await order());
+  check(
+    "the layout isn't synced or backed up",
+    await page.evaluate(
+      () => !SYNC_KEYS.includes("home-tiles") && !JSON.stringify([collectLocal(), liveData()]).includes("home-tiles"),
+    ),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
