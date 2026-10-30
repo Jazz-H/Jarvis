@@ -203,6 +203,7 @@ function dashJazz3Detail(d) {
   return (
     dashGoalHtml() +
     (bars ? `<div class="jv-goals">${bars}</div>` : `<div class="empty">No goals yet.</div>`) +
+    dashConsistency() +
     today +
     dashOpen("jazz3", "Open Jazz 3.0")
   );
@@ -801,4 +802,31 @@ function dashGoalHtml() {
         <button class="jv-chip-sm" data-action="jv-goal-another">Another</button>
       </div>
     </div>`;
+}
+
+// ---- consistency (layout 2, in the Jazz 3.0 detail): the last 7 days as bars ----
+// Each day is a square: lit when done, dim when missed, hollow when nothing was planned.
+function dashConsistency() {
+  const days = [-6, -5, -4, -3, -2, -1, 0].map((n) => addDaysIso(n));
+  const routine = days.map((iso) => {
+    const c = routineChecks[iso];
+    return c && c.amDone && c.pmDone ? "on" : "off";
+  });
+  const workouts = days.map((iso) => {
+    const ws = workoutsOn(iso);
+    return !ws.length ? "none" : ws.every((w) => workoutDone(iso, w.id)) ? "on" : "off";
+  });
+  const weigh = days.map((iso) =>
+    !weighInDue(iso) ? (weighedOn(iso) ? "on" : "none") : weighedOn(iso) ? "on" : "off",
+  );
+  const row = (label, tone, cells) => {
+    const planned = cells.filter((c) => c !== "none").length,
+      done = cells.filter((c) => c === "on").length;
+    if (!planned) return "";
+    return `<div class="jv-streak-row"><span class="jv-mini ${tone}">${label}</span><span class="jv-streak-cells">${cells
+      .map((c) => `<i class="${c}"></i>`)
+      .join("")}</span><span class="jv-streak-n">${done}/${planned}</span></div>`;
+  };
+  const rows = row("Routine", "pm", routine) + row("Workout", "am", workouts) + row("Weigh-in", "gold", weigh);
+  return rows ? `<div class="jv-sub-label">Last 7 days</div><div class="jv-streak">${rows}</div>` : "";
 }

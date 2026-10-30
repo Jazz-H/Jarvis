@@ -8493,6 +8493,46 @@ await section("goal of the day: one unfinished item, Done ticks it, Another pick
   await ctx.close();
 });
 
+await section("consistency: last 7 days of routine, workouts and weigh-ins in the Jazz 3.0 detail", async () => {
+  const checks = {};
+  [-6, -4, -2, -1].forEach((n) => (checks[isoOffset(n)] = { am: [], pm: [], amDone: true, pmDone: true }));
+  checks[isoOffset(-3)] = { am: [], pm: [], amDone: true, pmDone: false }; // half a day doesn't count
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "routine-checks": checks,
+      "fitness-content": {
+        start: 200,
+        goal: 180,
+        weights: [{ id: "x1", date: isoOffset(-1), lbs: 190 }],
+        plan: [
+          {
+            id: "wk1",
+            name: "Push",
+            days: [0, 1, 2, 3, 4, 5, 6],
+            every: 1,
+            anchor: isoOffset(-30),
+            time: "",
+            kind: "fitness",
+          },
+        ],
+        checks: { [`${isoOffset(-2)}|wk1`]: true, [`${isoOffset(-1)}|wk1`]: true },
+      },
+    },
+  });
+  await page.tap('.jv-tile[data-go="jazz3"]');
+  const rows = await page.$$eval("#jv-detail-jazz3 .jv-streak-row", (els) =>
+    els.map((e) => [
+      e.querySelector(".jv-mini").textContent,
+      e.querySelector(".jv-streak-n").textContent,
+      e.querySelectorAll("i.on").length,
+    ]),
+  );
+  check("routine counts only days with both AM and PM done", JSON.stringify(rows[0]) === '["Routine","4/7",4]', rows);
+  check("workouts count planned vs done", rows[1][0] === "Workout" && rows[1][1] === "2/7", rows);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
