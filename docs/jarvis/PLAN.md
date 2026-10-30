@@ -16,6 +16,10 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
   Live once the Google secrets are added (SETUP.md section 6). Design: PHASE2-DISCOVERY.md.
 - [ ] Phase 3: Money + Budget links + Bill Guard
 - [ ] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
+  (plan: PHASE4-JAZZ3-REDESIGN.md).
+  - [x] Step 1: the orb opens **Console**; Jazz 3.0 is a hidden tab (Home tile, Console, links).
+  - [x] Step 2: Console shell + local Capture (`js/console.js`): preview, Add with Undo, device-only
+    feed. Ask is designed but not switched on (questions are kept in the feed).
 
 ## My preferences
 - Location: Springfield, IL

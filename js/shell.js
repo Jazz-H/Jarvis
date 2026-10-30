@@ -2,9 +2,10 @@
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home", "todo", "jazz3", "wants", "skin"]; // nav bar and swipe order
-// Tabs kept but not in the bar (Budget is hidden for now): links can still open them
-const HIDDEN_TABS = ["budget"];
+const TAB_ORDER = ["home", "todo", "console", "wants", "skin"]; // nav bar and swipe order
+// Tabs kept but not in the bar: links can still open them. Budget is hidden for now; Jazz 3.0 opens
+// from Home's Jazz 3.0 tile, the bottom of Console, ?tab=jazz3 / ?tab=fitness and #import= links.
+const HIDDEN_TABS = ["budget", "jazz3"];
 const isTab = (tab) => TAB_ORDER.includes(tab) || HIDDEN_TABS.includes(tab);
 // Old links to the removed closet view (?tab=style) land on Shopping
 // ?tab=jarvis is the briefing link: Jarvis lives at the top of the main (home) tab
@@ -18,6 +19,7 @@ function activateTab(tab) {
   const fabCfg = COMPOSER_MODES[FAB_MODE_BY_TAB[tab]];
   if (fabCfg) document.getElementById("fab").setAttribute("aria-label", fabCfg.fab);
   if (tab === "home") renderHome(); // picks up whatever changed on other tabs
+  if (tab === "console") renderConsole(); // day labels in the feed
   document.querySelectorAll("nav.tabbar button").forEach((b) => {
     const active = b.dataset.tab === NAV_TAB(tab);
     b.classList.toggle("active", active);
@@ -580,6 +582,24 @@ const SHELL_CLICK = {
     if ((later === "true" || later === "false") && wantFromEl(el))
       setWantLater(el.getAttribute("data-want-id"), later === "true");
   },
+  // Console (console.js): mode switch, send, suggestion chips, preview rows, Add / Edit, the Budget expense chip, links.
+  "console-mode": (el) => consoleSetMode(el.getAttribute("data-mode")),
+  "console-send": () => consoleSubmit(),
+  "console-chip": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d+$/.test(i || "")) consoleUseChip(el.getAttribute("data-mode"), Number(i));
+  },
+  "console-row": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d+$/.test(i || "")) consoleCycleRow(Number(i));
+  },
+  "console-expense": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d+$/.test(i || "")) consoleExpense(Number(i));
+  },
+  "console-add": () => consoleAdd(),
+  "console-edit": () => consoleEdit(),
+  "console-go": (el) => consoleGo(el.getAttribute("data-go")),
   "home-cal-open": (el) => {
     const open = el.getAttribute("data-open");
     if (open === "true" || open === "false") setHomeCalOpen(open === "true");
@@ -595,12 +615,19 @@ const SHELL_KEYDOWN = {
   "subitem-add-key": (el, e) => {
     if (e.key === "Enter") subitemAddFrom(el);
   },
+  "console-key": (el, e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      consoleSubmit();
+    }
+  },
 };
 const SHELL_INPUT = {
   "composer-text": () => composerTextChanged(),
   "jv-quick-input": (el) => {
     dashQuickText = el.value; // kept across re-renders while typing
   },
+  "console-input": () => consoleTextChanged(),
 };
 const SHELL_CHANGE = {
   "tde-date": (el) => {
@@ -660,5 +687,8 @@ document.addEventListener(
 );
 
 document.querySelectorAll("nav.tabbar button").forEach((btn) => {
-  btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+  btn.addEventListener("click", () => {
+    activateTab(btn.dataset.tab);
+    if (btn.dataset.tab === "console") consoleOrbUsed(); // once per device: where Jazz 3.0 went
+  });
 });

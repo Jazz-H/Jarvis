@@ -33,6 +33,7 @@ function loadAllContent() {
   );
   normalizePlan3();
   normalizeLoadedData(); // last: needs every list loaded
+  loadConsoleFeed(); // Console's feed (this device only; never synced) is re-checked on every load and sync
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);
   const keptRules = skinRules.filter((r) => !RETIRED_SKIN_RULES.includes(r));
   if (keptRules.length !== skinRules.length) {

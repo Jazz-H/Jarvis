@@ -294,11 +294,11 @@ nav.tabbar button.active::before {
 nav.tabbar button.active svg {
   stroke: var(--olive);
 }
-/* Jazz 3.0 stands out: a raised reactor-style ring */
-nav.tabbar button.j3-tab .j3-label {
+/* The Console orb stands out: a raised reactor-style ring */
+nav.tabbar button.orb-tab .orb-label {
   color: var(--olive);
 }
-.j3-orb {
+.orb-core {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,20 +315,20 @@ nav.tabbar button.j3-tab .j3-label {
     transform 0.2s ease,
     box-shadow 0.2s ease;
 }
-nav.tabbar button.j3-tab .j3-orb svg,
-nav.tabbar button.j3-tab.active .j3-orb svg {
+nav.tabbar button.orb-tab .orb-core svg,
+nav.tabbar button.orb-tab.active .orb-core svg {
   stroke: var(--olive);
   width: 20px;
   height: 20px;
 }
-nav.tabbar button.j3-tab.active .j3-orb {
+nav.tabbar button.orb-tab.active .orb-core {
   transform: scale(1.08);
   background: var(--olive);
 }
-nav.tabbar button.j3-tab.active .j3-orb svg {
+nav.tabbar button.orb-tab.active .orb-core svg {
   stroke: var(--on-accent);
 }
-nav.tabbar button.j3-tab::before {
+nav.tabbar button.orb-tab::before {
   display: none;
 }
 /* Jazz 3.0 hero banner */
@@ -3935,18 +3935,18 @@ body.todo-dragging {
   nav.tabbar button:hover {
     color: var(--text);
   }
-  .j3-orb {
+  .orb-core {
     width: 26px;
     height: 26px;
     margin: 0;
     box-shadow: 0 0 8px var(--glow);
   }
-  nav.tabbar button.j3-tab .j3-orb svg,
-  nav.tabbar button.j3-tab.active .j3-orb svg {
+  nav.tabbar button.orb-tab .orb-core svg,
+  nav.tabbar button.orb-tab.active .orb-core svg {
     width: 15px;
     height: 15px;
   }
-  nav.tabbar button.j3-tab.active .j3-orb {
+  nav.tabbar button.orb-tab.active .orb-core {
     transform: none;
     box-shadow: 0 0 12px var(--glow);
   }
@@ -4829,6 +4829,378 @@ body.todo-dragging {
   font-size: 24px;
   font-weight: 600;
   cursor: pointer;
+}
+/* Console (the orb tab, js/console.js): Ask | Capture switch, one box, a swipeable chip row, the
+   capture preview, the Weekly Review slot and this week's feed */
+.cn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cn-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.cn-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.cn-seg {
+  min-height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.cn-seg.on {
+  background: var(--olive);
+  color: var(--on-accent);
+}
+.cn-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--olive-dim);
+  border-radius: 14px;
+}
+.cn-box:focus-within {
+  border-color: var(--olive);
+  box-shadow: 0 0 0 3px var(--glow);
+}
+.cn-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* no zoom on iOS */
+}
+.cn-input::placeholder {
+  color: var(--text-dim);
+}
+.cn-send {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: var(--olive);
+  color: var(--on-accent);
+}
+/* One row that swipes sideways, never wraps; chips are 36px, their tap area 44px (the ::after) */
+.cn-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  margin: -8px -16px -4px;
+  padding: 4px 16px;
+  scroll-padding: 0 16px;
+}
+.cn-chips::-webkit-scrollbar {
+  display: none;
+}
+.cn-chips::after {
+  content: "";
+  flex: 0 0 8px;
+}
+.cn-chip {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px dashed var(--olive-dim);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cn-chip::after {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+.cn-hint {
+  margin: -6px 0 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.cn-review:empty {
+  display: none;
+}
+/* Capture preview */
+.cn-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--olive-dim);
+  border-radius: 14px;
+}
+.cn-preview-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cn-preview-head h2 {
+  flex: 1;
+  margin: 0;
+  font-weight: 400;
+}
+.cn-preview-head h2:focus {
+  outline: none;
+}
+.cn-preview-head span,
+.cn-note {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.cn-note {
+  margin: 0;
+}
+.cn-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cn-row {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+}
+.cn-tag {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cn-t-todo .cn-tag {
+  color: hsl(205 85% var(--hue-l));
+}
+/* same colors as the briefing's area tags (.jv-src-*) */
+.cn-t-shop .cn-tag {
+  color: hsl(270 70% var(--hue-l));
+}
+.cn-t-ask .cn-tag {
+  color: var(--olive);
+}
+.cn-t-expense .cn-tag {
+  color: hsl(145 55% var(--hue-l));
+}
+.cn-t-skip {
+  background: none;
+  border-style: dashed;
+  border-color: var(--olive-dim);
+}
+.cn-t-skip .cn-tag,
+.cn-t-skip .cn-row-body b {
+  color: var(--text-dim);
+}
+.cn-t-skip .cn-row-body b {
+  text-decoration: line-through;
+}
+.cn-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cn-row-body b {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.cn-row-body span {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.cn-exps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cn-exps .filter-chip {
+  min-height: 44px;
+  border-style: dashed;
+  border-color: hsl(145 55% var(--hue-l));
+  color: var(--text);
+}
+.cn-actions {
+  display: flex;
+  gap: 8px;
+}
+.cn-actions .modal-btn {
+  min-height: 48px;
+}
+.cn-actions .cn-add {
+  flex: 1;
+  font-size: 15px;
+}
+.cn-actions .cn-edit {
+  flex: none;
+  padding: 0 18px;
+  background: none;
+  border: 1px solid var(--olive-dim);
+  color: var(--link);
+  font-size: 14px;
+}
+.cn-actions .cn-add:disabled {
+  opacity: 0.6;
+}
+/* Feed */
+#cn-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cn .jv-label {
+  margin: 6px 0 0;
+}
+.cn-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cn-entry {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 4px 10px;
+}
+.cn-who {
+  padding-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.cn-who.cn-j {
+  color: var(--olive);
+}
+.cn-said {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.cn-time {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.cn-reply {
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.cn-status {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.cn-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--olive-dim);
+}
+.cn-undone {
+  color: var(--text-dim);
+}
+.cn-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.cn-link {
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+.cn-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.cn-j3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  margin-top: 6px;
+  padding: 10px 14px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  font: inherit;
+}
+.cn-j3 > span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cn-j3 b {
+  font-size: 15px;
+}
+.cn-j3 small {
+  font-size: 12.5px;
+  color: var(--text-dim);
 }
 /* Evening: tomorrow at a glance */
 .jv-tomorrow {

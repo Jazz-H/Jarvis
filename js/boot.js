@@ -30,6 +30,8 @@ function checkDayChange() {
   renderBudget();
   renderFitness();
   renderHome();
+  loadConsoleFeed(); // drops entries older than 7 days
+  renderConsole();
 }
 function writeQuietly(key, value) {
   try {
@@ -53,6 +55,7 @@ function writeQuietly(key, value) {
   renderWants();
   renderFitness();
   renderHome();
+  renderConsole();
   applyLaunchParams();
   if (!location.search) resumeView();
   initSync();

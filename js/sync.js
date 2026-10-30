@@ -160,7 +160,7 @@ function isEditing() {
   return (
     document.getElementById("modal-backdrop").classList.contains("open") ||
     document.getElementById("composer").classList.contains("open") ||
-    !!(active && active.id === "jv-quick") // typing in Home's quick add
+    !!(active && (active.id === "jv-quick" || active.id === "console-input")) // typing in Home's quick add or Console
   );
 }
 function localSnapshot() {

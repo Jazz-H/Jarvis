@@ -120,7 +120,7 @@ await section("test server confines requested files to the repository root", asy
 await section("every tab renders without JS errors (phone + desktop)", async () => {
   for (const phone of [true, false]) {
     const { ctx, page, errors } = await openApp({ phone });
-    for (const tab of ["home", "todo", "skin", "wants", "budget"]) {
+    for (const tab of ["home", "todo", "console", "skin", "wants", "budget"]) {
       await page.evaluate((t) => activateTab(t), tab);
       check(`headline for ${tab}`, (await page.textContent("#headline")).length > 0);
     }
@@ -1385,8 +1385,8 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   });
   const nav = await page.$$eval("nav.tabbar button", (bs) => bs.map((b) => b.textContent.trim()));
   check(
-    "nav: Home, To-Do, Jazz 3.0, Shopping, Beauty (Budget hidden)",
-    JSON.stringify(nav) === '["Home","To-Do","Jazz 3.0","Shopping","Beauty"]',
+    "nav: Home, To-Do, Console, Shopping, Beauty (Budget and Jazz 3.0 hidden)",
+    JSON.stringify(nav) === '["Home","To-Do","Console","Shopping","Beauty"]',
     nav,
   );
   check(
@@ -3058,16 +3058,18 @@ await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
   await ctx.close();
 });
 
-await section("Jazz 3.0 stands out: nav orb and hero chips", async () => {
+await section("Console orb stands out; Jazz 3.0 hero chips", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=home" });
   check(
-    "the Jazz 3.0 nav button has its gradient orb even when inactive",
+    "the Console nav button has its orb even when inactive",
     await page.evaluate(() => {
-      const b = document.querySelector('nav.tabbar button[data-tab="jazz3"]');
-      return !b.classList.contains("active") && !!b.querySelector(".j3-orb svg") && b.textContent.trim() === "Jazz 3.0";
+      const b = document.querySelector('nav.tabbar button[data-tab="console"]');
+      return (
+        !b.classList.contains("active") && !!b.querySelector(".orb-core svg") && b.textContent.trim() === "Console"
+      );
     }),
   );
-  await page.click('nav.tabbar button[data-tab="jazz3"]');
+  await page.evaluate(() => activateTab("jazz3"));
   await page.evaluate(() => {
     fitness.start = 115;
     fitness.goal = 130;
@@ -4204,7 +4206,7 @@ await section("external stylesheet loads and the app stays styled offline", asyn
     "app JS runs after an offline controlled reload (all tabs render)",
     await page.evaluate(() => {
       if (typeof activateTab !== "function") return false;
-      for (const t of ["home", "todo", "jazz3", "wants", "skin", "budget"]) {
+      for (const t of ["home", "todo", "console", "jazz3", "wants", "skin", "budget"]) {
         activateTab(t);
         if (!document.getElementById("headline").textContent) return false;
       }
@@ -9452,6 +9454,652 @@ await section("keyboard: closed sheets are out of reach; rows and card headers w
     starred: todoList.find((t) => t.id === "b").starred,
   }));
   check("focus stays on the star after it redraws", f.starred && f.action === "todo-star" && f.id === "b", f);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: tab order, the orb opens Console, one-time moved notice, no + button", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+  const r = await page.evaluate(() => ({
+    order: TAB_ORDER,
+    hidden: HIDDEN_TABS,
+    nav: [...document.querySelectorAll("nav.tabbar button")].map((b) => b.dataset.tab),
+  }));
+  check(
+    "TAB_ORDER is home, todo, console, wants, skin and matches the bar",
+    JSON.stringify(r.order) === '["home","todo","console","wants","skin"]' &&
+      JSON.stringify(r.nav) === JSON.stringify(r.order),
+    r,
+  );
+  check("Jazz 3.0 is hidden like Budget", r.hidden.includes("jazz3") && r.hidden.includes("budget"), r.hidden);
+  await page.tap('nav.tabbar button[data-tab="console"]');
+  const opened = await page.evaluate(() => ({
+    tab: currentTab,
+    headline: document.getElementById("headline").textContent,
+    panel: document.getElementById("panel-console").classList.contains("active"),
+    navActive: document.querySelector('nav.tabbar button[data-tab="console"]').getAttribute("aria-current"),
+    toast: document.getElementById("toast").textContent,
+    shown: document.getElementById("toast").classList.contains("show"),
+    flag: localStorage.getItem("console-moved-seen"),
+  }));
+  check(
+    "the orb opens Console (headline, panel, current tab)",
+    opened.tab === "console" && opened.headline === "Console" && opened.panel && opened.navActive === "page",
+    opened,
+  );
+  check(
+    "the first orb tap says where Jazz 3.0 went, and remembers it on this device",
+    opened.shown &&
+      /Jazz 3\.0 moved: open it from Home's Jazz 3\.0 tile or the bottom of Console/.test(opened.toast) &&
+      !!opened.flag,
+    opened,
+  );
+  check("the floating + stays hidden on Console", !(await page.isVisible("#fab")));
+  await page.evaluate(() => {
+    document.getElementById("toast").textContent = "";
+    activateTab("home");
+  });
+  await page.tap('nav.tabbar button[data-tab="console"]');
+  check(
+    "the moved notice shows only once",
+    !(await page.evaluate(() => document.getElementById("toast").textContent.includes("moved"))),
+  );
+  // layout: switch, box, one chip row, hint, feed, Jazz 3.0 row; nothing scrolls sideways at 390px
+  const lay = await page.evaluate(() => {
+    const chips = [...document.querySelectorAll("#cn-chips .cn-chip")];
+    const row = document.getElementById("cn-chips");
+    const order = [".cn-switch", ".cn-box", "#cn-chips", "#cn-hint", "#cn-feed", ".cn-j3"].map(
+      (s) => document.querySelector("#panel-console " + s).getBoundingClientRect().top,
+    );
+    return {
+      width: innerWidth,
+      pageW: document.scrollingElement.scrollWidth,
+      oneRow: new Set(chips.map((c) => c.offsetTop)).size === 1,
+      scrolls: row.scrollWidth > row.clientWidth,
+      chipH: Math.min(...chips.map((c) => c.getBoundingClientRect().height)),
+      send: document.querySelector(".cn-send").getBoundingClientRect().height,
+      segs: [...document.querySelectorAll(".cn-seg")].map((b) => b.getBoundingClientRect().height),
+      sorted: order.every((y, i) => i === 0 || y > order[i - 1]),
+      label: document.querySelector('label[for="console-input"]').textContent,
+      review: document.getElementById("cn-review").innerHTML,
+      hook: consoleReviewHtml(),
+    };
+  });
+  check("no sideways page scroll at 390px", lay.width === 390 && lay.pageW <= 390, lay);
+  check("suggestions are one swipeable row", lay.oneRow && lay.scrolls, lay);
+  check(
+    "tap targets: chips ≥36px, send and switch ≥44px",
+    lay.chipH >= 36 && lay.send >= 44 && lay.segs.every((h) => h >= 44),
+    lay,
+  );
+  check("top-to-bottom order: switch, box, chips, hint, feed, Jazz 3.0", lay.sorted, lay);
+  check("the input is labelled", lay.label.length > 0, lay.label);
+  check("the Weekly Review slot renders nothing yet", lay.review === "" && lay.hook === "", lay);
+  // the Jazz 3.0 row opens the hidden tab
+  await page.tap(".cn-j3");
+  const j3 = await page.evaluate(() => ({
+    tab: currentTab,
+    headline: document.getElementById("headline").textContent,
+    panel: document.getElementById("panel-jazz3").classList.contains("active"),
+  }));
+  check("Console's Jazz 3.0 row opens Jazz 3.0", j3.tab === "jazz3" && j3.headline === "Jazz 3.0" && j3.panel, j3);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: every Jazz 3.0 entry point still works", async () => {
+  for (const q of ["?tab=jazz3", "?tab=fitness"]) {
+    const { ctx, page, errors } = await openApp({ query: q });
+    const r = await page.evaluate(() => ({
+      tab: currentTab,
+      panel: document.getElementById("panel-jazz3").classList.contains("active"),
+      weight: !!document.getElementById("weight-card"),
+    }));
+    check(`${q} opens Jazz 3.0`, r.tab === "jazz3" && r.panel && r.weight, r);
+    check(`no JS errors (${q})`, errors.length === 0, errors);
+    await ctx.close();
+  }
+  const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+  // Home tile → detail: goal of the day, Last 7 days, and the Open Jazz 3.0 link
+  await page.evaluate(() => {
+    plan3 = [{ id: "g1", cat: "Glow", item: "Hand cream", note: "", done: false }];
+    renderHome();
+  });
+  await page.tap('.jv-tile[data-go="jazz3"]');
+  const det = await page.evaluate(() => {
+    const d = document.getElementById("jv-detail-jazz3");
+    return {
+      goal: !!d.querySelector(".jv-goalday") && d.textContent.includes("Hand cream"),
+      last7: d.textContent.includes("Last 7 days"),
+      open: !!d.querySelector('[data-action="jv-go"][data-go="jazz3"]:not([data-card])'),
+    };
+  });
+  check("Home's Jazz 3.0 detail still has the goal of the day and Last 7 days", det.goal && det.last7, det);
+  await page.tap('#jv-detail-jazz3 [data-action="plan3-toggle"]');
+  check("goal of the day Done still ticks the item", await page.evaluate(() => plan3[0].done === true));
+  await page.evaluate(() => {
+    plan3[0].done = false;
+    renderHome();
+  });
+  if (!(await page.isVisible("#jv-detail-jazz3"))) await page.tap('.jv-tile[data-go="jazz3"]');
+  await page.tap('#jv-detail-jazz3 [data-action="jv-go"][data-go="jazz3"]:not([data-card])');
+  check(
+    "the detail's Open Jazz 3.0 link opens the hidden tab",
+    (await page.evaluate(() => currentTab)) === "jazz3" && (await page.textContent("#headline")) === "Jazz 3.0",
+  );
+  await page.evaluate(() => {
+    activateTab("home");
+    dashGo("jazz3", "weight-card");
+  });
+  check(
+    'dashGo("jazz3", "weight-card") lands on the open Weight card',
+    await page.evaluate(
+      () => currentTab === "jazz3" && document.getElementById("weight-card").classList.contains("open"),
+    ),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+  // #import= jazz3 link still ends on Jazz 3.0
+  const hash =
+    "#import=" + Buffer.from(JSON.stringify({ app: "jazz3-fitness", start: 100, goal: 120 })).toString("base64url");
+  const imp = await openApp({ query: hash });
+  await imp.page.waitForTimeout(300);
+  check(
+    "#import= jazz3-fitness link still opens Jazz 3.0",
+    (await imp.page.evaluate(() => [currentTab, fitness.goal].join())) === "jazz3,120",
+  );
+  check("no JS errors (import)", imp.errors.length === 0, imp.errors);
+  await imp.ctx.close();
+  // the manifest shortcut still points at a tab that opens
+  const manifest = JSON.parse(await readFile(path.join(ROOT, "manifest.json"), "utf8"));
+  check(
+    "manifest keeps a Jazz 3.0 shortcut (?tab=jazz3)",
+    manifest.shortcuts.some((s) => s.url.endsWith("?tab=jazz3")),
+  );
+});
+
+await section("Console: mode guess, lock until cleared, chips fill the box", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=console" });
+  const mode = () =>
+    page.evaluate(() => ({
+      ask: document.querySelector('.cn-seg[data-mode="ask"]').getAttribute("aria-pressed"),
+      cap: document.querySelector('.cn-seg[data-mode="capture"]').getAttribute("aria-pressed"),
+      ph: document.getElementById("console-input").placeholder,
+      hint: document.getElementById("cn-hint").textContent,
+    }));
+  let m = await mode();
+  check("empty box starts on Ask", m.ask === "true" && m.cap === "false" && m.ph === "Ask Jarvis…", m);
+  await page.fill("#console-input", "dentist fri");
+  m = await mode();
+  check(
+    "plain text guesses Capture, with its placeholder and the switched hint",
+    m.cap === "true" && m.ask === "false" && /Switched by what you typed/.test(m.hint),
+    m,
+  );
+  await page.fill("#console-input", "what's due this week");
+  check("a question word guesses Ask", (await mode()).ask === "true");
+  await page.fill("#console-input", "groceries for the week?");
+  check("a trailing ? guesses Ask", (await mode()).ask === "true");
+  await page.fill("#console-input", "do laundry sat");
+  check('"do laundry" is not a question', (await mode()).cap === "true");
+  await page.fill("#console-input", "dentist fri / what's due?");
+  check("several pieces guess Capture", (await mode()).cap === "true");
+  await page.fill("#console-input", "dentist fri");
+  await page.tap('.cn-seg[data-mode="ask"]');
+  await page.fill("#console-input", "dentist fri and more");
+  m = await mode();
+  check("tapping the switch locks it while typing", m.ask === "true" && !/Switched/.test(m.hint), m);
+  await page.fill("#console-input", "");
+  await page.fill("#console-input", "dentist fri");
+  check("clearing the box unlocks the guess", (await mode()).cap === "true");
+  check(
+    "parser helpers guess like the box",
+    await page.evaluate(
+      () =>
+        consoleGuess("") === "ask" &&
+        consoleGuess("Can I afford the helmet") === "ask" &&
+        consoleGuess("How’s my budget") === "ask" &&
+        consoleGuess("helmet $250") === "capture",
+    ),
+  );
+  // chips: different per mode; a tap fills the box
+  await page.fill("#console-input", "");
+  const askChips = await page.$$eval("#cn-chips .cn-chip", (b) => b.map((x) => x.textContent));
+  await page.tap('.cn-seg[data-mode="capture"]');
+  const capChips = await page.$$eval("#cn-chips .cn-chip", (b) => b.map((x) => x.textContent));
+  check(
+    "each mode has its own suggestions",
+    askChips.length >= 3 && capChips.length >= 3 && askChips[0] !== capChips[0],
+    [askChips, capChips],
+  );
+  await page.tap('#cn-chips .cn-chip[data-index="1"]');
+  check(
+    "tapping a chip fills the box (and focuses it)",
+    await page.evaluate(
+      () =>
+        document.getElementById("console-input").value === CONSOLE_MODES.capture.chips[1] &&
+        document.activeElement.id === "console-input",
+    ),
+  );
+  check(
+    "forged chip metadata does nothing",
+    await page.evaluate(() => {
+      consoleUseChip("nope", 0);
+      consoleUseChip("ask", 99);
+      return document.getElementById("console-input").value === CONSOLE_MODES.capture.chips[1];
+    }),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: capture parsing reuses the app's rules", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=console" });
+  const r = await page.evaluate(() => {
+    const one = (s) => {
+      const row = consoleParse(s)[0];
+      const f =
+        row.type === "todo"
+          ? consoleTodoOf(row)
+          : row.type === "shop"
+            ? consoleShopOf(row)
+            : row.type === "expense"
+              ? consoleExpenseOf(row)
+              : { text: row.src };
+      return { type: row.type, ...f };
+    };
+    return {
+      dump: consoleParse("dentist fri / buy eggs $5 / call mom tomorrow").map((x) => x.type),
+      dentist: one("dentist fri"),
+      fri: nextWeekdayIso(5),
+      mom: one("call mom tomorrow"),
+      tomorrow: addDaysIso(1),
+      eggs: one("buy eggs $5"),
+      helmet: one("helmet $250"),
+      need: one("need batteries"),
+      haircut: one("get a haircut"),
+      rx: one("pick up prescription"),
+      getEggs: one("get eggs"),
+      rent: one("pay rent $1,200"),
+      question: one("what's due friday?"),
+      expense: one("groceries $54 spent"),
+      spentOn: one("spent $12.50 on lunch"),
+      note: one("note: gift ideas for mom"),
+      semi: consoleParse("a; b\nc").length,
+      slashWord: consoleParse("w/ friends and 1/2 cup").length,
+      commas: consoleParse("eggs, milk, and bread").map((x) => [x.type, x.src]),
+      buyList: consoleParse("buy eggs, milk, bread").map((x) => x.type),
+      longCommas: consoleParse("call mom, tell her about the trip to the beach").length,
+      money: consoleParse("helmet $1,250").length,
+      bullets: consoleParse("- dentist fri\n* call mom").map((x) => x.src),
+      cap: consoleParse(Array.from({ length: 30 }, (_, i) => "item " + i).join(" / ")).length,
+    };
+  });
+  check("a slash dump splits into 3 typed rows", JSON.stringify(r.dump) === '["todo","shop","todo"]', r.dump);
+  check(
+    "trailing day word sets the date (parseQuickAdd)",
+    r.dentist.type === "todo" && r.dentist.text === "dentist" && r.dentist.due === r.fri,
+    r.dentist,
+  );
+  check("tomorrow parses", r.mom.due === r.tomorrow && r.mom.text === "call mom", r.mom);
+  check(
+    "shopping verb + trailing price → Shopping",
+    r.eggs.type === "shop" && r.eggs.text === "eggs" && r.eggs.price === 5,
+    r.eggs,
+  );
+  check("trailing price alone → Shopping (helmet $250)", r.helmet.type === "shop" && r.helmet.price === 250, r.helmet);
+  check(
+    '"need X" → a Shopping need',
+    r.need.type === "shop" && r.need.need === true && r.need.text === "batteries",
+    r.need,
+  );
+  check(
+    "get a haircut / pick up prescription stay to-dos (todoKind)",
+    r.haircut.type === "todo" && r.rx.type === "todo",
+    [r.haircut, r.rx],
+  );
+  check('"get eggs" is shopping', r.getEggs.type === "shop", r.getEggs);
+  check('"pay rent $1,200" is a to-do, not Shopping', r.rent.type === "todo", r.rent);
+  check("a question routes to Ask", r.question.type === "ask", r.question);
+  check(
+    "expenses are recognized as Budget (chip only)",
+    r.expense.type === "expense" &&
+      r.expense.text === "groceries" &&
+      r.expense.amount === 54 &&
+      r.spentOn.type === "expense" &&
+      r.spentOn.text === "lunch" &&
+      r.spentOn.amount === 12.5,
+    [r.expense, r.spentOn],
+  );
+  check(
+    "note: → an Anytime to-do",
+    r.note.type === "todo" && r.note.text === "gift ideas for mom" && r.note.due === null,
+    r.note,
+  );
+  check("splits on ; and new lines; a bare / inside words doesn't split", r.semi === 3 && r.slashWord === 1, r);
+  check(
+    "a short comma list splits (and drops the 'and')",
+    JSON.stringify(r.commas) === '[["todo","eggs"],["todo","milk"],["todo","bread"]]',
+    r.commas,
+  );
+  check('"buy" carries over a comma list', JSON.stringify(r.buyList) === '["shop","shop","shop"]', r.buyList);
+  check("long comma phrases and $1,250 don't split", r.longCommas === 1 && r.money === 1, r);
+  check("list bullets are stripped", JSON.stringify(r.bullets) === '["dentist fri","call mom"]', r.bullets);
+  check("at most 20 pieces", r.cap === 20, r.cap);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: preview, type cycling, Add with one Undo, expense chip only", async () => {
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: { "data-updated-at": "111", "todo-content": [], "wants-content": [] },
+  });
+  const expenses0 = await page.evaluate(() => budget.expenses.length);
+  const base = await page.evaluate(() => todoList.length + wantsList.length); // (seeded wardrobe needs migrate in)
+  const wants0 = await page.evaluate(() => wantsList.length);
+  await page.fill(
+    "#console-input",
+    "dentist fri / helmet $250 / need batteries / groceries $54 spent / what's due friday?",
+  );
+  await page.press("#console-input", "Enter");
+  const pv = await page.evaluate(() => ({
+    rows: [...document.querySelectorAll(".cn-row .cn-tag")].map((t) => t.textContent),
+    add: document.getElementById("cn-add").textContent.trim(),
+    box: document.getElementById("console-input").value,
+    saved: todoList.length + wantsList.length,
+    exp: [...document.querySelectorAll(".cn-exp")].map((b) => b.textContent),
+  }));
+  check(
+    "Enter shows a preview, nothing saved yet",
+    JSON.stringify(pv.rows) === '["To-do","Shopping","Shopping","Budget","Ask"]' && pv.saved === base && pv.box === "",
+    pv,
+  );
+  check("Add counts only to-dos and Shopping items", pv.add === "Add 3", pv.add);
+  check(
+    "the expense is offered as a chip",
+    pv.exp.length === 1 && /Log groceries \$54\.00 in Budget/.test(pv.exp[0]),
+    pv.exp,
+  );
+  // tap a row to cycle its type: To-do → Shopping → Skip → To-do
+  const tag = (i) => page.textContent(`.cn-row[data-index="${i}"] .cn-tag`);
+  await page.tap('.cn-row[data-index="0"]');
+  const t1 = await tag(0);
+  await page.tap('.cn-row[data-index="0"]');
+  const t2 = await tag(0);
+  await page.tap('.cn-row[data-index="0"]');
+  const t3 = await tag(0);
+  check("tapping a row cycles To-do → Shopping → Skip → To-do", [t1, t2, t3].join() === "Shopping,Skip,To-do", [
+    t1,
+    t2,
+    t3,
+  ]);
+  await page.tap('.cn-row[data-index="2"]');
+  check(
+    "a skipped row leaves the count",
+    (await tag(2)) === "Skip" && (await page.textContent("#cn-add")).trim() === "Add 2",
+  );
+  // Edit puts the text back; send again
+  await page.tap('[data-action="console-edit"]');
+  check(
+    "Edit puts the text back in the box",
+    await page.evaluate(
+      () => /^dentist fri \/ helmet/.test(document.getElementById("console-input").value) && !consolePreview,
+    ),
+  );
+  await page.tap("#cn-send");
+  await page.tap("#cn-add");
+  const added = await page.evaluate(
+    (wants0) => ({
+      todos: todoList.map((t) => [t.text, t.due]),
+      wants: wantsList.slice(wants0).map((w) => [w.name, w.price, wantKind(w), !!w.moto, !!w.wardrobeCat]),
+      stored:
+        JSON.parse(localStorage.getItem("todo-content")).length +
+        JSON.parse(localStorage.getItem("wants-content")).length,
+      feed: consoleFeed.map((e) => [e.kind, e.todos, e.shop, e.text]),
+      toast: document.getElementById("toast").textContent,
+      undo: !!document.querySelector("#toast .toast-action"),
+      expenses: budget.expenses.length,
+      fri: nextWeekdayIso(5),
+      html: document.getElementById("cn-feed").textContent,
+    }),
+    wants0,
+  );
+  check(
+    "Add saves to-dos and Shopping items (need/want rules) via saveContent",
+    added.todos.length === 1 &&
+      added.todos[0][0] === "dentist" &&
+      added.todos[0][1] === added.fri &&
+      JSON.stringify(added.wants) === '[["helmet",250,"want",false,false],["batteries",null,"need",false,false]]' &&
+      added.stored === base + 3,
+    added,
+  );
+  check("the expense was not added", added.expenses === expenses0, added.expenses);
+  check(
+    "feed: the capture and the question are logged",
+    added.feed.length === 2 &&
+      added.feed.some((e) => e[0] === "capture" && e[1] === 1 && e[2] === 2) &&
+      added.feed.some((e) => e[0] === "ask"),
+    added.feed,
+  );
+  check(
+    "feed says what was added and links to the tabs",
+    /Added 1 to-do and 2 Shopping items/.test(added.html) &&
+      /To-Do →/.test(added.html) &&
+      /Shopping →/.test(added.html),
+    added.html,
+  );
+  check(
+    "one Undo toast for everything",
+    added.undo && /Added 1 to-do and 2 Shopping items/.test(added.toast),
+    added.toast,
+  );
+  await page.tap("#toast .toast-action");
+  const undone = await page.evaluate(() => ({
+    n: todoList.length + wantsList.length,
+    stored:
+      JSON.parse(localStorage.getItem("todo-content")).length +
+      JSON.parse(localStorage.getItem("wants-content")).length,
+    entry: consoleFeed.find((e) => e.kind === "capture"),
+    html: document.getElementById("cn-feed").textContent,
+  }));
+  check("Undo removes all of them", undone.n === base && undone.stored === base, undone);
+  check("the feed marks the capture undone", undone.entry.undone === true && /Undone/.test(undone.html), undone);
+  // feed link goes to the tab
+  await page.fill("#console-input", "buy eggs");
+  await page.press("#console-input", "Enter");
+  await page.tap("#cn-add");
+  await page.tap('#cn-feed .cn-link[data-go="wants"]');
+  check("a feed link opens Shopping", (await page.evaluate(() => currentTab)) === "wants");
+  // expense chip opens the Budget sheet pre-filled; nothing saved until Add there
+  await page.evaluate(() => activateTab("console"));
+  await page.fill("#console-input", "groceries $54 spent");
+  await page.press("#console-input", "Enter");
+  check(
+    "an expense alone can't be added from Console",
+    await page.evaluate(() => document.getElementById("cn-add").disabled),
+  );
+  await page.tap(".cn-exp");
+  const comp = await page.evaluate(() => ({
+    open: document.getElementById("composer").classList.contains("open"),
+    heading: document.getElementById("composer-heading").textContent,
+    text: document.getElementById("composer-text").value,
+    n: budget.expenses.length,
+  }));
+  check(
+    "the expense chip opens Add to budget pre-filled",
+    comp.open && comp.heading === "Add to budget" && comp.text === "groceries $54" && comp.n === expenses0,
+    comp,
+  );
+  await page.evaluate(() => closeComposer());
+  check(
+    "forged row indexes do nothing",
+    await page.evaluate(() => {
+      consoleCycleRow(99);
+      consoleExpense(99);
+      return true;
+    }),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: Ask saves the question honestly with no network calls; XSS; offline", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=console" });
+  const requests = [];
+  page.on("request", (r) => requests.push(r.url()));
+  const keysBefore = await page.evaluate(() => Object.keys(localStorage).sort());
+  await page.fill("#console-input", "What's due before payday?");
+  await page.press("#console-input", "Enter");
+  await page.waitForTimeout(300);
+  const a = await page.evaluate(() => ({
+    feed: consoleFeed.map((e) => [e.kind, e.text]),
+    html: document.getElementById("cn-feed").textContent,
+    box: document.getElementById("console-input").value,
+    stored: JSON.parse(localStorage.getItem("console-feed")),
+    keys: Object.keys(localStorage).sort(),
+    synced: SYNC_KEYS.includes("console-feed") || "console-feed" in liveData(),
+  }));
+  check(
+    "Ask stores the question in the feed with an honest status",
+    a.feed.length === 1 &&
+      a.feed[0][0] === "ask" &&
+      a.feed[0][1] === "What's due before payday?" &&
+      a.html.includes("Ask Jarvis isn't switched on yet — this question is saved here") &&
+      a.box === "",
+    a,
+  );
+  check("the question is kept on this device only (not synced, not backed up)", a.stored.length === 1 && !a.synced, a);
+  check(
+    "no new token or ask keys",
+    a.keys.filter((k) => !keysBefore.includes(k)).every((k) => k === "console-feed"),
+    a.keys,
+  );
+  check(
+    "Ask makes no network calls",
+    requests.every((u) => u.startsWith(APP.replace(/jazz2\.0\.html$/, ""))),
+    requests,
+  );
+  // XSS: everything typed is escaped in the box's chips, preview and feed
+  const evil = `<img src=x onerror="window.__xss=1">"'&`;
+  await page.fill("#console-input", evil + "?");
+  await page.press("#console-input", "Enter");
+  await page.tap('.cn-seg[data-mode="capture"]');
+  await page.fill("#console-input", `${evil} $5 / ${evil} fri / ${evil} $9 spent`);
+  await page.press("#console-input", "Enter");
+  const x = await page.evaluate(() => ({
+    xss: window.__xss,
+    imgs: document.querySelectorAll("#panel-console img").length,
+    preview: document.getElementById("cn-preview").textContent,
+  }));
+  check("typed HTML is shown as text, never run", !x.xss && x.imgs === 0 && x.preview.includes("<img src=x"), x);
+  await page.tap("#cn-add");
+  check(
+    "added items and the feed stay escaped",
+    await page.evaluate(
+      () =>
+        !window.__xss &&
+        document.querySelectorAll("#panel-console img, #panel-home img.x, #panel-wants img[src='x']").length === 0 &&
+        document.getElementById("cn-feed").textContent.includes("<img src=x"),
+    ),
+  );
+  // offline: capture is local
+  await ctx.setOffline(true);
+  const n0 = await page.evaluate(() => todoList.length);
+  await page.fill("#console-input", "call mom tomorrow / dentist fri");
+  await page.press("#console-input", "Enter");
+  await page.tap("#cn-add");
+  check("Capture works offline", (await page.evaluate(() => todoList.length)) === n0 + 2);
+  await ctx.setOffline(false);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: feed normalizer drops junk, caps 7 days / 50 entries, survives sync", async () => {
+  const now = Date.now();
+  const many = Array.from({ length: 60 }, (_, i) => ({
+    id: "ok" + i,
+    kind: "ask",
+    at: now - i * 60000,
+    text: "q" + i,
+  }));
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: {
+      "console-feed": [
+        "x",
+        null,
+        [1],
+        { id: "<bad>", kind: "ask", at: now + 5, text: "<b>bold</b>" },
+        { id: "c1", kind: "capture", at: now + 4, text: "ok", todos: "2", shop: -1 },
+        { id: "c2", kind: "capture", at: now + 3, text: "nothing", todos: 0, shop: 0 },
+        { id: "old", kind: "ask", at: now - 8 * 864e5, text: "old" },
+        { id: "weird", kind: "sql", at: now, text: "y" },
+        { id: "nan", kind: "ask", at: "nope", text: "z" },
+        { id: "blank", kind: "ask", at: now, text: "   " },
+        { id: "future", kind: "ask", at: now + 5 * 864e5, text: "later" },
+        { id: "ok0", kind: "ask", at: now + 2, text: "duplicate id" },
+        ...many,
+      ],
+    },
+  });
+  const r = await page.evaluate(() => ({
+    feed: consoleFeed,
+    stored: JSON.parse(localStorage.getItem("console-feed")),
+    html: document.getElementById("cn-feed").innerHTML,
+  }));
+  const ids = r.feed.map((e) => e.id);
+  check("capped at 50 entries", r.feed.length === 50, r.feed.length);
+  check(
+    "junk, empty, old, future and unknown kinds are dropped",
+    !r.feed.some((e) => ["c2", "old", "weird", "nan", "blank", "future"].includes(e.id) || e.text === "old"),
+    ids.slice(0, 8),
+  );
+  check(
+    "bad ids are replaced, duplicates made unique",
+    ids.every((id) => /^[A-Za-z0-9_-]+$/.test(id)) && new Set(ids).size === ids.length,
+    ids.slice(0, 8),
+  );
+  check(
+    "counts are coerced",
+    JSON.stringify(r.feed.find((e) => e.id === "c1")) ===
+      JSON.stringify({
+        id: "c1",
+        at: r.feed.find((e) => e.id === "c1").at,
+        kind: "capture",
+        text: "ok",
+        todos: 2,
+        shop: 0,
+      }),
+    r.feed.find((e) => e.id === "c1"),
+  );
+  check(
+    "newest first",
+    r.feed.every((e, i) => i === 0 || e.at <= r.feed[i - 1].at),
+  );
+  check("the cleaned feed is written back", JSON.stringify(r.stored) === JSON.stringify(r.feed));
+  check("stored HTML is escaped", r.html.includes("&lt;b&gt;bold&lt;/b&gt;") && !r.html.includes("<b>bold"), "");
+  // a sync (applyRemote) re-checks it too, and doesn't touch it otherwise
+  const after = await page.evaluate(() => {
+    localStorage.setItem("console-feed", JSON.stringify([{ kind: "ask", at: Date.now(), text: "fresh" }, "junk"]));
+    applyRemote({ updatedAt: Date.now(), data: { "todo-content": [] } });
+    return consoleFeed.map((e) => e.text);
+  });
+  check("applyRemote runs the normalizer", JSON.stringify(after) === '["fresh"]', after);
+  const days = await page.evaluate(() => {
+    consoleFeed = normalizeConsoleFeed([
+      { kind: "ask", at: Date.now(), text: "today" },
+      { kind: "ask", at: Date.now() - 864e5, text: "yesterday" },
+      { kind: "ask", at: Date.now() - 3 * 864e5, text: "earlier" },
+    ]);
+    renderConsole();
+    return [...document.querySelectorAll("#cn-feed .jv-label")].map((l) => l.textContent);
+  });
+  check(
+    "feed is grouped Today, Yesterday, then earlier days",
+    days.length === 3 && days[0] === "Today" && days[1] === "Yesterday",
+    days,
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

@@ -5,6 +5,7 @@ const APP_CACHE_PREFIX = "jazz2-cache-";
 const HEADLINES = {
   home: "Home",
   todo: "To-Do",
+  console: "Console",
   jazz3: "Jazz 3.0",
   skin: "Beauty",
   wants: "Shopping",

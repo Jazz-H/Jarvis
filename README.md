@@ -148,6 +148,40 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 - **Completed.** Finished items sit behind a "N completed" toggle with Restore, Duplicate,
   Delete, and Clear completed. They're archived after 7 days.
 
+**Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
+(Home is where Jarvis talks to you). Top to bottom:
+- **Ask | Capture:** a full-width switch. The mode is guessed from what you type (a question
+  word first or a "?" at the end means Ask; several items, or anything else, means Capture)
+  and labelled "Switched by what you typed". Tapping the switch locks the mode until the box
+  is cleared.
+- **The box:** one line with the send button inside it ("Ask Jarvis…" / "Add to-dos, items,
+  notes…"). Enter sends.
+- **Suggestions:** one row of chips under the box that swipes sideways (different per mode);
+  a tap fills the box. A short hint line follows.
+- **Capture** works on this device, offline, with nothing sent anywhere. Separate items with
+  " / ", ";" or new lines (a short comma list like "eggs, milk, and bread" also splits; a
+  leading "buy" carries over). Each piece is read with the app's own rules: a trailing day
+  word is the date ("dentist fri"), a trailing price or a shopping verb (buy / get / grab /
+  order / pick up…) makes it a Shopping item ("helmet $250", "buy eggs $5"; "need batteries"
+  is a Need, other items follow the usual need/want rule), "pay / call / book…" stay to-dos,
+  "get a haircut" stays a to-do because its type is an appointment, and "note: …" is an
+  Anytime to-do. Questions go to Ask. Spending ("groceries $54 spent") is recognized but only
+  offered as a **Log … in Budget** chip that opens Add to budget pre-filled.
+  - **Preview:** nothing is saved until you look. Each row shows its type, title and date or
+    price; tap a row to switch it between To-do, Shopping and Skip. **Add N** saves them all
+    (to-dos at the top of their group, items on the Shopping list) with one Undo; **Edit** puts
+    the text back in the box.
+- **Ask** isn't switched on yet (the backend is a later step). A question is kept in the feed
+  with "Ask Jarvis isn't switched on yet — this question is saved here"; nothing is sent.
+- **Weekly Review:** a slot under the box, empty until the review is built.
+- **Feed:** what you did here this week, grouped Today, Yesterday, then earlier days
+  ("Added 2 to-dos and 1 Shopping item" with links to To-Do and Shopping, marked Undone if you
+  undid it). Kept on this device only: the last 7 days, at most 50 entries.
+- **Jazz 3.0 →** at the bottom opens Jazz 3.0.
+
+There's no floating + on Console; the box is the way to add. The first time the orb is used
+after the move, a one-time notice says where Jazz 3.0 went.
+
 **Beauty** is built around doing the routine, not just reading it. Cards, top to bottom:
 - **Today:** a checklist of AM and PM steps with done/total counts, the wash-day badge, and
   an N-day streak (days with both AM and PM finished). Check-offs reset daily and sync
@@ -186,9 +220,15 @@ clothes, moto gear, and everything else.
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Jazz 3.0** is its own tab (third in the bar), made of sections; more are coming. Its bar button stands out with a raised blue orb, and the tab opens on a gradient banner with a chip per section (Weight %, Glow 3/7…). Tapping a chip opens that section and jumps to it.
+**Jazz 3.0** is a tab made of sections; more are coming. It opens on a gradient banner with a
+chip per section (Weight %, Glow 3/7…); tapping a chip opens that section and jumps to it.
+It's **hidden from the tab bar** (the orb opens Console now), the same way Budget is. Ways in:
+Home's Jazz 3.0 tile (its goal bars, and **Open Jazz 3.0** at the end of its detail), the
+**Jazz 3.0 →** row at the bottom of Console, `?tab=jazz3` (the home-screen shortcut), old
+`?tab=fitness` links, and `#import=` jazz3 links. The goal of the day, today's workouts and
+Last 7 days stay on Home.
 **Budget** is hidden from the bar for now (its data, bills on Home, and links to
-`?tab=budget` all still work). Old `?tab=fitness` links open Jazz 3.0.
+`?tab=budget` all still work).
 
 **Fitness** (the first Jazz 3.0 section) tracks weight toward a goal; the workouts themselves live in To-Do.
 - **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
@@ -276,7 +316,8 @@ the starting items.
   fragment, so personal numbers never land in this repo.
 - Payments and expenses older than about 13 months are pruned automatically.
 
-**Adding things.** A floating **+** button on Home, To-Do, Shopping, and Budget opens one
+**Adding things.** Console's box adds several to-dos and Shopping items at once (see Console
+above). A floating **+** button on Home, To-Do, Shopping, and Budget opens one
 shared bottom sheet whose fields fit the tab:
 - **To-do** (Home, To-Do): described under To-Do above.
 - **Shopping → New item:** a trailing price in the text sets it ("helmet $250", tap the
@@ -311,7 +352,10 @@ only turning sync off still asks first.
 **Navigation.**
 - **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
   column (760px, or 920px at ≥1440px).
-- **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`).
+- **Tabs:** Home, To-Do, Console (the orb), Shopping, Beauty. Budget and Jazz 3.0 are hidden
+  tabs (`HIDDEN_TABS`) that links and tiles still open.
+- **Swiping:** swipe left or right to switch tabs, in tab-bar order (`TAB_ORDER`). Swiping
+  Console's suggestion chips scrolls them instead.
 - **Pull to sync:** pull down from the top of a tab to sync (which also brings in a new Jarvis
   briefing) and redraw. Without sync it just redraws.
 - **Hard refresh:** pull all the way down ("Release to reload the app"), or use the refresh
@@ -319,14 +363,14 @@ only turning sync off still asks first.
   reloads back onto the same tab and scroll position. Other apps' caches and workers on the
   origin, and your data, are left alone.
 - **Home-screen shortcuts:** long-press the installed icon for Add a to-do, Shopping,
-  Budget, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
+  Jazz 3.0, and Today's routine. These come from `shortcuts` in `manifest.json`, handled
   by `applyLaunchParams()`.
 
 ## Project layout
 
 | File | Purpose |
 | --- | --- |
-| `jazz2.0.html` | The app markup (header, six tab panels, toast, modal, tab bar). It loads `css/app.css` and the `js/*.js` scripts. No build step, no framework. |
+| `jazz2.0.html` | The app markup (header, seven tab panels, toast, modal, tab bar). It loads `css/app.css` and the `js/*.js` scripts. No build step, no framework. |
 | `css/app.css` | All app styles, loaded by a blocking `<link>` in `<head>`. Precached by the service worker. |
 | `js/*.js` | The app code, split by feature into ordered **classic scripts** (see *How the app is organized*). Every file is precached by the service worker. |
 | `fonts/` | Self-hosted Inter, Rajdhani and Share Tech Mono (SIL OFL; see `fonts/README.md`), precached for offline use. |
@@ -347,7 +391,7 @@ only turning sync off still asks first.
 ### How the app is organized
 1. **CSS (`css/app.css`):** `:root` theme tokens, base components, to-do and routine styles, hover styles
    (mouse only), then the desktop media queries.
-2. **Markup (`jazz2.0.html`):** header (title, date, Sync & backup button, desktop refresh button), six
+2. **Markup (`jazz2.0.html`):** header (title, date, Sync & backup button, desktop refresh button), seven
    empty `tabpanel` sections, the toast, the modal, and the tab bar, followed by the `<script src>` tags.
 3. **Scripts (`js/`).** Plain classic scripts, loaded in this order. They share one global scope, so
    **order matters** (a file may use earlier files' top-level `const`/`let` while loading; functions are
@@ -372,6 +416,7 @@ only turning sync off still asks first.
    | `shopping.js` | Shopping tab and wardrobe items |
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, month calendar, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
+   | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`; `consoleReviewHtml` is the Weekly Review slot) |
    | `shell.js` | Tab switching and the delegated `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_INPUT` / `SHELL_CHANGE` tables |
    | `gestures.js`, `drag-reorder.js` | Swipe between tabs and pull-to-refresh; press-to-drag and sortable lists |
    | `sync.js`, `backup.js` | Gist sync; backup download/restore |
@@ -514,6 +559,8 @@ Everything lives in `localStorage` on the device:
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |
+| `console-feed` | Console's feed: `[{id, at (ms), kind: "ask" \| "capture", text, todos?, shop?, undone?}]`, newest first, last 7 days, at most 50. This device only: not in `SYNC_KEYS`, never pushed, not in backups; cleaned by `normalizeConsoleFeed()` on every load and sync |
+| `console-moved-seen` | The one-time "Jazz 3.0 moved" notice was shown (this device only) |
 | `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 
 Lists still on their built-in defaults have no key until first edited.

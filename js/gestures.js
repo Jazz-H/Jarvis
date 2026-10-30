@@ -10,7 +10,7 @@
   mainEl.addEventListener(
     "touchstart",
     (e) => {
-      if (e.target.closest(".home-cal, .bcal-wrap")) {
+      if (e.target.closest(".home-cal, .bcal-wrap, .cn-chips")) {
         tracking = false;
         return;
       }
