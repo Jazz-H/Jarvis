@@ -56,7 +56,7 @@ const ASK_ACTIONS = [
 const ASK_APPLIED_KEY = "ask-applied"; // this device: answers whose actions were applied here
 let askShowAll = false; // the conversation shows every kept question (Earlier), not just 2 days
 const ASK_KEY_BROKEN = "Ask Jarvis key isn't working — check it in Sync";
-const ASK_NEEDS_SYNC = "Ask needs sync: turn it on with the cloud button. Capture works without it.";
+const ASK_NEEDS_SYNC = "Jarvis needs sync: turn it on with the cloud button. Quick lists work without it.";
 let askBusy = false; // a question is being saved / sent
 let askLastSend = 0;
 let askThread = null; // the first question's id while a follow-up is being written
@@ -733,7 +733,9 @@ function askUsageText() {
 function askUsageShort() {
   const left = askUsageLeft(),
     spent = askMonthSpent();
-  const parts = [left == null ? "" : `${left} left`, spent == null ? "" : `$${spent.toFixed(2)}`].filter(Boolean);
+  const parts = [left == null ? "" : `${left} left`, spent == null ? "" : `$${spent.toFixed(2)} of $${ASK_MONTH_BUDGET}`].filter(
+    Boolean,
+  );
   return parts.length ? parts.join(" · ") : "Limits";
 }
 function askUsagePopHtml() {

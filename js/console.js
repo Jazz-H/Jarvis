@@ -15,8 +15,8 @@ const CONSOLE_PIECES_MAX = 20;
 const CONSOLE_ASK_STATUS = "Not sent: saved here before Ask Jarvis was switched on"; // older feed entries
 const CONSOLE_MODES = {
   ask: {
-    label: "Ask",
-    placeholder: "Ask Jarvis…",
+    label: "Jarvis",
+    placeholder: "Ask or tell Jarvis…",
     send: "Send question",
     get hint() {
       return askHint(); // depends on sync, the Ask Jarvis key and today's limit
@@ -24,7 +24,7 @@ const CONSOLE_MODES = {
     chips: [],
   },
   capture: {
-    label: "Capture",
+    label: "Quick list",
     placeholder: "Add to-dos, items, notes…",
     send: "Preview items",
     hint: "Separate items with / or ;. You'll see a preview first.",
@@ -240,14 +240,6 @@ function consoleAddedText(todos, shop) {
 // consoleReviewHtml() (the Weekly Review card in this slot) lives in review.js
 function consoleShellHtml() {
   return `<div class="cn">
-    <div class="cn-top">
-      <button type="button" class="cn-usage" id="cn-usage" data-action="ask-usage" aria-expanded="false" aria-controls="cn-usage-pop" aria-label="Ask Jarvis usage and limits"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V3a9 9 0 0 1 9 9z"/></svg><span id="cn-usage-text"></span></button>
-    </div>
-    <div class="cn-usage-pop" id="cn-usage-pop" hidden></div>
-    <div class="cn-switch" role="group" aria-label="Mode">
-      <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Ask</button>
-      <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false">Capture</button>
-    </div>
     <div class="cn-box">
       <label class="cn-sr" for="console-input" id="console-input-label">Ask Jarvis</label>
       <textarea id="console-input" class="cn-input" rows="1" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"
@@ -255,6 +247,14 @@ function consoleShellHtml() {
       ${voiceMicHtml("console")}
       <button type="button" class="cn-send" id="cn-send" data-action="console-send" aria-label="Send question">${CONSOLE_SEND_ICON}</button>
     </div>
+    <div class="cn-under">
+      <div class="cn-switch cn-route" role="group" aria-label="Send to">
+        <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Jarvis</button>
+        <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false">Quick list</button>
+      </div>
+      <button type="button" class="cn-usage" id="cn-usage" data-action="ask-usage" aria-expanded="false" aria-controls="cn-usage-pop" aria-label="Ask Jarvis usage and limits"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V3a9 9 0 0 1 9 9z"/></svg><span id="cn-usage-text"></span></button>
+    </div>
+    <div class="cn-usage-pop" id="cn-usage-pop" hidden></div>
     <div class="cn-chips" id="cn-chips" role="group" aria-label="Suggestions"></div>
     <p class="cn-hint" id="cn-hint"></p>
     <div id="cn-ask-note"></div>

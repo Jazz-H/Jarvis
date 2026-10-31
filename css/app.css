@@ -5449,12 +5449,22 @@ body.todo-dragging {
   color: var(--text-dim);
 }
 /* Ask Jarvis (js/ask.js): the usage chip, notes under the hint, and answers */
-.cn-top {
+/* under the box: where it goes (Jarvis | Quick list, guessed from what you type) and the usage pill */
+.cn-under {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 10px;
-  margin-bottom: -4px;
+  margin-top: -4px;
+}
+.cn-route {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  padding: 3px;
+}
+.cn-route .cn-seg {
+  padding: 0 14px;
+  font-size: 13px;
 }
 .cn-usage {
   display: inline-flex;

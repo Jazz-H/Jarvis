@@ -163,15 +163,16 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
-- **Top row:** a usage chip, "7 left · $0.18" (questions left today and this month's Ask
-  spending, once Jarvis has reported its counts). Tap it for the full line and the limits ($20 a
-  month is the default cap).
-- **Ask | Capture:** a full-width switch. The mode is guessed from what you type (a question
-  word first or a "?" at the end means Ask; several items, or anything else, means Capture)
-  and labelled "Switched by what you typed". Tapping the switch locks the mode until the box
-  is cleared.
-- **The box:** one line with the mic and send buttons inside it ("Ask Jarvis…" / "Add to-dos,
-  items, notes…"). Enter sends.
+- **The box** comes first: one line with the mic and send buttons inside it ("Ask or tell Jarvis…" /
+  "Add to-dos, items, notes…"). Enter sends. Since Jarvis can add and tick
+  things itself, there's one box: questions and requests go to Jarvis, and a plain list gets the
+  free, on-device Quick list preview instead.
+- **Under the box:** a small **Jarvis | Quick list** switch, guessed from what you type (a
+  question word first or a "?" at the end means Jarvis; several items, or anything else, means
+  Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
+  box is cleared. Next to it, the usage pill, "7 left · $0.18 of $20" (questions left today and
+  this month's Ask spending against the cap, once Jarvis has reported its counts). Tap it for the
+  full line and the limits.
 - **Voice input:** the mic (where the browser has the Web Speech API; otherwise it's hidden and
   the keyboard's own dictation still works). Tap it and speak: the words stream into the box,
   listening stops on a pause or a second tap, and the Ask / Capture guess runs on what you said.

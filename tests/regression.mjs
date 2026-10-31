@@ -9608,7 +9608,7 @@ await section("Console: tab order, the orb opens Console, one-time tabs-back not
   const lay = await page.evaluate(() => {
     const chips = [...document.querySelectorAll("#cn-chips .cn-chip")];
     const row = document.getElementById("cn-chips");
-    const order = [".cn-switch", ".cn-box", "#cn-chips", "#cn-hint", "#cn-feed"].map(
+    const order = [".cn-box", ".cn-switch", "#cn-chips", "#cn-hint", "#cn-feed"].map(
       (s) => document.querySelector("#panel-console " + s).getBoundingClientRect().top,
     );
     return {
@@ -9632,7 +9632,7 @@ await section("Console: tab order, the orb opens Console, one-time tabs-back not
     lay.chipH >= 36 && lay.send >= 44 && lay.segs.every((h) => h >= 44),
     lay,
   );
-  check("top-to-bottom order: switch, box, chips, hint, feed", lay.sorted, lay);
+  check("top-to-bottom order: box, then Jarvis | Quick list, chips, hint, feed", lay.sorted, lay);
   check("the input is labelled", lay.label.length > 0, lay.label);
   check("the Weekly Review slot renders nothing yet", lay.review === "" && lay.hook === "", lay);
   check("Console no longer has a Jazz 3.0 row (You has the tab)", !(await page.$("#panel-console .cn-j3")));
@@ -9722,7 +9722,7 @@ await section("Console: mode guess, lock until cleared, chips fill the box", asy
       hint: document.getElementById("cn-hint").textContent,
     }));
   let m = await mode();
-  check("empty box starts on Ask", m.ask === "true" && m.cap === "false" && m.ph === "Ask Jarvis…", m);
+  check("empty box starts on Ask", m.ask === "true" && m.cap === "false" && m.ph === "Ask or tell Jarvis…", m);
   await page.fill("#console-input", "dentist fri");
   m = await mode();
   check(
@@ -10063,7 +10063,7 @@ await section("Console: Ask without sync explains itself and makes no network ca
   }));
   check(
     "without sync, Ask says it needs sync and keeps the question in the box",
-    a.feed.length === 1 && a.box === "What's due before payday?" && /Ask needs sync/.test(a.toast),
+    a.feed.length === 1 && a.box === "What's due before payday?" && /Jarvis needs sync/.test(a.toast),
     a,
   );
   check(
@@ -11530,7 +11530,7 @@ await section("ask: without a key it's queued; a refused key warns and queues; e
     note: document.getElementById("cn-ask-note").textContent,
     open: !!document.querySelector('#cn-ask-note [data-action="open-sync"]'),
   }));
-  check("sync off: Ask says it needs sync, with a way to open Sync", /Ask needs sync/.test(off.hint) && off.open, off);
+  check("sync off: Ask says it needs sync, with a way to open Sync", /Jarvis needs sync/.test(off.hint) && off.open, off);
   await b.page.fill("#console-input", "What's due before payday?");
   await b.page.press("#console-input", "Enter");
   await b.page.waitForTimeout(200);
@@ -11907,7 +11907,7 @@ await section(
     );
     check(
       "today's questions left and this month's spending come from usage",
-      r.usage[0] === "7 left · $1.20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
+      r.usage[0] === "7 left · $1.20 of $20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
       r.usage,
     );
     // chips: nothing until tapped; then one item with its date, and Undo
@@ -13318,7 +13318,13 @@ await section("Wallet / Glow: switch fits at 390px in both themes; desktop bar",
     activateTab("budget");
     return { cn, cs, tab: pick(document.getElementById("tab-switch")), ts: seg(document.querySelector(".tab-seg")) };
   });
-  check("the group switch matches Console's switch", look.cn === look.tab && look.cs === look.ts, look);
+  // Console's Jarvis | Quick list is a compact version of the same control (smaller padding and text)
+  const strip = (v, i) => v.split("|").filter((_, k) => k !== i).join("|");
+  check(
+    "the group switch matches Console's switch (colors, radius, height)",
+    strip(look.cn, 1) === strip(look.tab, 1) && strip(look.cs, 2) === strip(look.ts, 2),
+    look,
+  );
   await ctx.close();
   const d = await openApp({ phone: false, query: "?tab=jazz3" });
   const desk = await d.page.evaluate(() => ({
