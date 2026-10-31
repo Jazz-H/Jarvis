@@ -21,9 +21,7 @@ const CONSOLE_MODES = {
     get hint() {
       return askHint(); // depends on sync, the Ask Jarvis key and today's limit
     },
-    get chips() {
-      return askSuggestions(); // change with the day and time
-    },
+    chips: [],
   },
   capture: {
     label: "Capture",

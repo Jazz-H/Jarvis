@@ -9451,7 +9451,8 @@ await section("Console: tab order, the orb opens Console, one-time tabs-back not
     "the tabs-back notice shows only once",
     !(await page.evaluate(() => document.getElementById("toast").textContent.includes("are back"))),
   );
-  // layout: switch, box, one chip row, hint, feed; nothing scrolls sideways at 390px
+  // layout: switch, box, one chip row, hint, feed; nothing scrolls sideways at 390px (Capture has the chips)
+  await page.tap('.cn-seg[data-mode="capture"]');
   const lay = await page.evaluate(() => {
     const chips = [...document.querySelectorAll("#cn-chips .cn-chip")];
     const row = document.getElementById("cn-chips");
@@ -9608,11 +9609,10 @@ await section("Console: mode guess, lock until cleared, chips fill the box", asy
   const askChips = await page.$$eval("#cn-chips .cn-chip", (b) => b.map((x) => x.textContent));
   await page.tap('.cn-seg[data-mode="capture"]');
   const capChips = await page.$$eval("#cn-chips .cn-chip", (b) => b.map((x) => x.textContent));
-  check(
-    "each mode has its own suggestions",
-    askChips.length >= 3 && capChips.length >= 3 && askChips[0] !== capChips[0],
-    [askChips, capChips],
-  );
+  check("Ask has no suggestion chips; Capture keeps its examples", askChips.length === 0 && capChips.length >= 3, [
+    askChips,
+    capChips,
+  ]);
   await page.tap('#cn-chips .cn-chip[data-index="1"]');
   check(
     "tapping a chip fills the box (and focuses it)",
@@ -11889,45 +11889,21 @@ await section("ask: ?tab=console&ask=<id> opens Console at that answer, now or w
   await d.ctx.close();
 });
 
-await section("ask: suggestions change with the day and time, and use your top Shopping need", async () => {
-  const { ctx, page, errors } = await openAsk({
-    seed: {
-      "data-updated-at": "1",
-      "wants-content": [
-        { id: "w1", name: "Helmet", meta: "", price: 250, link: null, kind: "need", priority: "high" },
-        { id: "w2", name: "Lamp", meta: "", price: 20, link: null, kind: "want" },
-      ],
-      "fitness-content": { start: 200, goal: 180, weights: [], plan: [], checks: {} },
-    },
-  });
-  const s = await page.evaluate(() => ({
-    sunAm: askSuggestions(new Date(2030, 0, 6, 9)), // a Sunday morning
-    wedPm: askSuggestions(new Date(2030, 0, 9, 18)), // a Wednesday evening
-    chips: [...document.querySelectorAll("#cn-chips .cn-chip")].map((c) => c.textContent),
+await section("ask: no suggested questions, and no hint line once Ask is ready", async () => {
+  const { ctx, page, errors } = await openAsk({ seed: askSync({ "ask-token": ASK_KEY }) });
+  const r = await page.evaluate(() => ({
+    fn: typeof askSuggestions,
+    chips: document.querySelectorAll("#cn-chips .cn-chip").length,
+    chipsShown: getComputedStyle(document.getElementById("cn-chips")).display,
+    hint: document.getElementById("cn-hint").textContent,
+    hintShown: getComputedStyle(document.getElementById("cn-hint")).display,
   }));
   check(
-    "Sunday/Monday leads with 'How did my week go?'",
-    s.sunAm[0] === "How did my week go?" && !s.wedPm.includes("How did my week go?"),
-    s,
+    "no Ask chips, and the empty row takes no space",
+    r.fn === "undefined" && r.chips === 0 && r.chipsShown === "none",
+    r,
   );
-  check("the top Shopping need is named", s.wedPm.includes("Can I afford Helmet this pay period?"), s.wedPm);
-  check(
-    "focus today in the morning, tomorrow later",
-    s.sunAm.includes("What should I focus on today?") && s.wedPm.includes("What should I focus on tomorrow?"),
-    s,
-  );
-  check(
-    "payday, weight goal and calendar questions are offered",
-    ["What's due before payday?", "When will I hit my weight goal?", "What's on my calendar this week?"].every((q) =>
-      s.wedPm.includes(q),
-    ),
-    s.wedPm,
-  );
-  check(
-    "the Ask chips on screen are these suggestions",
-    s.chips.length >= 4 && s.chips.includes("What's due before payday?"),
-    s.chips,
-  );
+  check("no 'Jarvis answers from…' hint", r.hint === "" && r.hintShown === "none", r);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
