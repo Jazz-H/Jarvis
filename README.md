@@ -230,6 +230,11 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     steps, workouts, weight (pace and goal date once weigh-ins span a week), Jazz 3.0 goal items
     with notes, Shopping, plus this morning's briefing, the calendar (90 days back, 60 ahead) and
     the latest Weekly Review.
+  - **Google Drive:** once connected (SETUP section 6, read-only, all of Drive), Jarvis can
+    search your Drive and read Docs, Sheets (as CSV) and Slides, up to 20,000 characters a file,
+    when you ask about your files ("what does my lease say about pets?"). Answers name the file,
+    link it and are tagged **Drive**. PDFs in Drive aren't read (send one with 📎). Drive text is
+    untrusted, so an answer that read Drive can't take actions.
   - **Web search:** for questions your data can't answer ("is it worth fixing the AC?"), Jarvis
     can search the web. Those answers list up to 3 links (https only, opened in a new tab) and
     are tagged **Web**; they cost a little more and still fall under the same limits. Web pages

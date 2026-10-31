@@ -172,9 +172,17 @@ describe("jarvis-ask.yml", () => {
     expect(code).toMatch(/run: npm run ask/);
   });
 
-  it("uses only the four secrets Ask needs, and an artifact name without inputs", () => {
+  it("uses only the secrets Ask needs (plus Google for Drive, read-only), and an artifact name without inputs", () => {
     const secrets = new Set([...code.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]));
-    expect([...secrets].sort()).toEqual(["ANTHROPIC_API_KEY", "JARVIS_GIST_ID", "JARVIS_GIST_TOKEN", "VAPID_PRIVATE_KEY"]);
+    expect([...secrets].sort()).toEqual([
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_REFRESH_TOKEN",
+      "JARVIS_GIST_ID",
+      "JARVIS_GIST_TOKEN",
+      "VAPID_PRIVATE_KEY",
+    ]);
     expect(code).toMatch(/name: jarvis-ask-trace-\$\{\{ github\.run_id \}\}/);
     expect(code).toMatch(/path: agents\/out\//);
   });

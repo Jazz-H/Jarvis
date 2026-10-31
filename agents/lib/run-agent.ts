@@ -25,9 +25,12 @@ export interface AgentSpec<T> {
   timeoutMs: number;
   // Built-in tools this agent may use (only Ask's "WebSearch"); none when left out
   tools?: string[];
+  // In-process MCP servers and the tool names allowed from them (only Ask's Drive tools)
+  mcpServers?: Options["mcpServers"];
+  mcpTools?: string[];
   maxTurns?: number;
   // Filled in by runAgent: how many web searches the agent made (so code can tell web was used)
-  usage?: { webSearches: number };
+  usage?: { webSearches: number; driveReads?: number };
   // A photo or PDF the owner sent (base64), given to the model ahead of the prompt
   attachments?: { mime: string; data: string }[];
 }
@@ -72,8 +75,8 @@ export function agentOptions(spec: AgentSpec<unknown>, budgetUsd: number, signal
     systemPrompt: spec.system,
     effort: spec.effort,
     tools: spec.tools ?? [], // no built-in tools unless the spec names them (Ask: WebSearch only)
-    allowedTools: spec.tools ?? [],
-    mcpServers: {},
+    allowedTools: [...(spec.tools ?? []), ...(spec.mcpTools ?? [])],
+    mcpServers: spec.mcpServers ?? {}, // only in-process servers from code (Ask: Drive), never from config
     strictMcpConfig: true,
     settingSources: [], // don't load CLAUDE.md or any settings from the repo or home dir
     persistSession: false,

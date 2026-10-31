@@ -107,6 +107,10 @@ jobs:
           JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
           JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          # optional: Google Drive for questions about your files (read-only; SETUP.md → Google)
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
           ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
           ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}

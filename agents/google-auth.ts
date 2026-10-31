@@ -1,4 +1,4 @@
-// One-time Google sign-in for Jarvis's Gmail access (read-only). Run on your own computer:
+// One-time Google sign-in for Jarvis's Gmail and Drive access (read-only). Run on your own computer:
 //
 //   cd agents && npm run google-auth
 //
@@ -13,7 +13,11 @@ import path from "node:path";
 import { exec } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-export const GOOGLE_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+// Gmail for Inbox and Deliveries; Drive for Ask Jarvis (both read-only)
+export const GOOGLE_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/drive.readonly",
+];
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 if (existsSync(path.join(here, ".env"))) process.loadEnvFile(path.join(here, ".env"));

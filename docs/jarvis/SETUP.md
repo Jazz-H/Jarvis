@@ -89,6 +89,24 @@ Jarvis reads only headers and Gmail's short preview snippet: never full emails o
 removing access at myaccount.google.com/permissions) ends the sign-in. Run
 `npm run google-auth` again and update `GOOGLE_REFRESH_TOKEN`.
 
+### Google Drive for Ask Jarvis (about 5 minutes, once; after Gmail above)
+Lets Ask Jarvis search your Drive and read Docs, Sheets and Slides (read-only, all of Drive) when
+you ask about your files. It uses the same Google secrets, plus one more permission:
+
+1. **Drive API:** APIs & Services → Library → **Google Drive API** → **Enable**.
+2. **Consent screen** → *Data access* → **Add or remove scopes** → add
+   `https://www.googleapis.com/auth/drive.readonly` (keep the Gmail one).
+3. **Sign in again** on your computer, so the new token covers Drive too:
+   ```
+   cd agents
+   npm run google-auth
+   ```
+   Allow both read-only Gmail and read-only Drive.
+4. Replace the **`GOOGLE_REFRESH_TOKEN`** secret with the new token (the same token serves the
+   morning run and Ask). Nothing else changes.
+
+Until then, Ask answers as usual and says "Drive isn't connected yet" if it tries Drive.
+
 ## 7. Phone notifications (optional): `VAPID_PRIVATE_KEY`
 The morning headline (plus a bill to pay by hand due by tomorrow, and a package arriving today)
 as a notification on your lock screen. The key pair is already made: the public half is in the
