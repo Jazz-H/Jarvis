@@ -16,6 +16,9 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
+- [x] Tab bar: Home · To-Do · Console · Wallet (Budget | Shopping) · You (Beauty | Jazz 3.0); phone-first
+  Budget top (safe to spend, next 14 days, spending bars, goal) (Oct 30)
+- [x] Console (Ask Jarvis with cost limits, Capture, voice, Hey Jarvis), Weekly Review, calendar history (Oct 30)
 - [x] Google connected (Calendar, Inbox, Deliveries) and phone notifications on; tested Oct 30
 - [x] Skin & Hair renamed Beauty; notification badge; cleaner notification text (Oct 30)
 - [x] Workflow passes the Google and VAPID secrets to the morning run (Oct 30, `main`)

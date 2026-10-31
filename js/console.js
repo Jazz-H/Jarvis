@@ -8,13 +8,11 @@
 // and only saved when you tap Add. Ask sends the question to Jarvis (ask.js): its rows in the feed
 // (today and yesterday; the rest are in History) come from there.
 const CONSOLE_FEED_KEY = "console-feed"; // this device only: not in SYNC_KEYS, never pushed, not in backups
-const CONSOLE_MOVED_KEY = "console-moved-seen"; // the one-time "Jazz 3.0 moved" notice was shown (this device)
 const CONSOLE_FEED_DAYS = 7;
 const CONSOLE_FEED_MAX = 50;
 const CONSOLE_TEXT_MAX = 1000;
 const CONSOLE_PIECES_MAX = 20;
 const CONSOLE_ASK_STATUS = "Not sent: saved here before Ask Jarvis was switched on"; // older feed entries
-const CONSOLE_MOVED_MSG = "Jazz 3.0 moved: open it from Home's Jazz 3.0 tile or the bottom of Console";
 const CONSOLE_MODES = {
   ask: {
     label: "Ask",
@@ -265,7 +263,6 @@ function consoleShellHtml() {
     <div id="cn-preview"></div>
     <div id="cn-feed"></div>
     <div class="cn-review" id="cn-review"></div>
-    <button type="button" class="cn-j3" data-action="console-go" data-go="jazz3"><span><b>Jazz 3.0 →</b><small>Weight and goal sections</small></span></button>
   </div>`;
 }
 let consoleChipsMode = null; // which mode's chips are drawn, so typing doesn't redraw them
@@ -612,16 +609,4 @@ function consoleAdd() {
 }
 function consoleGo(where) {
   if (where === "todo" || where === "wants" || where === "jazz3") activateTab(where);
-}
-// The orb used to open Jazz 3.0: say where it went, once per device, the first time the orb is used
-function consoleOrbUsed() {
-  try {
-    if (localStorage.getItem(CONSOLE_MOVED_KEY) || undoPending) return;
-    localStorage.setItem(CONSOLE_MOVED_KEY, "1");
-  } catch (e) {
-    return;
-  }
-  showToast(CONSOLE_MOVED_MSG);
-  clearTimeout(toastTimer); // a longer read than "Saved"
-  toastTimer = setTimeout(() => document.getElementById("toast").classList.remove("show"), 6000);
 }

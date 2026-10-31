@@ -491,10 +491,10 @@ await section("wants: need/want tags, sorting, filters, editing", async () => {
 
 await section("shopping: page name and Moto category", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=wants" });
-  check("page is titled Shopping", (await page.textContent("#headline")) === "Shopping");
+  check("the header names the Wallet tab", (await page.textContent("#headline")) === "Wallet");
   check(
-    "tab is labeled Shopping",
-    (await page.textContent('nav.tabbar button[data-tab="wants"]')).trim() === "Shopping",
+    "the switch is on Shopping",
+    (await page.textContent('#tab-switch .tab-seg[aria-pressed="true"]')).trim() === "Shopping",
   );
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-cat", "Moto");
@@ -1370,6 +1370,7 @@ await section("to-do: recurring to-dos", async () => {
 await section("budget: tab, old closet links, spending, bills", async () => {
   const { ctx, page, errors } = await openApp({
     seed: {
+      "budget-month-open": "1", // the month view (folded under the Budget top) starts open
       "bills-content": [
         {
           id: "<bad>",
@@ -1385,8 +1386,8 @@ await section("budget: tab, old closet links, spending, bills", async () => {
   });
   const nav = await page.$$eval("nav.tabbar button", (bs) => bs.map((b) => b.textContent.trim()));
   check(
-    "nav: Home, To-Do, Console, Shopping, Beauty (Budget and Jazz 3.0 hidden)",
-    JSON.stringify(nav) === '["Home","To-Do","Console","Shopping","Beauty"]',
+    "nav: Home, To-Do, Console, Wallet, You",
+    JSON.stringify(nav) === '["Home","To-Do","Console","Wallet","You"]',
     nav,
   );
   check(
@@ -1416,7 +1417,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
     nav: document.querySelector("nav.tabbar button.active").dataset.tab,
     closet: !!document.getElementById("panel-style"),
   }));
-  check("old closet links land on Shopping", old.panel && old.nav === "wants" && !old.closet, old);
+  check("old closet links land on Shopping", old.panel && old.nav === "wallet" && !old.closet, old);
 
   // Spending
   await page.evaluate(() => activateTab("budget"));
@@ -1637,7 +1638,7 @@ await section("budget: paycheck plans import from a sheet", async () => {
 });
 
 await section("budget: pay that varies by check", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "budget-month-open": "1" } });
   // a biweekly check that started 4 weeks ago, so there are past and future paydays
   await page.evaluate(() => {
     budget.income.push({ id: "inc-v", name: "Work", amount: 2000, start: addDaysIso(-28), repeat: "biweekly" });
@@ -1829,7 +1830,7 @@ await section("budget: pay that varies by check", async () => {
 });
 
 await section("budget: long-term goals", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "budget-month-open": "1" } });
   // quick-start idea chip prefills the name
   check(
     "Manage is a quiet link, not a card",
@@ -1961,7 +1962,7 @@ await section("budget: long-term goals", async () => {
 });
 
 await section("budget: pay periods, copy plans, variable bills, shares, card totals", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "budget-month-open": "1" } });
   const setup = await page.evaluate(() => {
     const k = budgetMonthKey(),
       d = (n) => `${k}-${String(n).padStart(2, "0")}`;
@@ -2640,6 +2641,7 @@ await section("press and drag works across the app; no grip handles", async () =
     phone: false,
     query: "?tab=todo",
     seed: {
+      "budget-month-open": "1", // the month view (folded under the Budget top) starts open
       "todo-content": [
         {
           id: "p",
@@ -2921,11 +2923,13 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   );
   // the one-time cleanup link removes open to-dos by name
   check(
-    "Budget is hidden from the bar but still opens by link",
+    "Budget opens in the Wallet tab",
     await page.evaluate(
-      () =>
-        !document.querySelector('nav.tabbar [data-tab="budget"]') &&
-        (activateTab("budget"), document.getElementById("panel-budget").classList.contains("active")),
+      () => (
+        activateTab("budget"),
+        document.getElementById("panel-budget").classList.contains("active") &&
+          document.querySelector("nav.tabbar button.active").dataset.tab === "wallet"
+      ),
     ),
   );
   check(
@@ -3975,7 +3979,7 @@ await section("bill logos", async () => {
 });
 
 await section("budget: month calendar", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "budget-month-open": "1" } });
   const k = await page.evaluate(() => {
     const k = budgetMonthKey(),
       d = (n) => `${k}-${String(n).padStart(2, "0")}`;
@@ -4429,6 +4433,7 @@ await section("handlers: wants card vs buttons, filter chips; routine, budget, f
   const b = await openApp({
     query: "?tab=budget",
     seed: {
+      "budget-month-open": "1", // the month view (folded under the Budget top) starts open
       "bills-content": [
         { id: "hb1", name: "Phone", amount: 70, due: isoOffset(0), repeat: "monthly", autopay: false, account: null },
       ],
@@ -4556,6 +4561,7 @@ await section("handlers: bill logo falls back to a letter when the icon host fai
   const { ctx, page, errors } = await openApp({
     query: "?tab=budget",
     seed: {
+      "budget-month-open": "1", // the month view (folded under the Budget top) starts open
       "bills-content": [
         {
           id: "lg1",
@@ -4942,7 +4948,7 @@ await section(
   },
 );
 await section("handlers: bold child inside a button, filter chip keyboard, date input change events", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed: { "budget-month-open": "1" } });
   const modalOpen = () => page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open"));
   const kpi = page.locator('#panel-budget button.budget-kpi:has-text("Add your paycheck")');
   if (await kpi.count()) {
@@ -6227,6 +6233,7 @@ await section("budget bill rows: pay/unpay delegated; latest-payment-only and au
   const { ctx, page, errors } = await openApp({
     query: "?tab=budget",
     seed: {
+      "budget-month-open": "1", // the month view (folded under the Budget top) starts open
       "bills-content": [
         mkBill("bw", "Water"),
         mkBill("be", "Electric", { amount: 80, varies: true }),
@@ -7456,6 +7463,7 @@ await section(
   async () => {
     const k = isoOffset(0).slice(0, 7);
     const seed = {
+      "budget-month-open": "1", // the month view (folded under the Budget top) starts open
       "budget-content": {
         categories: [
           { id: "cg", name: "Groceries", limit: 100 },
@@ -8090,8 +8098,9 @@ await section("home dashboard: tiles drill into details, details into tabs, noth
   const glow = await page.evaluate(() => "p3-" + plan3Slug(plan3Cats()[0]));
   await page.tap(`#jv-detail-jazz3 .jv-goal[data-card="${glow}"]`);
   check(
-    "goal bar opens Jazz 3.0 with that section open",
-    (await page.textContent("#headline")) === "Jazz 3.0" &&
+    "goal bar opens Jazz 3.0 (in You) with that section open",
+    (await page.textContent("#headline")) === "You" &&
+      (await page.evaluate(() => currentTab)) === "jazz3" &&
       (await page.evaluate((id) => document.getElementById(id).classList.contains("open"), glow)),
   );
 
@@ -8110,7 +8119,10 @@ await section("home dashboard: tiles drill into details, details into tabs, noth
     dashGo("nope");
     dashGo("jazz3", "../x");
   });
-  check("unknown drill targets are inert", (await page.textContent("#headline")) === "Jazz 3.0");
+  check(
+    "unknown drill targets are inert",
+    (await page.textContent("#headline")) === "You" && (await page.evaluate(() => currentTab)) === "jazz3",
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -9466,7 +9478,7 @@ await section("keyboard: closed sheets are out of reach; rows and card headers w
   await ctx.close();
 });
 
-await section("Console: tab order, the orb opens Console, one-time moved notice, no + button", async () => {
+await section("Console: tab order, the orb opens Console, one-time tabs-back notice, no + button", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=home" });
   const r = await page.evaluate(() => ({
     order: TAB_ORDER,
@@ -9474,12 +9486,12 @@ await section("Console: tab order, the orb opens Console, one-time moved notice,
     nav: [...document.querySelectorAll("nav.tabbar button")].map((b) => b.dataset.tab),
   }));
   check(
-    "TAB_ORDER is home, todo, console, wants, skin and matches the bar",
-    JSON.stringify(r.order) === '["home","todo","console","wants","skin"]' &&
+    "TAB_ORDER is home, todo, console, wallet, you and matches the bar",
+    JSON.stringify(r.order) === '["home","todo","console","wallet","you"]' &&
       JSON.stringify(r.nav) === JSON.stringify(r.order),
     r,
   );
-  check("Jazz 3.0 is hidden like Budget", r.hidden.includes("jazz3") && r.hidden.includes("budget"), r.hidden);
+  check("no tab is hidden any more", r.hidden.length === 0, r.hidden);
   await page.tap('nav.tabbar button[data-tab="console"]');
   const opened = await page.evaluate(() => ({
     tab: currentTab,
@@ -9488,7 +9500,7 @@ await section("Console: tab order, the orb opens Console, one-time moved notice,
     navActive: document.querySelector('nav.tabbar button[data-tab="console"]').getAttribute("aria-current"),
     toast: document.getElementById("toast").textContent,
     shown: document.getElementById("toast").classList.contains("show"),
-    flag: localStorage.getItem("console-moved-seen"),
+    flag: localStorage.getItem("tabs-back-seen"),
   }));
   check(
     "the orb opens Console (headline, panel, current tab)",
@@ -9496,10 +9508,8 @@ await section("Console: tab order, the orb opens Console, one-time moved notice,
     opened,
   );
   check(
-    "the first orb tap says where Jazz 3.0 went, and remembers it on this device",
-    opened.shown &&
-      /Jazz 3\.0 moved: open it from Home's Jazz 3\.0 tile or the bottom of Console/.test(opened.toast) &&
-      !!opened.flag,
+    "the first tab-bar tap says Budget and Jazz 3.0 are back, and remembers it on this device",
+    opened.shown && opened.toast === "Budget and Jazz 3.0 are back: Wallet and You" && !!opened.flag,
     opened,
   );
   check("the floating + stays hidden on Console", !(await page.isVisible("#fab")));
@@ -9509,14 +9519,14 @@ await section("Console: tab order, the orb opens Console, one-time moved notice,
   });
   await page.tap('nav.tabbar button[data-tab="console"]');
   check(
-    "the moved notice shows only once",
-    !(await page.evaluate(() => document.getElementById("toast").textContent.includes("moved"))),
+    "the tabs-back notice shows only once",
+    !(await page.evaluate(() => document.getElementById("toast").textContent.includes("are back"))),
   );
-  // layout: switch, box, one chip row, hint, feed, Jazz 3.0 row; nothing scrolls sideways at 390px
+  // layout: switch, box, one chip row, hint, feed; nothing scrolls sideways at 390px
   const lay = await page.evaluate(() => {
     const chips = [...document.querySelectorAll("#cn-chips .cn-chip")];
     const row = document.getElementById("cn-chips");
-    const order = [".cn-switch", ".cn-box", "#cn-chips", "#cn-hint", "#cn-feed", ".cn-j3"].map(
+    const order = [".cn-switch", ".cn-box", "#cn-chips", "#cn-hint", "#cn-feed"].map(
       (s) => document.querySelector("#panel-console " + s).getBoundingClientRect().top,
     );
     return {
@@ -9540,17 +9550,11 @@ await section("Console: tab order, the orb opens Console, one-time moved notice,
     lay.chipH >= 36 && lay.send >= 44 && lay.segs.every((h) => h >= 44),
     lay,
   );
-  check("top-to-bottom order: switch, box, chips, hint, feed, Jazz 3.0", lay.sorted, lay);
+  check("top-to-bottom order: switch, box, chips, hint, feed", lay.sorted, lay);
   check("the input is labelled", lay.label.length > 0, lay.label);
   check("the Weekly Review slot renders nothing yet", lay.review === "" && lay.hook === "", lay);
-  // the Jazz 3.0 row opens the hidden tab
-  await page.tap(".cn-j3");
-  const j3 = await page.evaluate(() => ({
-    tab: currentTab,
-    headline: document.getElementById("headline").textContent,
-    panel: document.getElementById("panel-jazz3").classList.contains("active"),
-  }));
-  check("Console's Jazz 3.0 row opens Jazz 3.0", j3.tab === "jazz3" && j3.headline === "Jazz 3.0" && j3.panel, j3);
+  check("Console no longer has a Jazz 3.0 row (You has the tab)", !(await page.$("#panel-console .cn-j3")));
+  check("Console shows no group switch", !(await page.isVisible("#tab-switch")));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -9592,8 +9596,8 @@ await section("Console: every Jazz 3.0 entry point still works", async () => {
   if (!(await page.isVisible("#jv-detail-jazz3"))) await page.tap('.jv-tile[data-go="jazz3"]');
   await page.tap('#jv-detail-jazz3 [data-action="jv-go"][data-go="jazz3"]:not([data-card])');
   check(
-    "the detail's Open Jazz 3.0 link opens the hidden tab",
-    (await page.evaluate(() => currentTab)) === "jazz3" && (await page.textContent("#headline")) === "Jazz 3.0",
+    "the detail's Open Jazz 3.0 link opens Jazz 3.0 under You",
+    (await page.evaluate(() => currentTab)) === "jazz3" && (await page.textContent("#headline")) === "You",
   );
   await page.evaluate(() => {
     activateTab("home");
@@ -12679,6 +12683,790 @@ await section("inbox detail opens Gmail; Jazz 3.0 goal bars stay thin", async ()
     "goal bars are 8px and sit under their labels",
     bars.length > 0 && bars.every((x) => x.h === 8 && x.below),
     bars,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("tab bar: Home, To-Do, Console, Wallet, You (icons, labels, nothing hidden)", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+  const bar = await page.evaluate(() =>
+    [...document.querySelectorAll("nav.tabbar button")].map((b) => ({
+      tab: b.dataset.tab,
+      label: b.textContent.trim(),
+      svg: !!b.querySelector("svg"),
+      hiddenSvg: b.querySelector("svg").getAttribute("aria-hidden") === "true" || !!b.querySelector(".orb-core"),
+      upper: getComputedStyle(b).textTransform,
+      mono:
+        getComputedStyle(b).fontFamily ===
+        getComputedStyle(document.querySelector('nav.tabbar [data-tab="home"]')).fontFamily,
+      stroke: b.querySelector("svg").getAttribute("stroke-width"),
+      h: b.getBoundingClientRect().height,
+    })),
+  );
+  check(
+    "bar order and labels",
+    JSON.stringify(bar.map((b) => b.tab)) === '["home","todo","console","wallet","you"]' &&
+      JSON.stringify(bar.map((b) => b.label)) === '["Home","To-Do","Console","Wallet","You"]',
+    bar,
+  );
+  check(
+    "every tab has a line icon in the same 1.8 stroke, uppercase mono label, 44px+ tall",
+    bar.every((b) => b.svg && b.stroke === "1.8" && b.upper === "uppercase" && b.mono && b.h >= 44),
+    bar,
+  );
+  check(
+    "Wallet is a card icon, You a person icon",
+    await page.evaluate(
+      () =>
+        !!document.querySelector('nav.tabbar [data-tab="wallet"] svg rect') &&
+        !!document.querySelector('nav.tabbar [data-tab="you"] svg circle') &&
+        !!document.querySelector('nav.tabbar [data-tab="you"] svg path'),
+    ),
+  );
+  const hid = await page.evaluate(() => ({
+    hidden: HIDDEN_TABS.length,
+    // every panel is reachable from the bar (directly or through a group's switch)
+    panels: [...document.querySelectorAll(".tabpanel")].map((p) => p.id.replace("panel-", "")),
+    reach: SWIPE_ORDER,
+  }));
+  check(
+    "no hidden tabs: every panel is in the bar or a group",
+    hid.hidden === 0 && hid.panels.every((p) => hid.reach.includes(p)) && hid.reach.length === hid.panels.length,
+    hid,
+  );
+  check("Home shows no group switch", !(await page.isVisible("#tab-switch")));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section(
+  "Wallet / You: the switch swaps views, the header names the group, the last view is remembered",
+  async () => {
+    const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+    const state = () =>
+      page.evaluate(() => {
+        const sw = document.getElementById("tab-switch");
+        const segs = [...sw.querySelectorAll(".tab-seg")];
+        const active = document.querySelector("nav.tabbar button.active");
+        return {
+          tab: currentTab,
+          body: document.body.dataset.tab,
+          headline: document.getElementById("headline").textContent,
+          nav: active && active.dataset.tab,
+          current: [...document.querySelectorAll('nav.tabbar [aria-current="page"]')].map((b) => b.dataset.tab).join(),
+          panel: [...document.querySelectorAll(".tabpanel.active")].map((p) => p.id).join(),
+          shown: !sw.hidden && sw.getBoundingClientRect().height > 0,
+          role: sw.getAttribute("role"),
+          label: sw.getAttribute("aria-label"),
+          segs: segs.map((b) => b.textContent.trim()).join(),
+          pressed: segs
+            .filter((b) => b.getAttribute("aria-pressed") === "true")
+            .map((b) => b.dataset.tab)
+            .join(),
+          on: segs
+            .filter((b) => b.classList.contains("on"))
+            .map((b) => b.dataset.tab)
+            .join(),
+          segH: Math.min(...segs.map((b) => b.getBoundingClientRect().height)),
+          segW: segs.map((b) => Math.round(b.getBoundingClientRect().width)),
+          swW: Math.round(sw.getBoundingClientRect().width),
+          mainW: Math.round(document.querySelector("main").clientWidth),
+          aboveSwitch:
+            sw.getBoundingClientRect().bottom <= document.querySelector(".tabpanel.active").getBoundingClientRect().top,
+        };
+      });
+    await page.tap('nav.tabbar button[data-tab="wallet"]');
+    let s = await state();
+    check(
+      "Wallet opens on Budget the first time, with the header and tab lit",
+      s.tab === "budget" &&
+        s.body === "budget" &&
+        s.headline === "Wallet" &&
+        s.nav === "wallet" &&
+        s.current === "wallet" &&
+        s.panel === "panel-budget",
+      s,
+    );
+    check(
+      "Wallet's switch: Budget | Shopping, a labelled group, Budget pressed, above the panel",
+      s.shown &&
+        s.role === "group" &&
+        s.label === "Wallet views" &&
+        s.segs === "Budget,Shopping" &&
+        s.pressed === "budget" &&
+        s.on === "budget" &&
+        s.aboveSwitch,
+      s,
+    );
+    check(
+      "the switch is full width with two equal 44px segments",
+      s.segH >= 44 && s.segW[0] === s.segW[1] && s.swW >= s.mainW - 34,
+      s,
+    );
+    await page.tap('#tab-switch .tab-seg[data-tab="wants"]');
+    s = await state();
+    check(
+      "tapping Shopping swaps the panel and keeps Wallet lit",
+      s.tab === "wants" &&
+        s.body === "wants" &&
+        s.headline === "Wallet" &&
+        s.nav === "wallet" &&
+        s.pressed === "wants" &&
+        s.panel === "panel-wants",
+      s,
+    );
+    check(
+      "the choice is remembered on this device",
+      (await page.evaluate(() => JSON.parse(localStorage.getItem("tab-group-last")).wallet)) === "wants",
+    );
+    await page.tap('nav.tabbar button[data-tab="you"]');
+    s = await state();
+    check(
+      "You opens on Beauty first: Beauty | Jazz 3.0, header You",
+      s.tab === "skin" &&
+        s.headline === "You" &&
+        s.nav === "you" &&
+        s.segs === "Beauty,Jazz 3.0" &&
+        s.pressed === "skin" &&
+        s.label === "You views",
+      s,
+    );
+    await page.tap('#tab-switch .tab-seg[data-tab="jazz3"]');
+    s = await state();
+    check(
+      "tapping Jazz 3.0 swaps to Jazz 3.0 under You",
+      s.tab === "jazz3" && s.nav === "you" && s.pressed === "jazz3",
+      s,
+    );
+    await page.tap('nav.tabbar button[data-tab="wallet"]');
+    s = await state();
+    check("Wallet comes back to Shopping (its last view)", s.tab === "wants" && s.pressed === "wants", s);
+    await page.tap('nav.tabbar button[data-tab="wallet"]');
+    check("tapping Wallet again stays on Shopping", (await state()).tab === "wants");
+    await page.tap('nav.tabbar button[data-tab="home"]');
+    check("leaving the group hides its switch", !(await state()).shown);
+    await page.reload();
+    await page.waitForTimeout(500);
+    await page.tap('nav.tabbar button[data-tab="you"]');
+    s = await state();
+    check("after a reload, You still opens Jazz 3.0", s.tab === "jazz3" && s.pressed === "jazz3", s);
+    await page.tap('nav.tabbar button[data-tab="wallet"]');
+    check("and Wallet still opens Shopping", (await state()).tab === "wants");
+    // keyboard: the pressed state flips in place, so focus stays on the segment
+    await page.focus('#tab-switch .tab-seg[data-tab="budget"]');
+    await page.keyboard.press("Enter");
+    const kb = await page.evaluate(() => ({
+      tab: currentTab,
+      focus: document.activeElement && document.activeElement.dataset.tab,
+      pressed: document.activeElement && document.activeElement.getAttribute("aria-pressed"),
+    }));
+    check(
+      "Enter on a segment switches and keeps focus on it",
+      kb.tab === "budget" && kb.focus === "budget" && kb.pressed === "true",
+      kb,
+    );
+    // forged or stale stored values fall back to the first view; forged switch targets do nothing
+    await page.evaluate(() => {
+      localStorage.setItem("tab-group-last", JSON.stringify({ wallet: "console", you: "<img>" }));
+      activateTab("home");
+    });
+    await page.tap('nav.tabbar button[data-tab="wallet"]');
+    check("a bad stored view falls back to Budget", (await state()).tab === "budget");
+    await page.tap('nav.tabbar button[data-tab="you"]');
+    check("and to Beauty", (await state()).tab === "skin");
+    await page.evaluate(() => {
+      localStorage.setItem("tab-group-last", "not json");
+      const b = document.createElement("button");
+      b.dataset.action = "tab-sub";
+      b.dataset.tab = "console";
+      document.getElementById("tab-switch").appendChild(b);
+      b.click();
+      b.remove();
+      activateTab("constructor");
+      activateTab("__proto__");
+    });
+    s = await state();
+    check("a forged switch target or tab name does nothing", s.tab === "skin" && s.nav === "you", s);
+    await page.tap('nav.tabbar button[data-tab="wallet"]');
+    check("unreadable stored views fall back too", (await state()).tab === "budget");
+    check("no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
+
+await section("Wallet / You: every entry point lands on the right view with the right tab lit", async () => {
+  const cases = [
+    ["?tab=budget", "budget", "wallet", "Wallet"],
+    ["?tab=wants", "wants", "wallet", "Wallet"],
+    ["?tab=style", "wants", "wallet", "Wallet"],
+    ["?tab=skin", "skin", "you", "You"],
+    ["?tab=jazz3", "jazz3", "you", "You"],
+    ["?tab=fitness", "jazz3", "you", "You"],
+    ["?tab=wallet", "budget", "wallet", "Wallet"],
+    ["?tab=you", "skin", "you", "You"],
+    ["?tab=console", "console", "console", "Console"],
+    ["?tab=todo", "todo", "todo", "To-Do"],
+    ["?tab=jarvis", "home", "home", "Home"],
+  ];
+  for (const [q, tab, nav, headline] of cases) {
+    const { ctx, page, errors } = await openApp({ query: q });
+    const r = await page.evaluate(() => ({
+      tab: currentTab,
+      nav: document.querySelector('nav.tabbar [aria-current="page"]').dataset.tab,
+      headline: document.getElementById("headline").textContent,
+      sw: !document.getElementById("tab-switch").hidden,
+      pressed: document.querySelector('#tab-switch:not([hidden]) [aria-pressed="true"]')?.dataset.tab || "",
+    }));
+    const grouped = nav === "wallet" || nav === "you";
+    check(
+      `${q} opens ${tab} under ${nav}`,
+      r.tab === tab &&
+        r.nav === nav &&
+        r.headline === headline &&
+        r.sw === grouped &&
+        r.pressed === (grouped ? tab : ""),
+      r,
+    );
+    check(`no JS errors (${q})`, errors.length === 0, errors);
+    await ctx.close();
+  }
+  // a group link uses the remembered view
+  const rem = await openApp({ query: "?tab=wallet", seed: { "tab-group-last": { wallet: "wants", you: "jazz3" } } });
+  check("?tab=wallet opens the remembered Shopping", (await rem.page.evaluate(() => currentTab)) === "wants");
+  await rem.ctx.close();
+
+  const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+  const at = () =>
+    page.evaluate(() =>
+      [
+        currentTab,
+        document.querySelector('nav.tabbar [aria-current="page"]').dataset.tab,
+        document.querySelector('#tab-switch:not([hidden]) [aria-pressed="true"]')?.dataset.tab || "",
+      ].join(),
+    );
+  // Home tiles (dashGo) and Weekly Review links (which call dashGo) land inside the groups
+  for (const [where, want] of [
+    ["money", "budget,wallet,budget"],
+    ["shop", "wants,wallet,wants"],
+    ["skin", "skin,you,skin"],
+    ["jazz3", "jazz3,you,jazz3"],
+    ["todo", "todo,todo,"],
+  ]) {
+    await page.evaluate((w) => {
+      activateTab("home");
+      dashGo(w);
+    }, where);
+    check(`dashGo("${where}") lands on ${want}`, (await at()) === want, await at());
+  }
+  await page.evaluate(() => {
+    activateTab("home");
+    dashGo("jazz3", "weight-card");
+  });
+  check(
+    'dashGo("jazz3", "weight-card") opens You → Jazz 3.0 at the Weight card',
+    (await at()) === "jazz3,you,jazz3" &&
+      (await page.evaluate(() => document.getElementById("weight-card").classList.contains("open"))),
+  );
+  // a Home tile tap (real UI)
+  await page.evaluate(() => activateTab("home"));
+  await page.tap('.jv-tile[data-go="money"]');
+  await page.tap('#jv-detail-money [data-action="jv-go"][data-go="money"]');
+  check("Home's Money detail opens Wallet → Budget", (await at()) === "budget,wallet,budget", await at());
+  // the old Console "Jazz 3.0" shortcut still lands right if something calls it
+  await page.evaluate(() => consoleGo("jazz3"));
+  check("consoleGo(jazz3) lands on You → Jazz 3.0", (await at()) === "jazz3,you,jazz3");
+  await page.evaluate(() => consoleGo("wants"));
+  check("consoleGo(wants) lands on Wallet → Shopping", (await at()) === "wants,wallet,wants");
+  // resuming after a hard refresh keeps the sub-view and lights its group
+  await page.evaluate(() => {
+    activateTab("jazz3");
+    sessionStorage.setItem("resume-view", JSON.stringify({ tab: "budget", scroll: 0 }));
+    resumeView();
+  });
+  check("resuming a Budget view lights Wallet", (await at()) === "budget,wallet,budget");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+
+  // #import= links: a jazz3 import ends on You → Jazz 3.0, a skin import on You → Beauty
+  const j3 = await openApp({
+    query:
+      "#import=" + Buffer.from(JSON.stringify({ app: "jazz3-fitness", start: 100, goal: 120 })).toString("base64url"),
+  });
+  await j3.page.waitForTimeout(300);
+  check(
+    "#import= jazz3 link lights You",
+    (await j3.page.evaluate(() =>
+      [currentTab, document.querySelector('nav.tabbar [aria-current="page"]').dataset.tab].join(),
+    )) === "jazz3,you",
+  );
+  await j3.ctx.close();
+  // manifest shortcuts still point at views that open
+  const manifest = JSON.parse(await readFile(path.join(ROOT, "manifest.json"), "utf8"));
+  const tabs = manifest.shortcuts.map((s) => new URL(s.url, "http://x/").searchParams.get("tab"));
+  const okTabs = await (async () => {
+    const { ctx, page } = await openApp();
+    const r = await page.evaluate((ts) => ts.every((t) => isTab(NAV_TAB(t))), tabs);
+    await ctx.close();
+    return r;
+  })();
+  check("every manifest shortcut opens a real view", tabs.length > 0 && okTabs, tabs);
+});
+
+await section("Wallet / You: swiping walks every view left to right; + button per view", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=home" });
+  const swipe = (dx) =>
+    page.evaluate((dx) => {
+      dragJustEnded = 0;
+      const el = document.querySelector(".tabpanel.active");
+      const r = document.querySelector("main").getBoundingClientRect();
+      const x = r.left + r.width / 2,
+        y = r.top + 200;
+      const t = (cx, cy) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: cy });
+      el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [t(x, y)], changedTouches: [t(x, y)] }));
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [], changedTouches: [t(x + dx, y)] }));
+      return currentTab;
+    }, dx);
+  await page.evaluate(() => activateTab("console"));
+  const left = [];
+  for (let i = 0; i < 5; i++) left.push(await swipe(-120));
+  check(
+    "swiping left from Console: Budget, Shopping, Beauty, Jazz 3.0, then it stops",
+    left.join() === "budget,wants,skin,jazz3,jazz3",
+    left,
+  );
+  check(
+    "the bar follows the swipe (You lit on Jazz 3.0)",
+    (await page.evaluate(() => document.querySelector('nav.tabbar [aria-current="page"]').dataset.tab)) === "you",
+  );
+  const right = [];
+  for (let i = 0; i < 7; i++) right.push(await swipe(120));
+  check(
+    "swiping right walks back to Home, then stops",
+    right.join() === "skin,wants,budget,console,todo,home,home",
+    right,
+  );
+  check(
+    "a swipe into a group is remembered like a switch tap",
+    (await page.evaluate(() => JSON.parse(localStorage.getItem("tab-group-last")).wallet)) === "budget",
+  );
+
+  // the + button keeps its per-view modes
+  const fab = async (tab) => {
+    await page.evaluate((t) => activateTab(t), tab);
+    await page.waitForTimeout(50);
+    return page.evaluate(() => ({
+      shown: getComputedStyle(document.getElementById("fab")).display !== "none",
+      label: document.getElementById("fab").getAttribute("aria-label"),
+    }));
+  };
+  let f = await fab("budget");
+  check("+ on Wallet → Budget adds spending or a bill", f.shown && f.label === "Add spending or a bill", f);
+  await page.click("#fab");
+  check("+ on Budget opens Add to budget", (await page.textContent("#composer-heading")) === "Add to budget");
+  await page.evaluate(() => closeComposer());
+  f = await fab("wants");
+  check("+ on Wallet → Shopping adds to the shopping list", f.shown && f.label === "Add to shopping list", f);
+  await page.click("#fab");
+  check("+ on Shopping opens the shopping composer", await page.evaluate(() => composer && composer.mode === "shop"));
+  await page.evaluate(() => closeComposer());
+  check("no + on You → Beauty", !(await fab("skin")).shown);
+  check("no + on You → Jazz 3.0", !(await fab("jazz3")).shown);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Wallet / You: switch fits at 390px in both themes; desktop bar", async () => {
+  for (const theme of ["dark", "light"]) {
+    const { ctx, page, errors } = await openApp({ query: "?tab=home", seed: { "theme-pref": theme } });
+    for (const tab of ["budget", "wants", "skin", "jazz3"]) {
+      await page.evaluate((t) => activateTab(t), tab);
+      await page.waitForTimeout(250); // the segments fade their colours over 0.15s
+      const r = await page.evaluate(() => {
+        const sw = document.getElementById("tab-switch");
+        const on = sw.querySelector(".tab-seg.on"),
+          off = sw.querySelector(".tab-seg:not(.on)");
+        const cn = getComputedStyle(sw);
+        return {
+          theme: document.documentElement.dataset.theme,
+          pageW: document.scrollingElement.scrollWidth,
+          w: innerWidth,
+          right: sw.getBoundingClientRect().right,
+          onBg: getComputedStyle(on).backgroundColor,
+          onFg: getComputedStyle(on).color,
+          offFg: getComputedStyle(off).color,
+          radius: cn.borderRadius,
+          bg: cn.backgroundColor,
+          accent: getComputedStyle(document.documentElement).getPropertyValue("--olive").trim(),
+        };
+      });
+      check(
+        `${theme} ${tab}: no sideways scroll at 390px, the switch inside the screen`,
+        r.theme === theme && r.w === 390 && r.pageW <= 390 && r.right <= 390,
+        r,
+      );
+      check(
+        `${theme} ${tab}: pressed segment is lit, the other dim`,
+        r.onBg !== "rgba(0, 0, 0, 0)" && r.onFg !== r.offFg && r.radius === "12px",
+        r,
+      );
+    }
+    check(`no JS errors (${theme})`, errors.length === 0, errors);
+    await ctx.close();
+  }
+  // the switch looks the same as Console's Ask | Capture
+  const { ctx, page } = await openApp({ query: "?tab=console" });
+  const look = await page.evaluate(() => {
+    const pick = (el) => {
+      const c = getComputedStyle(el);
+      return [c.display, c.padding, c.borderRadius, c.backgroundColor, c.borderTopColor].join("|");
+    };
+    const seg = (el) => {
+      const c = getComputedStyle(el);
+      return [c.minHeight, c.borderRadius, c.fontSize, c.fontWeight].join("|");
+    };
+    const cn = pick(document.querySelector("#panel-console .cn-switch")),
+      cs = seg(document.querySelector("#panel-console .cn-seg"));
+    activateTab("budget");
+    return { cn, cs, tab: pick(document.getElementById("tab-switch")), ts: seg(document.querySelector(".tab-seg")) };
+  });
+  check("the group switch matches Console's switch", look.cn === look.tab && look.cs === look.ts, look);
+  await ctx.close();
+  const d = await openApp({ phone: false, query: "?tab=jazz3" });
+  const desk = await d.page.evaluate(() => ({
+    labels: [...document.querySelectorAll("nav.tabbar button")].map((b) => b.textContent.trim()).join(),
+    current: document.querySelector('nav.tabbar [aria-current="page"]').dataset.tab,
+    sw: document.getElementById("tab-switch").getBoundingClientRect().height,
+  }));
+  check(
+    "desktop: the five tabs, You lit on Jazz 3.0, the switch shown",
+    desk.labels === "Home,To-Do,Console,Wallet,You" && desk.current === "you" && desk.sw >= 44,
+    desk,
+  );
+  check("no JS errors (desktop)", d.errors.length === 0, d.errors);
+  await d.ctx.close();
+});
+
+await section("budget top: safe to spend, next 14 days across a month end, spending, goal, folded month", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  // Pin "today" two days before this month ends (local noon), so a bill on the 1st of next month
+  // is 3 days away: the case the month view hid. Date-only math, so it holds in any time zone.
+  const now = new Date();
+  const fixed = new Date(now.getFullYear(), now.getMonth() + 1, -2, 12);
+  await page.clock.setFixedTime(fixed);
+  await page.reload();
+  await page.waitForTimeout(600);
+  const setup = await page.evaluate(() => {
+    const today = addDaysIso(0);
+    const nextFirst = isoDate(new Date(noonOf(monthEndIso(today.slice(0, 7))).getTime() + 864e5));
+    bills = [
+      {
+        id: "b-rent",
+        name: "<img src=x onerror=window.__wbx=1>Rent",
+        amount: 900,
+        due: nextFirst,
+        repeat: "monthly",
+        group: "personal",
+        day: 1,
+      },
+      {
+        id: "b-old",
+        name: "Old",
+        amount: 40,
+        due: addDaysIso(-2),
+        repeat: "monthly",
+        group: "personal",
+        day: Number(addDaysIso(-2).slice(8)),
+      },
+      {
+        id: "b-power",
+        name: "Power",
+        amount: 200,
+        due: addDaysIso(1),
+        repeat: "monthly",
+        group: "joint",
+        share: 50,
+        day: Number(addDaysIso(1).slice(8)),
+      },
+      {
+        id: "b-stream",
+        name: "Stream",
+        amount: 12,
+        due: addDaysIso(5),
+        repeat: "monthly",
+        autopay: true,
+        group: "personal",
+        day: Number(addDaysIso(5).slice(8)),
+      },
+      {
+        id: "b-far",
+        name: "Far",
+        amount: 70,
+        due: addDaysIso(20),
+        repeat: "monthly",
+        group: "personal",
+        day: Number(addDaysIso(20).slice(8)),
+      },
+    ];
+    billPayments = [];
+    budget.income = [{ id: "inc-a", name: "Paycheck", amount: 2000, start: addDaysIso(-3), repeat: "biweekly" }];
+    budget.categories = [
+      { id: "cat-g", name: "Groceries", limit: 100 },
+      { id: "cat-d", name: "Dining", limit: 100 },
+      { id: "cat-f", name: "Fun", limit: 50 },
+      { id: "cat-x", name: "<b>x</b>Gifts", limit: 0 },
+    ];
+    budget.expenses = [
+      { id: "e-g", name: "Market", amount: 50, cat: "cat-g", date: today },
+      { id: "e-d", name: "Tacos", amount: 95, cat: "cat-d", date: today },
+      { id: "e-f", name: "Show", amount: 60, cat: "cat-f", date: today },
+      { id: "e-x", name: "Card", amount: 12, cat: "cat-x", date: today },
+    ];
+    budget.goals = [{ id: "goal-f", name: "Fund", target: 1000, saved: 250, created: today, log: [] }];
+    budget.plans = {
+      [`inc-a|${addDaysIso(11)}`]: { lines: [{ id: "line-f", name: "Save", amount: 100, goal: "goal-f" }] },
+    };
+    normalizeBudgetData();
+    renderBudget();
+    return { today, nextFirst };
+  });
+  check(
+    "the pinned day sits 3 days before next month's 1st",
+    setup.nextFirst.slice(0, 7) !== setup.today.slice(0, 7),
+    setup,
+  );
+
+  // Safe to spend: the same numbers as Home's Money detail
+  const hero = await page.evaluate(() => {
+    const p = dashPayPeriod(addDaysIso(0));
+    return {
+      safe: document.querySelector("#panel-budget .wb-safe").textContent,
+      keys: document.querySelector("#panel-budget .wb-keys").textContent,
+      when: document.querySelector("#panel-budget .wb-hero-row > span").textContent,
+      p,
+      expect: moneyShort(Math.abs(p.left)),
+    };
+  });
+  await page.evaluate(() => {
+    activateTab("home");
+    dashDrill("money");
+  });
+  const home = await page.evaluate(() => ({
+    safe: document.querySelector("#jv-detail-money .jv-safe b").textContent,
+    keys: document.querySelector("#jv-detail-money .jv-period-keys").textContent,
+  }));
+  await page.evaluate(() => activateTab("budget"));
+  check(
+    "Safe to spend matches Home's Money detail (number, paid, due, paycheck)",
+    hero.safe === home.safe &&
+      hero.safe === hero.expect &&
+      ["Paid", "Due", "Paycheck"].every((k) => {
+        const re = new RegExp(`${k} (\\$[\\d,.]+)`);
+        return (hero.keys.match(re) || [])[1] === (home.keys.match(re) || [])[1];
+      }),
+    { hero, home },
+  );
+  check(
+    "hero says until payday <day, date> · N days",
+    /^until payday \w{3}, \w{3} \d+ · \d+ days?$/.test(hero.when),
+    hero.when,
+  );
+
+  // Next 14 days: overdue first, crosses the month end, nothing past 14 days, your share for joint
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll("#panel-budget .wb-upcoming .wb-bill")].map((r) => ({
+      name: r.querySelector(".wb-bill-text b").textContent,
+      meta: r.querySelector(".wb-bill-meta").textContent,
+      amt: r.querySelector(".wb-bill-amt").textContent,
+      over: r.classList.contains("over"),
+      manual: !!r.querySelector(".wb-manual"),
+      box: !!r.querySelector(".todo-check"),
+    })),
+  );
+  const byName = (n) => rows.find((r) => r.name.endsWith(n)) || {};
+  check("overdue unpaid bill comes first, in red", rows[0] && rows[0].name === "Old" && rows[0].over, rows);
+  check(
+    "a bill due next month within 14 days is listed (crosses the month end)",
+    !!byName("Rent").name && /^\w{3}, \w{3} 1\b/.test(byName("Rent").meta),
+    rows,
+  );
+  check("bills past 14 days are left out", !rows.some((r) => r.name === "Far"), rows);
+  check(
+    "joint bill shows your share",
+    byName("Power").amt === "$100.00" && byName("Power").meta.includes("your 50%"),
+    rows,
+  );
+  check(
+    "not on autopay warns within 3 days; autopay bills say autopay",
+    byName("Rent").manual &&
+      byName("Power").manual &&
+      byName("Old").manual &&
+      !byName("Stream").manual &&
+      byName("Stream").meta.includes("autopay"),
+    rows,
+  );
+  check(
+    "label totals what's still due",
+    (await page.textContent("#panel-budget .wb-upcoming .jv-label-count")) === "$1,052",
+    await page.textContent("#panel-budget .wb-upcoming .jv-label-count"),
+  );
+  check(
+    "bill names are escaped",
+    (await page.evaluate(() => window.__wbx === undefined && !document.querySelector('#panel-budget img[src="x"]'))) &&
+      byName("Rent").name === "<img src=x onerror=window.__wbx=1>Rent",
+    byName("Rent"),
+  );
+
+  // Tick pays (with Undo); the row stays, struck
+  await page.click('#panel-budget .wb-upcoming .todo-check[aria-label="Mark paid: Power"]');
+  const paid = await page.evaluate(() => ({
+    pays: billPayments.map((p) => p.billId),
+    struck: [...document.querySelectorAll("#panel-budget .wb-bill.checked .wb-bill-text b")].map((b) => b.textContent),
+  }));
+  check(
+    "ticking a bill pays it and shows it struck",
+    paid.pays.join() === "b-power" && paid.struck.includes("Power"),
+    paid,
+  );
+  await page.click(".toast button");
+  check(
+    "Undo un-pays it",
+    await page.evaluate(() => billPayments.length === 0 && bills.find((b) => b.id === "b-power").due === addDaysIso(1)),
+  );
+
+  // Tapping the row (not the box) opens the bill editor
+  await page.click('#panel-budget .wb-bill:has(.todo-check[aria-label="Mark paid: Stream"]) .wb-bill-text');
+  const ed = await page.evaluate(() => ({
+    open: document.getElementById("modal-backdrop").classList.contains("open"),
+    title: document.getElementById("modal-heading").textContent,
+    name: (document.getElementById("modal-name") || {}).value,
+  }));
+  check("row opens the bill editor", ed.open && ed.title === "Edit bill" && ed.name === "Stream", ed);
+  await page.evaluate(() => closeModal());
+
+  // Spending bars: normal, amber at 90%+, red over; no-limit categories as chips
+  const sp = await page.evaluate(() => ({
+    label: document.querySelector("#panel-budget .wb-spending .jv-label").textContent,
+    cats: [...document.querySelectorAll("#panel-budget .wb-cat")].map((c) => ({
+      name: c.querySelector(".wb-cat-head b").textContent,
+      cls: c.className.replace(/\s+/g, " ").trim(),
+      w: c.querySelector(".wb-track span").style.width,
+      amt: c.querySelector(".wb-cat-amt").textContent,
+    })),
+    chips: [...document.querySelectorAll("#panel-budget .wb-chip")].map((c) => c.textContent),
+    injected: document.querySelectorAll("#panel-budget .wb-chip b").length !== 1,
+  }));
+  const cat = (n) => sp.cats.find((c) => c.name === n) || {};
+  check(
+    "spending label: spent of limit",
+    /Spending · \w+/.test(sp.label) && sp.label.includes("$217 of $250"),
+    sp.label,
+  );
+  check(
+    "bars: normal under 90%, amber at 90%+, red over",
+    cat("Groceries").cls === "wb-cat" &&
+      cat("Groceries").w === "50%" &&
+      cat("Dining").cls === "wb-cat near" &&
+      cat("Fun").cls === "wb-cat over" &&
+      cat("Fun").w === "100%" &&
+      cat("Fun").amt === "$60 of $50 · over",
+    sp.cats,
+  );
+  check(
+    "categories without a limit are listed compactly, names escaped",
+    sp.chips.length === 1 && sp.chips[0].trim() === "<b>x</b>Gifts $12" && !sp.injected,
+    sp,
+  );
+  await page.click('#panel-budget .wb-cat-btn[data-cat-id="cat-g"]');
+  check(
+    "tapping a bar opens that category's expenses",
+    (await page.textContent("#panel-budget .wb-spending .wb-cat-items")).includes("Market"),
+  );
+
+  // Goal ring: saved of target · per paycheck; tap opens the goal editor
+  const goal = await page.evaluate(() => ({
+    text: document.querySelector("#panel-budget .wb-goal-text").textContent,
+    pct: document.querySelector("#panel-budget .wb-ring em").textContent,
+  }));
+  check(
+    "goal shows saved of target and $ per paycheck",
+    goal.text === "Fund$250 of $1,000 · $100 a paycheck" && goal.pct === "25%",
+    goal,
+  );
+  await page.click("#panel-budget .wb-goal");
+  check(
+    "goal opens its editor",
+    await page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open")),
+  );
+  await page.evaluate(() => closeModal());
+
+  // The month in full: folded by default, opens, remembered on this device; ‹ › still step months
+  const shut = await page.evaluate(() => ({
+    open: document.getElementById("wb-month").open,
+    seen: document.getElementById("bills-mine").checkVisibility(),
+    row: document.querySelector("#wb-month > summary").textContent,
+  }));
+  check(
+    "month view starts folded under '<Month> in full'",
+    !shut.open && !shut.seen && /^\w+ in full · bills, paycheck plan, calendar/.test(shut.row.trim()),
+    shut,
+  );
+  await page.click("#wb-month > summary");
+  await page.waitForTimeout(100);
+  check(
+    "tapping it shows the month view and saves it open",
+    await page.evaluate(
+      () =>
+        document.getElementById("bills-mine").checkVisibility() && localStorage.getItem("budget-month-open") === "1",
+    ),
+  );
+  const before = await page.textContent(".budget-month span");
+  await page.click('.budget-month .cal-nav[aria-label="Next month"]');
+  const after = await page.evaluate(() => ({
+    month: document.querySelector(".budget-month span").textContent,
+    row: document.querySelector("#wb-month > summary b").textContent,
+    open: document.getElementById("wb-month").open,
+  }));
+  check(
+    "› steps to next month (still open, row names it)",
+    after.month !== before && after.open && after.row === `${after.month} in full`,
+    { before, after },
+  );
+  await page.click('.budget-month .cal-nav[aria-label="Previous month"]');
+  check("‹ steps back", (await page.textContent(".budget-month span")) === before);
+  await page.reload();
+  await page.waitForTimeout(600);
+  await page.evaluate(() => activateTab("budget"));
+  check("open stays open after a reload", await page.evaluate(() => document.getElementById("wb-month").open));
+  await page.click("#wb-month > summary");
+  await page.waitForTimeout(100);
+  check("closing it is remembered too", await page.evaluate(() => localStorage.getItem("budget-month-open") === "0"));
+
+  // Phone fit: 44px targets, no sideways overflow at 390px
+  const fit = await page.evaluate(() => {
+    const p = document.getElementById("panel-budget");
+    const small = [...p.querySelectorAll(".wb-top button, .wb-top [role=button], #wb-month > summary")]
+      .filter((el) => el.offsetParent && !el.closest(".wb-cat-items") && el.getBoundingClientRect().height < 44)
+      .map((el) => el.className);
+    return { sw: p.scrollWidth, cw: p.clientWidth, w: innerWidth, small };
+  });
+  check("top fits a 390px phone with 44px targets", fit.w === 390 && fit.sw <= fit.cw && !fit.small.length, fit);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget top: no paycheck yet prompts to add one", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  await page.evaluate(() => {
+    budget.income = [];
+    renderBudget();
+  });
+  const hero = await page.textContent("#panel-budget .wb-hero");
+  check("hero asks for a paycheck", hero.includes("Add your paycheck"), hero);
+  await page.click('#panel-budget .wb-hero [data-action="budget-add-income"]');
+  check(
+    "the prompt opens Add income",
+    await page.evaluate(() => document.getElementById("modal-backdrop").classList.contains("open")),
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();

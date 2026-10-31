@@ -2,33 +2,94 @@
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home", "todo", "console", "wants", "skin"]; // nav bar and swipe order
-// Tabs kept but not in the bar: links can still open them. Budget is hidden for now; Jazz 3.0 opens
-// from Home's Jazz 3.0 tile, the bottom of Console, ?tab=jazz3 / ?tab=fitness and #import= links.
-const HIDDEN_TABS = ["budget", "jazz3"];
-const isTab = (tab) => TAB_ORDER.includes(tab) || HIDDEN_TABS.includes(tab);
+const TAB_ORDER = ["home", "todo", "console", "wallet", "you"]; // the tab bar, left to right
+// Wallet and You are groups: each bar button holds two panels, swapped by the switch at the top
+// (#tab-switch). `currentTab` and body[data-tab] are always a panel id (budget, wants, skin,
+// jazz3), never the group, so per-panel CSS and the + button work as before.
+const TAB_GROUPS = { wallet: ["budget", "wants"], you: ["skin", "jazz3"] };
+const TAB_GROUP_LAST_KEY = "tab-group-last"; // this device only: {wallet, you} = the last sub-view of each
+// Tabs kept but not in the bar (none now; the mechanism stays for links to a future hidden tab)
+const HIDDEN_TABS = [];
+const tabGroupOf = (tab) => Object.keys(TAB_GROUPS).find((g) => TAB_GROUPS[g].includes(tab)) || "";
+const navItemOf = (tab) => tabGroupOf(tab) || tab; // the bar button that lights up for a panel
+const isTab = (tab) =>
+  TAB_ORDER.includes(tab) || HIDDEN_TABS.includes(tab) || Object.values(TAB_GROUPS).some((s) => s.includes(tab));
+// Swipe order: every panel, left to right as on screen (a group's views in their switch order)
+const SWIPE_ORDER = TAB_ORDER.flatMap((t) => TAB_GROUPS[t] || [t]);
 // Old links to the removed closet view (?tab=style) land on Shopping
 // ?tab=jarvis is the briefing link: Jarvis lives at the top of the main (home) tab
 const NAV_TAB = (tab) => (tab === "style" ? "wants" : tab === "fitness" ? "jazz3" : tab === "jarvis" ? "home" : tab); // old links
 let currentTab = "home";
 
+function tabGroupLast() {
+  let v = null;
+  try {
+    v = JSON.parse(localStorage.getItem(TAB_GROUP_LAST_KEY) || "null");
+  } catch (e) {}
+  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+// The group's remembered view, or its first one
+function tabGroupView(group) {
+  const last = tabGroupLast()[group];
+  return TAB_GROUPS[group].includes(last) ? last : TAB_GROUPS[group][0];
+}
+function rememberTabGroupView(group, tab) {
+  const last = tabGroupLast();
+  if (last[group] === tab) return;
+  const next = {};
+  for (const g of Object.keys(TAB_GROUPS)) if (TAB_GROUPS[g].includes(last[g])) next[g] = last[g];
+  next[group] = tab;
+  try {
+    localStorage.setItem(TAB_GROUP_LAST_KEY, JSON.stringify(next));
+  } catch (e) {}
+}
+// The full-width switch at the top of a group's panels (styled like Console's Ask | Capture)
+function renderTabSwitch(group) {
+  const el = document.getElementById("tab-switch");
+  el.hidden = !group;
+  if (!group) return;
+  if (el.dataset.group === group) {
+    // same group: flip the pressed state in place so a focused segment keeps focus
+    el.querySelectorAll(".tab-seg").forEach((b) => {
+      const on = b.dataset.tab === currentTab;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    return;
+  }
+  el.dataset.group = group;
+  el.setAttribute("aria-label", HEADLINES[group] + " views");
+  el.innerHTML = TAB_GROUPS[group]
+    .map(
+      (t) =>
+        `<button type="button" class="tab-seg${t === currentTab ? " on" : ""}" data-action="tab-sub" data-tab="${escapeAttr(t)}" aria-pressed="${t === currentTab}">${escapeHtml(HEADLINES[t])}</button>`,
+    )
+    .join("");
+}
+
 function activateTab(tab) {
   tab = NAV_TAB(tab);
+  if (Object.prototype.hasOwnProperty.call(TAB_GROUPS, tab)) tab = tabGroupView(tab); // a group's bar button: its last-used view
+  if (!document.getElementById("panel-" + tab)) return; // not a panel: stay put
   if (tab !== currentTab) voiceCancel(); // the mic stops when you leave the box
   currentTab = tab;
+  const group = tabGroupOf(tab);
+  if (group) rememberTabGroupView(group, tab);
   document.body.dataset.tab = tab; // shows/hides the floating + button
   const fabCfg = COMPOSER_MODES[FAB_MODE_BY_TAB[tab]];
   if (fabCfg) document.getElementById("fab").setAttribute("aria-label", fabCfg.fab);
   if (tab === "home") renderHome(); // picks up whatever changed on other tabs
   if (tab === "console") renderConsole(); // day labels in the feed
+  const nav = navItemOf(tab);
   document.querySelectorAll("nav.tabbar button").forEach((b) => {
-    const active = b.dataset.tab === NAV_TAB(tab);
+    const active = b.dataset.tab === nav;
     b.classList.toggle("active", active);
     if (active) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
   document.querySelectorAll(".tabpanel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + tab));
-  document.getElementById("headline").textContent = HEADLINES[tab];
+  renderTabSwitch(group);
+  document.getElementById("headline").textContent = HEADLINES[nav];
   document.querySelector("main").scrollTop = 0;
 }
 
@@ -601,6 +662,11 @@ const SHELL_CLICK = {
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
   "console-go": (el) => consoleGo(el.getAttribute("data-go")),
+  // Wallet's Budget | Shopping and You's Beauty | Jazz 3.0 switch
+  "tab-sub": (el) => {
+    const t = el.getAttribute("data-tab");
+    if (tabGroupOf(t)) activateTab(t);
+  },
   "console-feed-toggle": () => consoleFeedToggle(),
   // Ask Jarvis (ask.js): History, answer chips, Follow up, Try again. Ids and indexes are re-checked there.
   "ask-history": () => openAskHistory(),
@@ -722,9 +788,23 @@ document.addEventListener(
   true,
 );
 
+// Once per device, the first time the tab bar is used: Budget and Jazz 3.0 have tabs again
+const TABS_BACK_KEY = "tabs-back-seen";
+const TABS_BACK_MSG = "Budget and Jazz 3.0 are back: Wallet and You";
+function tabsBackNotice() {
+  try {
+    if (localStorage.getItem(TABS_BACK_KEY) || undoPending) return;
+    localStorage.setItem(TABS_BACK_KEY, "1");
+  } catch (e) {
+    return;
+  }
+  showToast(TABS_BACK_MSG);
+  clearTimeout(toastTimer); // a longer read than "Saved"
+  toastTimer = setTimeout(() => document.getElementById("toast").classList.remove("show"), 6000);
+}
 document.querySelectorAll("nav.tabbar button").forEach((btn) => {
   btn.addEventListener("click", () => {
     activateTab(btn.dataset.tab);
-    if (btn.dataset.tab === "console") consoleOrbUsed(); // once per device: where Jazz 3.0 went
+    tabsBackNotice();
   });
 });

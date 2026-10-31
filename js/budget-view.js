@@ -318,6 +318,188 @@ function editPayment(id) {
     { label: "Mark not paid" },
   );
 }
+// ---------- the top of Budget: now, on a phone ----------
+// Always about today (not the month being stepped through): Safe to spend until
+// payday (the same pay period Home's Money detail uses), the bills due in the
+// next 14 days (across month ends, overdue first), this month's spending against
+// each category's limit, and the first goal. The full month view sits folded
+// under them; open/closed is remembered on this device.
+const WB_MONTH_KEY = "budget-month-open";
+function wbMonthOpen() {
+  try {
+    return localStorage.getItem(WB_MONTH_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+const wbShort = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const wbDay = (iso) => noonOf(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const wbLabel = (text, count = "") =>
+  `<div class="jv-label wb-label"><span>${text}</span><i></i>${count ? `<span class="jv-label-count">${count}</span>` : ""}</div>`;
+function wbHeroHtml(today) {
+  if (!budget.income.length)
+    return `<section class="wb-hero empty" aria-label="Safe to spend">
+        <div class="wb-kicker">Safe to spend</div>
+        <p>Add your paycheck to see what's safe to spend until payday, after the bills due before it.</p>
+        <button class="wb-cta" data-action="budget-add-income">+ Add your paycheck</button>
+      </section>`;
+  const p = dashPayPeriod(today);
+  if (!p) {
+    const next = nextPayday(today);
+    return `<section class="wb-hero empty" aria-label="Safe to spend">
+        <div class="wb-kicker">Safe to spend</div>
+        <p>${next ? `Starts on your first payday, ${escapeHtml(wbDay(next))}.` : "No paydays coming up."}</p>
+      </section>`;
+  }
+  const n = daysFromToday(p.end),
+    scale = Math.max(p.pay, p.paid + p.due);
+  const big = p.pay
+    ? `<b class="wb-safe ${p.left < 0 ? "neg" : ""}">${p.left < 0 ? "−" : ""}${moneyShort(Math.abs(p.left))}</b>`
+    : `<b class="wb-safe">—</b>`;
+  return `<section class="wb-hero" aria-label="Safe to spend">
+      <div class="wb-kicker">Safe to spend</div>
+      <div class="wb-hero-row">${big}<span>until payday ${escapeHtml(wbDay(p.end))} · ${n} day${n === 1 ? "" : "s"}</span></div>
+      <div class="wb-bar2" aria-hidden="true"><span class="paid" style="width:${dashPct(p.paid, scale)}%"></span><span class="due" style="width:${dashPct(p.due, scale)}%"></span></div>
+      <div class="wb-keys"><span><i class="paid"></i>Paid ${moneyShort(p.paid)}</span><span><i class="due"></i>Due ${moneyShort(p.due)}</span><span>Paycheck ${p.pay ? moneyShort(p.pay) : "not set"}</span></div>
+    </section>`;
+}
+// Bills due from today through 14 days out, plus anything still unpaid from
+// before today (and overdue ones paid today, so a tick doesn't make them vanish)
+function wbUpcomingRows(today) {
+  const rows = billRowsBetween(today, addDaysIso(15));
+  bills
+    .filter((b) => !b.done && b.due && b.due < today)
+    .forEach((b) => rows.push({ bill: b, name: b.name, amount: billShare(b), due: b.due, current: true }));
+  billPayments
+    .filter((p) => p.due < today && p.date === today)
+    .forEach((p) =>
+      rows.push({ bill: bills.find((b) => b.id === p.billId), name: p.name, amount: p.amount, due: p.due, payment: p }),
+    );
+  const rank = (r) => (r.payment ? 2 : r.due < today ? 0 : 1);
+  return rows.sort((a, b) => rank(a) - rank(b) || (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+}
+function wbBillRowHtml(r, today) {
+  const b = r.bill,
+    paid = !!r.payment,
+    overdue = !paid && r.due < today;
+  const n = daysFromToday(r.due);
+  const meta = [];
+  if (paid) meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
+  else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(wbShort(r.due))}</span>`);
+  else meta.push(escapeHtml(n === 0 ? "Today" : n === 1 ? "Tomorrow" : wbDay(r.due)));
+  if (!paid && b && b.autopay) meta.push("autopay");
+  else if (!paid && b && r.current && dashManualSoon([b]).length)
+    meta.push(`<span class="wb-manual">not on autopay</span>`);
+  if (b && b.group === "joint" && b.share && !paid) meta.push(`your ${b.share}%`);
+  const box = paid
+    ? `<button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not paid: ${escapeAttr(r.name)}" data-action="bill-unpay" data-payment-id="${escapeAttr(r.payment.id)}"><span class="box">${BOX_CHECK_SVG}</span></button>`
+    : r.current
+      ? `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="Mark paid: ${escapeAttr(r.name)}" data-action="bill-pay" data-bill-id="${escapeAttr(b.id)}" data-due="${escapeAttr(b.due)}"><span class="box">${BOX_CHECK_SVG}</span></button>`
+      : `<span class="wb-later" aria-hidden="true"></span>`;
+  const open = billBodyAttrs(r, b, paid);
+  return `<div class="wb-bill ${paid ? "checked" : ""} ${overdue ? "over" : ""}">
+      ${box}
+      <div class="wb-bill-body" ${open ? `role="button" tabindex="0" ${open}` : ""}>
+        ${billLogoHtml(b, r.name)}
+        <span class="wb-bill-text"><b>${escapeHtml(r.name)}</b><span class="wb-bill-meta">${meta.join(" · ")}</span></span>
+        <b class="wb-bill-amt">${b && b.varies && !paid ? `<span class="approx" title="Amount varies">~</span>` : ""}${money(r.amount)}</b>
+      </div>
+    </div>`;
+}
+function wbBillsHtml(today) {
+  const rows = wbUpcomingRows(today);
+  const due = Math.round(rows.filter((r) => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100;
+  const list = rows.length
+    ? `<div class="wb-card wb-bills">${rows.map((r) => wbBillRowHtml(r, today)).join("")}</div>`
+    : `<div class="wb-card wb-none">Nothing due in the next 14 days. <button class="wb-link" data-action="bill-add">+ Add bill</button></div>`;
+  return `<section class="wb-sec wb-upcoming" aria-label="Bills due in the next 14 days">${wbLabel("Next 14 days", moneyShort(due))}${list}</section>`;
+}
+// One category's expenses, opened from its bar (the same list the Spending card shows)
+function wbCatItemsHtml(c, list) {
+  const items = list
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .map(
+      (e) => `<button class="expense-row" data-action="expense-edit" data-expense-id="${escapeAttr(e.id)}">
+        <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(wbShort(e.date))}</span><b>${money(e.amount)}</b>
+      </button>`,
+    )
+    .join("");
+  return `<div class="expense-list wb-cat-items">${items || '<div class="empty">Nothing spent here this month.</div>'}<button class="cat-edit" data-action="budget-cat-edit" data-cat-id="${escapeAttr(c.id)}">Edit ${escapeHtml(c.name)}</button></div>`;
+}
+function wbSpendingHtml(today) {
+  const key = today.slice(0, 7);
+  const spent = budget.expenses.filter((e) => e.date && e.date.slice(0, 7) === key);
+  if (!budget.categories.length && !spent.length) return "";
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const sum = (list) => r2(list.reduce((s, e) => s + (Number(e.amount) || 0), 0));
+  const cats = budget.categories.map((c) => {
+    const list = spent.filter((e) => e.cat === c.id);
+    return { c, list, total: sum(list) };
+  });
+  const limited = cats.filter((x) => x.c.limit > 0),
+    loose = cats.filter((x) => !(x.c.limit > 0));
+  const orphan = sum(spent.filter((e) => !budgetCat(e.cat)));
+  const limitTotal = r2(limited.reduce((s, x) => s + x.c.limit, 0)),
+    spentTotal = sum(spent);
+  const bars = limited
+    .map(({ c, list, total }) => {
+      const tone = total > c.limit ? "over" : total >= c.limit * 0.9 ? "near" : "";
+      const open = openBudgetCats.has(c.id);
+      const pct = Math.min(100, Math.round((total / c.limit) * 100));
+      return `<div class="wb-cat ${tone}">
+          <button class="wb-cat-btn" data-action="budget-cat-toggle" data-cat-id="${escapeAttr(c.id)}" aria-expanded="${open}">
+            <span class="wb-cat-head"><b>${escapeHtml(c.name)}</b><span class="wb-cat-amt">${moneyShort(total)} of ${moneyShort(c.limit)}${tone === "over" ? " · over" : ""}</span></span>
+            <span class="wb-track" aria-hidden="true"><span style="width:${pct}%"></span></span>
+          </button>
+          ${open ? wbCatItemsHtml(c, list) : ""}
+        </div>`;
+    })
+    .join("");
+  const chips =
+    loose
+      .map(
+        ({ c, total }) =>
+          `<button class="wb-chip" data-action="budget-cat-toggle" data-cat-id="${escapeAttr(c.id)}" aria-expanded="${openBudgetCats.has(c.id)}">${escapeHtml(c.name)} <b>${moneyShort(total)}</b></button>`,
+      )
+      .join("") + (orphan ? `<span class="wb-chip static">Uncategorized <b>${moneyShort(orphan)}</b></span>` : "");
+  const looseOpen = loose
+    .filter((x) => openBudgetCats.has(x.c.id))
+    .map((x) => wbCatItemsHtml(x.c, x.list))
+    .join("");
+  const month = noonOf(key + "-01").toLocaleDateString("en-US", { month: "long" });
+  return `<section class="wb-sec wb-spending" aria-label="Spending this month">${wbLabel(
+    `Spending · ${escapeHtml(month)}`,
+    limitTotal ? `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)}` : moneyShort(spentTotal),
+  )}<div class="wb-card wb-cats">${bars}${chips ? `<div class="wb-chips">${chips}</div>${looseOpen}` : ""}${!bars && !chips ? `<div class="empty">No categories yet.</div>` : ""}</div></section>`;
+}
+// What one paycheck puts toward a goal: its plan lines pointed at it, from this
+// pay period's check (or the next one that has some, else the latest)
+function wbGoalPerCheck(g, today) {
+  const key = today.slice(0, 7);
+  const checks = [-1, 0, 1]
+    .flatMap((n) => incomeInMonth(addMonthsIso(key + "-01", n).slice(0, 7)))
+    .filter((p) => p.plan.lines.some((l) => l.goal === g.id));
+  if (!checks.length) return null;
+  const start = (dashPayPeriod(today) || {}).start || today;
+  const pick = checks.find((p) => p.date >= start) || checks[checks.length - 1];
+  return Math.round(pick.plan.lines.filter((l) => l.goal === g.id).reduce((s, l) => s + l.amount, 0) * 100) / 100;
+}
+function wbGoalHtml(today) {
+  const g = budget.goals[0];
+  if (!g) return "";
+  const s = goalStatus(g),
+    per = wbGoalPerCheck(g, today);
+  const C = 2 * Math.PI * 22;
+  return `<section class="wb-sec" aria-label="Goal"><button class="wb-card wb-goal" data-action="goal-edit" data-goal-id="${escapeAttr(g.id)}">
+      <span class="wb-ring" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" class="t"/><circle cx="26" cy="26" r="22" class="f" stroke-dasharray="${((C * s.pct) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg><em>${s.pct}%</em></span>
+      <span class="wb-goal-text"><b>${escapeHtml(g.name)}</b><span>${moneyShort(Math.round(s.saved))} of ${moneyShort(g.target)}${per ? ` · ${moneyShort(per)} a paycheck` : s.reached ? " · reached" : ""}</span></span>
+      ${CHEVRON_RIGHT}
+    </button></section>`;
+}
+function budgetTopHtml(today) {
+  return `<div class="wb-top">${wbHeroHtml(today)}${wbBillsHtml(today)}<div class="wb-side">${wbSpendingHtml(today)}${wbGoalHtml(today)}</div></div>`;
+}
 function renderBudget() {
   const el = document.getElementById("panel-budget");
   if (!el) return;
@@ -527,7 +709,13 @@ function renderBudget() {
   if (paychecks.length) manage += mrow("Import paycheck plans", "", mact("import-plans"));
   // Manage stays out of the way: a quiet link at the bottom opens it as a sheet
   budgetManageHtml = manage;
-  html += `<button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards &amp; imports</em></button>`;
+  // the month view folds under the "now" top (a native <details>: its toggle is saved below)
+  html = `${budgetTopHtml(today)}
+    <details class="wb-month" id="wb-month"${wbMonthOpen() ? " open" : ""}>
+      <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills, paycheck plan, calendar</span>${CHEVRON_RIGHT}</summary>
+      <div class="wb-month-body">${html}</div>
+    </details>
+    <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards &amp; imports</em></button>`;
   el.innerHTML = html;
 }
 function pruneBudgetHistory() {
@@ -663,6 +851,17 @@ function normalizeBudgetData() {
 // Budget's calendar: swipe down for the month, up for the week
 (function () {
   const panel = document.getElementById("panel-budget");
+  // the folded month view: remember open/closed on this device (toggle doesn't bubble, so capture it)
+  panel.addEventListener(
+    "toggle",
+    (e) => {
+      if (e.target.id !== "wb-month") return;
+      try {
+        localStorage.setItem(WB_MONTH_KEY, e.target.open ? "1" : "0");
+      } catch (err) {}
+    },
+    true,
+  );
   let sx = 0,
     sy = 0,
     on = false;

@@ -1,7 +1,7 @@
 // gestures.js - Gestures: swipe between tabs and pull-to-refresh.
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
-// Swipe left/right between tabs (ignored if the gesture looks like a vertical scroll)
+// Swipe left/right between views (ignored if the gesture looks like a vertical scroll)
 (function () {
   const mainEl = document.querySelector("main");
   let startX = 0,
@@ -29,9 +29,12 @@
       const dx = e.changedTouches[0].clientX - startX;
       const dy = e.changedTouches[0].clientY - startY;
       if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-      const idx = TAB_ORDER.indexOf(NAV_TAB(currentTab));
-      if (dx < 0 && idx < TAB_ORDER.length - 1) activateTab(TAB_ORDER[idx + 1]);
-      if (dx > 0 && idx > 0) activateTab(TAB_ORDER[idx - 1]);
+      // One flat left-to-right order (SWIPE_ORDER): inside Wallet or You a swipe first moves to the
+      // group's other view, then on to the next tab, so every view is one step from its neighbours
+      const idx = SWIPE_ORDER.indexOf(NAV_TAB(currentTab));
+      if (idx < 0) return;
+      if (dx < 0 && idx < SWIPE_ORDER.length - 1) activateTab(SWIPE_ORDER[idx + 1]);
+      if (dx > 0 && idx > 0) activateTab(SWIPE_ORDER[idx - 1]);
     },
     { passive: true },
   );
