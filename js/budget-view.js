@@ -197,6 +197,14 @@ function editPayment(id) {
 // each category's limit, and the first goal. The full month view sits folded
 // under them; open/closed is remembered on this device.
 const WB_MONTH_KEY = "budget-month-open";
+const WB_NEXT_KEY = "budget-next-open"; // the Next 14 days fold (open unless closed on this device)
+function wbNextOpen() {
+  try {
+    return localStorage.getItem(WB_NEXT_KEY) !== "0";
+  } catch (e) {
+    return true;
+  }
+}
 function wbMonthOpen() {
   try {
     return localStorage.getItem(WB_MONTH_KEY) === "1";
@@ -284,7 +292,9 @@ function wbBillsHtml(today) {
   const list = rows.length
     ? `<div class="wb-card wb-bills">${rows.map((r) => wbBillRowHtml(r, today)).join("")}</div>`
     : `<div class="wb-card wb-none">Nothing due in the next 14 days. <button class="wb-link" data-action="bill-add">+ Add bill</button></div>`;
-  return `<section class="wb-sec wb-upcoming" aria-label="Bills due in the next 14 days">${wbLabel("Next 14 days", moneyShort(due))}${list}</section>`;
+  // folds like the month view below; its label is the summary (NEXT 14 DAYS ─── $862 ⌄), remembered
+  const open = wbNextOpen();
+  return `<details class="wb-sec wb-upcoming" id="wb-next" aria-label="Bills due in the next 14 days"${open ? " open" : ""}><summary class="jv-label wb-label wb-fold"><span>Next 14 days</span><i></i><span class="jv-label-count">${moneyShort(due)}</span>${CHEVRON_DOWN}</summary>${list}</details>`;
 }
 // One category's expenses, opened from its bar (the same list the Spending card shows)
 function wbCatItemsHtml(c, list) {
@@ -726,9 +736,10 @@ function normalizeBudgetData() {
   panel.addEventListener(
     "toggle",
     (e) => {
-      if (e.target.id !== "wb-month") return;
+      const key = e.target.id === "wb-month" ? WB_MONTH_KEY : e.target.id === "wb-next" ? WB_NEXT_KEY : "";
+      if (!key) return;
       try {
-        localStorage.setItem(WB_MONTH_KEY, e.target.open ? "1" : "0");
+        localStorage.setItem(key, e.target.open ? "1" : "0");
       } catch (err) {}
     },
     true,

@@ -342,7 +342,7 @@ right now, with the full month folded under it:
 - **Safe to spend:** what's left of the latest paycheck after the bills due before the next
   payday (the same numbers as Home's Money detail), "until payday Fri, Nov 6 · 7 days", a paid
   vs due bar, and Paid / Due / Paycheck. Without a paycheck it offers **+ Add your paycheck**.
-- **Next 14 days:** every bill due from today through 14 days out, across month ends (Nov 1
+- **Next 14 days** (folds from its label; remembered on this device): every bill due from today through 14 days out, across month ends (Nov 1
   shows on Oct 30), with the total still due. Overdue unpaid bills come first, in red. Each row:
   a tick box (pays it, with Undo), the logo, name, due day and "autopay", or an amber "not on
   autopay" when it's due within 3 days, and the amount (your share for joint bills). Tap the

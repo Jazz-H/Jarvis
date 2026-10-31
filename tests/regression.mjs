@@ -13398,6 +13398,70 @@ await section("budget top: no paycheck yet prompts to add one", async () => {
   await ctx.close();
 });
 
+await section("wallet: Next 14 days folds from its label and remembers", async () => {
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=budget",
+    seed: {
+      "bills-content": [
+        { id: "nf1", name: "Rent", amount: 900, due: isoOffset(2), repeat: "monthly", autopay: false, account: null },
+      ],
+    },
+  });
+  const st = () =>
+    page.evaluate(() => {
+      const d = document.getElementById("wb-next");
+      return {
+        open: !!(d && d.open),
+        rows: d ? d.querySelectorAll(".wb-bills > *").length : -1,
+        kept: localStorage.getItem("budget-next-open"),
+      };
+    });
+  const a = await st();
+  check("open by default, with the bills", a.open && a.rows >= 1, a);
+  await page.click("#wb-next > summary");
+  const b = await st();
+  check("tapping the label folds it and remembers", !b.open && b.kept === "0", b);
+  await page.evaluate(() => renderBudget());
+  check("stays folded after a redraw", !(await st()).open);
+  await page.focus("#wb-next > summary");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(150); // the toggle event fires after the click
+  const c = await st();
+  check("Enter on the label opens it again", c.open && c.kept === "1", c);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("console: the box grows with long text; a folded conversation still shows Jarvis thinking", async () => {
+  const { ctx, page, errors } = await openApp();
+  await page.evaluate(() => activateTab("console"));
+  const h0 = await page.evaluate(() => document.getElementById("console-input").getBoundingClientRect().height);
+  await page.fill(
+    "#console-input",
+    "hey Jarvis what is the very last letter of the alphabet and how many letters come before it in total",
+  );
+  const h1 = await page.evaluate(() => {
+    const t = document.getElementById("console-input");
+    return { h: t.getBoundingClientRect().height, fits: t.scrollHeight <= t.clientHeight + 1 };
+  });
+  check("long text wraps onto more lines and is all visible", h1.h > h0 + 10 && h1.fits, { h0, h1 });
+  await page.keyboard.press("Enter").catch(() => {});
+  // a pending question with the conversation folded
+  await page.evaluate(() => {
+    localStorage.setItem("console-feed-open", "0");
+    window.askFeedEntries = () => [{ id: "a-pending-001", at: Date.now(), text: "q" }];
+    window.loadAnswers = () => ({ answers: [] });
+    renderConsole();
+  });
+  const fold = await page.evaluate(() => ({
+    hidden: document.getElementById("cn-feed-body")?.hidden,
+    waiting: !!document.querySelector("#cn-feed .cn-fold-wait .ak-dots"),
+  }));
+  check("folded with a question pending: the header shows Thinking", fold.waiting, fold);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

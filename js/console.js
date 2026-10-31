@@ -252,8 +252,8 @@ function consoleShellHtml() {
     </div>
     <div class="cn-box">
       <label class="cn-sr" for="console-input" id="console-input-label">Ask Jarvis</label>
-      <input id="console-input" class="cn-input" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"
-        maxlength="${CONSOLE_TEXT_MAX}" aria-describedby="cn-hint" data-keydown-action="console-key" data-input-action="console-input" />
+      <textarea id="console-input" class="cn-input" rows="1" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"
+        maxlength="${CONSOLE_TEXT_MAX}" aria-describedby="cn-hint" data-keydown-action="console-key" data-input-action="console-input"></textarea>
       ${voiceMicHtml("console")}
       <button type="button" class="cn-send" id="cn-send" data-action="console-send" aria-label="Send question">${CONSOLE_SEND_ICON}</button>
     </div>
@@ -266,9 +266,15 @@ function consoleShellHtml() {
   </div>`;
 }
 let consoleChipsMode = null; // which mode's chips are drawn, so typing doesn't redraw them
+// The box grows with what's typed (up to 4 lines, then scrolls) so a long question stays readable
+function consoleFitBox(input) {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 4 * 24 + 20) + "px";
+}
 function consoleRefreshBox() {
   const input = document.getElementById("console-input");
   if (!input) return;
+  consoleFitBox(input);
   const text = input.value;
   const mode = consoleCurrentMode(text),
     cfg = CONSOLE_MODES[mode];
@@ -411,7 +417,13 @@ function consoleFeedHtml() {
   });
   // a section like Systems: CONVERSATION ─── Hide · N, then each day under a small label
   const open = consoleFeedOpen();
-  const head = `<div class="jv-label"><span>Conversation</span><i></i><button type="button" class="jv-chip-sm" data-action="console-feed-toggle" aria-expanded="${open}" aria-controls="cn-feed-body">${open ? "Hide" : "Show"} · ${all.length}</button></div>`;
+  // folded with an answer still coming: the header says so, so a question never looks lost
+  const waiting = !open && consolePendingCount() > 0;
+  const head = `<div class="jv-label"><span>Conversation</span><i></i>${
+    waiting
+      ? `<span class="ak-on ak-thinking cn-fold-wait">Thinking<span class="ak-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`
+      : ""
+  }<button type="button" class="jv-chip-sm" data-action="console-feed-toggle" aria-expanded="${open}" aria-controls="cn-feed-body">${open ? "Hide" : "Show"} · ${all.length}</button></div>`;
   const body = days
     .map(
       (d) =>
@@ -419,6 +431,11 @@ function consoleFeedHtml() {
     )
     .join("");
   return `${head}<div id="cn-feed-body"${open ? "" : " hidden"}>${body}</div>`;
+}
+// Questions from today/yesterday that have no answer yet
+function consolePendingCount() {
+  const answered = new Set(loadAnswers().answers.map((a) => a.id));
+  return askFeedEntries().filter((q) => !answered.has(q.id)).length;
 }
 // Collapsed or not: remembered on this device
 const CONSOLE_FEED_OPEN_KEY = "console-feed-open";
@@ -490,6 +507,10 @@ function consoleSubmit() {
     }
     input.value = "";
     consoleMode = null;
+    // a new question opens the conversation, so its "thinking" row is in view
+    try {
+      localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1");
+    } catch (e) {}
     renderConsole();
     input.focus();
     return;

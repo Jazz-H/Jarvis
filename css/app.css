@@ -4899,7 +4899,7 @@ body.todo-dragging {
 }
 .cn-box {
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* the mic and send stay at the bottom as the text grows */
   gap: 8px;
   padding: 6px 6px 6px 14px;
   background: var(--surface);
@@ -4920,6 +4920,11 @@ body.todo-dragging {
   color: var(--text);
   font: inherit;
   font-size: 16px; /* no zoom on iOS */
+  line-height: 24px;
+  padding: 10px 0;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
 }
 .cn-input::placeholder {
   color: var(--text-dim);
@@ -5309,6 +5314,13 @@ body.todo-dragging {
     animation: none;
     opacity: 0.8;
   }
+}
+.cn-fold-wait {
+  margin-right: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .ak-on {
   color: var(--text);
@@ -6629,6 +6641,27 @@ nav.tabbar button.jv-new::after {
 }
 .wb-top .wb-label {
   margin: 0 4px 8px;
+}
+/* Next 14 days folds from its label (a native <summary>): 44px to tap, chevron turns */
+.wb-fold {
+  min-height: 44px;
+  margin-bottom: 0;
+  cursor: pointer;
+  list-style: none;
+}
+.wb-fold::-webkit-details-marker {
+  display: none;
+}
+.wb-fold .chev {
+  flex: none;
+  transition: transform 0.2s;
+  transform: rotate(-90deg);
+}
+details[open] > .wb-fold .chev {
+  transform: none;
+}
+details[open] > .wb-fold {
+  margin-bottom: 8px;
 }
 .wb-side {
   display: flex;
