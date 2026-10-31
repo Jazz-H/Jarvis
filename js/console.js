@@ -59,8 +59,27 @@ const CONSOLE_TODO_VERB = /^(?:pay|call|text|email|book|schedule|cancel|renew|re
 const CONSOLE_NOTE = /^(?:note|notes|idea|ideas)\s*[:–-]\s*/i;
 const CONSOLE_EXPENSE = /\b(?:spent|spend|paid|expense)\b/i;
 const CONSOLE_AMOUNT = /\$\s?(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)/;
+// "Hey Jarvis, …" / "OK Jarvis …" / "Jarvis, …" (spoken or typed) is just a greeting
+const CONSOLE_GREETING = /^(?:(?:hey|hi|ok|okay|yo)\s+)?jarvis\b[,:!.]?\s*/i;
+// After the wake word, "to-do …" or "list …" says where it goes; anything else is a question.
+// The keywords also work without the wake word when followed by a colon ("list: eggs").
+const CONSOLE_KW_TODO = /^(?:to[- ]?do|todo|task|reminder|remind me(?: to)?)\b[\s:,.-]*/i;
+const CONSOLE_KW_LIST = /^(?:(?:add (?:it )?to (?:my |the )?)?(?:shopping )?list|shopping)\b[\s:,.-]*/i;
+function consoleCommand(text) {
+  const t = String(text || "").trim();
+  const rest = t.replace(CONSOLE_GREETING, "");
+  const woke = rest !== t;
+  const kw = (re) => (re.test(rest) && (woke || /^[^:]{1,20}:/.test(rest)) ? rest.replace(re, "").trim() : null);
+  const todo = kw(CONSOLE_KW_TODO);
+  if (todo != null) return { mode: "todo", rest: todo };
+  const list = kw(CONSOLE_KW_LIST);
+  if (list != null) return { mode: "list", rest: list };
+  return woke ? { mode: "ask", rest } : null;
+}
 function consoleLooksLikeQuestion(s) {
-  const t = String(s || "").trim();
+  const t = String(s || "")
+    .trim()
+    .replace(CONSOLE_GREETING, "");
   return /^\?|\?$/.test(t) || CONSOLE_QUESTION.test(t);
 }
 function consoleCleanPiece(s) {
@@ -95,6 +114,8 @@ function consoleSplit(text) {
 function consoleGuess(text) {
   const t = String(text || "").trim();
   if (!t) return "ask";
+  const cmd = consoleCommand(t);
+  if (cmd) return cmd.mode === "ask" ? "ask" : "capture";
   if (consoleSplit(t).pieces.length > 1) return "capture";
   return consoleLooksLikeQuestion(t) ? "ask" : "capture";
 }
@@ -148,6 +169,15 @@ function consoleClassify(src, forceShop) {
   return { src, orig: "todo", type: "todo" };
 }
 function consoleParse(text) {
+  const cmd = consoleCommand(text);
+  if (cmd && cmd.mode !== "ask") {
+    const force = cmd.mode === "list" ? "shop" : "todo";
+    return consoleSplit(cmd.rest.slice(0, CONSOLE_TEXT_MAX))
+      .pieces.flatMap((p) => (force === "shop" ? p.split(/\s+and\s+/i) : [p])) // "list eggs and milk": two items
+      .map((src) => src.trim())
+      .filter(Boolean)
+      .map((src) => ({ src, orig: force, type: force }));
+  }
   const { pieces, list } = consoleSplit(String(text || "").slice(0, CONSOLE_TEXT_MAX));
   const first = list && pieces.length ? consoleClassify(pieces[0], false) : null;
   const carry = !!(first && first.type === "shop" && CONSOLE_SHOP_VERB.test(pieces[0]));
@@ -233,8 +263,8 @@ function consoleShellHtml() {
     <p class="cn-hint" id="cn-hint"></p>
     <div id="cn-ask-note"></div>
     <div id="cn-preview"></div>
-    <div class="cn-review" id="cn-review"></div>
     <div id="cn-feed"></div>
+    <div class="cn-review" id="cn-review"></div>
     <button type="button" class="cn-j3" data-action="console-go" data-go="jazz3"><span><b>Jazz 3.0 →</b><small>Weight and goal sections</small></span></button>
   </div>`;
 }
@@ -374,7 +404,7 @@ function consoleFeedHtml() {
     ...askFeedEntries().map((q) => ({ at: q.at, html: () => askEntryHtml(q) })),
   ].sort((a, b) => b.at - a.at);
   if (!all.length)
-    return `<div class="jv-label"><span>Today</span><i></i></div><p class="cn-empty">Nothing here yet this week. Ask a question or capture a few to-dos above.</p>`;
+    return `<div class="jv-label"><span>Conversation</span><i></i></div><p class="cn-empty">Nothing here yet this week. Ask a question or capture a few to-dos above.</p>`;
   const days = [];
   all.forEach((e) => {
     const iso = isoDate(new Date(e.at));
@@ -382,12 +412,31 @@ function consoleFeedHtml() {
     if (last && last.iso === iso) last.list.push(e);
     else days.push({ iso, list: [e] });
   });
-  return days
+  // a section like Systems: CONVERSATION ─── Hide · N, then each day under a small label
+  const open = consoleFeedOpen();
+  const head = `<div class="jv-label"><span>Conversation</span><i></i><button type="button" class="jv-chip-sm" data-action="console-feed-toggle" aria-expanded="${open}" aria-controls="cn-feed-body">${open ? "Hide" : "Show"} · ${all.length}</button></div>`;
+  const body = days
     .map(
       (d) =>
-        `<div class="jv-label"><span>${escapeHtml(consoleDayLabel(d.iso))}</span><i></i></div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
+        `<div class="jv-sub-label">${escapeHtml(consoleDayLabel(d.iso))}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
     )
     .join("");
+  return `${head}<div id="cn-feed-body"${open ? "" : " hidden"}>${body}</div>`;
+}
+// Collapsed or not: remembered on this device
+const CONSOLE_FEED_OPEN_KEY = "console-feed-open";
+function consoleFeedOpen() {
+  try {
+    return localStorage.getItem(CONSOLE_FEED_OPEN_KEY) !== "0";
+  } catch (e) {
+    return true;
+  }
+}
+function consoleFeedToggle() {
+  try {
+    localStorage.setItem(CONSOLE_FEED_OPEN_KEY, consoleFeedOpen() ? "0" : "1");
+  } catch (e) {}
+  renderConsole();
 }
 function renderConsole() {
   const el = document.getElementById("panel-console");
@@ -437,7 +486,8 @@ function consoleSubmit() {
   const mode = consoleCurrentMode(text);
   if (mode === "ask") {
     if (voiceListening("console")) voiceCancel();
-    if (!askSend(text)) {
+    const cmd = consoleCommand(text);
+    if (!askSend(cmd && cmd.mode === "ask" && cmd.rest ? cmd.rest : text)) {
       input.focus(); // not taken (sync off, cooldown): the text stays to try again
       return;
     }
@@ -455,6 +505,16 @@ function consoleSubmit() {
   renderConsole();
   const add = document.getElementById("cn-add");
   if (add && !add.disabled) add.focus({ preventScroll: true });
+}
+// "Hey Jarvis, list …" or a question typed or spoken in Home's quick add: carry it on in Console
+function consoleHandOff(text) {
+  activateTab("console");
+  const input = consoleInput();
+  if (!input) return;
+  input.value = String(text || "").slice(0, CONSOLE_TEXT_MAX);
+  consoleMode = null;
+  consoleRefreshBox();
+  consoleSubmit(); // a question is sent; a list shows its preview to confirm
 }
 function consoleCycleRow(i) {
   const row = consolePreview && consolePreview.rows[i];

@@ -61,7 +61,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
   under it (one at a time; tap again to close). **Customize** lets you reorder (↑ ↓) or hide
   tiles; the layout is saved on this device.
-  - **Inbox:** the tile shows unread mail and what needs you; the detail lists urgent mail,
+  - **Inbox:** the tile shows how much unread Primary mail came in over the last 36 hours ("3 new") and what needs you; the detail lists urgent mail,
     people waiting on a reply, and bills found in email, each checked against Budget (a
     mismatch shows the Budget amount and opens Budget).
   - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
@@ -100,13 +100,20 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
 
 **The Planner** (below the dashboard on Home) is a day planner. The floating + appears once
 the Planner is on screen and adds to the day picked there; above it, Quick add is the way in.
-- **Calendar strip:** a Sunday-first week with dots for what's due and a droplet on wash
+- **Calendar strip:** a Sunday-first week with dots for what's due, a short accent bar on
+  days with calendar events ("3 events" in the day's label) and a droplet on wash
   days. Swipe it sideways (or ‹ ›) for other weeks; swipe down (or tap the grab bar) for the
   full month. Any date can be picked; **Today** jumps back.
 - **Grouped by type:** the day's list puts to-dos with no type first, then each type that
   has any to-dos under its own label (Chores, Errand…; a to-do named after a type, like
   "Chores", leads that group), then Bills.
-- **Day hero:** the date, a done/total progress ring, and what's left.
+- **Day hero:** the date, a done/total progress ring, and what's left (plus "· 2 events" when
+  the day has calendar events).
+- **Calendar events:** once the Jarvis Action has imported your Google Calendar (90 days back,
+  60 ahead, refreshed each morning), the picked day opens with a read-only **Calendar**
+  section: all-day events as chips, then timed events (start, end, title, location) styled like
+  Home's Calendar detail; today's finished events are dimmed. Days outside the imported range,
+  or before anything has been imported, show nothing (never a misleading "free").
 - **US holidays:** worked out by rule for every year: the 11 federal holidays (plus the
   weekday they're observed on; "banks closed") and common observances (Valentine's,
   St. Patrick's, Easter, Mother's/Father's Day, Election Day, Halloween, Christmas Eve,
@@ -486,6 +493,7 @@ only turning sync off still asks first.
    | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), History (`openAskHistory`, `askClearHistory`), chips / Follow up, suggestions (`askSuggestions`), the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
    | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
+   | `calendar.js` | Google Calendar history on the Planner: `ingestCalendarFile` (sync's pull), `normalizeCalendar`, `calendarEventsOn` (null outside the imported range), the day's events section (`homeEventsHtml`); Home's strip and hero read it |
    | `shell.js` | Tab switching and the delegated `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_INPUT` / `SHELL_CHANGE` tables |
    | `gestures.js`, `drag-reorder.js` | Swipe between tabs and pull-to-refresh; press-to-drag and sortable lists |
    | `sync.js`, `backup.js` | Gist sync; backup download/restore |
@@ -636,14 +644,16 @@ Everything lives in `localStorage` on the device:
 | `console-feed` | Console's feed: `[{id, at (ms), kind: "ask" \| "capture", text, todos?, shop?, undone?}]`, newest first, last 7 days, at most 50. This device only: not in `SYNC_KEYS`, never pushed, not in backups; cleaned by `normalizeConsoleFeed()` on every load and sync |
 | `console-moved-seen` | The one-time "Jazz 3.0 moved" notice was shown (this device only) |
 | `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
+| `jarvis-calendar` | The Google Calendar history pulled from the gist's `jazz2-calendar.json`, stored already cleaned by `normalizeCalendar()` (`{version: 1, generatedAt, tz, from, to, events: [{date, start, end, allDay, title, location}]}`, valid dates inside from..to only, times HH:MM, title ≤80, location ≤60, at most 1500, sorted by date, all-day first, then start). Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 | `jarvis-reviews`, `jarvis-review-seen` | The Weekly Reviews pulled from the gist's `jazz2-reviews.json`, stored already cleaned by `normalizeReviews()` (`{version: 1, reviews}`, newest first, at most 12, every field capped), and the id of the newest review opened. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 
 **Gist files written only by the Jarvis Action** (the app never writes them): `jazz2-briefing.json`
-(the morning briefing), `jazz2-reviews.json` (the Weekly Reviews, `{version: 1, reviews}`, last 12),
+(the morning briefing), `jazz2-reviews.json` (the Weekly Reviews, `{version: 1, reviews}`, last 12), `jazz2-calendar.json`
+(the morning run's Google Calendar import for the Planner, 90 days back and 60 ahead),
 `jazz2-week.json` (a small digest of each morning's briefing, last 8 days, which the Sunday review
 reads; the app doesn't use it) and `jazz2-answers.json` (Ask Jarvis's answers, `{version: 1,
 answers: [{id, askedAt, answeredAt, status, text, bullets, sources, chips, by}], usage}`). Sync reads
-the briefing, reviews and answers on every pull, normalizes them and keeps a local copy; it only
+the briefing, reviews, calendar and answers on every pull, normalizes them and keeps a local copy; it only
 ever pushes `jazz2-data.json`.
 
 **Gist files written only by the app** (besides `jazz2-data.json`): `jazz2-push.json` (this

@@ -1,7 +1,9 @@
 // Jarvis: the orchestrator. Reads Jazz context from the Gist, runs the sub-agents in parallel,
 // gives their validated output to the Jarvis model, and writes jazz2-briefing.json (plus a small
-// day digest in jazz2-week.json for Sunday's Weekly Review, review.ts). Afterwards it answers any
-// Ask questions still waiting in jazz2-ask.json (ask.ts, option B), which can never fail the run.
+// day digest in jazz2-week.json for Sunday's Weekly Review, review.ts, and when the calendar is
+// connected jazz2-calendar.json, 90 days back to 60 ahead, for the Planner and Ask). Afterwards it
+// answers any Ask questions still waiting in jazz2-ask.json (ask.ts, option B), which can never
+// fail the run.
 // Only this file holds the Gist client. Sub-agents get public fetch + their own model, nothing else.
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
@@ -17,6 +19,7 @@ import type { CalendarCard } from "./schemas/calendar.ts";
 import type { InboxCard } from "./schemas/inbox.ts";
 import type { DeliveryCard } from "./schemas/deliveries.ts";
 import { gistClient, type GistClient } from "./tools/gist.ts";
+import { calendarHistory, fetchIcs } from "./tools/ics.ts";
 import { gmailClient, googleAccessToken, type Gmail } from "./tools/gmail.ts";
 import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
 import { notifyPhones } from "./lib/notify.ts";
@@ -72,11 +75,12 @@ export interface Sources {
   gmail?: (() => Promise<Gmail>) | null; // signs in to Google once; shared by Inbox and Deliveries
 }
 
-export function defaultSubagents(sources: Sources, now: Date): Subagents {
+// `ics`, when given, is the run's one shared read of the calendar feed (see runBriefing).
+export function defaultSubagents(sources: Sources, now: Date, ics?: (() => Promise<string>) | null): Subagents {
   const subs: Subagents = { weather: runWeather, news: runNews };
   if (sources.calendarUrl) {
     const url = sources.calendarUrl;
-    subs.calendar = (d) => runCalendar(d, url, now);
+    subs.calendar = (d) => runCalendar(d, url, now, ics ?? undefined);
   }
   if (sources.gmail) {
     let once: Promise<Gmail> | null = null;
@@ -156,7 +160,11 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   ledger.reserve("jarvis", CONFIG.costEstimateUsd.jarvis);
   const run = <T>(spec: AgentSpec<T>) => runAgent(spec, ledger, trace, deps.queryFn);
   const sub: SubagentDeps = { fetchImpl: deps.fetchImpl, run, trace };
-  const impl = deps.subagents ?? defaultSubagents(deps.sources ?? {}, deps.now);
+  // The calendar feed is fetched at most once per run, for the Calendar card and jazz2-calendar.json
+  const calendarUrl = deps.sources?.calendarUrl || null;
+  let icsOnce: Promise<string> | null = null;
+  const ics = calendarUrl ? () => (icsOnce ??= fetchIcs(calendarUrl, deps.fetchImpl)) : null;
+  const impl = deps.subagents ?? defaultSubagents(deps.sources ?? {}, deps.now, ics);
   const updatedAt = deps.now.toISOString();
 
   const tasks: Partial<Record<SubagentName, () => Promise<unknown>>> = {
@@ -254,6 +262,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
   if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries), trace);
   await appendDayDigest(gist, briefing, trace);
+  if (ics) await writeCalendarHistory(gist, ics, deps.now, trace);
   if (deps.ask)
     await answerPendingQuietly({
       gist,
@@ -279,6 +288,46 @@ export async function appendDayDigest(gist: GistClient, briefing: Briefing, trac
     trace.log("jarvis", "day digest written", { days: file.days.length });
   } catch (e) {
     trace.log("jarvis", "day digest failed", { error: trace.publicError(e) });
+  }
+}
+
+// Writes jazz2-calendar.json (90 days back to 60 ahead) from the calendar feed. A failed fetch or
+// parse keeps the existing file; an unchanged list (everything but generatedAt) isn't rewritten.
+// Never fails the briefing. The trace gets counts only, never titles.
+export async function writeCalendarHistory(
+  gist: GistClient,
+  ics: () => Promise<string>,
+  now: Date,
+  trace: Trace,
+): Promise<"written" | "unchanged" | "failed"> {
+  try {
+    const file = calendarHistory(await ics(), now, CONFIG.timezone);
+    const { generatedAt, ...body } = file;
+    let old: string | null = null;
+    try {
+      old = await gist.readFile(CONFIG.gistFiles.calendar);
+    } catch {
+      old = null; // can't tell, so write
+    }
+    if (old && sameCalendar(old, JSON.stringify(body))) {
+      trace.log("jarvis", "calendar history unchanged", { events: file.events.length });
+      return "unchanged";
+    }
+    await gist.writeFile(CONFIG.gistFiles.calendar, JSON.stringify(file));
+    trace.log("jarvis", "calendar history written", { events: file.events.length, from: file.from, to: file.to });
+    return "written";
+  } catch (e) {
+    trace.log("jarvis", "calendar history failed", { error: trace.publicError(e) });
+    return "failed";
+  }
+}
+
+function sameCalendar(oldRaw: string, body: string): boolean {
+  try {
+    const { generatedAt, ...rest } = JSON.parse(oldRaw);
+    return JSON.stringify(rest) === body;
+  } catch {
+    return false;
   }
 }
 

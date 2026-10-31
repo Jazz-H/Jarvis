@@ -180,6 +180,7 @@ async function fetchRemote(gistId) {
   const g = await gistApi("/gists/" + gistId);
   ingestBriefingFile(g.files && g.files[BRIEFING_FILENAME]); // Jarvis's read-only briefing rides along
   ingestReviewFile(g.files && g.files[REVIEWS_FILENAME]); // and so do the weekly reviews
+  ingestCalendarFile(g.files && g.files[CALENDAR_FILENAME]); // and the calendar history for the Planner
   ingestAskFile(g.files && g.files[ASK_FILE]); // Ask Jarvis: questions from other devices, Clear history
   ingestAnswersFile(g.files && g.files[ANSWERS_FILE]); // and Jarvis's answers (read-only)
   const file = g.files && g.files[GIST_FILENAME];

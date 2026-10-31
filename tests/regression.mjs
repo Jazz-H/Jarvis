@@ -4557,7 +4557,15 @@ await section("handlers: bill logo falls back to a letter when the icon host fai
     query: "?tab=budget",
     seed: {
       "bills-content": [
-        { id: "lg1", name: "Spotify", amount: 12, due: isoInMonth(1), repeat: "monthly", autopay: false, account: null },
+        {
+          id: "lg1",
+          name: "Spotify",
+          amount: 12,
+          due: isoInMonth(1),
+          repeat: "monthly",
+          autopay: false,
+          account: null,
+        },
       ],
     },
   });
@@ -8377,7 +8385,7 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
   const tile = await page.$eval('.jv-tile[data-go="inbox"]', (e) => e.textContent.replace(/\s+/g, " "));
   check(
     "inbox tile shows unread and what needs you",
-    tile.includes("14 unread") && tile.includes("1 bill ≠ Budget"),
+    tile.includes("14 new") && tile.includes("1 bill ≠ Budget"),
     tile,
   );
   await page.tap('.jv-tile[data-go="inbox"]');
@@ -10098,7 +10106,7 @@ await section("Console: feed normalizer drops junk, caps 7 days / 50 entries, su
       { kind: "ask", at: Date.now() - 3 * 864e5, text: "earlier" },
     ]);
     renderConsole();
-    return [...document.querySelectorAll("#cn-feed .jv-label")].map((l) => l.textContent);
+    return [...document.querySelectorAll("#cn-feed .jv-sub-label")].map((l) => l.textContent);
   });
   check(
     "feed is grouped Today, Yesterday, then earlier days",
@@ -11798,7 +11806,10 @@ await section("ask: History shows the last 50; the feed keeps today and yesterda
     const ats = [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) =>
       e.getAttribute("data-ask-entry"),
     );
-    return { n: ats.length, labels: [...document.querySelectorAll("#cn-feed .jv-label")].map((l) => l.textContent) };
+    return {
+      n: ats.length,
+      labels: [...document.querySelectorAll("#cn-feed .jv-sub-label")].map((l) => l.textContent),
+    };
   });
   check(
     "the feed shows only today's and yesterday's questions",
@@ -12190,6 +12201,484 @@ await section("voice: Home's quick add fills from speech and adds only on +", as
     await page.evaluate(
       () => todoList.length === 1 && todoList[0].text === "call mom" && todoList[0].due === addDaysIso(1),
     ),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+// ---------- Calendar history on the Planner (js/calendar.js) ----------
+const calFile = (events, over = {}) => ({
+  version: 1,
+  generatedAt: new Date().toISOString(),
+  tz: "America/New_York",
+  from: isoOffset(-90),
+  to: isoOffset(60),
+  events,
+  ...over,
+});
+const calEv = (date, start, end, title, location = "") => ({
+  date,
+  start,
+  end,
+  allDay: start === null,
+  title,
+  location,
+});
+
+await section("calendar: sync pulls jazz2-calendar.json, keeps it on this device only, never pushes it", async () => {
+  const now = Date.now();
+  const file = calFile([
+    calEv(isoOffset(0), "09:00", "10:00", "Standup", "Zoom"),
+    calEv(isoOffset(0), null, null, "Mom's birthday"),
+    calEv(isoOffset(-200), "09:00", "10:00", "Out of range"),
+  ]);
+  const gist = {
+    id: "g0",
+    files: {
+      "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: now - 1000, data: {} }) },
+      "jazz2-calendar.json": { truncated: false, content: JSON.stringify(file) },
+    },
+  };
+  const patches = [];
+  const route = async (r) => {
+    const req = r.request(),
+      url = new URL(req.url());
+    const json = (status, body) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      const files = JSON.parse(req.postData()).files;
+      patches.push(Object.keys(files));
+      Object.entries(files).forEach(([n, f]) => (gist.files[n] = { truncated: false, content: f.content }));
+      return json(200, gist);
+    }
+    return json(404, {});
+  };
+  const { ctx, page, errors } = await openApp({
+    route,
+    seed: { "sync-token": "tok", "sync-gist-id": "g0", "data-updated-at": String(now) },
+  });
+  const external = [];
+  page.on("request", (req) => {
+    const host = new URL(req.url()).hostname;
+    if (host !== "127.0.0.1") external.push(host);
+  });
+  // a truncated file is fetched from the gist's raw host only
+  const rawFile = calFile([calEv(isoOffset(1), "08:00", "08:30", "From raw")]);
+  let rawHits = 0;
+  await ctx.route("https://gist.githubusercontent.com/**", (r) => {
+    rawHits++;
+    return r.fulfill({ status: 200, contentType: "text/plain", body: JSON.stringify(rawFile) });
+  });
+  await ctx.route("https://evil.example/**", (r) => r.fulfill({ status: 200, body: JSON.stringify(rawFile) }));
+  await page.waitForTimeout(800);
+  const r = await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem("jarvis-calendar") || "null");
+    return {
+      titles: ((stored && stored.events) || []).map((e) => e.title),
+      inSyncKeys: SYNC_KEYS.includes("jarvis-calendar"),
+      planner: !!document.querySelector("#panel-home .home-events"),
+    };
+  });
+  check("calendar stored on this device, cleaned and sorted", r.titles.join() === "Mom's birthday,Standup", r);
+  check("calendar is not a synced list", !r.inSyncKeys);
+  check("the Planner shows it once it arrives", r.planner);
+  await page.evaluate(async () => {
+    todoList.push({ id: "n1", text: "New", done: false, due: null, starred: false, subitems: [], completedAt: null });
+    saveContent("todo-content", todoList, { toast: false });
+    await syncNow();
+  });
+  check(
+    "push sends only the app data file",
+    patches.length > 0 && patches.every((p) => p.join() === "jazz2-data.json"),
+    patches,
+  );
+  check("gist calendar untouched", gist.files["jazz2-calendar.json"].content === JSON.stringify(file));
+  const after = await page.evaluate(async (f) => {
+    const before = localStorage.getItem("jarvis-calendar");
+    await ingestCalendarFile({ content: JSON.stringify(f) }); // the same file again
+    await ingestCalendarFile({ truncated: true, raw_url: "https://evil.example/x" });
+    await ingestCalendarFile({ truncated: true, raw_url: "javascript:alert(1)" });
+    await ingestCalendarFile({ content: "not json" });
+    await ingestCalendarFile({ content: JSON.stringify({ version: 2, from: "x", to: "y", events: [] }) });
+    await ingestCalendarFile(undefined);
+    return localStorage.getItem("jarvis-calendar") === before;
+  }, file);
+  check("repeats, junk and foreign raw URLs change nothing", after);
+  check("nothing fetched from a foreign raw URL", !external.includes("evil.example"), external);
+  const viaRaw = await page.evaluate(async () => {
+    await ingestCalendarFile({ truncated: true, raw_url: "https://gist.githubusercontent.com/u/g0/raw/cal.json" });
+    return JSON.parse(localStorage.getItem("jarvis-calendar")).events.map((e) => e.title);
+  });
+  check("a truncated file is read from gist.githubusercontent.com", rawHits === 1 && viaRaw.join() === "From raw", {
+    rawHits,
+    viaRaw,
+  });
+  check(
+    "sync payload and backup leave the calendar out",
+    !(await page.evaluate(() => JSON.stringify([collectLocal(), liveData()]).includes("From raw"))),
+  );
+  check(
+    "no network beyond the gist",
+    external.every((h) => h === "api.github.com" || h === "gist.githubusercontent.com"),
+    external,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("calendar: normalizer drops junk, caps sizes and escapes text", async () => {
+  const { ctx, page, errors } = await openApp();
+  const r = await page.evaluate(
+    ({ from, to, inRange, outRange }) => {
+      const evil = '<img src=x onerror="window.__pwn=1"><script>window.__pwn=1</script>';
+      const base = { version: 1, from, to };
+      const bad = [
+        null,
+        "nope",
+        { ...base, version: 2, events: [] },
+        { ...base, from: "2030-02-30", events: [] },
+        { ...base, from: to, to: from, events: [] },
+        { version: 1, events: [] },
+      ].map((x) => normalizeCalendar(x));
+      const cal = normalizeCalendar({
+        ...base,
+        generatedAt: "not a date",
+        events: [
+          { date: inRange, start: "14:00", end: "15:00", allDay: false, title: "B later" },
+          { date: inRange, start: "09:00", end: "09:30", allDay: false, title: "A first" },
+          { date: inRange, start: null, end: null, allDay: true, title: "All day" },
+          { date: inRange, start: "25:00", end: "26:00", allDay: false, title: "Bad time" }, // → all-day
+          { date: inRange, start: "10:00", end: "9:5", allDay: "true", title: "Bad end" }, // end dropped
+          { date: "2030-02-30", start: null, end: null, allDay: true, title: "Bad date" },
+          { date: outRange, start: null, end: null, allDay: true, title: "Out of range" },
+          { date: inRange, start: null, end: null, allDay: true, title: "   " },
+          { date: inRange, start: null, end: null, allDay: true, title: 42 },
+          {
+            date: inRange,
+            start: null,
+            end: null,
+            allDay: true,
+            title: evil + "x".repeat(500),
+            location: "y".repeat(500),
+          },
+          { date: inRange, start: null, end: null, allDay: true, title: "Line\nbreak\u0000here" },
+          "junk",
+          null,
+          [],
+        ],
+      });
+      const many = normalizeCalendar({
+        ...base,
+        events: Array.from({ length: 2400 }, (_, i) => ({
+          date: inRange,
+          start: null,
+          end: null,
+          allDay: true,
+          title: "E" + i,
+        })),
+      });
+      localStorage.setItem(
+        "jarvis-calendar",
+        JSON.stringify({
+          ...base,
+          events: [{ date: inRange, start: "09:00", end: null, allDay: false, title: evil, location: evil }],
+        }),
+      );
+      selectHomeDate(inRange);
+      const html = document.getElementById("panel-home").innerHTML;
+      return {
+        bad,
+        titles: cal.events.map((e) => e.title.slice(0, 12)),
+        gen: cal.generatedAt,
+        evil: cal.events.find((e) => e.title.startsWith("<img")),
+        badTime: cal.events.find((e) => e.title === "Bad time"),
+        badEnd: cal.events.find((e) => e.title === "Bad end"),
+        line: cal.events.find((e) => e.title.startsWith("Line")).title,
+        many: many.events.length,
+        injected:
+          !!document.querySelector("#panel-home .home-events img, #panel-home .home-events script") || !!window.__pwn,
+        escaped: html.includes("&lt;img"),
+      };
+    },
+    { from: isoOffset(-5), to: isoOffset(5), inRange: isoOffset(1), outRange: isoOffset(9) },
+  );
+  check(
+    "bad files are rejected whole",
+    r.bad.every((x) => x === null),
+    r.bad,
+  );
+  check(
+    "junk events dropped; by date, all-day first, then start",
+    r.titles.join("|") === "All day|Bad time|<img src=x o|Line break h|A first|Bad end|B later",
+    r.titles,
+  );
+  check("a bad generatedAt is cleared", r.gen === "", r.gen);
+  check("title capped at 80, location at 60", r.evil.title.length === 80 && r.evil.location.length === 60, r.evil);
+  check("an invalid start makes it all-day", r.badTime.allDay && r.badTime.start === null && r.badTime.end === null);
+  check(
+    "an invalid end is dropped; allDay must be a real boolean",
+    !r.badEnd.allDay && r.badEnd.start === "10:00" && r.badEnd.end === null,
+    r.badEnd,
+  );
+  check("control characters become spaces", r.line === "Line break here", r.line);
+  check("at most 1500 events", r.many === 1500, r.many);
+  check("hostile text renders escaped", r.escaped && !r.injected, r);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("calendar: Planner day view, hero count, strip + month indicators, out-of-range days", async () => {
+  const today = isoOffset(0),
+    past = isoOffset(-3),
+    other = isoInWeek(1); // another day in this week, with one event
+  const inMonthEmpty = isoInMonth(2); // a day in this month with no events
+  const file = calFile(
+    [
+      calEv(today, "23:59", null, "Late call", "Phone"),
+      calEv(today, "00:00", "00:01", "Early check-in", ""),
+      calEv(today, null, null, "Mom's birthday"),
+      calEv(today, "12:00", "13:00", "Lunch with Sam", "Cafe"),
+      calEv(past, "09:00", "09:30", "Standup", "Zoom"),
+      calEv(other, null, null, "Trip"),
+      calEv(isoOffset(9), "10:00", "11:00", "Beyond the range"),
+    ],
+    { from: isoOffset(-5), to: isoOffset(5) },
+  );
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-calendar": file, "todo-content": [] } });
+  const day = () =>
+    page.evaluate(() => {
+      const box = document.querySelector("#panel-home .home-events");
+      return {
+        has: !!box,
+        sec: [...document.querySelectorAll("#panel-home .home-sec")].map((s) => s.textContent.trim())[0] || "",
+        chips: box ? [...box.querySelectorAll(".jv-cal-allday span")].map((s) => s.textContent) : [],
+        rows: box
+          ? [...box.querySelectorAll(".jv-cal-ev")].map((li) => ({
+              title: li.querySelector(".jv-cal-what b").textContent,
+              time: li.querySelector(".jv-cal-time b").textContent,
+              loc: (li.querySelector(".jv-cal-what > span:not(.home-ev-sr)") || {}).textContent || "",
+              past: li.classList.contains("past"),
+              sr: li.textContent.replace(/\s+/g, " ").trim(),
+            }))
+          : [],
+        sub: document.querySelector("#panel-home .home-hero .sub").textContent,
+        actions: box ? box.querySelectorAll("[data-action], button, a").length : 0,
+      };
+    });
+  const t = await day();
+  const nowMin = await page.evaluate(() => new Date().getHours() * 60 + new Date().getMinutes());
+  check("today shows a Calendar section first", t.has && t.sec === "Calendar", t);
+  check("all-day events as chips", t.chips.join() === "Mom's birthday", t.chips);
+  check(
+    "timed events in start order with times and locations",
+    t.rows.map((x) => `${x.time} ${x.title} ${x.loc}`).join("|") ===
+      "12a Early check-in |12p Lunch with Sam Cafe|11:59p Late call Phone",
+    t.rows,
+  );
+  check("today's finished events dim, upcoming ones don't", t.rows[0].past === nowMin >= 1 && !t.rows[2].past, t.rows);
+  check("rows read well to a screen reader", t.rows[1].sr.startsWith("12p to 1p, Lunch with Sam, Cafe"), t.rows[1].sr);
+  check("events are read-only", t.actions === 0, t.actions);
+  check("hero adds the event count", t.sub.includes("· 4 events"), t.sub);
+  const strip = await page.evaluate(
+    ({ today, other, empty }) => {
+      const cell = (iso) => document.querySelector(`#panel-home .home-week [data-date="${iso}"]`);
+      return {
+        todayEv: !!cell(today).querySelector(".marks .ev"),
+        todayLabel: cell(today).getAttribute("aria-label"),
+        otherEv: !!cell(other).querySelector(".marks .ev"),
+        otherLabel: cell(other).getAttribute("aria-label"),
+        evCount: document.querySelectorAll("#panel-home .home-week .marks .ev").length,
+      };
+    },
+    { today, other },
+  );
+  check("strip marks today and labels it", strip.todayEv && strip.todayLabel.includes("4 events"), strip);
+  check("strip marks another day with 1 event", strip.otherEv && strip.otherLabel.includes("1 event"), strip);
+  // past day: rows not dimmed
+  await page.evaluate((d) => selectHomeDate(d), past);
+  const p = await day();
+  check(
+    "a past day lists its events, undimmed",
+    p.rows.length === 1 && p.rows[0].title === "Standup" && !p.rows[0].past,
+    p,
+  );
+  check("past day hero counts it", p.sub.endsWith("· 1 event"), p.sub);
+  // month view
+  await page.evaluate((d) => {
+    selectHomeDate(d);
+    setHomeCalOpen(true);
+  }, today);
+  const m = await page.evaluate(
+    ({ today, empty }) => {
+      const cell = (iso) => document.querySelector(`#panel-home .home-month [data-date="${iso}"]:not(.other)`);
+      return {
+        todayEv: !!cell(today).querySelector(".marks .ev"),
+        label: cell(today).getAttribute("aria-label"),
+        emptyEv: !!cell(empty).querySelector(".marks .ev"),
+        emptyLabel: cell(empty).getAttribute("aria-label"),
+      };
+    },
+    { today, empty: inMonthEmpty },
+  );
+  check("month view marks days with events", m.todayEv && m.label.includes("4 events"), m);
+  check(
+    "days without events get no mark",
+    inMonthEmpty === other || (!m.emptyEv && !m.emptyLabel.includes("event")),
+    m,
+  );
+  // outside the imported range: nothing at all
+  await page.evaluate((d) => selectHomeDate(d), isoOffset(9));
+  const o = await day();
+  check("a day outside the range shows no events and no 'free'", !o.has && !o.sub.includes("event"), o);
+  // not connected: no file, nothing changes
+  await page.evaluate((d) => {
+    localStorage.removeItem("jarvis-calendar");
+    setHomeCalOpen(false);
+    selectHomeDate(d);
+  }, today);
+  const n = await page.evaluate(() => ({
+    box: !!document.querySelector("#panel-home .home-events"),
+    marks: document.querySelectorAll("#panel-home .marks .ev").length,
+    sub: document.querySelector("#panel-home .home-hero .sub").textContent,
+    labels: [...document.querySelectorAll("#panel-home .home-day")].some((b) =>
+      b.getAttribute("aria-label").includes("event"),
+    ),
+  }));
+  check("with no file the Planner is unchanged", !n.box && n.marks === 0 && !n.sub.includes("event") && !n.labels, n);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("console: 'Hey Jarvis' wake word routes to Ask, to-do or list; the conversation folds", async () => {
+  const { ctx, page, errors } = await openApp();
+  const r = await page.evaluate(() =>
+    [
+      "hey Jarvis what's my next payday",
+      "Hey Jarvis, to-do call mom tomorrow",
+      "hey jarvis list eggs and milk",
+      "OK Jarvis, add to my shopping list: helmet $250",
+      "Jarvis remind me to pay rent sunday",
+      "list: bread, butter",
+      "listen to podcast",
+    ].map((x) => [
+      consoleGuess(x),
+      consoleParse(x)
+        .map((row) => `${row.type}:${row.src}`)
+        .join("|"),
+    ]),
+  );
+  check(
+    "wake word + question → Ask; + to-do → to-do; + list → Shopping items",
+    JSON.stringify(r) ===
+      JSON.stringify([
+        ["ask", "ask:hey Jarvis what's my next payday"],
+        ["capture", "todo:call mom tomorrow"],
+        ["capture", "shop:eggs|shop:milk"],
+        ["capture", "shop:helmet $250"],
+        ["capture", "todo:pay rent sunday"],
+        ["capture", "shop:bread|shop:butter"],
+        ["capture", "todo:listen to podcast"],
+      ]),
+    r,
+  );
+  // Home's quick add: "to-do" adds there; a list goes on to Console's preview
+  const before = await page.evaluate(() => todoList.length);
+  await page.fill("#jv-quick", "Hey Jarvis, to-do water plants friday");
+  await page.press("#jv-quick", "Enter");
+  const added = await page.evaluate(() => todoList.find((t) => t.text.toLowerCase().startsWith("water plants")));
+  check(
+    "quick add: wake word + to-do adds the to-do without the wake word",
+    !!added && (await page.evaluate(() => todoList.length)) === before + 1,
+    added,
+  );
+  await page.fill("#jv-quick", "hey jarvis list eggs and milk");
+  await page.press("#jv-quick", "Enter");
+  const handed = await page.evaluate(() => ({
+    tab: document.body.dataset.tab,
+    rows: [...document.querySelectorAll("#cn-preview .cn-row")].length,
+  }));
+  check(
+    "quick add: wake word + list opens Console with the items to confirm",
+    handed.tab === "console" && handed.rows === 2,
+    handed,
+  );
+  // the conversation section sits above the review card and folds
+  await page.evaluate(() => {
+    consoleLog({ kind: "capture", text: "x", at: Date.now(), todos: 1, shop: 0 });
+    renderConsole();
+  });
+  const order = await page.evaluate(() => {
+    const f = document.getElementById("cn-feed"),
+      rv = document.getElementById("cn-review");
+    return !!(f.compareDocumentPosition(rv) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  check("the conversation comes before the week in review", order);
+  const tog = '#cn-feed [data-action="console-feed-toggle"]';
+  if (await page.$(tog)) {
+    await page.click(tog);
+    const closed = await page.evaluate(() => ({
+      hidden: document.getElementById("cn-feed-body").hidden,
+      exp: document.querySelector('[data-action="console-feed-toggle"]').getAttribute("aria-expanded"),
+      kept: localStorage.getItem("console-feed-open"),
+    }));
+    check(
+      "Hide folds it, says so, and remembers",
+      closed.hidden && closed.exp === "false" && closed.kept === "0",
+      closed,
+    );
+  } else check("the conversation has a Hide/Show toggle", false);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("inbox detail opens Gmail; Jazz 3.0 goal bars stay thin", async () => {
+  const b = briefingFixture();
+  b.cards.inbox = {
+    status: "ok",
+    agent: "Inbox",
+    model: "m",
+    updatedAt: new Date().toISOString(),
+    data: {
+      unread: 3,
+      urgent: [{ from: 'Bank "of" <America>', summary: "Verify a card" }],
+      needsReply: [{ from: "Sam Lee", summary: "Lunch?" }],
+      bills: [],
+    },
+  };
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  check("the tile says how many are new", (await page.textContent('.jv-tile[data-go="inbox"]')).includes("3 new"));
+  await page.tap('.jv-tile[data-go="inbox"]');
+  const r = await page.evaluate(() =>
+    [...document.querySelectorAll("#jv-detail-inbox a")].map((a) => ({
+      href: a.getAttribute("href"),
+      target: a.getAttribute("target"),
+      h: a.getBoundingClientRect().height,
+      html: a.innerHTML,
+    })),
+  );
+  check(
+    "each row searches Gmail for its sender (encoded), and there's an Open Gmail link",
+    r.length === 3 &&
+      r[0].href.startsWith("https://mail.google.com/mail/u/0/#search/") &&
+      decodeURIComponent(r[1].href).includes('from:"Sam Lee"') &&
+      r[2].href === "https://mail.google.com/mail/u/0/#inbox" &&
+      r.every((a) => a.target === "_blank" && a.h >= 44) &&
+      !r[0].html.includes("<America>"),
+    r,
+  );
+  // goal bars: 8px tall, label above (not overlapping)
+  await page.tap('.jv-tile[data-go="jazz3"]');
+  const bars = await page.evaluate(() =>
+    [...document.querySelectorAll("#jv-detail-jazz3 .jv-goal")].map((g) => {
+      const bar = g.querySelector(".jv-goal-bar").getBoundingClientRect();
+      const head = g.querySelector(".jv-goal-head").getBoundingClientRect();
+      return { h: Math.round(bar.height), below: bar.top >= head.bottom - 1 };
+    }),
+  );
+  check(
+    "goal bars are 8px and sit under their labels",
+    bars.length > 0 && bars.every((x) => x.h === 8 && x.below),
+    bars,
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();

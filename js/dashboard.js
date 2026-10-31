@@ -409,7 +409,16 @@ function dashQuickAdd() {
     return;
   }
   voiceCancel(); // adding ends any listening
-  const { text, due } = parseQuickAdd(raw);
+  // "Hey Jarvis, to-do …" adds here; "Hey Jarvis, list …" and questions go on to Console
+  const cmd = consoleCommand(raw);
+  if (cmd && cmd.mode !== "todo") {
+    dashQuickText = "";
+    if (el) el.value = "";
+    consoleHandOff(raw);
+    return;
+  }
+  if (cmd && !cmd.rest) return;
+  const { text, due } = parseQuickAdd(cmd ? cmd.rest : raw);
   const t = { id: genId("todo"), text, done: false, due, starred: false, subitems: [], completedAt: null };
   // new items go to the top of their group, like the + sheet
   const at = todoList.findIndex((x) => !x.done && todoGroup(x) === todoGroup(t));
@@ -732,7 +741,7 @@ function dashInboxTile(b) {
   return {
     go: "inbox",
     label: "Inbox",
-    value: x ? `${x.unread} unread` : "—",
+    value: x ? `${x.unread} new` : "—", // unread Primary mail from the last 36 h
     sub: x
       ? [
           x.urgent.length ? `${x.urgent.length} urgent` : "",
@@ -757,8 +766,16 @@ function dashInboxDetail(c) {
   if (!c) return `<p class="jv-line">${escapeHtml(DASH_SETUP.google)}</p>`;
   if (c.status !== "ok") return jvErrorBody(c);
   const x = c.data;
-  const row = (tag, tone, a, bText, extra = "") =>
-    `<div class="jv-mail-row"><span class="jv-mini ${tone}">${tag}</span><span class="jv-mail-text"><b>${escapeHtml(a)}</b>${bText ? `<span>${escapeHtml(bText)}</span>` : ""}</span>${extra}</div>`;
+  // each row opens Gmail (the app on phones) searching for that sender; the names are only names,
+  // so the link is built here and goes through linkHtml like any other
+  const fromLink = (name) => `${DASH_GMAIL}#search/${encodeURIComponent(`from:"${name}" in:inbox`)}`;
+  const row = (tag, tone, a, bText, extra = "") => {
+    const inner = `<b>${escapeHtml(a)}</b>${bText ? `<span>${escapeHtml(bText)}</span>` : ""}`;
+    const text =
+      linkHtml(fromLink(a), `class="jv-mail-text jv-mail-link" aria-label="Open in Gmail: ${escapeAttr(a)}"`, inner) ||
+      `<span class="jv-mail-text">${inner}</span>`;
+    return `<div class="jv-mail-row"><span class="jv-mini ${tone}">${tag}</span>${text}${extra}</div>`;
+  };
   const bill = (y) => {
     const amt = y.amount != null ? moneyShort(y.amount) : "amount not shown";
     const due = y.due ? ` · due ${noonOf(y.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "";
@@ -779,8 +796,9 @@ function dashInboxDetail(c) {
   // the unread count is on the tile already
   return `${
     rows ? `<div class="jv-mail">${rows}</div>` : `<div class="empty">Nothing urgent, nobody waiting, no bills.</div>`
-  }${jvMeta(c)}`;
+  }${linkHtml(`${DASH_GMAIL}#inbox`, 'class="jv-open jv-gmail"', "Open Gmail ↗")}${jvMeta(c)}`;
 }
+const DASH_GMAIL = "https://mail.google.com/mail/u/0/";
 
 // ---- wash-day swap (layout 1): rain or humidity on a wash day, and tomorrow looks drier ----
 const DASH_WASH_KEEP = "jv-wash-keep"; // "keep today's wash day" for this date; this device only

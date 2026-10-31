@@ -15,6 +15,16 @@ export const CONFIG = {
   reviewLeadMinutes: 15,
   reviewsKept: 12,
   digestDaysKept: 8, // daily Inbox/Deliveries/Calendar digests kept in jazz2-week.json
+  // jazz2-calendar.json (morning run, when GOOGLE_CALENDAR_ICS_URL is set): New York local dates
+  // from today - daysBack to today + daysAhead, for the app's Planner and for Ask.
+  calendarHistory: {
+    daysBack: 90,
+    daysAhead: 60,
+    maxEvents: 1500, // over this, the entries nearest to today are kept
+    maxDaysPerEvent: 14, // a multi-day all-day event gets one entry per day, from its first day
+    titleChars: 80,
+    locationChars: 60,
+  },
   news: {
     // Google News RSS only (no key). Each topic is one feed.
     topics: {
@@ -38,7 +48,7 @@ export const CONFIG = {
   // Gmail searches (read-only). Primary inbox only; promotions and social are left out.
   inbox: {
     query: "in:inbox category:primary newer_than:36h",
-    unreadQuery: "in:inbox category:primary is:unread",
+    unreadQuery: "in:inbox category:primary is:unread newer_than:36h", // the same 36 h window as the card
     max: 30,
   },
   deliveries: {
@@ -77,11 +87,16 @@ export const CONFIG = {
     pendingKept: 20, // items read from jazz2-ask.json
     answersKept: 50,
     threadTurns: 6, // earlier question/answer turns in the same thread given as context
+    // The calendar list given to Ask (from jazz2-calendar.json): the events nearest to today are
+    // listed until this many characters of JSON (about 5k tokens); the rest are counted per week.
+    calendarMaxChars: 20_000,
+    calendarMaxAgeDays: 7, // an older calendar file is left out
   },
   agentTimeoutMs: 120_000,
   // Each gist file has one writer. The app writes data, push and ask; the orchestrator writes
   // briefing and week (morning run), reviews (Sunday run) and answers (Ask runs, and the morning
-  // and Sunday runs for queued questions), and prunes revoked phones from push.
+  // and Sunday runs for queued questions) and calendar (morning run), and prunes revoked phones
+  // from push.
   gistFiles: {
     data: "jazz2-data.json",
     briefing: "jazz2-briefing.json",
@@ -90,6 +105,7 @@ export const CONFIG = {
     reviews: "jazz2-reviews.json",
     ask: "jazz2-ask.json",
     answers: "jazz2-answers.json",
+    calendar: "jazz2-calendar.json",
   },
   // Web Push (phone notifications). The public key is also in js/push.js; the private key is the
   // VAPID_PRIVATE_KEY secret.

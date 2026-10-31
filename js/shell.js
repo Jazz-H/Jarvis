@@ -601,6 +601,7 @@ const SHELL_CLICK = {
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
   "console-go": (el) => consoleGo(el.getAttribute("data-go")),
+  "console-feed-toggle": () => consoleFeedToggle(),
   // Ask Jarvis (ask.js): History, answer chips, Follow up, Try again. Ids and indexes are re-checked there.
   "ask-history": () => openAskHistory(),
   "ask-history-close": () => closeAskHistory(),

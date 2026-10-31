@@ -105,6 +105,8 @@ function homeCalDayHtml(d, counts, monthView, other = false) {
       : 0;
   const wash = iso >= today && isWashDate(d) && skinRoutine.washPm.length > 0;
   const hol = holidaysOn(iso);
+  const evs = calendarEventsOn(iso),
+    evN = evs ? evs.length : 0;
   const cls = [
     "home-day",
     iso === sel ? "on" : "",
@@ -115,10 +117,10 @@ function homeCalDayHtml(d, counts, monthView, other = false) {
   ]
     .filter(Boolean)
     .join(" ");
-  const label = `${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${wash ? ", wash day" : ""}${hol.map((h) => `, ${h.name}`).join("")}`;
+  const label = `${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${evN ? `, ${calCountLabel(evN)}` : ""}${wash ? ", wash day" : ""}${hol.map((h) => `, ${h.name}`).join("")}`;
   return `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${label}" data-action="home-select-date" data-date="${iso}">
       ${monthView ? "" : `<span class="dow">${iso === today ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}</span>`}<b>${d.getDate()}</b>
-      <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${wash ? DROPLET_ICON : ""}</span>
+      <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${evN ? '<span class="ev"></span>' : ""}${wash ? DROPLET_ICON : ""}</span>
     </button>`;
 }
 function holidayChips(iso) {
@@ -308,18 +310,22 @@ function renderHomePanel() {
   homeCalAnim = false;
   const { day, washDone, repeats, dayBills, weighDue, workouts, total, done } = homeDayTotals(iso);
   const left = total - done;
+  const evs = calendarEventsOn(iso);
+  const evText = evs && evs.length ? ` · ${calCountLabel(evs.length)}` : ""; // from the calendar import
   let sub;
   if (iso === today) {
-    sub = left ? `${left} left today` : total ? "All done for today" : "Nothing due today";
+    sub = (left ? `${left} left today` : total ? "All done for today" : "Nothing due today") + evText;
     const streak = routineStreak();
     if (streak) sub += ` · ${streak}-day routine streak`;
   } else if (iso < today) {
     sub =
-      [done ? `${done} done` : "", left ? `${left} still open` : ""].filter(Boolean).join(" · ") || "Nothing recorded";
+      ([done ? `${done} done` : "", left ? `${left} still open` : ""].filter(Boolean).join(" · ") ||
+        "Nothing recorded") + evText;
   } else {
     sub =
       (iso === addDaysIso(1) ? "Tomorrow · " : "") +
-      (left ? `${left} to-do${left === 1 ? "" : "s"}` : total ? "All done" : "Nothing planned");
+      (left ? `${left} to-do${left === 1 ? "" : "s"}` : total ? "All done" : "Nothing planned") +
+      evText;
   }
   const dateOpt =
     date.getFullYear() === new Date().getFullYear()
@@ -337,7 +343,8 @@ function renderHomePanel() {
       : "";
   const lateBills = dayBills.open.filter((b) => b.due < today),
     dueBills = dayBills.open.filter((b) => b.due >= today);
-  let list = section(
+  let list = homeEventsHtml(iso); // the day's calendar (read-only), when the import covers it
+  list += section(
     "Overdue",
     day.overdue.map((t) => homeRowHtml(t, [`<span class="overdue">${escapeHtml(dueLabel(t.due))}</span>`])).join("") +
       lateBills.map((b) => homeBillHtml(b)).join(""),

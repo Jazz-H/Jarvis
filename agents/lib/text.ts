@@ -29,3 +29,20 @@ export function plainText(s: string, n: number): string {
     .trim();
   return out.slice(0, n).trim();
 }
+
+// Calendar text (titles, places) for jazz2-calendar.json and Ask: control and bidi characters,
+// links and email addresses taken out, whitespace collapsed, cut to n characters without
+// splitting a surrogate pair.
+const CONTROLS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]/g;
+const EMAILISH = /[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+/g;
+export function eventText(s: unknown, n: number): string {
+  let out = String(s ?? "")
+    .replace(CONTROLS, " ")
+    .replace(URLISH, "")
+    .replace(EMAILISH, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, n);
+  if (/[\ud800-\udbff]$/.test(out)) out = out.slice(0, -1);
+  return out.trim();
+}

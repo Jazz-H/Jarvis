@@ -1,7 +1,7 @@
 // Calendar sub-agent: code reads the iCal feed (events, times, overlaps); the model writes one line.
 import { CONFIG } from "../config.ts";
 import { CalendarCard, CalendarRead, type CalendarFacts } from "../schemas/calendar.ts";
-import { fetchCalendar } from "../tools/ics.ts";
+import { eventsFromIcs, fetchCalendar } from "../tools/ics.ts";
 import { dataBlock, type AgentSpec } from "../lib/run-agent.ts";
 import type { SubagentDeps } from "./types.ts";
 
@@ -23,8 +23,16 @@ export function calendarSpec(facts: CalendarFacts): AgentSpec<CalendarRead> {
   };
 }
 
-export async function runCalendar(deps: SubagentDeps, icsUrl: string, now: Date): Promise<CalendarCard> {
-  const facts = await fetchCalendar(icsUrl, now, CONFIG.timezone, deps.fetchImpl);
+// `raw`, when given, reads the feed once for both this card and jazz2-calendar.json (jarvis.ts).
+export async function runCalendar(
+  deps: SubagentDeps,
+  icsUrl: string,
+  now: Date,
+  raw?: () => Promise<string>,
+): Promise<CalendarCard> {
+  const facts = raw
+    ? eventsFromIcs(await raw(), now, CONFIG.timezone)
+    : await fetchCalendar(icsUrl, now, CONFIG.timezone, deps.fetchImpl);
   deps.trace.log("calendar", "fetched", { events: facts.events.length, overlaps: facts.overlaps.length });
   const today = facts.events.filter((e) => e.day === "today");
   // an empty day needs no model call

@@ -1,5 +1,5 @@
 // GitHub Gist access. Only the Jarvis orchestrator receives a GistClient; sub-agents never do.
-// Writes touch only the orchestrator's own files (jazz2-briefing.json, jazz2-week.json,
+// Writes touch only the orchestrator's own files (jazz2-briefing.json, jazz2-week.json, jazz2-calendar.json,
 // jazz2-reviews.json, jazz2-answers.json, and pruning jazz2-push.json), so the app's
 // jazz2-data.json and jazz2-ask.json are never rewritten.
 

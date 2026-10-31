@@ -4,10 +4,11 @@
 // weight, goals, Shopping, spending) and lib/jazz-context.ts (wash days). The pay period and safe
 // to spend mirror js/dashboard.js dashPayPeriod with js/budget-income.js (incomeInMonth,
 // paycheckAt, incomeEstimate, nextPayday) and js/budget-view.js billRowsBetween.
-// Plus this morning's validated briefing cards, the latest Weekly Review, and the earlier turns of
+// Plus this morning's validated briefing cards, the calendar list from jazz2-calendar.json (90 days
+// back to 60 ahead, as of the morning run), the latest Weekly Review, and the earlier turns of
 // the same thread. Synced text is untrusted: it's clipped here and only reaches the model as data.
 import { addDays, isWashDate } from "./jazz-context.ts";
-import { weekday } from "./schedule.ts";
+import { localTime, weekday } from "./schedule.ts";
 import {
   addMonthsIso,
   billDuesBetween,
@@ -31,6 +32,9 @@ import {
   type WeightStatus,
 } from "./week-stats.ts";
 import { readReviews } from "./reviews-file.ts";
+import { eventText } from "./text.ts";
+import { CONFIG } from "../config.ts";
+import { CalendarHistoryEvent } from "../schemas/calendar.ts";
 import { Briefing } from "../schemas/briefing.ts";
 import type { Answer, AskItem, AskSource } from "../schemas/ask.ts";
 
@@ -216,6 +220,90 @@ function reviewPart(raw: string | null, today: string) {
   return { id, weekStart, weekEnd, headline, stats, wins, slips, focus };
 }
 
+// ---- the calendar list (jazz2-calendar.json, written by the morning run) ----
+export interface CalendarPart {
+  asOf: string; // the local date of the morning run that wrote it
+  from: string;
+  to: string;
+  eventCount: number;
+  // "HH:MM-HH:MM | title | place" or "all day | title", by date; the events nearest to today
+  days: Record<string, string[]>;
+  // events that didn't fit the size budget, counted per week (Monday start)
+  otherWeeks: { weekStart: string; events: number }[];
+}
+
+const mondayOf = (iso: string) => addDays(iso, -((weekday(iso) + 6) % 7));
+
+export function calendarLine(e: CalendarHistoryEvent): string {
+  const when = e.allDay || !e.start ? "all day" : e.end ? `${e.start}-${e.end}` : e.start;
+  return [when, e.title, e.location].filter(Boolean).join(" | ");
+}
+
+export function calendarPart(raw: string | null, today: string, maxChars = CONFIG.ask.calendarMaxChars): CalendarPart | null {
+  if (!raw) return null;
+  let j: any;
+  try {
+    j = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isObj(j) || j.version !== 1 || !Array.isArray(j.events) || typeof j.generatedAt !== "string") return null;
+  const at = new Date(j.generatedAt);
+  if (!Number.isFinite(at.getTime())) return null;
+  const asOf = localTime(at, CONFIG.timezone).date;
+  if (asOf < addDays(today, -CONFIG.ask.calendarMaxAgeDays) || asOf > addDays(today, 1)) return null;
+  const opt = CONFIG.calendarHistory;
+  const from = addDays(today, -opt.daysBack),
+    to = addDays(today, opt.daysAhead);
+  // untrusted: each event is checked and its text cleaned again
+  const events: CalendarHistoryEvent[] = [];
+  for (const x of j.events.slice(0, opt.maxEvents)) {
+    if (!isObj(x)) continue;
+    const p = CalendarHistoryEvent.safeParse({
+      date: x.date,
+      start: x.start ?? null,
+      end: x.end ?? null,
+      allDay: x.allDay === true,
+      title: eventText(x.title, opt.titleChars) || "(No title)",
+      location: eventText(x.location, opt.locationChars),
+    });
+    if (p.success && p.data.date >= from && p.data.date <= to) events.push(p.data);
+  }
+  // nearest to today first (upcoming wins a tie) until the budget is used; the rest are counted
+  const t0 = dayNum(today);
+  const ranked = events
+    .map((ev, i) => ({ ev, i, dist: Math.abs(dayNum(ev.date) - t0), past: ev.date < today ? 1 : 0 }))
+    .sort((a, b) => a.dist - b.dist || a.past - b.past || a.i - b.i);
+  const listed: { ev: CalendarHistoryEvent; i: number; line: string }[] = [];
+  const counted = new Map<string, number>();
+  const dates = new Set<string>();
+  let used = 0;
+  for (const r of ranked) {
+    const line = calendarLine(r.ev);
+    const cost = JSON.stringify(line).length + 1 + (dates.has(r.ev.date) ? 0 : 16);
+    if (used + cost <= maxChars) {
+      used += cost;
+      dates.add(r.ev.date);
+      listed.push({ ...r, line });
+    } else {
+      const w = mondayOf(r.ev.date);
+      counted.set(w, (counted.get(w) ?? 0) + 1);
+    }
+  }
+  const days: Record<string, string[]> = {};
+  // by date, then the file's own order (all-day first, then start)
+  for (const x of listed.sort((a, b) => (a.ev.date < b.ev.date ? -1 : a.ev.date > b.ev.date ? 1 : a.i - b.i)))
+    (days[x.ev.date] ??= []).push(x.line);
+  return {
+    asOf,
+    from,
+    to,
+    eventCount: events.length,
+    days,
+    otherWeeks: [...counted.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([weekStart, n]) => ({ weekStart, events: n })),
+  };
+}
+
 // ---- the owner's data ----
 function workouts(data: Obj, today: string) {
   const plan = workoutPlan(data, today);
@@ -283,6 +371,7 @@ export interface AskContext {
   weekday: string;
   jazz: Record<string, unknown> | null;
   briefing: ReturnType<typeof briefingPart>;
+  calendar: CalendarPart | null; // jazz2-calendar.json, 90 days back to 60 ahead
   review: ReturnType<typeof reviewPart>;
   sources: AskSource[]; // what the answer may cite
   notes: string[];
@@ -356,20 +445,25 @@ export function buildAskContext(opts: {
   today: string;
   briefingRaw: string | null;
   reviewsRaw: string | null;
+  calendarRaw?: string | null;
 }): AskContext {
   const { data, today } = opts;
   const notes: string[] = [];
   const briefing = briefingPart(opts.briefingRaw, today);
+  const calendar = calendarPart(opts.calendarRaw ?? null, today);
   const review = reviewPart(opts.reviewsRaw, today);
   if (!data) notes.push("The owner's Jazz data isn't available, so to-dos, bills and money are left out.");
   if (!briefing) notes.push("There's no briefing from this morning, so weather, news, calendar, inbox and deliveries are left out.");
   else if (briefing.date !== today) notes.push(`The latest briefing is from ${briefing.date}, not today.`);
-  if (!briefing?.calendar && briefing) notes.push("The calendar isn't in this morning's briefing.");
+  if (!briefing?.calendar && briefing && !calendar) notes.push("The calendar isn't in this morning's briefing.");
+  if (calendar && calendar.asOf !== today) notes.push(`The calendar list is from ${calendar.asOf}, not this morning.`);
+  if (calendar?.otherWeeks.length)
+    notes.push("Calendar events far from today are only counted per week (otherWeeks), not listed.");
   if (!review) notes.push("There's no Weekly Review from the last two weeks.");
   notes.push("Calendar, inbox and deliveries are as of this morning's briefing, not live.");
   const sources: AskSource[] = [];
   if (data) sources.push("jazz");
-  if (briefing?.calendar) sources.push("calendar");
+  if (briefing?.calendar || calendar) sources.push("calendar");
   if (briefing?.inbox) sources.push("inbox");
   if (briefing?.deliveries) sources.push("deliveries");
   if (briefing?.weather) sources.push("weather");
@@ -381,6 +475,7 @@ export function buildAskContext(opts: {
     weekday: WEEKDAYS[weekday(today)],
     jazz: data ? jazzPart(data, today) : null,
     briefing,
+    calendar,
     review,
     sources,
     notes,

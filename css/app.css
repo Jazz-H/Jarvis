@@ -1133,6 +1133,42 @@ nav.tabbar button.orb-tab::before {
 .home-day.on .marks svg {
   color: var(--on-accent);
 }
+/* Calendar events (js/calendar.js): a short accent bar, so it can't be mistaken for the to-do dots */
+.home-day .marks .ev {
+  width: 9px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--olive);
+}
+.home-day .marks i + .ev {
+  margin-left: 1px;
+}
+.home-day.on .marks .ev {
+  background: var(--on-accent);
+}
+/* The day's events on the Planner: the dashboard's Calendar detail rows, inside a card */
+.home-events {
+  padding: 10px;
+  margin-bottom: 0;
+}
+.home-events .jv-cal-allday:last-child {
+  margin-bottom: 0;
+}
+.home-events .jv-cal-allday span {
+  overflow-wrap: anywhere;
+}
+.home-events .jv-cal-what > b,
+.home-events .jv-cal-what > span {
+  overflow-wrap: anywhere;
+}
+.home-ev-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .home-cal-grab {
   display: flex;
   justify-content: center;
@@ -4647,6 +4683,7 @@ body.todo-dragging {
   font-variant-numeric: tabular-nums;
 }
 .jv-goal-bar {
+  display: block; /* it's a <span> inside a button: inline would ignore the height */
   height: 8px;
   border-radius: 4px;
   background: var(--track);
@@ -6239,6 +6276,22 @@ body.todo-dragging {
 .jv-mail-text span {
   font-size: 13px;
   color: var(--text-dim);
+}
+/* a row's sender + summary opens Gmail */
+a.jv-mail-link {
+  color: inherit;
+  text-decoration: none;
+  min-height: 44px;
+  justify-content: center;
+}
+a.jv-mail-link:active b {
+  color: var(--link);
+}
+/* "Open Gmail ↗" is a link styled like the other "Open …" rows */
+a.jv-gmail {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
 }
 .jv-mail-ok {
   font-size: 12.5px;
