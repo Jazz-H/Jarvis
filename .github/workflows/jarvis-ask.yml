@@ -6,7 +6,10 @@ name: Jarvis Ask
 # one phone notification. Limits and cost caps are enforced in agents/ask.ts.
 # This repo is public: question text never appears in inputs, the run name, logs or artifacts.
 # The id input is checked and otherwise never printed.
+# Hourly, it also sends the owner's check-ins that are due (Jarvis's settings in the app).
 on:
+  schedule:
+    - cron: "5 * * * *" # check-ins; each one runs once a day, within 6 hours of its time
   workflow_dispatch:
     inputs:
       id:
@@ -28,6 +31,7 @@ jobs:
     timeout-minutes: 6
     steps:
       - name: Check the question id
+        if: github.event_name == 'workflow_dispatch'
         env:
           ASK_ID: ${{ inputs.id }}
         run: |
@@ -38,7 +42,8 @@ jobs:
           echo "Question id is valid."
 
       # Cheap early exit before npm ci: read the gist with the server-side token and stop if no
-      # question is waiting (and no history needs clearing). Prints only yes/no. If the check
+      # question or sort is waiting, no history needs clearing and no check-in is set up (whether
+      # one is due is worked out by the run). Prints only yes/no. If the check
       # itself fails, the full run goes ahead (it fails closed on its own gist reads).
       - name: Anything pending?
         id: pending
@@ -59,14 +64,18 @@ jobs:
                   else ($x.content // "" | try fromjson catch "bad") end;
               file("jazz2-ask.json") as $ask
               | file("jazz2-answers.json") as $ans
-              | if ($ask == "truncated" or $ans == "truncated" or $ans == "bad") then "yes"
+              | file("jazz2-data.json") as $data
+              | ($data | if type == "object" then (.data["jarvis-settings"].checkins // []) else [] end
+                  | if type == "array" then [ .[] | objects | select(.on != false) ] | length else 0 end) as $checkins
+              | if ($ask == "truncated" or $ans == "truncated" or $ans == "bad" or $data == "truncated") then "yes"
+                elif $checkins > 0 then "yes"
                 elif ($ask | type) != "object" then "no"
                 else
                   ($ask.clearBefore | if type == "string" then . else "" end) as $cb
                   | [ $ans | if type == "object" then (.answers // []) else [] end
                       | if type == "array" then .[] else empty end | objects ] as $done
                   | [ $ask.items | if type == "array" then .[] else empty end | objects
-                      | select(.kind == "ask" and (.id | type) == "string" and (.id | test("\\A[a-z0-9-]{8,40}\\z")))
+                      | select((.kind == "ask" or .kind == "sort") and (.id | type) == "string" and (.id | test("\\A[a-z0-9-]{8,40}\\z")))
                       | select((.at | type) == "string" and ($cb == "" or .at >= $cb))
                       | .id as $i | select(any($done[]; .id == $i) | not) ] as $pending
                   | [ $done[] | .askedAt | strings | select($cb != "" and . < $cb) ] as $prune
@@ -89,7 +98,7 @@ jobs:
         if: steps.pending.outputs.work == 'yes'
         working-directory: agents
         run: npm ci
-      - name: Answer pending questions
+      - name: Answer pending questions and due check-ins
         if: steps.pending.outputs.work == 'yes'
         working-directory: agents
         run: npm run ask

@@ -52,6 +52,8 @@ const ASK_ACTIONS = [
   "shopping_bought",
   "weight_log",
   "workout_done",
+  "remember",
+  "forget",
 ];
 const ASK_APPLIED_KEY = "ask-applied"; // this device: answers whose actions were applied here
 let askShowAll = false; // the conversation shows every kept question (Earlier), not just 2 days
@@ -246,7 +248,7 @@ function normalizeAnswer(a) {
       .map((x) => ({
         type: x.type,
         id: typeof x.id === "string" && SAFE_ID.test(x.id) ? x.id : null,
-        text: askStr(x.text, 120),
+        text: askStr(x.text, 200),
         date: isDay(x.date) ? x.date : null,
         lbs: typeof x.lbs === "number" && isFinite(x.lbs) && x.lbs >= 40 && x.lbs <= 800 ? Math.round(x.lbs * 10) / 10 : null,
         label: askStr(x.label, 160),
@@ -256,6 +258,7 @@ function normalizeAnswer(a) {
       .filter((l) => askIsObj(l) && typeof l.url === "string" && /^https:\/\/[^\s<>"']+$/.test(l.url) && l.url.length <= 500)
       .slice(0, 3)
       .map((l) => ({ url: l.url, title: askStr(l.title, 100) || "Link" })),
+    checkin: askStr(a.checkin, 40), // a scheduled check-in's name ("" for a question)
     by: a.by === "fallback" ? "fallback" : "jarvis",
   };
 }
@@ -382,6 +385,10 @@ function askDoAction(x) {
     if (!fitness.weights.includes(w)) fitness.weights.push(w);
     fitness.weights.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     saveFitness();
+  } else if (x.type === "remember") {
+    if (!brainRemember(x.text, "jarvis")) return false;
+  } else if (x.type === "forget") {
+    if (!x.id || !brainForget(x.id)) return false;
   } else if (x.type === "workout_done") {
     const w = fitness.plan.find((y) => y.id === x.id);
     if (!w || !workoutOn(w, today) || workoutDone(today, w.id)) return false;
@@ -821,13 +828,18 @@ function askAnswerHtml(q) {
       <div class="ak-foot">
         ${q.kind === "sort" ? "" : `<button type="button" class="cn-link" data-action="ask-follow" data-ask-id="${id}" aria-label="Follow up on this answer">Follow up</button>`}
         <span class="ak-meta">${escapeHtml([a.by === "fallback" ? "Put together automatically (Jarvis didn't finish)" : "", when].filter(Boolean).join(" · "))}</span>
+        ${a.by === "jarvis" ? brainRateHtml("answer", a.id) : ""}
       </div>
     </div>`;
 }
 // One question and its answer (or status); repeats: the same question asked again in a row
 function askEntryHtml(q) {
   const day = "";
-  const said = q.text ? escapeHtml(q.text) : '<span class="ak-other">Asked on another device</span>';
+  const said = q.text
+    ? escapeHtml(q.text)
+    : q.answer && q.answer.checkin
+      ? `<span class="ak-thread">Check-in</span> ${escapeHtml(q.answer.checkin)}`
+      : '<span class="ak-other">Asked on another device</span>';
   const follow =
     q.kind === "sort"
       ? '<span class="ak-thread">Sort</span> '

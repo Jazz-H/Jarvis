@@ -7,6 +7,7 @@
 // Plus this morning's validated briefing cards, the calendar list from jazz2-calendar.json (90 days
 // back to 60 ahead, as of the morning run), the latest Weekly Review, and the earlier turns of
 // the same thread. Synced text is untrusted: it's clipped here and only reaches the model as data.
+import { readBrain, brainForPrompt } from "./brain.ts";
 import { addDays, isWashDate } from "./jazz-context.ts";
 import { localTime, weekday } from "./schedule.ts";
 import {
@@ -380,19 +381,28 @@ export interface AskContext {
   sources: AskSource[]; // what the answer may cite
   notes: string[];
   targets: ActionTargets; // what an action may point at (code only; not shown to the model)
+  brain: (ReturnType<typeof brainForPrompt> & { memoryIds: { id: string; text: string }[] }) | null; // jarvis-memory etc.
 }
 
 // Everything an action may point at, by id, with its name for the action's label: open to-dos,
 // open goal items, Shopping still to buy, and today's planned workouts
 export interface ActionTargets {
+  memory: Map<string, string>; // Jarvis's memory (forget)
   todos: Map<string, string>;
   goals: Map<string, string>;
   shopping: Map<string, string>;
   workoutsToday: Map<string, string>;
 }
 export function actionTargets(data: Obj | null, today: string): ActionTargets {
-  const t: ActionTargets = { todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map() };
+  const t: ActionTargets = {
+    memory: new Map(),
+    todos: new Map(),
+    goals: new Map(),
+    shopping: new Map(),
+    workoutsToday: new Map(),
+  };
   if (!data) return t;
+  for (const m of readBrain(data).memory) t.memory.set(m.id, m.text);
   for (const x of arr(data["todo-content"]))
     if (isObj(x) && !x.done && idOf(x.id) && clip(x.text, 120)) t.todos.set(String(x.id), clip(x.text, 120));
   for (const x of goalItems(data)) if (!x.done && idOf(x.id)) t.goals.set(String(x.id), clip(x.item, 80));
@@ -537,6 +547,9 @@ export function buildAskContext(opts: {
     sources,
     notes,
     targets: actionTargets(data, today),
+    brain: data
+      ? ((b) => ({ ...brainForPrompt(b), memoryIds: b.memory.map((m) => ({ id: m.id, text: m.text })) }))(readBrain(data))
+      : null,
   };
 }
 

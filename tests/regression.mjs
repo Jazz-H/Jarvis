@@ -582,8 +582,9 @@ await section("backup: download has every list, restore replaces data, junk reje
       .then(JSON.parse);
   });
   check(
-    "backup holds 16 lists (incl. bills, budget, fitness, plan)",
-    Object.keys(backup.data).length === 16 &&
+    "backup holds 19 lists (incl. bills, budget, fitness, plan, Jarvis's brain)",
+    Object.keys(backup.data).length === 19 &&
+      "jarvis-memory" in backup.data &&
       "budget-content" in backup.data &&
       "fitness-content" in backup.data &&
       "plan3-content" in backup.data,
@@ -11358,6 +11359,98 @@ await section("ask: Jarvis acts on small things (on the asking device, once, wit
   );
   check("no JS errors", a.errors.length === 0, a.errors);
   await a.ctx.close();
+});
+
+await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, checked, escaped)", async () => {
+  const b = briefingFixture({});
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: {
+      "jarvis-briefing": b,
+      "jarvis-memory": [
+        { id: "m1", text: "<img src=x onerror=window.__pwned=1>", at: isoOffset(0), by: "jarvis" },
+        { id: "m1-dup", text: "<IMG SRC=x onerror=window.__pwned=1>" }, // same fact: dropped
+        { id: "bad id!", text: "Keeps a fresh id", by: "nobody" },
+        "junk",
+      ],
+      "jarvis-settings": { tone: "loud", newsTopics: ["F1", "", 5], checkins: [{ id: "c1", prompt: "Plan my week", days: [0, 9], time: "99:99" }] },
+    },
+  });
+  await page.evaluate(() => {
+    openPinned.add("cn-brain-card");
+    renderConsole();
+  });
+  const r = await page.evaluate(() => ({
+    mem: jarvisMemory.map((m) => [m.text.slice(0, 8), m.by, SAFE_ID.test(m.id)]),
+    settings: jarvisSettings,
+    card: document.getElementById("cn-brain-card").textContent.replace(/\s+/g, " "),
+    pwned: !!window.__pwned,
+  }));
+  check(
+    "memory is checked on load: duplicates and junk dropped, ids made safe",
+    r.mem.length === 2 && r.mem[0][1] === "jarvis" && r.mem[1][1] === "you" && r.mem.every((m) => m[2]),
+    r.mem,
+  );
+  check(
+    "settings are checked: unknown tone → normal, topics cleaned, check-in day/time fixed",
+    r.settings.tone === "normal" &&
+      JSON.stringify(r.settings.newsTopics) === '["F1","5"]' &&
+      JSON.stringify(r.settings.checkins[0].days) === "[0]" &&
+      r.settings.checkins[0].time === "08:00",
+    r.settings,
+  );
+  check("the card shows memory as text (never HTML)", r.card.includes("<img src=x") && !r.pwned, r.card);
+  // remember, forget
+  await page.click('[data-action="brain-add-memory"]');
+  await page.fill("#modal-text", "I don't eat pork");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check(
+    "Remember something saves a fact (synced)",
+    await page.evaluate(() => jarvisMemory[0].text === "I don't eat pork" && JSON.parse(localStorage.getItem("jarvis-memory"))[0].by === "you"),
+  );
+  await page.click('[data-action="brain-forget"][data-mem-id="m1"]');
+  check("× forgets a fact", await page.evaluate(() => !jarvisMemory.some((m) => m.id === "m1")));
+  // tone, topics, check-in
+  await page.click('[data-action="brain-tone"]');
+  await page.selectOption("#modal-tone", "Brief");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  await page.click('[data-action="brain-topics"]');
+  await page.fill("#modal-topics", "Formula 1, AI agents, , EVs");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check(
+    "tone and news topics save",
+    await page.evaluate(() => jarvisSettings.tone === "brief" && jarvisSettings.newsTopics.join("|") === "Formula 1|AI agents|EVs"),
+  );
+  await page.click('#cn-brain-card .add-row[data-action="brain-checkin"]');
+  await page.fill("#modal-name", "Wind down");
+  await page.fill("#modal-prompt", "What's left for today?");
+  await page.fill("#modal-time", "21:00");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check(
+    "a new check-in saves with its days and time",
+    await page.evaluate(() => {
+      const c = jarvisSettings.checkins.find((x) => x.name === "Wind down");
+      return !!c && c.time === "21:00" && c.days.join() === "0" && document.getElementById("cn-brain-card").textContent.includes("Sun · 9 PM");
+    }),
+  );
+  // ratings: the briefing, once; tap again to take it back
+  await page.evaluate(() => activateTab("home"));
+  await page.click('.jv-rate-row [data-action="jv-rate"][data-vote="1"]');
+  const rated = await page.evaluate(() => ({ fb: jarvisFeedback, on: document.querySelector('.jv-rate-row [data-vote="1"]').getAttribute("aria-pressed") }));
+  check(
+    "rating the briefing stores its headline as the item",
+    rated.fb.length === 1 && rated.fb[0].kind === "briefing" && rated.fb[0].vote === 1 && rated.fb[0].item.startsWith("Rain by noon") && rated.on === "true",
+    rated,
+  );
+  await page.click('.jv-rate-row [data-action="jv-rate"][data-vote="1"]');
+  check("tapping it again takes the rating back", await page.evaluate(() => jarvisFeedback.length === 0));
+  // synced data goes through the same checks
+  await page.evaluate(() =>
+    applyRemote({ updatedAt: Date.now(), data: { "jarvis-feedback": [{ kind: "answer", ref: "x<y", vote: 1 }, { kind: "answer", ref: "a-1", vote: 7 }] } }),
+  );
+  check("synced ratings are checked (bad refs and votes dropped)", await page.evaluate(() => jarvisFeedback.length === 0));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
 });
 
 await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {

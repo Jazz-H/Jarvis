@@ -137,9 +137,11 @@ describe("jarvis-ask.yml", () => {
     .filter((l) => !l.trim().startsWith("#"))
     .join("\n");
 
-  it("is dispatch-only with one string input, id, checked against the id pattern", () => {
-    expect(code).toMatch(/on:\s*\n\s*workflow_dispatch:\s*\n\s*inputs:\s*\n\s*id:\s*\n/);
-    expect(code).not.toMatch(/\bschedule:|\bpush:|pull_request/);
+  it("runs on dispatch (one string input, id, checked) and hourly for check-ins only", () => {
+    expect(code).toMatch(/\bworkflow_dispatch:\s*\n\s*inputs:\s*\n\s*id:\s*\n/);
+    expect(code.match(/cron: "[^"]+"/g)).toEqual(['cron: "5 * * * *"']); // check-ins, hourly
+    expect(code).not.toMatch(/\bpush:|pull_request/);
+    expect(code).toMatch(/Check the question id\s*\n\s*if: github\.event_name == 'workflow_dispatch'/);
     expect(code).toMatch(/type: string/);
     // the input is used exactly once, as an env var for the check (never inline in a script)
     expect(code.match(/\$\{\{\s*(inputs|github\.event\.inputs)\./g)).toHaveLength(1);

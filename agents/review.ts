@@ -7,6 +7,7 @@
 //
 //   npm run review                (scheduled behaviour: delivers only in the Sunday window)
 //   npm run review -- --now       (deliver now, like a manual run; replaces this week's review)
+import { readBrain, brainForPrompt, BRAIN_RULES } from "./lib/brain.ts";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -86,8 +87,9 @@ export function reviewSpec(
   lastWeek: WeekStats | null,
   days: DayDigest[],
   notes: string[],
+  brain: ReturnType<typeof brainForPrompt> | null = null,
 ): AgentSpec<ReviewOutput> {
-  const input = { week: { id: week.id, start: week.weekStart, end: week.weekEnd }, stats, lastWeek, days, notes };
+  const input = { week: { id: week.id, start: week.weekStart, end: week.weekEnd }, stats, lastWeek, days, brain, notes };
   return {
     name: "review",
     model: CONFIG.models.jarvis,
@@ -275,7 +277,7 @@ export async function runReview(deps: ReviewDeps): Promise<ReviewOutcome> {
   if (ledger.reserve("review", CONFIG.costEstimateUsd.review)) {
     try {
       out = cleanReviewOutput(
-        await runAgent(reviewSpec(week, stats, lastWeek, digests, notes), ledger, deps.trace, deps.queryFn),
+        await runAgent(reviewSpec(week, stats, lastWeek, digests, notes, brainForPrompt(readBrain(data))), ledger, deps.trace, deps.queryFn),
         stats,
       );
       if (!out.headline) throw new Error("headline was empty after cleanup");

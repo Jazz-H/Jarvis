@@ -56,6 +56,8 @@ export const ACTION_TYPES = [
   "shopping_bought",
   "weight_log",
   "workout_done",
+  "remember", // keep a fact in Jarvis's memory (text)
+  "forget", // drop one (id)
 ] as const;
 export const AskAction = z.object({
   type: z.enum(ACTION_TYPES),
@@ -63,7 +65,7 @@ export const AskAction = z.object({
     .string()
     .regex(/^[A-Za-z0-9_-]{1,80}$/)
     .optional(), // the to-do, goal item, Shopping item or workout plan
-  text: z.string().min(1).max(120).optional(), // todo_add, shopping_add
+  text: z.string().min(1).max(200).optional(), // todo_add, shopping_add, remember
   date: IsoDate.optional(), // todo_add / todo_move: the due date; weight_log / workout_done: the day
   lbs: z.number().min(40).max(800).optional(), // weight_log
   label: z.string().min(1).max(160), // what was done, in plain words (written by code)
@@ -91,6 +93,7 @@ export const Answer = z.object({
   chips: z.array(AskChip).max(12), // 3 for a question, up to 12 for a sort
   actions: z.array(AskAction).max(5).optional(), // what Jarvis did (the app applies them)
   links: z.array(AskLink).max(3).optional(), // web pages the answer used
+  checkin: z.string().min(1).max(40).optional(), // a scheduled check-in's name (no question asked)
   by: z.enum(["jarvis", "fallback"]), // fallback: written by code (limits, errors), not the model
 });
 export type Answer = z.infer<typeof Answer>;

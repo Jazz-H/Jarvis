@@ -11,6 +11,7 @@ beforeEach(() => {
 });
 
 const T: ActionTargets = {
+  memory: new Map([["m1", "No pork"]]),
   todos: new Map([["t1", "Call mom"]]),
   goals: new Map([["p3-2", "Daily floss"]]),
   shopping: new Map([["w1", "Rain jacket"]]),

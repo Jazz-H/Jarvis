@@ -662,6 +662,23 @@ const SHELL_CLICK = {
   "console-feed-toggle": () => consoleFeedToggle(),
   // Ask Jarvis (ask.js): History, answer chips, Follow up, Try again. Ids and indexes are re-checked there.
   "ask-earlier": () => askShowEarlier(),
+  // Jarvis's brain (brain.js): memory, settings, check-ins, ratings. Ids and votes are re-checked.
+  "brain-add-memory": () => brainAddMemory(),
+  "brain-forget": (el) => {
+    const id = el.getAttribute("data-mem-id");
+    if (id && SAFE_ID.test(id) && brainForget(id)) showToast("Forgotten");
+  },
+  "brain-tone": () => brainEditTone(),
+  "brain-topics": () => brainEditTopics(),
+  "brain-about": () => brainEditAbout(),
+  "brain-checkin": (el) => {
+    const id = el.getAttribute("data-ci-id");
+    brainEditCheckin(id && SAFE_ID.test(id) ? id : null);
+  },
+  "jv-rate": (el) => {
+    const v = el.getAttribute("data-vote");
+    brainRate(el.getAttribute("data-kind"), el.getAttribute("data-ref"), v === "1" ? 1 : v === "-1" ? -1 : 0);
+  },
   "ask-usage": (el) => {
     const pop = document.getElementById("cn-usage-pop");
     if (!pop) return;

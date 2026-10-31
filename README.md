@@ -253,6 +253,22 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     **Clear history** sits at the very end: it hides them all on this device at once and tells
     the gist (`clearBefore`), so Jarvis's next run deletes them there and your other devices
     clear too.
+- **Jarvis's brain** (a card at the bottom of Console): what makes Jarvis yours. Every briefing,
+  answer, check-in and Weekly Review reads it.
+  - **Remembers:** up to 60 facts ("I don't eat pork", "Payday moves early in December"). Add one
+    here, or say "remember …" in a chat (Jarvis saves it, marked "from a chat"); × forgets it, or
+    say "forget …".
+  - **Settings:** how Jarvis writes (Brief, Normal or Detailed), news topics (up to 6; each is a
+    Google News search, replacing the usual AI / tech / cars / trending mix from the next
+    briefing) and **About you**, a note Jarvis reads every time.
+  - **Check-ins:** your own scheduled prompts, up to 8 ("Every Sunday at 8 PM: plan my week").
+    The Jarvis Ask workflow runs hourly and sends each one once a day, within 6 hours of its time
+    (any Ask run or morning briefing also catches up). It arrives as a notification titled
+    "Check-in: <name>" and in the conversation, counts as a question toward the limits, and never
+    takes actions.
+  - **Ratings:** 👍 / 👎 on every answer and under the morning briefing ("Was this briefing
+    useful?"); tap again to take it back. Jarvis gets your 15 latest as guidance: more of what you
+    liked, less of what you didn't.
 - **Weekly Review:** Jarvis's Sunday-evening look back at the week (Mon–Sun), under the hint
   line. From the review's Sunday through Tuesday, and any time it hasn't been opened yet, it's a
   card: "Week in review · Oct 26 – Nov 1" with a **New** pill until opened, the headline, one
@@ -558,6 +574,7 @@ only turning sync off still asks first.
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
+   | `brain.js` | Jarvis's brain: memory, ratings, settings and check-ins (`normalizeJarvisBrain`, `brainRemember`, `brainRate`, `brainCardHtml`) |
    | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), Earlier and Clear history (`askShowEarlier`, `askClearHistory`), Jarvis's actions (`askApplyActions`), the usage chip, chips / Follow up, the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
    | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
@@ -713,6 +730,9 @@ Everything lives in `localStorage` on the device:
 | `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
 | `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped) |
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
+| `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
+| `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
+| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8}` |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

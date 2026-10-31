@@ -43,8 +43,20 @@ export function applyPicks(picks: NewsPicks, candidates: NewsCandidate[]): NewsC
   return NewsCard.parse({ stories });
 }
 
-export async function runNews(deps: SubagentDeps): Promise<NewsCard> {
-  const { candidates, failedTopics } = await fetchNews(CONFIG.news, deps.fetchImpl);
+// The owner's own news topics (Jarvis's settings) replace the defaults: one Google News search each
+export function topicFeeds(topics: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const t of topics.slice(0, 6)) {
+    const name = t.trim().toLowerCase().slice(0, 30);
+    if (name && !out[name])
+      out[name] = `https://news.google.com/rss/search?q=${encodeURIComponent(name)}+when:1d&hl=en-US&gl=US&ceid=US:en`;
+  }
+  return out;
+}
+
+export async function runNews(deps: SubagentDeps, topics?: string[]): Promise<NewsCard> {
+  const feeds = topics && topics.length ? topicFeeds(topics) : CONFIG.news.topics;
+  const { candidates, failedTopics } = await fetchNews({ ...CONFIG.news, topics: feeds }, deps.fetchImpl);
   deps.trace.log("news", "fetched", { candidates: candidates.length, failedTopics: failedTopics.join(",") || "none" });
   if (!candidates.length) throw new Error("no headlines could be fetched");
   return applyPicks(await deps.run(newsSpec(candidates)), candidates);

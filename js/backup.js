@@ -32,6 +32,9 @@ function liveData() {
     "budget-content": budget,
     "fitness-content": fitness,
     "plan3-content": plan3,
+    "jarvis-memory": jarvisMemory,
+    "jarvis-feedback": jarvisFeedback,
+    "jarvis-settings": jarvisSettings,
   };
 }
 async function saveBackupFile(payload) {

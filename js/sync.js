@@ -26,6 +26,9 @@ const SYNC_KEYS = [
   "budget-content",
   "fitness-content",
   "plan3-content",
+  "jarvis-memory", // Jarvis's brain (brain.js)
+  "jarvis-feedback",
+  "jarvis-settings",
 ];
 const GIST_FILENAME = "jazz2-data.json";
 let syncPushTimer = null;

@@ -6091,6 +6091,112 @@ body.todo-dragging {
   font-size: 14.5px;
   line-height: 1.5;
 }
+/* Jarvis's brain (brain.js) and ratings */
+#cn-brain {
+  margin-top: 18px;
+}
+.br-mem {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.br-mem li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  font-size: 14px;
+}
+.br-mem li span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.br-mem small {
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+.br-x {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+}
+.br-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 2px;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.br-row span {
+  flex: none;
+}
+.br-row b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.br-row svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--text-dim);
+}
+.br-empty,
+.br-foot {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.jv-rates {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.jv-rate {
+  min-width: 40px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  font-size: 15px;
+  cursor: pointer;
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+.jv-rate.on {
+  border-color: var(--olive);
+  filter: none;
+  opacity: 1;
+}
+.jv-rate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
 .cn-sort {
   display: block;
   min-height: 44px;

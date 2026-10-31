@@ -32,6 +32,10 @@ function loadAllContent() {
     DEFAULT_PLAN3.map((x) => ({ ...x })),
   );
   normalizePlan3();
+  jarvisMemory = loadContent("jarvis-memory", []);
+  jarvisFeedback = loadContent("jarvis-feedback", []);
+  jarvisSettings = loadContent("jarvis-settings", {});
+  normalizeJarvisBrain();
   normalizeLoadedData(); // last: needs every list loaded
   loadConsoleFeed(); // Console's feed (this device only; never synced) is re-checked on every load and sync
   if (applyRoutineAdditions(skinRoutine)) writeQuietly("skin-routine-content", skinRoutine);

@@ -415,6 +415,7 @@ function jarvisHeroHtml(b) {
       <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
+      <div class="jv-rate-row"><span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
       ${notes}
     </section>`;
 }

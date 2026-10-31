@@ -261,6 +261,7 @@ function consoleShellHtml() {
     <div id="cn-preview"></div>
     <div id="cn-feed"></div>
     <div class="cn-review" id="cn-review"></div>
+    <div id="cn-brain"></div>
   </div>`;
 }
 let consoleChipsMode = null; // which mode's chips are drawn, so typing doesn't redraw them
@@ -469,6 +470,7 @@ function renderConsole() {
   consoleRefreshBox();
   document.getElementById("cn-preview").innerHTML = consolePreviewHtml();
   document.getElementById("cn-review").innerHTML = consoleReviewHtml();
+  document.getElementById("cn-brain").innerHTML = brainCardHtml();
   document.getElementById("cn-feed").innerHTML = consoleFeedHtml();
   askPollEnsure(); // waiting for an answer: check the gist while Console is on screen
 }
