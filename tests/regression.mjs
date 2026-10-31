@@ -8388,7 +8388,7 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
     data: {
       packages: [
         { item: "Columbia rain jacket", status: "out", eta: today, etaText: "by 8 PM", shoppingMatch: "Rain jacket" },
-        { item: "Desk lamp", status: "teleported", eta: "soon", etaText: null, shoppingMatch: null },
+        { item: "Desk lamp", status: "teleported", eta: "soon", etaText: null, shoppingMatch: null, carrier: "UPS <b>" },
       ],
     },
   };
@@ -8464,6 +8464,12 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
     "packages show progress (out = 3 steps, unknown = ordered)",
     JSON.stringify(pk) === '[["Columbia rain jacket",3],["Desk lamp",1]]',
     pk,
+  );
+  check(
+    "a package names its carrier (as text)",
+    await page.evaluate(() =>
+      document.querySelectorAll("#jv-detail-deliveries .jv-pkg-what span")[1].textContent.startsWith("UPS <b> · "),
+    ),
   );
   await page.tap('#jv-detail-deliveries [data-action="want-toggle"]');
   check("Mark bought ticks the matching Shopping item", await page.evaluate(() => !!wantsState.w1));

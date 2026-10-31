@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { runCalendar, calendarSpec } from "../subagents/calendar.ts";
 import { runInbox, inboxSpec, checkBills, sameName } from "../subagents/inbox.ts";
-import { runShopper } from "../subagents/shopper.ts";
+import { runShopper, carrierOf } from "../subagents/shopper.ts";
 import { runBriefing, defaultSubagents, type Subagents } from "../jarvis.ts";
 import { Trace } from "../lib/trace.ts";
 import type { Gmail, RawMail } from "../tools/gmail.ts";
@@ -164,11 +164,22 @@ describe("shopper sub-agent", () => {
         eta: "2026-10-30",
         etaText: "by 8 PM",
         shoppingMatch: "Rain jacket",
+        carrier: "Amazon",
       },
-      { item: "Desk lamp", status: "ordered", eta: "2026-11-04", etaText: null, shoppingMatch: null },
+      { item: "Desk lamp", status: "ordered", eta: "2026-11-04", etaText: null, shoppingMatch: null, carrier: "Amazon" },
     ]);
     expect(d.specs[0].model).toBe("claude-haiku-5-5");
-    expect(gmail.queries[0]).toContain("from:amazon.com");
+    for (const q of ["from:amazon.com", "from:ups.com", "from:fedex.com", "from:usps.com", "from:dhl.com"])
+      expect(gmail.queries[0]).toContain(q);
+  });
+
+  it("names the carrier from the senders, never the model (a carrier beats the store)", () => {
+    expect(carrierOf(["Nike", "UPS"])).toBe("UPS");
+    expect(carrierOf(["FedEx Delivery Manager"])).toBe("FedEx");
+    expect(carrierOf(["USPS Informed Delivery"])).toBe("USPS");
+    expect(carrierOf(["Groups of Supply Co"])).toBe("Groups of Supply Co"); // "ups" inside a word isn't UPS
+    expect(carrierOf(["", "  "])).toBeNull();
+    expect(carrierOf(["A store with a very long name that keeps going"])).toHaveLength(30);
   });
 });
 

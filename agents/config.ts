@@ -52,9 +52,10 @@ export const CONFIG = {
     max: 30,
   },
   deliveries: {
+    // Amazon order mail, every message from the big carriers, and any store's shipping notice
     query:
-      "from:amazon.com newer_than:21d (subject:ordered OR subject:shipped OR subject:delivery OR subject:delivered OR subject:arriving)",
-    max: 25,
+      'newer_than:21d -category:promotions ((from:amazon.com (subject:ordered OR subject:shipped OR subject:delivery OR subject:delivered OR subject:arriving)) OR from:ups.com OR from:fedex.com OR from:usps.com OR from:dhl.com OR subject:"has shipped" OR subject:"out for delivery" OR subject:"tracking number" OR subject:"was delivered")',
+    max: 30,
   },
   // Rough upper bounds per run, used to decide what fits under MAX_RUN_COST_USD before starting.
   // review: the Weekly Review's single Opus call (~12k in / ~2.5k out, about $0.10).

@@ -563,7 +563,7 @@ function dashDayRows(b, d) {
           sort: 24 * 60 + 1,
           time: p.etaText || "Today",
           title: `${p.item} arrives`,
-          sub: p.shoppingMatch ? "On your Shopping list" : "Amazon",
+          sub: p.shoppingMatch ? "On your Shopping list" : p.carrier || "Package",
           tone: "pink",
           go: "deliveries",
         }),
@@ -703,7 +703,7 @@ function dashDeliveriesDetail(c) {
   if (c.status !== "ok") return jvErrorBody(c);
   const today = addDaysIso(0);
   const pkgs = c.data.packages;
-  if (!pkgs.length) return `<div class="empty">No Amazon orders on the way.</div>${jvMeta(c)}`;
+  if (!pkgs.length) return `<div class="empty">No packages on the way.</div>${jvMeta(c)}`;
   const want = (name) => name && wantsList.find((w) => !wantsState[w.id] && w.name === name);
   const arrivingToday = (p) => p.status !== "delivered" && (p.status === "out" || p.eta === today);
   // one row per package: arriving-today ones first, with Mark bought when they're on the Shopping list
@@ -717,7 +717,7 @@ function dashDeliveriesDetail(c) {
           ? `${p.eta === today ? "Today" : noonOf(p.eta).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}${p.etaText ? ` · ${p.etaText}` : ""}`
           : DASH_PKG_LABEL[p.status];
     return `<div class="jv-pkg">
-        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(p.item)}</b><span>${escapeHtml(eta)}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span>${
+        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(p.item)}</b><span>${escapeHtml([p.carrier, eta].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span>${
           w
             ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
             : ""

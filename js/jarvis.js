@@ -17,7 +17,7 @@ const BRIEFING_SOURCES = {
   jarvis: "Jarvis",
   calendar: "Calendar",
   inbox: "Inbox",
-  deliveries: "Amazon",
+  deliveries: "Deliveries",
   money: "Bill Guard",
 };
 openPinned.add("jarvis-news");
@@ -162,6 +162,7 @@ function normalizeBriefing(b) {
               eta: isoDay(x.eta) ? x.eta : null,
               etaText: str(x.etaText, 40),
               shoppingMatch: str(x.shoppingMatch, 60),
+              carrier: str(x.carrier, 30),
             }))
             .filter((x) => x.item),
         }

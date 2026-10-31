@@ -25,7 +25,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   trips from your to-do types, plus a gift idea from Shopping (an item with "gift" in it) when
   a birthday is coming.
 - **Today in 60 seconds:** Jarvis's headline and 3–5 ranked items, each tagged with where it
-  came from (Jarvis, Weather, News, Calendar, Inbox, Amazon). Items from your own lists are
+  came from (Jarvis, Weather, News, Calendar, Inbox, Deliveries, Bill Guard). Items from your own lists are
   tagged by what they're about instead: Budget (bills, rent), Beauty (wash day, routine),
   Shopping, Fitness (weigh-ins, workouts) or To-do. Each item is its own row, divided by a thin
   rule, with its tag lined up with the first line of text. Every row except Jarvis's own drills
@@ -45,7 +45,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   each day that this phone is still registered and quietly re-registers it if not (after
   reinstalling the app, for example).
 - **Your day:** a timeline of today in time order: calendar events (all-day first; past ones
-  dimmed; overlapping ones flagged), when rain is likely, Amazon deliveries arriving, the to-dos
+  dimmed; overlapping ones flagged), when rain is likely, packages arriving, the to-dos
   left, bills due today and wash day. Each row drills in: events open the **Calendar** detail
   (styled like the Outfit card: a "Calendar" label, the day's summary as its headline, and chips
   for today's count, overlaps and what's next; then Today and Tomorrow, each with its date and
@@ -562,7 +562,10 @@ Setup: `docs/jarvis/SETUP.md`.
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
   - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
   - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
-  - **Deliveries:** `claude-haiku-5-5`, from Amazon order and shipping emails in Gmail.
+  - **Deliveries (Package Tracker):** `claude-haiku-5-5`, from order and shipping emails in
+    Gmail: Amazon, UPS, FedEx, USPS, DHL and any store's "has shipped" / "out for delivery" mail
+    (promotions left out). The model groups emails into packages; code names the carrier from
+    the senders (shown on each package in Home's Deliveries detail) and matches Shopping items.
   - **Bill Guard (Money):** no model; `agents/lib/money.ts` reads Budget from the same data
     with the app's own rules (pay period, Safe to spend, bill repeats, joint shares). It flags
     bills overdue or due within 3 days that aren't on autopay, bills due before payday that come

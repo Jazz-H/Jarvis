@@ -26,6 +26,10 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
     (`jazz2-week.json`), and the Sunday ~6pm review job (`agents/review.ts`, `jazz2-reviews.json`, push).
   - [x] Steps 6–8: Ask Jarvis (dispatch with the Ask key + next-run fallback, hard cost limits;
     `agents/ask.ts`, `jarvis-ask.yml`, `js/ask.js`) and voice input (`js/voice.js`).
+  - [x] Package Tracker (Oct 31): Deliveries reads Amazon, UPS, FedEx, USPS, DHL and store shipping
+    mail; code names the carrier.
+  - [x] Suggested to-dos (Oct 31): up to 3 tap-to-add chips under the briefing summary.
+  - [x] Cross-source insights: Jarvis's summary items tagged "jarvis" connect sources, now with Bill Guard.
   - [ ] Step 9: Sort with Jarvis (Haiku sorter for messy captures).
   - [x] Step 5: Weekly Review UI (`js/review.js`): `jazz2-reviews.json` pulled by sync and
     normalized, the Console card / Last week row, the review sheet with ‹ › history, tap-to-add

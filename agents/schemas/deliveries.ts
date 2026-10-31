@@ -3,7 +3,7 @@ import { z } from "zod";
 export const PackageStatus = z.enum(["ordered", "shipped", "out", "delivered"]);
 export type PackageStatus = z.infer<typeof PackageStatus>;
 
-// What the Shopper sub-agent returns from Amazon order/shipping emails
+// What the Shopper sub-agent returns from order and shipping emails (Amazon, carriers, stores)
 export const DeliveryRead = z.object({
   packages: z
     .array(
@@ -31,6 +31,7 @@ export const DeliveryCard = z.object({
         eta: z.string().nullable(),
         etaText: z.string().nullable(),
         shoppingMatch: z.string().nullable(), // the Shopping item it matches (from code)
+        carrier: z.string().max(30).nullable().optional(), // UPS, FedEx, USPS, DHL, Amazon or the store (from code)
       }),
     )
     .max(8),
