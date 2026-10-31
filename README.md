@@ -61,7 +61,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
   under it (one at a time; tap again to close). **Customize** lets you reorder (↑ ↓) or hide
   tiles; the layout is saved on this device.
-  - **Inbox:** the tile shows how much unread Primary mail came in over the last 36 hours ("3 new") and what needs you; the detail lists urgent mail,
+  - **Inbox:** the tile shows how much unread Primary mail came in over the last 36 hours ("3 new") and what needs you; the detail lists unread urgent mail,
     people waiting on a reply, and bills found in email, each checked against Budget (a
     mismatch shows the Budget amount and opens Budget).
   - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
@@ -557,7 +557,7 @@ Setup: `docs/jarvis/SETUP.md`.
   - **Weather:** `claude-haiku-5-5`, with data from Open-Meteo.
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
   - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
-  - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets only).
+  - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
   - **Deliveries:** `claude-haiku-5-5`, from Amazon order and shipping emails in Gmail.
 
   The three Google ones run only when their secrets are set (`npm run google-auth` does the

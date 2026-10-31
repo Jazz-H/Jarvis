@@ -45,10 +45,10 @@ export const CONFIG = {
     inbox: "claude-sonnet-5-5",
     deliveries: "claude-haiku-5-5",
   },
-  // Gmail searches (read-only). Primary inbox only; promotions and social are left out.
+  // Gmail searches (read-only). Unread mail in the primary inbox only; promotions and social are left out.
   inbox: {
-    query: "in:inbox category:primary newer_than:36h",
-    unreadQuery: "in:inbox category:primary is:unread newer_than:36h", // the same 36 h window as the card
+    query: "in:inbox category:primary is:unread newer_than:36h", // the card only looks at unread mail
+    unreadQuery: "in:inbox category:primary is:unread newer_than:36h", // the count uses the same search
     max: 30,
   },
   deliveries: {

@@ -4,6 +4,7 @@ name: Jarvis
 # saving, so each has two lines (one for EDT, one for EST). Each run checks the New York time and
 # whether its output already exists, so only one delivers (agents/lib/schedule.ts). A test keeps
 # these lines, and the review job's `if`, in step with agents/config.ts.
+# GitHub only picks up schedule changes from a push to main that touches this file.
 # "Run workflow" delivers right away: mode "briefing" (default) or "review".
 on:
   schedule:
