@@ -701,6 +701,12 @@ The Jarvis backend has its own tests (`cd agents && npm ci && npm test`, plus `n
 They cover every tool and schema, the agent runner, both sub-agents and the orchestrator
 (including a failing sub-agent), with every external API mocked.
 
+**Ask test set** (`agents/evals/ask-eval.ts`): 12 real questions against fixed sample data (answers,
+every kind of action, refusals and a prompt injection hidden in an email summary), graded by code.
+It calls the real model, about $0.50 a run, so it never runs on its own: **Actions → Jarvis Eval →
+Run workflow** (the result is the run's artifact), or `cd agents && npm run eval:ask` with a key
+in `agents/.env`. The grader itself is tested offline in `npm test`.
+
 CI runs both on every PR.
 
 **Ship.** Merge to `main` and GitHub Pages deploys it. When cached assets change, bump
