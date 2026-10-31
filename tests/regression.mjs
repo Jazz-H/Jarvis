@@ -11524,6 +11524,78 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
   await a.ctx.close();
 });
 
+await section("Read aloud: 🔊 on answers and the briefing; a spoken question's answer is read by itself", async () => {
+  const now = Date.now();
+  const qs = [
+    { id: "a-spk-voice1", text: "What's due today?", at: now - 60000, state: "sent", sentAt: now - 60000, spoken: true },
+    { id: "a-spk-typed1", text: "Typed question", at: now - 50000, state: "sent", sentAt: now - 50000 },
+  ];
+  const a = await openAsk({ seed: { ...askSync({ "ask-questions": qs }), "jarvis-briefing": briefingFixture({}) } });
+  // a fake speechSynthesis that records what it was asked to say
+  await a.page.evaluate(() => {
+    window.__said = [];
+    const fake = {
+      speaking: false,
+      speak(u) {
+        this.speaking = true;
+        window.__said.push(u.text);
+      },
+      cancel() {
+        this.speaking = false;
+      },
+      getVoices: () => [],
+    };
+    Object.defineProperty(window, "speechSynthesis", { value: fake, configurable: true });
+    window.SpeechSynthesisUtterance = function (t) {
+      this.text = t;
+    };
+  });
+  const file = answersFile([
+    answerFixture("a-spk-voice1", { text: "Rent is due today.", bullets: ["It's $1450"], chips: [], actions: [{ type: "todo_done", id: "t1", label: 'Ticked "Call mom"' }] }),
+    answerFixture("a-spk-typed1", { text: "Typed answer." }),
+  ]);
+  await a.page.evaluate(async (f) => ingestAnswersFile({ content: JSON.stringify(f) }), file);
+  const said = await a.page.evaluate(() => window.__said);
+  check(
+    "a new answer to a question asked by voice is read aloud (text, what was done, the points); a typed one isn't",
+    said.length === 1 && said[0] === 'Rent is due today. Ticked "Call mom". It\'s $1450',
+    said,
+  );
+  // 🔊 reads an answer; tapping again stops
+  await a.page.click('[data-ask-entry="a-spk-typed1"] [data-action="ask-speak"]');
+  const on = await a.page.evaluate(() => ({
+    said: window.__said.slice(-1)[0],
+    pressed: document.querySelector('[data-ask-entry="a-spk-typed1"] [data-action="ask-speak"]').getAttribute("aria-pressed"),
+  }));
+  check(
+    "🔊 reads that answer (text, then its points) and shows it's reading",
+    on.said === "Typed answer. Rent is due Thursday Gym is on autopay" && on.pressed === "true",
+    on,
+  );
+  await a.page.click('[data-ask-entry="a-spk-typed1"] [data-action="ask-speak"]');
+  check(
+    "tapping it again stops",
+    await a.page.evaluate(() => !window.speechSynthesis.speaking && speakingKey === null && window.__said.length === 2),
+  );
+  // the briefing's Listen button
+  await a.page.evaluate(() => activateTab("home"));
+  await a.page.click('.jv-rate-row [data-action="jv-speak-briefing"]');
+  check(
+    "the briefing reads its headline and items",
+    await a.page.evaluate(() => /^Rain by noon/.test(window.__said.slice(-1)[0]) && window.__said.slice(-1)[0].includes("Rent is due Saturday")),
+  );
+  // the setting: Never
+  await a.page.evaluate(async (f) => {
+    jarvisSettings.speak = "never";
+    writeQuietly(ANSWERS_KEY, { version: 1, answers: [], usage: null });
+    window.__said = [];
+    await ingestAnswersFile({ content: JSON.stringify(f) });
+  }, file);
+  check("with Read aloud set to Never, nothing is read by itself", await a.page.evaluate(() => window.__said.length === 0));
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+});
+
 await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {
   const gh = askGitHub();
   const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });

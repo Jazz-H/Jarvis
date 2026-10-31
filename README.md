@@ -278,6 +278,12 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     (any Ask run or morning briefing also catches up). It arrives as a notification titled
     "Check-in: <name>" and in the conversation, counts as a question toward the limits, and never
     takes actions.
+  - **Read aloud:** every answer has a 🔊 button (the text, what Jarvis did, then the points) and
+    the briefing has one next to "Was this briefing useful?"; tap again to stop. A new answer to a
+    question you asked by voice (sent as spoken) is read aloud by itself while the app is on
+    screen; **Read answers aloud** in the settings switches that to Always or Never. It uses the
+    phone's own speech (Web Speech synthesis): nothing is sent anywhere, and it stops when the app
+    goes to the background.
   - **Ratings:** 👍 / 👎 on every answer and under the morning briefing ("Was this briefing
     useful?"); tap again to take it back. Jarvis gets your 15 latest as guidance: more of what you
     liked, less of what you didn't.
@@ -750,7 +756,7 @@ Everything lives in `localStorage` on the device:
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
 | `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
-| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8}` |
+| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" | "always" | "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8}` |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

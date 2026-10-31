@@ -248,6 +248,7 @@ function normalizeAskLocal(raw, now = Date.now()) {
       const out = { id: q.id, text, at, state };
       if (q.kind === "sort") out.kind = "sort"; // Sort with Jarvis: a brain dump to split into chips
       if (typeof q.file === "string" && ASK_FILE_RE.test(q.file)) out.file = q.file; // sent with a photo or PDF
+      if (q.spoken === true) out.spoken = true; // asked by voice: the answer may be read aloud
       else if (typeof q.thread === "string" && ASK_ID.test(q.thread) && q.thread !== q.id) out.thread = q.thread;
       const sentAt = Number(q.sentAt);
       if (state === "sent" && isFinite(sentAt) && sentAt > 0) out.sentAt = Math.min(sentAt, now);
@@ -403,6 +404,7 @@ async function ingestAnswersFile(file) {
     const fresh = next.answers.filter((a) => !had.has(a.id) && mine.has(a.id));
     const acted = askApplyActions(next.answers);
     renderConsole();
+    askSpeakFresh(fresh);
     if (askPendingLink && next.answers.some((a) => a.id === askPendingLink) && currentTab === "console") {
       const id = askPendingLink;
       askPendingLink = null;
@@ -413,6 +415,24 @@ async function ingestAnswersFile(file) {
   } catch (e) {
     console.warn("answers not loaded", e);
   }
+}
+
+// ---- reading answers aloud ----
+// The words of an answer as they'd be read: the text, then what Jarvis did, then the points
+function askSpokenText(a) {
+  return [a.text, ...a.actions.map((x) => x.label + "."), ...a.bullets].filter(Boolean).join(" ");
+}
+function askSpeak(id) {
+  const e = askEntryById(id);
+  if (e && e.answer && e.answer.status === "ok") speakText(askSpokenText(e.answer), "ask:" + e.id);
+}
+// A new answer to a question asked by voice (or any, with "Always") is read aloud while the app is on screen
+function askSpeakFresh(fresh) {
+  const pref = jarvisSettings.speak || "voice";
+  if (pref === "never" || !fresh.length || document.visibilityState !== "visible" || !speakSupported()) return;
+  const local = new Map(loadAskLocal().map((q) => [q.id, q]));
+  const a = fresh.find((x) => x.status === "ok" && (pref === "always" || (local.get(x.id) && local.get(x.id).spoken)));
+  if (a) speakText(askSpokenText(a), "ask:" + a.id);
 }
 
 // ---- what Jarvis did ----
@@ -635,6 +655,8 @@ function askSend(text, kind = "ask") {
     askFiles.set(item.id, askAttachment);
     askAttachment = null;
   }
+  if (kind === "ask" && voiceSaid && voiceSaid === q) item.spoken = true; // sent as it was spoken
+  voiceSaid = "";
   if (kind === "sort") item.kind = "sort";
   else if (askThread && loadAskEntries().some((e) => e.id === askThread)) item.thread = askThread;
   askThread = null;
@@ -923,6 +945,7 @@ function askAnswerHtml(q) {
       <div class="ak-foot">
         ${q.kind === "sort" ? "" : `<button type="button" class="cn-link" data-action="ask-follow" data-ask-id="${id}" aria-label="Follow up on this answer">Follow up</button>`}
         <span class="ak-meta">${escapeHtml([a.by === "fallback" ? "Put together automatically (Jarvis didn't finish)" : "", when].filter(Boolean).join(" · "))}</span>
+        ${speakBtnHtml("ask:" + a.id, "ask-speak", `data-ask-id="${id}"`, "Read this answer aloud")}
         ${a.by === "jarvis" ? brainRateHtml("answer", a.id) : ""}
       </div>
     </div>`;

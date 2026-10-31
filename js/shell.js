@@ -671,6 +671,9 @@ const SHELL_CLICK = {
     if (id && SAFE_ID.test(id) && brainForget(id)) showToast("Forgotten");
   },
   "brain-tone": () => brainEditTone(),
+  "brain-speak": () => brainEditSpeak(),
+  "ask-speak": (el) => askSpeak(el.getAttribute("data-ask-id")),
+  "jv-speak-briefing": () => briefingSpeak(),
   "brain-topics": () => brainEditTopics(),
   "brain-about": () => brainEditAbout(),
   "brain-checkin": (el) => {

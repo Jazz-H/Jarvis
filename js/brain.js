@@ -7,13 +7,15 @@
 //   jarvis-memory:   [{id, text, at: "YYYY-MM-DD", by: "you" | "jarvis"}]   at most 60
 //   jarvis-feedback: [{id, at: ms, kind: "answer" | "briefing", ref, item, vote: 1 | -1}]   newest 60
 //   jarvis-settings: {tone: "brief" | "normal" | "detailed", newsTopics: [..6], about,
+//                     speak: "voice" | "always" | "never",
 //                     checkins: [{id, name, prompt, days: [0-6], time: "HH:MM", on}]   at most 8}
 // Synced data is untrusted: every field is checked and capped here and on the way back in.
 const BRAIN_MAX = { memory: 60, feedback: 60, checkins: 8, topics: 6 };
 const BRAIN_TONES = { brief: "Brief", normal: "Normal", detailed: "Detailed" };
+const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Never" }; // read answers aloud
 let jarvisMemory = [];
 let jarvisFeedback = [];
-let jarvisSettings = { tone: "normal", newsTopics: [], about: "", checkins: [] };
+let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [] };
 
 function normalizeJarvisBrain() {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -50,6 +52,7 @@ function normalizeJarvisBrain() {
       .filter(Boolean)
       .slice(0, BRAIN_MAX.topics),
     about: str(s.about, 600),
+    speak: BRAIN_SPEAK[s.speak] ? s.speak : "voice",
     checkins: (Array.isArray(s.checkins) ? s.checkins : [])
       .filter((c) => isObj(c) && str(c.prompt, 300))
       .slice(0, BRAIN_MAX.checkins)
@@ -149,6 +152,22 @@ function brainEditTone() {
     (v) => {
       const key = Object.keys(BRAIN_TONES).find((k) => BRAIN_TONES[k] === v.tone);
       if (key) jarvisSettings.tone = key;
+      saveBrain("jarvis-settings");
+    },
+  );
+}
+function brainEditSpeak() {
+  const labels = Object.values(BRAIN_SPEAK);
+  openModal(
+    "Read answers aloud",
+    [
+      { key: "speak", label: "Jarvis reads a new answer aloud", type: "select", options: labels },
+      { type: "note", label: "Only while the app is on screen. Every answer also has a 🔊 button, and so does the briefing." },
+    ],
+    { speak: BRAIN_SPEAK[jarvisSettings.speak] },
+    (v) => {
+      const key = Object.keys(BRAIN_SPEAK).find((k) => BRAIN_SPEAK[k] === v.speak);
+      if (key) jarvisSettings.speak = key;
       saveBrain("jarvis-settings");
     },
   );
@@ -266,6 +285,7 @@ function brainCardHtml() {
       <button type="button" class="add-row" data-action="brain-add-memory">+ Remember something</button>
       <div class="jv-sub-label">Settings</div>
       ${row("brain-tone", "How it writes", BRAIN_TONES[s.tone])}
+      ${speakSupported() ? row("brain-speak", "Read answers aloud", BRAIN_SPEAK[s.speak]) : ""}
       ${row("brain-topics", "News topics", s.newsTopics.length ? s.newsTopics.join(", ") : "AI, tech, cars, trending")}
       ${row("brain-about", "About you", s.about ? (s.about.length > 40 ? s.about.slice(0, 39) + "…" : s.about) : "Add a note")}
       <div class="jv-sub-label">Check-ins</div>

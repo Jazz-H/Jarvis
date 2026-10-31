@@ -415,7 +415,7 @@ function jarvisHeroHtml(b) {
       <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
-      <div class="jv-rate-row"><span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
+      <div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}<span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
       ${notes}
     </section>`;
 }
@@ -423,6 +423,14 @@ function jarvisHeroHtml(b) {
 // Suggested to-dos under the summary: tap to add (with its due date), Undo in the toast.
 // Tapped chips are remembered for this briefing until the page reloads.
 const briefingTapped = new Set();
+// The briefing as it's read aloud: the headline, then each item
+function briefingSpokenText(b) {
+  return [b.headline, ...b.summary.map((s) => s.text)].filter(Boolean).join(". ").replace(/\.\./g, ".");
+}
+function briefingSpeak() {
+  const b = loadBriefing();
+  if (b) speakText(briefingSpokenText(b), "briefing:" + b.id);
+}
 function briefingSuggestHtml(b) {
   if (!b.suggestions.length) return "";
   const chips = b.suggestions

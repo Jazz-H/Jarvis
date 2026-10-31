@@ -28,6 +28,7 @@ const VOICE_LISTENING_HINT = "Listening… tap the mic to stop. In Chrome, Googl
 const VOICE_MIC_SVG =
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 let voice = null; // {target, rec, base, heard, error, stopping} while a recognition runs
+let voiceSaid = ""; // what the last recognition put in Console's box (a question sent as-is was spoken)
 
 function voiceApi() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -113,7 +114,11 @@ function voiceStart(target) {
     voice = null;
     voiceUi(target);
     if (v.error && v.error !== "aborted") voiceFail(v.error);
-    else if (v.heard.trim())
+    if (target === "console" && v.heard.trim()) {
+      const box = document.getElementById(cfg.input);
+      voiceSaid = box ? box.value.trim() : "";
+    }
+    if (!v.error && v.heard.trim())
       liveAnnounce(
         target === "console" ? "Done listening. Check the text, then send." : "Done listening. Check it, then add.",
       );
@@ -132,6 +137,55 @@ function voiceStart(target) {
   voiceUi(target);
   liveAnnounce("Listening");
 }
+// ---- reading aloud (Web Speech synthesis, on the device; nothing is sent anywhere) ----
+let speakingKey = null; // which answer or briefing is being read
+function speakSupported() {
+  return typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function";
+}
+// Reads the text aloud, or stops if this same thing is already being read. Returns true if it started.
+function speakText(text, key) {
+  if (!speakSupported()) return false;
+  const synth = window.speechSynthesis;
+  const same = speakingKey === key && synth.speaking;
+  synth.cancel();
+  speakingKey = null;
+  speakUi();
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (same || !t) return false;
+  const u = new SpeechSynthesisUtterance(t.slice(0, 3000));
+  u.lang = "en-US";
+  u.rate = 1.02;
+  const v = synth.getVoices().find((x) => /^en(-|_)US/i.test(x.lang) && /natural|premium|enhanced|google/i.test(x.name));
+  if (v) u.voice = v;
+  u.onend = u.onerror = () => {
+    if (speakingKey === key) speakingKey = null;
+    speakUi();
+  };
+  speakingKey = key;
+  synth.speak(u);
+  speakUi();
+  return true;
+}
+function speakStop() {
+  if (!speakSupported()) return;
+  window.speechSynthesis.cancel();
+  speakingKey = null;
+  speakUi();
+}
+// 🔊 buttons show which one is reading (data-speak-key)
+function speakUi() {
+  document.querySelectorAll("[data-speak-key]").forEach((b) => {
+    const on = b.getAttribute("data-speak-key") === speakingKey;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "Stop reading" : b.getAttribute("data-speak-label") || "Read aloud");
+  });
+}
+function speakBtnHtml(key, action, attrs, label) {
+  if (!speakSupported()) return "";
+  const on = speakingKey === key;
+  return `<button type="button" class="jv-speak${on ? " on" : ""}" data-action="${action}" ${attrs} data-speak-key="${escapeAttr(key)}" data-speak-label="${escapeAttr(label)}" aria-pressed="${on}" aria-label="${escapeAttr(on ? "Stop reading" : label)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>`;
+}
 function voiceFail(code) {
   const msg = VOICE_ERRORS[code] || VOICE_FAILED;
   showToast(msg, true);
@@ -148,5 +202,6 @@ function voiceCancel() {
   voiceUi(v.target);
 }
 document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") speakStop(); // never keeps talking in the background
   if (document.visibilityState !== "visible") voiceCancel();
 });

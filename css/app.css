@@ -6226,6 +6226,30 @@ body.todo-dragging {
   filter: none;
   opacity: 1;
 }
+.jv-speak {
+  flex: none;
+  min-width: 40px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.jv-speak.on {
+  border-color: var(--olive);
+  color: var(--olive);
+  animation: vc-ring 1.2s ease-out infinite;
+}
+.ak-foot .jv-speak {
+  margin-left: auto;
+}
+.ak-foot .jv-speak + .jv-rates {
+  margin-left: 0;
+}
 .jv-rate-row {
   display: flex;
   align-items: center;
