@@ -5143,6 +5143,10 @@ body.todo-dragging {
   padding: 4px 16px;
   scroll-padding: 0 16px;
 }
+.cn-chips:empty,
+.cn-hint:empty {
+  display: none;
+}
 .cn-chips::-webkit-scrollbar {
   display: none;
 }

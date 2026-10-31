@@ -173,12 +173,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   browser's service: **in Chrome that's Google's servers** (Safari uses Apple's). A blocked
   microphone says "Microphone blocked: allow it in your browser settings"; no speech or no
   connection say so too. Switching tabs stops it.
-- **Suggestions:** one row of chips under the box that swipes sideways (different per mode);
-  a tap fills the box. A short hint line follows. Ask's chips change with the day and time:
-  "How did my week go?" leads on Sunday and Monday, then "What's due before payday?", "Can I
-  afford <your top Shopping need> this pay period?", "What should I focus on today / tomorrow?"
-  (morning / afternoon), "When will I hit my weight goal?" (with a goal set) and "What's on my
-  calendar this week?".
+- **Suggestions:** Capture has one row of example chips under the box that swipes sideways; a
+  tap fills the box. Ask has no suggestion chips, and its hint line only shows when something
+  needs attention (sync off, no Ask Jarvis key, a broken key, or today's limit reached).
 - **Capture** works on this device, offline, with nothing sent anywhere. Separate items with
   " / ", ";" or new lines (a short comma list like "eggs, milk, and bread" also splits; a
   leading "buy" carries over). Each piece is read with the app's own rules: a trailing day
@@ -525,7 +522,7 @@ only turning sync off still asks first.
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
-   | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), History (`openAskHistory`, `askClearHistory`), chips / Follow up, suggestions (`askSuggestions`), the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
+   | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), History (`openAskHistory`, `askClearHistory`), chips / Follow up, the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
    | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
    | `calendar.js` | Google Calendar history on the Planner: `ingestCalendarFile` (sync's pull), `normalizeCalendar`, `calendarEventsOn` (null outside the imported range), the day's events section (`homeEventsHtml`); Home's strip and hero read it |

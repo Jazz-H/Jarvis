@@ -336,13 +336,7 @@ Answer = z.object({
 - **Latency is stated, not hidden.** After you send:
   - **Sent** shows a pulsing **"Jarvis is on it · usually about a minute"** row. Then the answer, or after 3 minutes, "Still working, you'll get a notification."
   - Questions queued without a token say **"Queued for the next run (tomorrow ~7am)"**.
-- **Suggested prompts** (chips under the box; the set changes with the day and time, all of them questions the context can answer):
-  - "What's due before payday?"
-  - "Can I afford <top Shopping need> this pay period?"
-  - "What should I focus on tomorrow?"
-  - "When will I hit my weight goal?"
-  - "How did my week go?" (Sunday and Monday)
-  - "What's on my calendar this week?"
+- **Suggested prompts:** removed at the owner's request. Ask shows no chips, and no hint line unless something needs attention.
 - **History:** today and yesterday in the feed, the rest under **History** (the last 50). Each answer shows its sources as small tags, like the briefing.
   - **Clear history** hides everything on this device right away and sets `clearBefore`. The next run deletes those answers from the gist.
 - **Chips** in an answer ("Add: Pay City Power Fri") add the item through `saveContent()` only when tapped, with a 5-second Undo. Jarvis never writes `jazz2-data.json`.

@@ -691,7 +691,7 @@ function askHint() {
   if (!askToken())
     return "Questions wait for Jarvis's next run (~7am). Add an Ask Jarvis key in Sync for answers in about a minute.";
   if (askUsageLeft() === 0) return "You've used today's 10 questions. Ask again tomorrow.";
-  return "Jarvis answers from this morning's briefing, your calendar and your lists.";
+  return "";
 }
 function askNoteHtml(mode) {
   const parts = [];
@@ -865,25 +865,6 @@ function askDeepLink(id) {
   activateTab("console");
   const has = loadAnswers().answers.some((a) => a.id === id);
   if (!askFocusEntry(id) || !has) askPendingLink = id;
-}
-
-// ---- suggested questions (change with the day and time) ----
-function askSuggestions(now = new Date()) {
-  const out = [];
-  const day = now.getDay();
-  if (day === 0 || day === 1) out.push("How did my week go?");
-  out.push("What's due before payday?");
-  const need = (typeof wantsList !== "undefined" ? wantsList : [])
-    .filter((w) => w && !wantsState[w.id] && !w.later && wantKind(w) === "need" && String(w.name || "").trim())
-    .sort(wantsOrder)[0];
-  if (need) {
-    const name = String(need.name).trim();
-    out.push(`Can I afford ${name.length > 40 ? name.slice(0, 39) + "…" : name} this pay period?`);
-  }
-  out.push(now.getHours() < 12 ? "What should I focus on today?" : "What should I focus on tomorrow?");
-  if (typeof fitness !== "undefined" && fitness && fitness.goal != null) out.push("When will I hit my weight goal?");
-  out.push("What's on my calendar this week?");
-  return out;
 }
 
 document.addEventListener("keydown", (e) => {
