@@ -27,7 +27,7 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [x] Google Drive for Ask (read-only, all of Drive) (Oct 31)
 - [ ] **Connect Drive** (you): enable the Drive API, add the drive.readonly scope, redo
   `npm run google-auth` and update `GOOGLE_REFRESH_TOKEN` (SETUP.md section 6)
-- [x] The Ask test set (Oct 31): Actions → Jarvis Eval (about $0.50 a run)
+- [x] The Ask test set (Oct 31): Actions → Jarvis Eval. Baseline Oct 31: **12/12 passed, $0.29**
 - [x] Console: one conversation (History merged in, Earlier, usage chip, chat bubbles, quiet
   declines); Ask sees all app data, can search the web, and acts on small things with Undo (Oct 31)
 - [x] Phase 3 and the rest of Phase 4 (Oct 31): Bill Guard from Budget, suggested to-dos,
