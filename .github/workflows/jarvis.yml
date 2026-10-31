@@ -12,6 +12,7 @@ on:
     - cron: "45 11 * * *" # briefing, 6:45am EST
     - cron: "45 21 * * 0" # weekly review, Sunday 5:45pm EDT
     - cron: "45 22 * * 0" # weekly review, Sunday 5:45pm EST
+    - cron: "*/5 * * * *" # TEMPORARY schedule probe (no delivery: outside the briefing window)
   workflow_dispatch:
     inputs:
       mode:
