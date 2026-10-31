@@ -44,6 +44,7 @@ export const CONFIG = {
     calendar: "claude-haiku-5-5",
     inbox: "claude-sonnet-5-5",
     deliveries: "claude-haiku-5-5",
+    sorter: "claude-haiku-5-5", // Sort with Jarvis (runs through Ask's pipeline and limits)
   },
   // Gmail searches (read-only). Unread mail in the primary inbox only; promotions and social are left out.
   inbox: {
@@ -87,6 +88,7 @@ export const CONFIG = {
     ceilings: { runUsd: 2, dayUsd: 5, monthUsd: 40 }, // overrides are clamped to these
     pendingKept: 20, // items read from jazz2-ask.json
     answersKept: 50,
+    sortMaxItems: 12, // chips from one Sort with Jarvis
     threadTurns: 6, // earlier question/answer turns in the same thread given as context
     // The calendar list given to Ask (from jazz2-calendar.json): the events nearest to today are
     // listed until this many characters of JSON (about 5k tokens); the rest are counted per week.

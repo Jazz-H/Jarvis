@@ -367,6 +367,7 @@ function consolePreviewHtml() {
       <button type="button" class="modal-btn primary cn-add" id="cn-add" data-action="console-add"${n || c.ask ? "" : " disabled"}>${add}</button>
       <button type="button" class="modal-btn cn-edit" data-action="console-edit">Edit</button>
     </div>
+    <button type="button" class="cn-link cn-sort" data-action="console-sort">Sort with Jarvis instead</button>
     <p class="cn-note">Sorted on this device · nothing is sent</p>
   </section>`;
 }
@@ -538,6 +539,21 @@ function consoleCycleRow(i) {
   const types = consoleRowTypes(row);
   row.type = types[(types.indexOf(row.type) + 1) % types.length];
   renderConsole();
+}
+// Sort with Jarvis: for a dump the rules can't split, send the original text through Ask (as a
+// "sort"); the answer comes back in the conversation as chips to tap. Nothing is added by itself.
+function consoleSortWithJarvis() {
+  if (!consolePreview) return;
+  if (!askSend(consolePreview.src, "sort")) return;
+  consolePreview = null;
+  const input = consoleInput();
+  input.value = "";
+  consoleFitBox(input);
+  try {
+    localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1"); // the conversation opens, so its row is in view
+  } catch (e) {}
+  renderConsole();
+  showToast("Sent to Jarvis to sort");
 }
 function consoleEdit() {
   if (!consolePreview) return;

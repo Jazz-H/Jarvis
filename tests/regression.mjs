@@ -11282,6 +11282,74 @@ await section(
   },
 );
 
+await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {
+  const gh = askGitHub();
+  const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });
+  const dump = "sort the car registration before the 15th, out of coffee";
+  await a.page.evaluate((t) => {
+    ASK_TIMING.cooldown = 0;
+    consolePreview = { src: t, rows: consoleParse(t) };
+    renderConsole();
+  }, dump);
+  check("the preview offers Sort with Jarvis", !!(await a.page.$('#cn-preview [data-action="console-sort"]')));
+  await a.page.click('#cn-preview [data-action="console-sort"]');
+  await a.page.waitForTimeout(600);
+  const sent = gh.read("jazz2-ask.json");
+  const item = sent && sent.items[sent.items.length - 1];
+  check(
+    "the dump goes to the gist as a sort (no thread) and the workflow is started",
+    item && item.kind === "sort" && item.text === dump && !item.thread && gh.log.some((r) => r.path === DISPATCH_PATH),
+    item,
+  );
+  const r = await a.page.evaluate(() => ({
+    preview: !!consolePreview,
+    box: document.getElementById("console-input").value,
+    feed: document.getElementById("cn-feed").textContent.replace(/\s+/g, " "),
+  }));
+  check("the preview closes and the conversation shows it as a Sort", !r.preview && r.box === "" && r.feed.includes("Sort " + dump), r);
+  // the answer: 4 chips (more than a question's 3), no Follow up
+  const id = item.id;
+  const chips = [
+    { kind: "todo", text: "Renew car registration", due: "2099-11-15" },
+    { kind: "shopping", text: "Coffee" },
+    { kind: "todo", text: "Look at a speaking club" },
+    { kind: "todo", text: "<img src=x onerror=window.__pwned=1>" },
+  ];
+  await a.page.evaluate(
+    ([id, at, chips]) => {
+      writeQuietly(
+        ANSWERS_KEY,
+        normalizeAnswers({
+          version: 1,
+          answers: [
+            { id, askedAt: at, answeredAt: new Date().toISOString(), status: "ok", text: "Sorted into 3 to-dos and 1 Shopping item.", bullets: [], sources: [], chips, by: "jarvis" },
+          ],
+          usage: null,
+        }),
+      );
+      renderConsole();
+    },
+    [id, item.at, chips],
+  );
+  const ans = await a.page.evaluate((id) => {
+    const e = document.querySelector(`[data-ask-entry="${id}"]`);
+    return {
+      chips: e.querySelectorAll(".rv-chip").length,
+      follow: !!e.querySelector('[data-action="ask-follow"]'),
+      pwned: !!window.__pwned,
+    };
+  }, id);
+  check("a sort's answer shows all its chips, with no Follow up", ans.chips === 4 && !ans.follow && !ans.pwned, ans);
+  const n0 = await a.page.evaluate(() => wantsList.length);
+  await a.page.click(`[data-ask-entry="${id}"] .rv-chip[data-index="1"]`);
+  check(
+    "tapping a chip adds it (here to Shopping)",
+    await a.page.evaluate((n) => wantsList.length === n + 1 && wantsList.some((w) => w.name === "Coffee"), n0),
+  );
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+});
+
 await section("ask: without a key it's queued; a refused key warns and queues; expiry warning; sync off", async () => {
   const gh = askGitHub();
   const a = await openAsk({ route: gh.route, seed: askSync() });
@@ -11509,6 +11577,7 @@ await section("ask: answers normalizer drops junk, caps sizes, escapes text, sur
             { kind: "todo", text: "" },
             { kind: "todo", text: "third" },
             { kind: "todo", text: "fourth" },
+            ...Array.from({ length: 12 }, (_, i) => ({ kind: "todo", text: "more " + i })),
           ],
           by: "who",
         },
@@ -11556,8 +11625,9 @@ await section("ask: answers normalizer drops junk, caps sizes, escapes text, sur
     n.big.sources,
   );
   check(
-    "chips: todo/shopping only, ≤3, text ≤120, bad dates dropped",
-    n.big.chips.length === 3 &&
+    "chips: todo/shopping only, ≤12 (a sort's most), text ≤120, bad dates dropped",
+    n.big.chips.length === 12 &&
+      n.big.chips[3].text === "fourth" &&
       n.big.chips[0].due === null &&
       n.big.chips[1].text.length === 120 &&
       n.big.chips[1].due === null &&

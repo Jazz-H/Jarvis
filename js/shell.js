@@ -652,6 +652,7 @@ const SHELL_CLICK = {
   },
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
+  "console-sort": () => consoleSortWithJarvis(),
   "console-go": (el) => consoleGo(el.getAttribute("data-go")),
   // Wallet's Budget | Shopping and You's Beauty | Jazz 3.0 switch
   "tab-sub": (el) => {
@@ -672,7 +673,7 @@ const SHELL_CLICK = {
   },
   "ask-chip": (el) => {
     const i = el.getAttribute("data-index");
-    if (/^\d$/.test(i || "")) askAddChip(el.getAttribute("data-ask-id"), Number(i));
+    if (/^\d{1,2}$/.test(i || "")) askAddChip(el.getAttribute("data-ask-id"), Number(i));
   },
   "ask-follow": (el) => askFollow(el.getAttribute("data-ask-id")),
   "ask-thread-cancel": () => askThreadCancel(),

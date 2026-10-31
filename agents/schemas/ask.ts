@@ -20,7 +20,7 @@ export type AskSource = z.infer<typeof AskSource>;
 // ---- jazz2-ask.json (the app's file) ----
 export const AskItem = z.object({
   id: z.string().regex(ASK_ID),
-  kind: z.literal("ask"),
+  kind: z.enum(["ask", "sort"]), // sort: Sort with Jarvis (a brain dump split into chips)
   text: z.string().max(1000), // longer questions are cut to 1,000 characters before this check
   at: IsoTime, // when it was asked
   thread: z.string().regex(ASK_ID).optional(), // id of the first question in a follow-up chain
@@ -54,7 +54,7 @@ export const Answer = z.object({
   text: z.string().max(1200), // plain text; no Markdown, no links (the app escapes it anyway)
   bullets: z.array(z.string().max(200)).max(5),
   sources: z.array(AskSource).max(6),
-  chips: z.array(AskChip).max(3),
+  chips: z.array(AskChip).max(12), // 3 for a question, up to 12 for a sort
   by: z.enum(["jarvis", "fallback"]), // fallback: written by code (limits, errors), not the model
 });
 export type Answer = z.infer<typeof Answer>;
@@ -98,3 +98,17 @@ export const AskOutput = z.object({
     .max(6),
 });
 export type AskOutput = z.infer<typeof AskOutput>;
+
+// What the Sorter returns for a "sort" item; loose on purpose, cleaned by subagents/sorter.ts
+export const SortOutput = z.object({
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(["todo", "shopping"]),
+        text: z.string().max(300),
+        due: z.string().max(40).nullable(),
+      }),
+    )
+    .max(20),
+});
+export type SortOutput = z.infer<typeof SortOutput>;

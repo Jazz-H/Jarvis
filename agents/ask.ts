@@ -45,6 +45,7 @@ import { Trace } from "./lib/trace.ts";
 import { notifyPhones } from "./lib/notify.ts";
 import { plainText, tidy } from "./lib/text.ts";
 import { runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
+import { sortSpec, cleanSort } from "./subagents/sorter.ts";
 
 export const ASK_SYSTEM = `You are Jarvis, the chief of staff behind a personal dashboard app called Jazz.
 The owner asks you a question from the app, and you answer it from their own data.
@@ -129,7 +130,7 @@ export interface AskQueue {
 
 // jazz2-ask.json is the app's file and untrusted: each item is checked on its own, text over
 // 1,000 characters is cut, a bad thread id is dropped, anything else invalid is skipped.
-// Items of other kinds ("sort", a later phase) are left alone.
+// "ask" and "sort" items are read; other kinds are left alone. Only questions have threads.
 export function readAskFile(raw: string | null): AskQueue {
   if (!raw) return { items: [], clearBefore: null, junk: false };
   let j: any;
@@ -143,7 +144,7 @@ export function readAskFile(raw: string | null): AskQueue {
   let junk = false;
   const items: AskItem[] = [];
   for (const x of j.items.slice(0, 100)) {
-    if (x && typeof x === "object" && x.kind !== "ask" && typeof x.kind === "string") continue;
+    if (x && typeof x === "object" && x.kind !== "ask" && x.kind !== "sort" && typeof x.kind === "string") continue;
     const p = AskItem.safeParse(
       x && typeof x === "object"
         ? {
@@ -151,7 +152,7 @@ export function readAskFile(raw: string | null): AskQueue {
             kind: x.kind,
             text: typeof x.text === "string" ? x.text.slice(0, CONFIG.ask.maxQuestionChars) : x.text,
             at: x.at,
-            ...(typeof x.thread === "string" && ASK_ID.test(x.thread) ? { thread: x.thread } : {}),
+            ...(x.kind === "ask" && typeof x.thread === "string" && ASK_ID.test(x.thread) ? { thread: x.thread } : {}),
           }
         : x,
     );
@@ -436,9 +437,16 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
     const q = new CostLedger(Math.max(0.0001, Math.min(limits.maxQuestionCostUsd, ledger.budgetFor("ask"))));
     const t0 = Date.now();
     let answer: Answer;
-    const spec = askSpec(item, ctx!, threadTurns(item, queue.items, byId, CONFIG.ask.threadTurns), now);
+    // a sort goes to the Sorter (Haiku, no app data); a question to Jarvis with the context
+    const sorting = item.kind === "sort" ? sortSpec(item, ctx!.today, ctx!.weekday) : null;
+    const asking = sorting
+      ? null
+      : askSpec(item, ctx!, threadTurns(item, queue.items, byId, CONFIG.ask.threadTurns), now);
+    const spec = (sorting ?? asking)!;
     try {
-      const out = cleanAskOutput(await runAgent(spec, q, trace, deps.queryFn), ctx!.today, ctx!.sources);
+      const out = sorting
+        ? cleanSort(await runAgent(sorting, q, trace, deps.queryFn), ctx!.today)
+        : cleanAskOutput(await runAgent(asking!, q, trace, deps.queryFn), ctx!.today, ctx!.sources);
       answer = { id: item.id, askedAt: item.at, answeredAt: now.toISOString(), ...out, by: "jarvis" };
     } catch (e) {
       trace.log("ask", "model failed", { id: item.id, error: trace.publicError(e) });

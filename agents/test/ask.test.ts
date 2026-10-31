@@ -382,7 +382,7 @@ describe("Ask limits", () => {
 });
 
 describe("Ask files", () => {
-  it("reads only valid ask items: id pattern, kind, date, text cut to 1,000, bad thread dropped", () => {
+  it("reads only valid ask and sort items: id pattern, kind, date, text cut to 1,000, bad thread dropped", () => {
     const long = "x".repeat(5000);
     const r = readAskFile(
       JSON.stringify({
@@ -396,7 +396,8 @@ describe("Ask files", () => {
           q("short", "bad id", at(1)),
           q("a".repeat(41), "bad id", at(1)),
           q("ask-0004", "bad date", "yesterday"),
-          { id: "ask-0005", kind: "sort", text: "a sort item: not ours", at: at(1) },
+          { id: "ask-0005", kind: "sort", text: "a sort item", at: at(1), thread: "ask-0001" },
+          { id: "ask-0007", kind: "later", text: "another kind: not ours", at: at(1) },
           { id: "ask-0006", text: 5, at: at(1), kind: "ask" },
           "junk",
           null,
@@ -408,6 +409,7 @@ describe("Ask files", () => {
     expect(r.clearBefore).toBeNull();
     expect(r.items.map((i) => [i.id, i.text.length, i.thread ?? null])).toEqual([
       ["ask-0001", 1000, null],
+      ["ask-0005", 11, null], // a sort never has a thread
       ["ask-0002", 6, "ask-0001"],
       ["ask-0003", 5, null],
     ]);

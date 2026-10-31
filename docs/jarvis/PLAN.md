@@ -17,7 +17,7 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 - [x] Phase 3: Money + Bill Guard (Oct 31), in code from Budget (`agents/lib/money.ts`): no bank
   link (finance provider decided: Budget only). Home's Money detail lists its findings; phone
   alerts for bills not on autopay come 3 days ahead.
-- [ ] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
+- [x] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
   (plan: PHASE4-JAZZ3-REDESIGN.md).
   - [x] Step 1: the orb opens **Console**; Jazz 3.0 is a hidden tab (Home tile, Console, links).
   - [x] Step 2: Console shell + local Capture (`js/console.js`): preview, Add with Undo, device-only
@@ -30,7 +30,9 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
     mail; code names the carrier.
   - [x] Suggested to-dos (Oct 31): up to 3 tap-to-add chips under the briefing summary.
   - [x] Cross-source insights: Jarvis's summary items tagged "jarvis" connect sources, now with Bill Guard.
-  - [ ] Step 9: Sort with Jarvis (Haiku sorter for messy captures).
+  - [x] Step 9: Sort with Jarvis (Oct 31): Capture's preview sends the dump through Ask as a `sort`
+    item; the Sorter (`agents/subagents/sorter.ts`, Haiku, no tools or app data) returns items
+    that code checks and turns into up to 12 chips.
   - [x] Step 5: Weekly Review UI (`js/review.js`): `jazz2-reviews.json` pulled by sync and
     normalized, the Console card / Last week row, the review sheet with ‹ › history, tap-to-add
     chips with Undo, links into each section, the `?review=` link and Home's "ready" line.

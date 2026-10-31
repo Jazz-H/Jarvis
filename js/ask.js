@@ -166,7 +166,8 @@ function normalizeAskLocal(raw, now = Date.now()) {
       // a send that was still going when the app closed didn't finish
       const state = q.state === "sending" ? "failed" : ASK_STATES.includes(q.state) ? q.state : "queued";
       const out = { id: q.id, text, at, state };
-      if (typeof q.thread === "string" && ASK_ID.test(q.thread) && q.thread !== q.id) out.thread = q.thread;
+      if (q.kind === "sort") out.kind = "sort"; // Sort with Jarvis: a brain dump to split into chips
+      else if (typeof q.thread === "string" && ASK_ID.test(q.thread) && q.thread !== q.id) out.thread = q.thread;
       const sentAt = Number(q.sentAt);
       if (state === "sent" && isFinite(sentAt) && sentAt > 0) out.sentAt = Math.min(sentAt, now);
       return out;
@@ -225,7 +226,7 @@ function normalizeAnswer(a) {
       .filter((c) => askIsObj(c) && (c.kind === "todo" || c.kind === "shopping"))
       .map((c) => ({ kind: c.kind, text: askStr(c.text, 120), due: c.kind === "todo" && isDay(c.due) ? c.due : null }))
       .filter((c) => c.text)
-      .slice(0, 3),
+      .slice(0, 12), // 3 for a question, up to 12 for a sort
     by: a.by === "fallback" ? "fallback" : "jarvis",
   };
 }
@@ -394,8 +395,8 @@ async function ingestAskFile(file) {
     const list = loadAskLocal();
     const known = new Set(list.map((q) => q.id));
     const add = f.items
-      .filter((i) => i.kind === "ask" && !known.has(i.id) && Date.parse(i.at) >= clear)
-      .map((i) => ({ id: i.id, text: i.text, at: Date.parse(i.at), state: "seen", thread: i.thread }));
+      .filter((i) => (i.kind === "ask" || i.kind === "sort") && !known.has(i.id) && Date.parse(i.at) >= clear)
+      .map((i) => ({ id: i.id, text: i.text, at: Date.parse(i.at), state: "seen", thread: i.thread, kind: i.kind }));
     if (!add.length && f.clearBefore <= localClear) return;
     saveAskLocal([...add, ...list]);
     renderConsole();
@@ -409,8 +410,9 @@ async function ingestAskFile(file) {
 function askCooldownLeft(now = Date.now()) {
   return Math.max(0, askLastSend + ASK_TIMING.cooldown - now);
 }
-// The Console's Send in Ask mode. Returns true when the question was taken (the box clears).
-function askSend(text) {
+// The Console's Send in Ask mode, and Capture's Sort with Jarvis (kind "sort"). Returns true when
+// it was taken (the box clears).
+function askSend(text, kind = "ask") {
   const q = askStr(text, ASK_TEXT_MAX);
   if (!q) return false;
   if (!askSyncOn()) {
@@ -427,7 +429,8 @@ function askSend(text) {
     return false;
   }
   const item = { id: askNewId(), text: q, at: Date.now(), state: "queued" };
-  if (askThread && loadAskEntries().some((e) => e.id === askThread)) item.thread = askThread;
+  if (kind === "sort") item.kind = "sort";
+  else if (askThread && loadAskEntries().some((e) => e.id === askThread)) item.thread = askThread;
   askThread = null;
   askLastSend = item.at;
   saveAskLocal([item, ...loadAskLocal()]);
@@ -448,7 +451,7 @@ async function askDeliver(id) {
         ...items.filter((i) => i.id !== q.id),
         {
           id: q.id,
-          kind: "ask",
+          kind: q.kind === "sort" ? "sort" : "ask",
           text: q.text,
           at: new Date(q.at).toISOString(),
           ...(q.thread ? { thread: q.thread } : {}),
@@ -674,7 +677,7 @@ function askAnswerHtml(q) {
       ${chips ? `<div class="rv-chips ak-chips" role="group" aria-label="Suggestions: tap one to add it">${chips}</div>` : ""}
       ${srcs}
       <div class="ak-foot">
-        <button type="button" class="cn-link" data-action="ask-follow" data-ask-id="${id}" aria-label="Follow up on this answer">Follow up</button>
+        ${q.kind === "sort" ? "" : `<button type="button" class="cn-link" data-action="ask-follow" data-ask-id="${id}" aria-label="Follow up on this answer">Follow up</button>`}
         <span class="ak-meta">${escapeHtml([a.by === "fallback" ? "Put together automatically (Jarvis didn't finish)" : "", when].filter(Boolean).join(" · "))}</span>
       </div>
     </div>`;
@@ -685,7 +688,12 @@ function askEntryHtml(q, withDay = false) {
     ? `${noonOf(isoDate(new Date(q.at))).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · `
     : "";
   const said = q.text ? escapeHtml(q.text) : '<span class="ak-other">Asked on another device</span>';
-  const follow = q.thread ? '<span class="ak-thread">Follow-up</span> ' : "";
+  const follow =
+    q.kind === "sort"
+      ? '<span class="ak-thread">Sort</span> '
+      : q.thread
+        ? '<span class="ak-thread">Follow-up</span> '
+        : "";
   return `<li class="cn-entry ak-entry" data-ask-entry="${escapeAttr(q.id)}" tabindex="-1">
     <span class="cn-who">You</span><p class="cn-said">${follow}${said} <time class="cn-time">${escapeHtml(day + askTime(q.at))}</time></p>
     <span class="cn-who cn-j">J</span><div class="cn-reply">${q.answer ? askAnswerHtml(q) : askStatusHtml(q)}</div>

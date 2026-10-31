@@ -197,6 +197,12 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     price; tap a row to switch it between To-do, Shopping and Skip. **Add N** saves them all
     (to-dos at the top of their group, items on the Shopping list) with one Undo; **Edit** puts
     the text back in the box.
+  - **Sort with Jarvis instead:** for a dump the rules can't split ("sort the car registration
+    before the 15th and we're out of coffee"). It needs sync, goes through Ask (same key, same
+    limits: it counts as a question) as a `sort` item, and a small model (`claude-haiku-5-5`, no
+    tools, no app data: just the text and today's date) splits it. Code checks every item (to-do
+    or Shopping, a real date from today to two years out) and the answer comes back in the
+    conversation, tagged **Sort**, as up to 12 chips to tap. Nothing is added by itself.
 - **Ask Jarvis** needs sync. Without it, Ask says so (with **Open Sync**) and Capture still
   works.
   - **Send:** the question is saved to your private sync gist (`jazz2-ask.json`), then, if this

@@ -5986,6 +5986,11 @@ body.todo-dragging {
   font-size: 14.5px;
   line-height: 1.5;
 }
+.cn-sort {
+  display: block;
+  min-height: 44px;
+  margin: 4px auto 0;
+}
 .jv-suggest {
   margin-top: 12px;
 }
