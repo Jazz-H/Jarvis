@@ -9862,6 +9862,8 @@ await section("Console: preview, type cycling, Add with one Undo, expense chip o
       expenses: budget.expenses.length,
       fri: nextWeekdayIso(5),
       html: document.getElementById("cn-feed").textContent,
+      box: document.getElementById("console-input").value,
+      askMode: document.querySelector('.cn-seg[data-mode="ask"]').getAttribute("aria-pressed"),
     }),
     wants0,
   );
@@ -9876,11 +9878,14 @@ await section("Console: preview, type cycling, Add with one Undo, expense chip o
   );
   check("the expense was not added", added.expenses === expenses0, added.expenses);
   check(
-    "feed: the capture and the question are logged",
-    added.feed.length === 2 &&
-      added.feed.some((e) => e[0] === "capture" && e[1] === 1 && e[2] === 2) &&
-      added.feed.some((e) => e[0] === "ask"),
-    added.feed,
+    "feed: the capture is logged; the question goes back in the box for Ask (never sent by itself)",
+    added.feed.length === 1 &&
+      added.feed[0][0] === "capture" &&
+      added.feed[0][1] === 1 &&
+      added.feed[0][2] === 2 &&
+      added.box === "what's due friday?" &&
+      added.askMode === "true",
+    added,
   );
   check(
     "feed says what was added and links to the tabs",
@@ -9906,6 +9911,7 @@ await section("Console: preview, type cycling, Add with one Undo, expense chip o
   check("Undo removes all of them", undone.n === base && undone.stored === base, undone);
   check("the feed marks the capture undone", undone.entry.undone === true && /Undone/.test(undone.html), undone);
   // feed link goes to the tab
+  await page.fill("#console-input", "");
   await page.fill("#console-input", "buy eggs");
   await page.press("#console-input", "Enter");
   await page.tap("#cn-add");
@@ -9944,8 +9950,11 @@ await section("Console: preview, type cycling, Add with one Undo, expense chip o
   await ctx.close();
 });
 
-await section("Console: Ask saves the question honestly with no network calls; XSS; offline", async () => {
-  const { ctx, page, errors } = await openApp({ query: "?tab=console" });
+await section("Console: Ask without sync explains itself and makes no network calls; XSS; offline", async () => {
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: { "console-feed": [{ id: "old1", kind: "ask", at: Date.now() - 60000, text: "An old question" }] },
+  });
   const requests = [];
   page.on("request", (r) => requests.push(r.url()));
   const keysBefore = await page.evaluate(() => Object.keys(localStorage).sort());
@@ -9956,30 +9965,26 @@ await section("Console: Ask saves the question honestly with no network calls; X
     feed: consoleFeed.map((e) => [e.kind, e.text]),
     html: document.getElementById("cn-feed").textContent,
     box: document.getElementById("console-input").value,
-    stored: JSON.parse(localStorage.getItem("console-feed")),
+    toast: document.getElementById("toast").textContent,
     keys: Object.keys(localStorage).sort(),
-    synced: SYNC_KEYS.includes("console-feed") || "console-feed" in liveData(),
   }));
   check(
-    "Ask stores the question in the feed with an honest status",
-    a.feed.length === 1 &&
-      a.feed[0][0] === "ask" &&
-      a.feed[0][1] === "What's due before payday?" &&
-      a.html.includes("Ask Jarvis isn't switched on yet — this question is saved here") &&
-      a.box === "",
+    "without sync, Ask says it needs sync and keeps the question in the box",
+    a.feed.length === 1 && a.box === "What's due before payday?" && /Ask needs sync/.test(a.toast),
     a,
   );
-  check("the question is kept on this device only (not synced, not backed up)", a.stored.length === 1 && !a.synced, a);
   check(
-    "no new token or ask keys",
-    a.keys.filter((k) => !keysBefore.includes(k)).every((k) => k === "console-feed"),
-    a.keys,
+    "a question saved before Ask was switched on is labelled as not sent",
+    a.html.includes("Not sent: saved here before Ask Jarvis was switched on"),
+    a.html,
   );
+  check("no new token or ask keys", a.keys.filter((k) => !keysBefore.includes(k)).length === 0, a.keys);
   check(
     "Ask makes no network calls",
     requests.every((u) => u.startsWith(APP.replace(/jazz2\.0\.html$/, ""))),
     requests,
   );
+  await page.fill("#console-input", "");
   // XSS: everything typed is escaped in the box's chips, preview and feed
   const evil = `<img src=x onerror="window.__xss=1">"'&`;
   await page.fill("#console-input", evil + "?");
@@ -10791,6 +10796,1402 @@ await section("briefing headline: a crammed two-part headline is split for displ
     p[0],
   );
   check("a plain headline is left alone", p[1].title === "Rain moves in by noon" && p[1].sub === "", p[1]);
+  await ctx.close();
+});
+
+// ---------- Ask Jarvis (js/ask.js) and voice input (js/voice.js) ----------
+const ASK_KEY = "github_pat_" + "A1b2C3d4".repeat(6);
+const DISPATCH_PATH = "/repos/Jazz-H/Jazz2.0/actions/workflows/jarvis-ask.yml/dispatches";
+// A mocked GitHub: the gist (GET/PATCH) and the workflow dispatch, with a log of every request
+function askGitHub({ files = {}, dispatch = 204, dispatchDelay = 0, expires = null } = {}) {
+  const gist = {
+    id: "g0",
+    files: {
+      "jazz2-data.json": { truncated: false, content: JSON.stringify({ updatedAt: Date.now(), data: {} }) },
+      "jazz2-push.json": {
+        truncated: false,
+        content: JSON.stringify({ subs: [{ endpoint: "https://push.example/a" }] }),
+      },
+      ...Object.fromEntries(
+        Object.entries(files).map(([n, c]) => [n, { truncated: false, content: JSON.stringify(c) }]),
+      ),
+    },
+  };
+  const log = [];
+  const state = { dispatch, dispatchDelay, expires };
+  const route = async (r) => {
+    const req = r.request(),
+      url = new URL(req.url());
+    const entry = {
+      method: req.method(),
+      path: url.pathname,
+      url: req.url(),
+      body: req.postData() || "",
+      auth: req.headers()["authorization"] || "",
+      accept: req.headers()["accept"] || "",
+    };
+    log.push(entry);
+    const json = (status, body, headers = {}) =>
+      r.fulfill({ status, contentType: "application/json", headers, body: JSON.stringify(body) });
+    if (url.pathname === "/gists/g0" && req.method() === "GET") return json(200, gist);
+    if (url.pathname === "/gists/g0" && req.method() === "PATCH") {
+      const f = JSON.parse(req.postData()).files;
+      entry.files = Object.keys(f);
+      Object.entries(f).forEach(([n, x]) => (gist.files[n] = { truncated: false, content: x.content }));
+      return json(200, gist);
+    }
+    if (url.pathname === DISPATCH_PATH && req.method() === "POST") {
+      if (state.dispatchDelay) await new Promise((res) => setTimeout(res, state.dispatchDelay));
+      if (state.dispatch === "abort") return r.abort();
+      const headers = state.expires
+        ? {
+            "github-authentication-token-expiration": state.expires,
+            "access-control-expose-headers": "github-authentication-token-expiration",
+          }
+        : {};
+      return r.fulfill({ status: state.dispatch, headers, body: "" });
+    }
+    return json(404, {});
+  };
+  const read = (n) => (gist.files[n] ? JSON.parse(gist.files[n].content) : null);
+  const setFile = (n, c) => (gist.files[n] = { truncated: false, content: JSON.stringify(c) });
+  return { gist, log, state, route, read, setFile };
+}
+// openApp plus an init script (a fake SpeechRecognition, or none) and the browser console log
+async function openAsk({ seed = {}, query = "?tab=console", route, speech = "fake", phone = true } = {}) {
+  const ctx = await browser.newContext(
+    phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
+  );
+  if (route) await ctx.route("https://api.github.com/**", route);
+  await ctx.addInitScript((mode) => {
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+    if (mode !== "fake") return;
+    window.__recs = [];
+    window.SpeechRecognition = class {
+      constructor() {
+        window.__recs.push(this);
+        this.started = this.stopped = this.aborted = 0;
+      }
+      start() {
+        this.started++;
+      }
+      stop() {
+        this.stopped++;
+        setTimeout(() => this.onend && this.onend(), 10);
+      }
+      abort() {
+        this.aborted++;
+        setTimeout(() => this.onend && this.onend(), 10);
+      }
+    };
+    // the test's voice: say(text, final), fail(code), end()
+    window.__rec = () => window.__recs[window.__recs.length - 1];
+    window.__say = (...parts) => window.__rec().onresult({ results: parts.map((t) => [{ transcript: t }]) });
+    window.__fail = (code) => {
+      window.__rec().onerror({ error: code });
+      window.__rec().onend();
+    };
+  }, speech);
+  await ctx.addInitScript((s) => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    for (const [k, v] of Object.entries(s)) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+  }, seed);
+  const page = await ctx.newPage();
+  const errors = [],
+    logs = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (m) => logs.push(m.text()));
+  page.on("dialog", (d) => d.accept());
+  await page.goto(APP + query);
+  await page.waitForTimeout(600);
+  return { ctx, page, errors, logs };
+}
+const askSync = (extra = {}) => ({
+  "sync-token": "tok",
+  "sync-gist-id": "g0",
+  "data-updated-at": String(Date.now()),
+  ...extra,
+});
+const isoAgo = (ms) => new Date(Date.now() - ms).toISOString();
+function answerFixture(id, over = {}) {
+  return {
+    id,
+    askedAt: isoAgo(120000),
+    answeredAt: isoAgo(60000),
+    status: "ok",
+    text: "You have 2 bills before Friday's payday: Rent $650 and Gym $40.",
+    bullets: ["Rent is due Thursday", "Gym is on autopay"],
+    sources: ["jazz", "calendar"],
+    chips: [
+      { kind: "todo", text: "Pay Rent", due: isoOffset(1) },
+      { kind: "shopping", text: "Printer paper" },
+    ],
+    by: "jarvis",
+    ...over,
+  };
+}
+const answersFile = (answers, usage = null) => ({ version: 1, answers, ...(usage ? { usage } : {}) });
+
+await section(
+  "ask: the Ask Jarvis key is device-only, checked for shape, never shown or sent to the gist",
+  async () => {
+    const gh = askGitHub();
+    const { ctx, page, errors, logs } = await openAsk({ route: gh.route, seed: askSync() });
+    await page.evaluate(() => openSyncModal());
+    const dlg = await page.evaluate(() => ({
+      field: !!document.getElementById("modal-askToken"),
+      type: (document.getElementById("modal-askToken") || {}).type,
+      text: document.getElementById("modal-body").textContent,
+      link: [...document.querySelectorAll("#modal-body a")].map((a) => [a.textContent, a.href, a.target]),
+      remove: !!document.querySelector('[data-action="ask-token-remove"]'),
+    }));
+    check(
+      "the Sync dialog has an Ask Jarvis key field with a plain explanation",
+      dlg.field &&
+        dlg.type === "password" &&
+        /Ask Jarvis key/.test(dlg.text) &&
+        /Actions: read and write/.test(dlg.text),
+      dlg,
+    );
+    check(
+      "it links to SETUP section 8",
+      dlg.link.some(([t, h, tg]) => /section 8/.test(t) && /docs\/jarvis\/SETUP\.md$/.test(h) && tg === "_blank"),
+      dlg.link,
+    );
+    check("no Remove option before a key is saved", !dlg.remove);
+    await page.fill("#modal-askToken", "ghp_classicTokenNotFineGrained123");
+    await page.tap('#modal-backdrop [data-action="modal-save"]');
+    const bad = await page.evaluate(() => ({
+      stored: localStorage.getItem("ask-token"),
+      toast: document.getElementById("toast").textContent,
+      gist: localStorage.getItem("sync-gist-id"),
+    }));
+    check(
+      "a key of the wrong shape is refused without calling GitHub",
+      bad.stored === null && /starts with github_pat_/.test(bad.toast) && !gh.log.some((r) => r.path === DISPATCH_PATH),
+      bad,
+    );
+    await page.evaluate(() => openSyncModal());
+    await page.fill("#modal-askToken", ASK_KEY);
+    await page.tap('#modal-backdrop [data-action="modal-save"]');
+    const good = await page.evaluate(() => ({
+      stored: localStorage.getItem("ask-token"),
+      toast: document.getElementById("toast").textContent,
+      gist: localStorage.getItem("sync-gist-id"),
+      base: localStorage.getItem("sync-base") !== null,
+    }));
+    check(
+      "a github_pat_ key is saved on this device",
+      good.stored === ASK_KEY && /saved on this device/.test(good.toast),
+      good,
+    );
+    check("saving only the Ask key doesn't reconnect sync", good.gist === "g0", good);
+    await page.evaluate(() => openSyncModal());
+    const shown = await page.evaluate(
+      (k) => ({
+        value: document.getElementById("modal-askToken").value,
+        inPage: document.documentElement.outerHTML.includes(k),
+        remove: !!document.querySelector('[data-action="ask-token-remove"]'),
+        label: document.getElementById("ak-key").textContent,
+      }),
+      ASK_KEY,
+    );
+    check("the saved key is never put back on the page", shown.value === "" && !shown.inPage, shown);
+    check("a saved key offers Remove", shown.remove && /Key saved here/.test(shown.label), shown);
+    await page.evaluate(() => closeModal());
+    const kept = await page.evaluate((k) => {
+      const all = JSON.stringify([collectLocal(), liveData(), SYNC_KEYS]);
+      return { synced: all.includes(k) || SYNC_KEYS.includes("ask-token") };
+    }, ASK_KEY);
+    check("the key is not a synced list and not in backups", !kept.synced, kept);
+    // send a question: the key goes only in the dispatch's Authorization header
+    await page.fill("#console-input", "What's due before payday?");
+    await page.press("#console-input", "Enter");
+    await page.waitForTimeout(500);
+    const withKey = gh.log.filter((r) => JSON.stringify(r).includes(ASK_KEY));
+    check(
+      "only the dispatch carries the key, as a Bearer header",
+      withKey.length === 1 &&
+        withKey[0].path === DISPATCH_PATH &&
+        withKey[0].auth === "Bearer " + ASK_KEY &&
+        !withKey[0].body.includes(ASK_KEY),
+      withKey.map((r) => r.path),
+    );
+    check(
+      "gist calls use the sync token, never the Ask key",
+      gh.log.filter((r) => r.path.startsWith("/gists")).every((r) => r.auth === "Bearer tok"),
+    );
+    check(
+      "the key is in no gist file, log line or stored list",
+      !JSON.stringify(gh.gist.files).includes(ASK_KEY) && !logs.some((l) => l.includes(ASK_KEY)),
+      logs,
+    );
+    // Remove
+    await page.evaluate(() => openSyncModal());
+    await page.tap('[data-action="ask-token-remove"]');
+    const removed = await page.evaluate(() => ({
+      stored: localStorage.getItem("ask-token"),
+      remove: !!document.querySelector('[data-action="ask-token-remove"]'),
+      focus: document.activeElement && document.activeElement.id,
+    }));
+    check("Remove deletes the key from this device", removed.stored === null && !removed.remove, removed);
+    check("focus stays in the dialog after Remove", removed.focus === "modal-askToken", removed);
+    check("no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
+
+await section(
+  "ask: a question is written to jazz2-ask.json only, after a re-read, and only its id is dispatched",
+  async () => {
+    const now = Date.now();
+    const pending = Array.from({ length: 22 }, (_, i) => ({
+      id: `b-older-${String(i).padStart(2, "0")}`,
+      kind: "ask",
+      text: "older " + i,
+      at: new Date(now - (30 - i) * 60000).toISOString(),
+    }));
+    const gh = askGitHub({
+      files: {
+        "jazz2-ask.json": {
+          version: 1,
+          items: [
+            { id: "a-answered-01", kind: "ask", text: "already answered", at: isoAgo(3600e3) },
+            { id: "c-other-device", kind: "ask", text: "from the laptop", at: isoAgo(1000), thread: "a-answered-01" },
+            { id: "BAD ID", kind: "ask", text: "junk", at: isoAgo(1000) },
+            ...pending,
+          ],
+        },
+        "jazz2-answers.json": answersFile([answerFixture("a-answered-01", { status: "error" })]),
+      },
+    });
+    const { ctx, page, errors } = await openAsk({ route: gh.route, seed: askSync({ "ask-token": ASK_KEY }) });
+    const question = "Can I afford the helmet before payday?";
+    const before = gh.log.length;
+    await page.fill("#console-input", question);
+    await page.press("#console-input", "Enter");
+    await page.waitForTimeout(500);
+    const ops = gh.log.slice(before);
+    const patches = ops.filter((r) => r.method === "PATCH");
+    check(
+      "one PATCH, of jazz2-ask.json only",
+      patches.length === 1 && patches[0].files.join() === "jazz2-ask.json",
+      ops.map((r) => r.method + r.path),
+    );
+    const pIdx = ops.indexOf(patches[0]);
+    check(
+      "the gist is re-read right before the write",
+      pIdx > 0 && ops[pIdx - 1].method === "GET" && ops[pIdx - 1].path === "/gists/g0",
+      ops.map((r) => r.method),
+    );
+    const file = gh.read("jazz2-ask.json");
+    const mine = file.items.find((i) => i.text === question);
+    check(
+      "the new item has the contract's shape",
+      !!mine &&
+        /^[a-z0-9-]{8,40}$/.test(mine.id) &&
+        mine.kind === "ask" &&
+        !isNaN(Date.parse(mine.at)) &&
+        file.version === 1,
+      mine,
+    );
+    check(
+      "other pending questions are kept",
+      file.items.some((i) => i.id === "c-other-device" && i.thread === "a-answered-01"),
+      file.items.map((i) => i.id),
+    );
+    check(
+      "junk is pruned, and at the 20 cap answered thread context goes before pending questions",
+      !file.items.some((i) => i.id === "a-answered-01" || i.id === "BAD ID"),
+    );
+    check(
+      "at most 20 items, oldest dropped first",
+      file.items.length === 20 && !file.items.some((i) => i.id === "b-older-00"),
+      file.items.length,
+    );
+    check(
+      "other gist files are untouched",
+      JSON.parse(gh.gist.files["jazz2-push.json"].content).subs[0].endpoint === "https://push.example/a" &&
+        gh.read("jazz2-answers.json").answers.length === 1,
+    );
+    const disp = ops.filter((r) => r.path === DISPATCH_PATH);
+    check(
+      "the dispatch body is only {ref, inputs: {id}}",
+      disp.length === 1 && disp[0].body === JSON.stringify({ ref: "main", inputs: { id: mine.id } }),
+      disp.map((r) => r.body),
+    );
+    check(
+      "the dispatch has the GitHub headers",
+      disp[0].accept === "application/vnd.github+json" && disp[0].auth === "Bearer " + ASK_KEY,
+      disp[0],
+    );
+    check(
+      "the question text never leaves in a non-gist request",
+      gh.log
+        .filter((r) => !r.path.startsWith("/gists"))
+        .every((r) => !r.url.includes("helmet") && !r.body.includes("helmet")),
+    );
+    const feed = await page.evaluate(() => ({
+      text: document.getElementById("cn-feed").textContent,
+      pulse: !!document.querySelector("#cn-feed .cn-dot.pulse"),
+      box: document.getElementById("console-input").value,
+      stored: JSON.parse(localStorage.getItem("ask-questions")),
+    }));
+    check(
+      "the feed shows the question and a pulsing 'on it' row",
+      feed.text.includes(question) &&
+        feed.text.includes("Jarvis is on it · usually about a minute") &&
+        feed.pulse &&
+        feed.box === "",
+      feed.text,
+    );
+    check(
+      "the question is kept on this device, marked sent",
+      feed.stored[0].state === "sent" && feed.stored[0].id === mine.id,
+      feed.stored,
+    );
+    // cooldown: a second question right away is refused and stays in the box
+    await page.fill("#console-input", "What's on my calendar this week?");
+    await page.press("#console-input", "Enter");
+    await page.waitForTimeout(300);
+    const cool = await page.evaluate(() => ({
+      toast: document.getElementById("toast").textContent,
+      box: document.getElementById("console-input").value,
+    }));
+    check(
+      "10-second cooldown between sends",
+      /you can ask again in \d+s/.test(cool.toast) &&
+        cool.box === "What's on my calendar this week?" &&
+        gh.log.filter((r) => r.method === "PATCH" && r.files.includes("jazz2-ask.json")).length === 1,
+      cool,
+    );
+    // one send at a time
+    gh.state.dispatchDelay = 700;
+    const two = await page.evaluate(() => {
+      ASK_TIMING.cooldown = 0;
+      return [askSend("first of two?"), askSend("second of two?")];
+    });
+    await page.waitForTimeout(1200);
+    check(
+      "a second send while one is in flight is refused (one dispatch)",
+      two[0] === true && two[1] === false && gh.log.filter((r) => r.path === DISPATCH_PATH).length === 2,
+      two,
+    );
+    // a 1,200-character question is cut to 1,000
+    gh.state.dispatchDelay = 0;
+    await page.evaluate(() => askSend("x".repeat(1200) + "?"));
+    await page.waitForTimeout(500);
+    check(
+      "questions are cut to 1,000 characters",
+      gh.read("jazz2-ask.json").items.some((i) => i.text.length === 1000 && /^x+$/.test(i.text)),
+    );
+    check("no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
+
+await section("ask: without a key it's queued; a refused key warns and queues; expiry warning; sync off", async () => {
+  const gh = askGitHub();
+  const a = await openAsk({ route: gh.route, seed: askSync() });
+  const hint0 = await a.page.textContent("#cn-hint");
+  check(
+    "without a key the hint says questions wait for the next run",
+    /next run/.test(hint0) && /Ask Jarvis key in Sync/.test(hint0),
+    hint0,
+  );
+  await a.page.fill("#console-input", "What should I focus on tomorrow?");
+  await a.page.press("#console-input", "Enter");
+  await a.page.waitForTimeout(500);
+  const q = await a.page.evaluate(() => ({
+    feed: document.getElementById("cn-feed").textContent,
+    state: JSON.parse(localStorage.getItem("ask-questions"))[0].state,
+  }));
+  check(
+    "no key: written to the gist, not dispatched, shown as queued",
+    gh.log.some((r) => r.method === "PATCH") &&
+      !gh.log.some((r) => r.path === DISPATCH_PATH) &&
+      /Queued — Jarvis will answer on the next run \((today|tomorrow) ~7am\)/.test(q.feed) &&
+      q.state === "queued",
+    q,
+  );
+  // a refused key: 401, 403 and 404 all warn
+  for (const status of [401, 403, 404]) {
+    gh.state.dispatch = status;
+    await a.page.evaluate((k) => {
+      localStorage.setItem("ask-token", k);
+      localStorage.removeItem("ask-token-bad");
+      ASK_TIMING.cooldown = 0;
+      document.getElementById("toast").textContent = "";
+    }, ASK_KEY);
+    await a.page.evaluate((s) => askSend(`refused ${s}?`), status);
+    await a.page.waitForTimeout(400);
+    const r = await a.page.evaluate(() => ({
+      toast: document.getElementById("toast").textContent,
+      state: JSON.parse(localStorage.getItem("ask-questions"))[0].state,
+      flag: localStorage.getItem("ask-token-bad"),
+    }));
+    check(
+      `${status}: "key isn't working" and the question is queued`,
+      r.toast === "Ask Jarvis key isn't working — check it in Sync" && r.state === "queued" && r.flag === "1",
+      r,
+    );
+  }
+  check("the hint keeps saying the key isn't working", /isn't working/.test(await a.page.textContent("#cn-hint")));
+  // network failure: queued, no key warning
+  gh.state.dispatch = "abort";
+  await a.page.evaluate(() => {
+    localStorage.removeItem("ask-token-bad");
+    document.getElementById("toast").textContent = "";
+    askSend("offline dispatch?");
+  });
+  await a.page.waitForTimeout(400);
+  const net = await a.page.evaluate(() => ({
+    toast: document.getElementById("toast").textContent,
+    state: JSON.parse(localStorage.getItem("ask-questions"))[0].state,
+  }));
+  check("a failed dispatch falls back to queued", net.state === "queued" && !/isn't working/.test(net.toast), net);
+  // the expiry header: within 14 days shows a gentle warning, a year away doesn't
+  gh.state.dispatch = 204;
+  const soon = new Date(Date.now() + 5 * 864e5).toISOString().replace("T", " ").slice(0, 19) + " UTC";
+  gh.state.expires = soon;
+  await a.page.evaluate(() => askSend("expiring?"));
+  await a.page.waitForTimeout(400);
+  await a.page.evaluate(() => consoleSetMode("ask"));
+  const warn = await a.page.evaluate(() => ({
+    note: (document.querySelector("#cn-ask-note .ak-warn") || {}).textContent || "",
+    exp: Number(localStorage.getItem("ask-token-expires")),
+  }));
+  check(
+    "a key expiring within 14 days shows a warning in Console",
+    /expires/.test(warn.note) && /Sync/.test(warn.note) && Math.abs(warn.exp - (Date.now() + 5 * 864e5)) < 864e5,
+    warn,
+  );
+  gh.state.expires = "2027-10-01 09:00:00 -0500";
+  await a.page.evaluate(() => askSend("far away?"));
+  await a.page.waitForTimeout(400);
+  await a.page.evaluate(() => consoleRefreshBox());
+  check("a key with time left shows no warning", !(await a.page.$("#cn-ask-note .ak-warn")));
+  check(
+    "the expiry parser reads GitHub's formats and rejects junk",
+    await a.page.evaluate(
+      () =>
+        askParseExpiry("2027-10-01 09:00:00 -0500") === Date.parse("2027-10-01T14:00:00Z") &&
+        askParseExpiry("2027-10-01 09:00:00 UTC") === Date.parse("2027-10-01T09:00:00Z") &&
+        askParseExpiry("soon") === null &&
+        askParseExpiry(null) === null,
+    ),
+  );
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+  // sync off: Ask explains, nothing is sent, Capture still works
+  const b = await openAsk({ seed: { "data-updated-at": "1", "todo-content": [] } });
+  const reqs = [];
+  b.page.on("request", (r) => reqs.push(r.url()));
+  const off = await b.page.evaluate(() => ({
+    hint: document.getElementById("cn-hint").textContent,
+    note: document.getElementById("cn-ask-note").textContent,
+    open: !!document.querySelector('#cn-ask-note [data-action="open-sync"]'),
+  }));
+  check("sync off: Ask says it needs sync, with a way to open Sync", /Ask needs sync/.test(off.hint) && off.open, off);
+  await b.page.fill("#console-input", "What's due before payday?");
+  await b.page.press("#console-input", "Enter");
+  await b.page.waitForTimeout(200);
+  const kept = await b.page.evaluate(() => ({
+    box: document.getElementById("console-input").value,
+    toast: document.getElementById("toast").textContent,
+    asks: localStorage.getItem("ask-questions"),
+  }));
+  check(
+    "sync off: the question stays in the box and nothing is stored or sent",
+    kept.box === "What's due before payday?" &&
+      /needs sync/.test(kept.toast) &&
+      kept.asks === null &&
+      reqs.every((u) => !u.includes("api.github.com")),
+    kept,
+  );
+  await b.page.tap('.cn-seg[data-mode="capture"]');
+  await b.page.fill("#console-input", "dentist fri / buy eggs $5");
+  await b.page.press("#console-input", "Enter");
+  await b.page.tap("#cn-add");
+  check("Capture still works without sync", (await b.page.evaluate(() => todoList.length + wantsList.length)) >= 2);
+  check("no JS errors (sync off)", b.errors.length === 0, b.errors);
+  await b.ctx.close();
+});
+
+await section("ask: Console polls for the answer while visible, stops when hidden or after the window", async () => {
+  const gh = askGitHub();
+  const { ctx, page, errors } = await openAsk({ route: gh.route, seed: askSync({ "ask-token": ASK_KEY }) });
+  await page.evaluate(() => {
+    ASK_TIMING.pollEvery = 150;
+    ASK_TIMING.pollFor = 60000;
+    ASK_TIMING.cooldown = 0;
+  });
+  const gets = () => gh.log.filter((r) => r.method === "GET" && r.path === "/gists/g0").length;
+  await page.evaluate(() => askSend("When will I hit my weight goal?"));
+  await page.waitForTimeout(500);
+  const id = JSON.parse(gh.gist.files["jazz2-ask.json"].content).items[0].id;
+  const g1 = gets();
+  await page.waitForTimeout(600);
+  check("it polls the gist every few seconds while waiting", gets() >= g1 + 2, [g1, gets()]);
+  // hidden: polling stops
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { get: () => "hidden", configurable: true });
+    Object.defineProperty(document, "hidden", { get: () => true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForTimeout(200);
+  const h1 = gets();
+  await page.waitForTimeout(700);
+  check("hidden: no polling", gets() === h1, [h1, gets()]);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { get: () => "visible", configurable: true });
+    Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  // the answer lands in the gist; the poll brings it in
+  gh.setFile("jazz2-answers.json", answersFile([answerFixture(id, { askedAt: new Date().toISOString() })]));
+  await page.waitForTimeout(2000);
+  const got = await page.evaluate(() => ({
+    feed: document.getElementById("cn-feed").textContent,
+    toast: document.getElementById("toast").textContent,
+  }));
+  check(
+    "visible again: polling resumes and the answer appears",
+    got.feed.includes("You have 2 bills before Friday") && !got.feed.includes("on it"),
+    got.feed,
+  );
+  const a1 = gets();
+  await page.waitForTimeout(600);
+  check("polling stops once answered", gets() === a1, [a1, gets()]);
+  // another tab: no polling
+  await page.evaluate(() => askSend("Still waiting?"));
+  await page.waitForTimeout(400);
+  await page.evaluate(() => activateTab("todo"));
+  await page.waitForTimeout(300);
+  const t1 = gets();
+  await page.waitForTimeout(600);
+  check("off the Console tab: no polling", gets() === t1, [t1, gets()]);
+  // past the window: stops and says so
+  await page.evaluate(() => {
+    ASK_TIMING.pollFor = 400;
+    activateTab("console");
+    askPollStart();
+  });
+  await page.waitForTimeout(1200);
+  const w1 = gets();
+  await page.waitForTimeout(500);
+  const late = await page.textContent("#cn-feed");
+  check("after the window: polling stops", gets() === w1, [w1, gets()]);
+  check(
+    "after the window: 'Still working — you'll get a notification'",
+    late.includes("Still working — you'll get a notification"),
+    late,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("ask: answers normalizer drops junk, caps sizes, escapes text, survives bad usage", async () => {
+  const { ctx, page, errors } = await openAsk({ seed: { "data-updated-at": "1" } });
+  const n = await page.evaluate(() => {
+    const raw = {
+      version: 1,
+      answers: [
+        "x",
+        null,
+        [1],
+        { id: "<bad>", status: "ok", text: "bad id" },
+        { id: "a-bad-status", status: "maybe", text: "nope" },
+        {
+          id: "a-big-answer",
+          askedAt: "2030-01-01T10:00:00Z",
+          answeredAt: "2030-01-01T10:01:00Z",
+          status: "ok",
+          text: "t".repeat(5000),
+          bullets: Array.from({ length: 9 }, (_, i) => (i === 2 ? 42 : "b".repeat(400))),
+          sources: ["jazz", "evil", "jazz", "news", "calendar", "inbox", "weather", "deliveries", "review"],
+          chips: [
+            { kind: "todo", text: "Pay rent", due: "2030-02-30" },
+            { kind: "hack", text: "nope" },
+            { kind: "shopping", text: "s".repeat(300), due: "2030-01-02" },
+            { kind: "todo", text: "" },
+            { kind: "todo", text: "third" },
+            { kind: "todo", text: "fourth" },
+          ],
+          by: "who",
+        },
+        { id: "a-big-answer", status: "ok", text: "duplicate" },
+        { id: "a-limit-hit", status: "over_limit", askedAt: "nonsense", answeredAt: 5 },
+      ],
+      usage: {
+        day: "today",
+        dayCount: NaN,
+        dayCostUsd: Infinity,
+        week: "2030-W01",
+        weekCount: -4,
+        month: "2030-01",
+        monthCostUsd: "8",
+      },
+    };
+    const out = normalizeAnswers(raw);
+    return {
+      ids: out.answers.map((a) => a.id),
+      big: out.answers.find((a) => a.id === "a-big-answer"),
+      limit: out.answers.find((a) => a.id === "a-limit-hit"),
+      usage: out.usage,
+      wrong: normalizeAnswers({ version: 2, answers: [{ id: "a-xxxxxxxx", status: "ok" }] }).answers.length,
+      junk: normalizeAnswers("junk").answers.length,
+      many: normalizeAnswers({
+        version: 1,
+        answers: Array.from({ length: 80 }, (_, i) => ({
+          id: "a-many-" + String(i).padStart(3, "0"),
+          status: "ok",
+          text: "x",
+          answeredAt: new Date(2030, 0, 1, 0, i).toISOString(),
+        })),
+      }).answers,
+    };
+  });
+  check("junk, bad ids and bad statuses are dropped; one per id", n.ids.join() === "a-big-answer,a-limit-hit", n.ids);
+  check(
+    "text ≤1200, bullets ≤5 × ≤200 strings",
+    n.big.text.length === 1200 && n.big.bullets.length === 5 && n.big.bullets.every((b) => b.length === 200),
+    n.big.bullets.length,
+  );
+  check(
+    "sources: known ones only, no repeats, ≤6",
+    JSON.stringify(n.big.sources) === '["jazz","news","calendar","inbox","weather","deliveries"]',
+    n.big.sources,
+  );
+  check(
+    "chips: todo/shopping only, ≤3, text ≤120, bad dates dropped",
+    n.big.chips.length === 3 &&
+      n.big.chips[0].due === null &&
+      n.big.chips[1].text.length === 120 &&
+      n.big.chips[1].due === null &&
+      n.big.chips[2].text === "third",
+    n.big.chips,
+  );
+  check("by is jarvis unless 'fallback'", n.big.by === "jarvis");
+  check("bad dates become empty", n.limit.askedAt === "" && n.limit.answeredAt === "", n.limit);
+  check(
+    "usage: NaN / Infinity / negative / strings are cleaned",
+    n.usage.day === null &&
+      n.usage.dayCount === 0 &&
+      n.usage.dayCostUsd === 0 &&
+      n.usage.week === "2030-W01" &&
+      n.usage.weekCount === 0 &&
+      n.usage.monthCostUsd === 0,
+    n.usage,
+  );
+  check("other versions and junk files give nothing", n.wrong === 0 && n.junk === 0);
+  check("at most 50 answers, newest first", n.many.length === 50 && n.many[0].id === "a-many-079", n.many.length);
+  // ingest: stored cleaned; foreign raw URLs and junk change nothing
+  const ing = await page.evaluate(async () => {
+    const evil = '<img src=x onerror="window.__xss=1">';
+    localStorage.setItem(
+      "ask-questions",
+      JSON.stringify([
+        { id: "a-xss-question", text: evil + "?", at: Date.now() - 60000, state: "sent", sentAt: Date.now() - 60000 },
+      ]),
+    );
+    await ingestAnswersFile({
+      content: JSON.stringify({
+        version: 1,
+        answers: [
+          {
+            id: "a-xss-question",
+            status: "ok",
+            text: evil,
+            bullets: [evil],
+            sources: ["jazz"],
+            chips: [{ kind: "todo", text: evil }],
+            askedAt: new Date().toISOString(),
+            answeredAt: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+    const before = localStorage.getItem("jarvis-answers");
+    await ingestAnswersFile({ truncated: true, raw_url: "https://evil.example/x" });
+    await ingestAnswersFile({ content: "not json" });
+    await ingestAnswersFile({ content: JSON.stringify({ version: 9 }) });
+    await ingestAnswersFile(undefined);
+    activateTab("console");
+    return {
+      same: localStorage.getItem("jarvis-answers") === before,
+      xss: window.__xss,
+      imgs: document.querySelectorAll("#panel-console img").length,
+      text: document.getElementById("cn-feed").textContent,
+      synced:
+        SYNC_KEYS.some((k) => /ask|answer/.test(k)) ||
+        JSON.stringify([collectLocal(), liveData()]).includes("a-xss-question"),
+    };
+  });
+  check("foreign raw URLs, junk and other versions change nothing", ing.same, ing);
+  check("answer text is shown as text, never run", !ing.xss && ing.imgs === 0 && ing.text.includes("<img src=x"), ing);
+  check("questions and answers are not synced lists or in backups", !ing.synced);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section(
+  "ask: answers render honestly (ok / over limit / error / declined), chips add only on tap, Follow up threads",
+  async () => {
+    const now = Date.now();
+    const qs = [
+      {
+        id: "a-q-ok-000001",
+        text: "What's due before payday?",
+        at: now - 50 * 60000,
+        state: "sent",
+        sentAt: now - 50 * 60000,
+      },
+      {
+        id: "a-q-limit-001",
+        text: "How did my week go?",
+        at: now - 40 * 60000,
+        state: "sent",
+        sentAt: now - 40 * 60000,
+      },
+      { id: "a-q-error-001", text: "Plan my Saturday?", at: now - 30 * 60000, state: "queued" },
+      { id: "a-q-decl-0001", text: "Write my essay?", at: now - 20 * 60000, state: "queued" },
+    ];
+    const ans = answersFile(
+      [
+        answerFixture("a-q-ok-000001", { askedAt: new Date(now - 50 * 60000).toISOString() }),
+        answerFixture("a-q-limit-001", {
+          status: "over_limit",
+          text: "",
+          bullets: [],
+          sources: [],
+          chips: [],
+          askedAt: new Date(now - 40 * 60000).toISOString(),
+        }),
+        answerFixture("a-q-error-001", {
+          status: "error",
+          text: "",
+          chips: [],
+          askedAt: new Date(now - 30 * 60000).toISOString(),
+        }),
+        answerFixture("a-q-decl-0001", {
+          status: "declined",
+          text: "I can only answer from your Jazz data.",
+          chips: [],
+          askedAt: new Date(now - 20 * 60000).toISOString(),
+        }),
+        answerFixture("a-other-dev01", {
+          text: "Answer to a laptop question",
+          chips: [],
+          askedAt: new Date(now - 10 * 60000).toISOString(),
+        }),
+      ],
+      {
+        day: isoOffset(0),
+        dayCount: 3,
+        dayCostUsd: 0.18,
+        week: "2030-W01",
+        weekCount: 9,
+        month: "2030-01",
+        monthCostUsd: 1.2,
+      },
+    );
+    const gh = askGitHub({
+      files: {
+        "jazz2-answers.json": ans,
+        // answered items still in the ask file: the root of the thread followed below, and an unrelated one
+        "jazz2-ask.json": {
+          version: 1,
+          items: [
+            {
+              id: "a-q-ok-000001",
+              kind: "ask",
+              text: "What's due before payday?",
+              at: new Date(now - 50 * 60000).toISOString(),
+            },
+            {
+              id: "a-q-limit-001",
+              kind: "ask",
+              text: "How did my week go?",
+              at: new Date(now - 30 * 3600e3).toISOString(),
+            },
+          ],
+        },
+      },
+    });
+    const { ctx, page, errors } = await openAsk({
+      route: gh.route,
+      seed: askSync({
+        "ask-questions": qs,
+        "jarvis-answers": ans,
+        "todo-content": [],
+        "wants-content": [],
+        "ask-token": ASK_KEY,
+      }),
+    });
+    const r = await page.evaluate(() => {
+      const entry = (id) => document.querySelector(`#cn-feed [data-ask-entry="${id}"]`);
+      const t = (id) => (entry(id) || {}).textContent || "";
+      return {
+        ok: t("a-q-ok-000001"),
+        okSrc: [...entry("a-q-ok-000001").querySelectorAll(".ak-srcs .jv-src")].map((s) => s.textContent),
+        bullets: entry("a-q-ok-000001").querySelectorAll(".ak-bullets li").length,
+        chips: entry("a-q-ok-000001").querySelectorAll(".rv-chip").length,
+        limit: t("a-q-limit-001"),
+        limitCls: !!entry("a-q-limit-001").querySelector(".ak-flagged.ak-over_limit"),
+        error: t("a-q-error-001"),
+        again: !!entry("a-q-error-001").querySelector('[data-action="ask-again"]'),
+        declined: t("a-q-decl-0001"),
+        other: t("a-other-dev01"),
+        usage: document.getElementById("cn-usage").textContent,
+      };
+    });
+    check("an ok answer shows its text and bullets", r.ok.includes("You have 2 bills") && r.bullets === 2, r.ok);
+    check("its sources are tags like the briefing's", JSON.stringify(r.okSrc) === '["Jazz","Calendar"]', r.okSrc);
+    check("and its chips", r.chips === 2, r.chips);
+    check(
+      "over_limit is clearly an over-the-limit answer",
+      r.limitCls && /Over the limit/.test(r.limit) && /over the daily question limit/.test(r.limit),
+      r.limit,
+    );
+    check("error says so, with Ask again", /Jarvis couldn't answer/.test(r.error) && r.again, r.error);
+    check(
+      "declined says so, with Jarvis's reason",
+      /Jarvis didn't answer this/.test(r.declined) && /only answer from your Jazz data/.test(r.declined),
+      r.declined,
+    );
+    check(
+      "an answer to another device's question still shows",
+      /Asked on another device/.test(r.other) && /laptop question/.test(r.other),
+      r.other,
+    );
+    check("today's questions left come from usage", r.usage === "7 of 10 questions left today", r.usage);
+    // chips: nothing until tapped; then one item with its date, and Undo
+    const n0 = await page.evaluate(() => [todoList.length, wantsList.length]);
+    await page.tap('#cn-feed .rv-chip[data-ask-id="a-q-ok-000001"][data-index="0"]');
+    const added = await page.evaluate(() => ({
+      todo: todoList.find((t) => t.text === "Pay Rent"),
+      toast: document.getElementById("toast").textContent,
+      undo: !!document.querySelector("#toast .toast-action"),
+      chip: document.querySelector('#cn-feed .rv-chip[data-ask-id="a-q-ok-000001"][data-index="0"]').className,
+      stored: JSON.parse(localStorage.getItem("todo-content")).length,
+    }));
+    check(
+      "a chip adds its to-do only when tapped, with its date",
+      n0[0] === 0 && !!added.todo && added.todo.due === isoOffset(1) && added.stored === 1,
+      added,
+    );
+    check(
+      "with an Undo toast, and the chip shows Added",
+      added.undo && /Added to To-Do/.test(added.toast) && /added/.test(added.chip),
+      added,
+    );
+    await page.tap("#toast .toast-action");
+    check("Undo takes it back", (await page.evaluate(() => todoList.length)) === 0);
+    await page.tap('#cn-feed .rv-chip[data-ask-id="a-q-ok-000001"][data-index="1"]');
+    check(
+      "a Shopping chip adds a Shopping item",
+      await page.evaluate(
+        (w0) => wantsList.length === w0 + 1 && wantsList.some((w) => w.name === "Printer paper"),
+        n0[1],
+      ),
+    );
+    check(
+      "forged chip metadata does nothing",
+      await page.evaluate(() => {
+        const n = todoList.length + wantsList.length;
+        askAddChip("a-q-ok-000001", 9);
+        askAddChip("<x>", 0);
+        askAddChip("a-q-limit-001", 0);
+        return todoList.length + wantsList.length === n;
+      }),
+    );
+    // Follow up: the next question carries the first question's id
+    await page.tap('#cn-feed [data-ask-entry="a-q-ok-000001"] [data-action="ask-follow"]');
+    const fu = await page.evaluate(() => ({
+      note: document.getElementById("cn-ask-note").textContent,
+      ask: document.querySelector('.cn-seg[data-mode="ask"]').getAttribute("aria-pressed"),
+      focus: document.activeElement.id,
+    }));
+    check(
+      "Follow up says what it follows, switches to Ask and focuses the box",
+      /Following up on “What's due before payday\?”/.test(fu.note) && fu.ask === "true" && fu.focus === "console-input",
+      fu,
+    );
+    await page.fill("#console-input", "And after payday?");
+    await page.press("#console-input", "Enter");
+    await page.waitForTimeout(500);
+    const item = gh.read("jazz2-ask.json").items.find((i) => i.text === "And after payday?");
+    check("the follow-up carries thread = the first question's id", !!item && item.thread === "a-q-ok-000001", item);
+    const kept = gh.read("jazz2-ask.json").items.map((i) => i.id);
+    check(
+      "an answered question in a thread active in the last 24h stays in the ask file; unrelated answered ones go",
+      kept.includes("a-q-ok-000001") && !kept.includes("a-q-limit-001"),
+      kept,
+    );
+    check(
+      "the follow-up note goes away after sending",
+      !(await page.textContent("#cn-ask-note")).includes("Following up"),
+    );
+    // a follow-up of a follow-up keeps the first question's id
+    await page.evaluate((id) => {
+      const a = JSON.parse(localStorage.getItem("jarvis-answers"));
+      a.answers.unshift({
+        id,
+        askedAt: new Date().toISOString(),
+        answeredAt: new Date().toISOString(),
+        status: "ok",
+        text: "Then $300 free.",
+        bullets: [],
+        sources: [],
+        chips: [],
+        by: "jarvis",
+      });
+      localStorage.setItem("jarvis-answers", JSON.stringify(a));
+      ASK_TIMING.cooldown = 0;
+      renderConsole();
+    }, item.id);
+    await page.tap(`#cn-feed [data-ask-entry="${item.id}"] [data-action="ask-follow"]`);
+    await page.fill("#console-input", "And next month?");
+    await page.press("#console-input", "Enter");
+    await page.waitForTimeout(500);
+    const item2 = gh.read("jazz2-ask.json").items.find((i) => i.text === "And next month?");
+    check("a follow-up's follow-up keeps the root id", !!item2 && item2.thread === "a-q-ok-000001", item2);
+    // Cancel drops the thread
+    await page.tap('#cn-feed [data-ask-entry="a-q-ok-000001"] [data-action="ask-follow"]');
+    await page.tap('[data-action="ask-thread-cancel"]');
+    check("Cancel drops the follow-up", (await page.evaluate(() => askThread)) === null);
+    // Ask again puts the question back in the box
+    await page.tap('#cn-feed [data-ask-entry="a-q-error-001"] [data-action="ask-again"]');
+    check(
+      "Ask again puts the question back in the box",
+      (await page.evaluate(() => document.getElementById("console-input").value)) === "Plan my Saturday?",
+    );
+    check("no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
+
+await section("ask: History shows the last 50; the feed keeps today and yesterday; Clear history", async () => {
+  const now = Date.now();
+  const qs = Array.from({ length: 60 }, (_, i) => ({
+    id: "a-hist-" + String(i).padStart(3, "0"),
+    text: "Question " + i,
+    at: now - i * 8 * 3600e3, // every 8 hours, back 20 days
+    state: "queued",
+  }));
+  const gh = askGitHub({
+    files: {
+      "jazz2-ask.json": {
+        version: 1,
+        items: [
+          { id: "a-hist-000", kind: "ask", text: "Question 0", at: new Date(now).toISOString() },
+          { id: "a-hist-010", kind: "ask", text: "Question 10", at: new Date(now - 80 * 3600e3).toISOString() },
+        ],
+      },
+    },
+  });
+  const { ctx, page, errors } = await openAsk({ route: gh.route, seed: askSync({ "ask-questions": qs }) });
+  const feed = await page.evaluate(() => {
+    const ats = [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) =>
+      e.getAttribute("data-ask-entry"),
+    );
+    return { n: ats.length, labels: [...document.querySelectorAll("#cn-feed .jv-label")].map((l) => l.textContent) };
+  });
+  check(
+    "the feed shows only today's and yesterday's questions",
+    feed.n >= 3 && feed.n <= 6 && feed.labels.every((l) => l === "Today" || l === "Yesterday"),
+    feed,
+  );
+  await page.tap('[data-action="ask-history"]');
+  const h = await page.evaluate(() => ({
+    open: document.getElementById("ask-sheet").classList.contains("open"),
+    ids: [...document.querySelectorAll("#ask-body [data-ask-entry]")].map((e) => e.getAttribute("data-ask-entry")),
+    focus: document.activeElement.id,
+    inert: document.querySelector("main").inert,
+    clear: !!document.querySelector('#ask-body [data-action="ask-clear"]'),
+  }));
+  check(
+    "History opens as a sheet with focus inside and the page behind it inert",
+    h.open && h.focus === "ask-title" && h.inert,
+    h,
+  );
+  check(
+    "History lists the last 50, newest first",
+    h.ids.length === 50 && h.ids[0] === "a-hist-000" && h.ids[49] === "a-hist-049",
+    [h.ids.length, h.ids[0], h.ids[49]],
+  );
+  await page.keyboard.press("Escape");
+  const closed = await page.evaluate(() => ({
+    open: document.getElementById("ask-sheet").classList.contains("open"),
+    focus: document.activeElement.getAttribute("data-action"),
+  }));
+  check("Escape closes it and focus goes back to History", !closed.open && closed.focus === "ask-history", closed);
+  await page.tap('[data-action="ask-history"]');
+  const before = gh.log.length;
+  await page.tap('#ask-body [data-action="ask-clear"]');
+  const cleared = await page.evaluate(() => ({
+    feed: document.querySelectorAll("#cn-feed [data-ask-entry]").length,
+    hist: document.querySelectorAll("#ask-body [data-ask-entry]").length,
+    stored: JSON.parse(localStorage.getItem("ask-questions")),
+    clear: Number(localStorage.getItem("ask-clear-before")),
+    toast: document.getElementById("toast").textContent,
+  }));
+  check(
+    "Clear history hides everything on this device at once",
+    cleared.feed === 0 && cleared.hist === 0 && cleared.stored.length === 0 && /cleared/.test(cleared.toast),
+    cleared,
+  );
+  await page.waitForTimeout(500);
+  const ops = gh.log.slice(before);
+  const file = gh.read("jazz2-ask.json");
+  check(
+    "and sets clearBefore in jazz2-ask.json (re-read first, that file only)",
+    ops.some((r) => r.method === "GET") &&
+      ops.filter((r) => r.method === "PATCH").every((r) => r.files.join() === "jazz2-ask.json") &&
+      Math.abs(Date.parse(file.clearBefore) - cleared.clear) < 1000 &&
+      file.items.length === 0,
+    file,
+  );
+  // a question asked on another device after the clear still shows; older ones don't come back
+  await page.evaluate(async () => {
+    await ingestAskFile({
+      content: JSON.stringify({
+        version: 1,
+        items: [
+          { id: "a-hist-001", kind: "ask", text: "Question 1", at: new Date(Date.now() - 3600e3).toISOString() },
+          { id: "a-new-laptop", kind: "ask", text: "From the laptop", at: new Date(Date.now() + 1000).toISOString() },
+        ],
+        clearBefore: new Date(Number(localStorage.getItem("ask-clear-before"))).toISOString(),
+      }),
+    });
+  });
+  const after = await page.evaluate(() =>
+    [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) => e.getAttribute("data-ask-entry")),
+  );
+  check("after a clear, only newer questions show", after.join() === "a-new-laptop", after);
+  await page.evaluate(() => closeAskHistory());
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+  // a clear done on another device (newer clearBefore in the gist) clears this one too
+  const b = await openAsk({ seed: { "ask-questions": qs.slice(0, 3) } });
+  await b.page.evaluate(async () =>
+    ingestAskFile({ content: JSON.stringify({ version: 1, items: [], clearBefore: new Date().toISOString() }) }),
+  );
+  check(
+    "a Clear history from another device clears this one",
+    (await b.page.evaluate(() => loadAskEntries().length)) === 0,
+  );
+  await b.ctx.close();
+});
+
+await section("ask: ?tab=console&ask=<id> opens Console at that answer, now or when it syncs", async () => {
+  const now = Date.now();
+  const qs = [
+    { id: "a-link-today1", text: "Linked question?", at: now - 600000, state: "sent", sentAt: now - 600000 },
+    { id: "a-link-older1", text: "Old linked question?", at: now - 4 * 864e5, state: "sent", sentAt: now - 4 * 864e5 },
+  ];
+  const ans = answersFile([
+    answerFixture("a-link-today1", { askedAt: new Date(now - 600000).toISOString() }),
+    answerFixture("a-link-older1", { askedAt: new Date(now - 4 * 864e5).toISOString(), text: "Old answer" }),
+  ]);
+  const a = await openAsk({
+    query: "?tab=console&ask=a-link-today1",
+    seed: { "ask-questions": qs, "jarvis-answers": ans },
+  });
+  const r = await a.page.evaluate(() => ({
+    tab: currentTab,
+    hit: !!document.querySelector('#cn-feed [data-ask-entry="a-link-today1"].ak-hit'),
+    focus: document.activeElement.getAttribute("data-ask-entry"),
+    url: location.search,
+  }));
+  check("the link opens Console at that answer", r.tab === "console" && r.hit && r.focus === "a-link-today1", r);
+  check("the query is cleared", r.url === "", r.url);
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+  const b = await openAsk({
+    query: "?tab=console&ask=a-link-older1",
+    seed: { "ask-questions": qs, "jarvis-answers": ans },
+  });
+  check(
+    "an older answer opens in History",
+    await b.page.evaluate(
+      () =>
+        document.getElementById("ask-sheet").classList.contains("open") &&
+        !!document.querySelector('#ask-body [data-ask-entry="a-link-older1"].ak-hit'),
+    ),
+  );
+  await b.ctx.close();
+  const c = await openAsk({ query: "?tab=console&ask=a-link-today1", seed: { "ask-questions": qs } });
+  const early = await c.page.evaluate(
+    () => !!document.querySelector('#cn-feed [data-ask-entry="a-link-today1"] .ak-ans'),
+  );
+  await c.page.evaluate(async (f) => ingestAnswersFile({ content: JSON.stringify(f) }), ans);
+  const late = await c.page.evaluate(() => ({
+    ans: !!document.querySelector('#cn-feed [data-ask-entry="a-link-today1"] .ak-ans'),
+    focus: document.activeElement.getAttribute("data-ask-entry"),
+  }));
+  check(
+    "an answer not synced yet is shown and focused once it arrives",
+    !early && late.ans && late.focus === "a-link-today1",
+    late,
+  );
+  await c.ctx.close();
+  const d = await openAsk({ query: "?tab=console&ask=%3Cscript%3E" });
+  check(
+    "a malformed id does nothing",
+    (await d.page.evaluate(() => askPendingLink)) === null && d.errors.length === 0,
+    d.errors,
+  );
+  await d.ctx.close();
+});
+
+await section("ask: suggestions change with the day and time, and use your top Shopping need", async () => {
+  const { ctx, page, errors } = await openAsk({
+    seed: {
+      "data-updated-at": "1",
+      "wants-content": [
+        { id: "w1", name: "Helmet", meta: "", price: 250, link: null, kind: "need", priority: "high" },
+        { id: "w2", name: "Lamp", meta: "", price: 20, link: null, kind: "want" },
+      ],
+      "fitness-content": { start: 200, goal: 180, weights: [], plan: [], checks: {} },
+    },
+  });
+  const s = await page.evaluate(() => ({
+    sunAm: askSuggestions(new Date(2030, 0, 6, 9)), // a Sunday morning
+    wedPm: askSuggestions(new Date(2030, 0, 9, 18)), // a Wednesday evening
+    chips: [...document.querySelectorAll("#cn-chips .cn-chip")].map((c) => c.textContent),
+  }));
+  check(
+    "Sunday/Monday leads with 'How did my week go?'",
+    s.sunAm[0] === "How did my week go?" && !s.wedPm.includes("How did my week go?"),
+    s,
+  );
+  check("the top Shopping need is named", s.wedPm.includes("Can I afford Helmet this pay period?"), s.wedPm);
+  check(
+    "focus today in the morning, tomorrow later",
+    s.sunAm.includes("What should I focus on today?") && s.wedPm.includes("What should I focus on tomorrow?"),
+    s,
+  );
+  check(
+    "payday, weight goal and calendar questions are offered",
+    ["What's due before payday?", "When will I hit my weight goal?", "What's on my calendar this week?"].every((q) =>
+      s.wedPm.includes(q),
+    ),
+    s.wedPm,
+  );
+  check(
+    "the Ask chips on screen are these suggestions",
+    s.chips.length >= 4 && s.chips.includes("What's due before payday?"),
+    s.chips,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section(
+  "voice: mic hidden without the Speech API; in the box and quick add with it; 44px; no overflow",
+  async () => {
+    const none = await openAsk({ speech: "none", query: "?tab=console" });
+    check(
+      "no Speech API: no mic in Console or Home (keyboard dictation still works)",
+      await none.page.evaluate(() => {
+        activateTab("home");
+        return !document.querySelector(".vc-mic") && !voiceSupported();
+      }),
+    );
+    await none.ctx.close();
+    for (const theme of ["dark", "light"]) {
+      const { ctx, page, errors } = await openAsk({ seed: { "theme-pref": theme } });
+      const r = await page.evaluate(() => {
+        const box = document.querySelector(".cn-box");
+        const kids = [...box.children].filter((c) => c.tagName !== "LABEL").map((c) => c.className.split(" ")[0]);
+        const mic = document.getElementById("vc-mic-console").getBoundingClientRect();
+        activateTab("home");
+        const qmic = document.getElementById("vc-mic-quick");
+        const qkids = [...document.querySelector(".jv-quick").children].map((c) => c.className.split(" ")[0]);
+        return {
+          kids,
+          qkids,
+          mic: [mic.width, mic.height],
+          q: qmic ? [qmic.getBoundingClientRect().width, qmic.getBoundingClientRect().height] : null,
+          pageW: document.scrollingElement.scrollWidth,
+          w: innerWidth,
+          label: qmic && qmic.getAttribute("aria-label"),
+        };
+      });
+      check(
+        `${theme}: the mic sits left of send in Console's box`,
+        r.kids.join() === "cn-input,vc-mic,cn-send",
+        r.kids,
+      );
+      check(
+        `${theme}: and left of + in Home's quick add`,
+        r.qkids.join() === "jv-quick-input,vc-mic,jv-quick-add",
+        r.qkids,
+      );
+      check(
+        `${theme}: 44px targets, labelled`,
+        r.mic[0] >= 44 && r.mic[1] >= 44 && r.q[0] >= 44 && r.q[1] >= 44 && /Speak/.test(r.label),
+        r,
+      );
+      check(`${theme}: no sideways scroll at 390px`, r.pageW <= r.w, r);
+      check(`no JS errors (${theme})`, errors.length === 0, errors);
+      await ctx.close();
+    }
+  },
+);
+
+await section("voice: what's said fills the box, a question flips to Ask, nothing is ever sent by itself", async () => {
+  const gh = askGitHub();
+  const { ctx, page, errors } = await openAsk({ route: gh.route, seed: askSync({ "ask-token": ASK_KEY }) });
+  await page.tap('.cn-seg[data-mode="capture"]'); // locked to Capture with an empty box
+  await page.tap("#vc-mic-console");
+  const on = await page.evaluate(() => ({
+    pressed: document.getElementById("vc-mic-console").getAttribute("aria-pressed"),
+    cls: document.getElementById("vc-mic-console").className,
+    label: document.getElementById("vc-mic-console").getAttribute("aria-label"),
+    hint: document.getElementById("cn-hint").textContent,
+    rec: { lang: __rec().lang, interim: __rec().interimResults, cont: __rec().continuous, started: __rec().started },
+  }));
+  await page.waitForTimeout(120);
+  const live = await page.evaluate(() => (document.getElementById("live-status") || {}).textContent);
+  check(
+    "listening: mic pressed and pulsing, Stop listening label",
+    on.pressed === "true" && /\bon\b/.test(on.cls) && on.label === "Stop listening",
+    on,
+  );
+  check(
+    "listening: hint says so and notes Google does the speech-to-text in Chrome",
+    /^Listening…/.test(on.hint) && /Google/.test(on.hint),
+    on.hint,
+  );
+  check("listening is announced", live === "Listening", live);
+  check(
+    "en-US, interim results, stops on silence",
+    on.rec.lang === "en-US" && on.rec.interim === true && on.rec.cont === false && on.rec.started === 1,
+    on.rec,
+  );
+  const patches0 = gh.log.filter((r) => r.method === "PATCH" && r.files.includes("jazz2-ask.json")).length;
+  await page.evaluate(() => __say("what's due"));
+  const interim = await page.evaluate(() => document.getElementById("console-input").value);
+  await page.evaluate(() => __say("what's due ", "before payday"));
+  await page.evaluate(() => __rec().onend());
+  await page.waitForTimeout(150);
+  const done = await page.evaluate(() => ({
+    box: document.getElementById("console-input").value,
+    ask: document.querySelector('.cn-seg[data-mode="ask"]').getAttribute("aria-pressed"),
+    pressed: document.getElementById("vc-mic-console").getAttribute("aria-pressed"),
+    focus: document.activeElement.id,
+    feed: document.querySelectorAll("#cn-feed [data-ask-entry]").length,
+  }));
+  check("interim results stream into the box", interim === "what's due", interim);
+  check("the transcript fills the box", done.box === "what's due before payday", done);
+  check("a spoken question flips the guess to Ask", done.ask === "true", done);
+  check(
+    "when it ends the mic is off and the box is focused for review",
+    done.pressed === "false" && done.focus === "console-input",
+    done,
+  );
+  await page.waitForTimeout(300);
+  check(
+    "nothing is sent by voice",
+    done.feed === 0 &&
+      gh.log.filter((r) => r.method === "PATCH" && r.files.includes("jazz2-ask.json")).length === patches0 &&
+      !gh.log.some((r) => r.path === DISPATCH_PATH),
+  );
+  // a second tap stops it
+  await page.fill("#console-input", "");
+  await page.tap("#vc-mic-console");
+  await page.tap("#vc-mic-console");
+  await page.waitForTimeout(100);
+  check(
+    "a second tap stops listening",
+    await page.evaluate(
+      () =>
+        __rec().stopped === 1 &&
+        !voiceListening() &&
+        document.getElementById("vc-mic-console").getAttribute("aria-pressed") === "false",
+    ),
+  );
+  // errors
+  for (const [code, msg] of [
+    ["not-allowed", "Microphone blocked: allow it in your browser settings"],
+    ["no-speech", "Didn't hear anything. Tap the mic and try again"],
+    ["network", "Voice needs an internet connection. You can still type"],
+  ]) {
+    await page.evaluate(() => (document.getElementById("toast").textContent = ""));
+    await page.tap("#vc-mic-console");
+    await page.evaluate((c) => __fail(c), code);
+    const t = await page.evaluate(() => ({
+      toast: document.getElementById("toast").textContent,
+      pressed: document.getElementById("vc-mic-console").getAttribute("aria-pressed"),
+    }));
+    check(`${code}: "${msg}"`, t.toast === msg && t.pressed === "false", t);
+  }
+  // Capture is unaffected: a spoken list previews as usual
+  await page.fill("#console-input", "");
+  await page.tap("#vc-mic-console");
+  await page.evaluate(() => {
+    __say("dentist fri / buy eggs $5");
+    __rec().onend();
+  });
+  await page.waitForTimeout(80);
+  const cap = await page.evaluate(() =>
+    document.querySelector('.cn-seg[data-mode="capture"]').getAttribute("aria-pressed"),
+  );
+  await page.press("#console-input", "Enter");
+  const rows = await page.$$eval(".cn-row .cn-tag", (t) => t.map((x) => x.textContent));
+  check("a spoken list is a Capture with the usual preview", cap === "true" && rows.join() === "To-do,Shopping", rows);
+  // leaving the tab stops listening
+  await page.tap('[data-action="console-edit"]');
+  await page.tap("#vc-mic-console");
+  await page.evaluate(() => activateTab("todo"));
+  check("switching tabs stops the mic", await page.evaluate(() => !voiceListening() && __rec().aborted === 1));
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("voice: Home's quick add fills from speech and adds only on +", async () => {
+  const { ctx, page, errors } = await openAsk({
+    query: "?tab=home",
+    seed: { "data-updated-at": "1", "todo-content": [] },
+  });
+  await page.tap("#vc-mic-quick");
+  const on = await page.evaluate(() => ({
+    pressed: document.getElementById("vc-mic-quick").getAttribute("aria-pressed"),
+    ph: document.getElementById("jv-quick").placeholder,
+  }));
+  check("listening shows on the quick add", on.pressed === "true" && on.ph === "Listening…", on);
+  await page.evaluate(() => {
+    __say("call mom tomorrow");
+    __rec().onend();
+  });
+  await page.waitForTimeout(80);
+  const filled = await page.evaluate(() => ({
+    box: document.getElementById("jv-quick").value,
+    kept: dashQuickText,
+    n: todoList.length,
+    ph: document.getElementById("jv-quick").placeholder,
+  }));
+  check(
+    "the transcript fills the quick add and nothing is added yet",
+    filled.box === "call mom tomorrow" &&
+      filled.kept === "call mom tomorrow" &&
+      filled.n === 0 &&
+      filled.ph === "Add a to-do",
+    filled,
+  );
+  await page.tap('[data-action="jv-quick-add"]');
+  check(
+    "+ adds it with its date",
+    await page.evaluate(
+      () => todoList.length === 1 && todoList[0].text === "call mom" && todoList[0].due === addDaysIso(1),
+    ),
+  );
+  check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
 

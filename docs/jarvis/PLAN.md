@@ -22,7 +22,9 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
     feed. Ask is designed but not switched on (questions are kept in the feed).
   - [x] Steps 3–4: week stats in code (`agents/lib/week-stats.ts`), the morning run's day digest
     (`jazz2-week.json`), and the Sunday ~6pm review job (`agents/review.ts`, `jazz2-reviews.json`, push).
-  - [ ] Steps 6–9: Ask Jarvis backend + UI, queue fallback, Sort with Jarvis (Ask transport not decided).
+  - [x] Steps 6–8: Ask Jarvis (dispatch with the Ask key + next-run fallback, hard cost limits;
+    `agents/ask.ts`, `jarvis-ask.yml`, `js/ask.js`) and voice input (`js/voice.js`).
+  - [ ] Step 9: Sort with Jarvis (Haiku sorter for messy captures).
   - [x] Step 5: Weekly Review UI (`js/review.js`): `jazz2-reviews.json` pulled by sync and
     normalized, the Console card / Last week row, the review sheet with ‹ › history, tap-to-add
     chips with Undo, links into each section, the `?review=` link and Home's "ready" line.

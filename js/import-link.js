@@ -339,5 +339,7 @@ function applyLaunchParams() {
   if (action === "addtodo") openComposer("todo");
   const review = params.get("review"); // ?tab=console&review=2026-W44 (the Sunday push)
   if (review) reviewDeepLink(review);
+  const ask = params.get("ask"); // ?tab=console&ask=<id> (the "ask" push: Jarvis answered)
+  if (ask) askDeepLink(ask);
   history.replaceState(null, "", location.pathname);
 }

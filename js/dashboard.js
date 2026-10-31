@@ -395,6 +395,7 @@ function dashQuickHtml() {
       <input id="jv-quick" class="jv-quick-input" type="text" autocomplete="off" enterkeyhint="done" maxlength="${TODO_MAX_LEN}"
         aria-label="Quick add a to-do" placeholder="Add a to-do"
         data-keydown-action="jv-quick-key" data-input-action="jv-quick-input" value="${escapeAttr(dashQuickText)}" />
+      ${voiceMicHtml("quick")}
       <button class="jv-quick-add" data-action="jv-quick-add" aria-label="Add to-do">+</button>
     </div>`;
 }
@@ -407,6 +408,7 @@ function dashQuickAdd() {
     if (el) el.focus();
     return;
   }
+  voiceCancel(); // adding ends any listening
   const { text, due } = parseQuickAdd(raw);
   const t = { id: genId("todo"), text, done: false, due, starred: false, subitems: [], completedAt: null };
   // new items go to the top of their group, like the + sheet

@@ -5,29 +5,27 @@
 // ---------- CONSOLE ----------
 // Capture is local: the text is split and sorted on this device with the same rules as the + sheet
 // (a trailing day word is the date, a trailing price makes it a Shopping item), shown as a preview,
-// and only saved when you tap Add. Ask has no backend yet: a question is kept in the feed, honestly
-// labelled, and nothing is sent anywhere.
+// and only saved when you tap Add. Ask sends the question to Jarvis (ask.js): its rows in the feed
+// (today and yesterday; the rest are in History) come from there.
 const CONSOLE_FEED_KEY = "console-feed"; // this device only: not in SYNC_KEYS, never pushed, not in backups
 const CONSOLE_MOVED_KEY = "console-moved-seen"; // the one-time "Jazz 3.0 moved" notice was shown (this device)
 const CONSOLE_FEED_DAYS = 7;
 const CONSOLE_FEED_MAX = 50;
 const CONSOLE_TEXT_MAX = 1000;
 const CONSOLE_PIECES_MAX = 20;
-const CONSOLE_ASK_STATUS = "Ask Jarvis isn't switched on yet — this question is saved here";
+const CONSOLE_ASK_STATUS = "Not sent: saved here before Ask Jarvis was switched on"; // older feed entries
 const CONSOLE_MOVED_MSG = "Jazz 3.0 moved: open it from Home's Jazz 3.0 tile or the bottom of Console";
 const CONSOLE_MODES = {
   ask: {
     label: "Ask",
     placeholder: "Ask Jarvis…",
     send: "Send question",
-    hint: "Ask isn't switched on yet. Questions are saved here for now.",
-    chips: [
-      "What's due before payday?",
-      "How did workouts go?",
-      "What can I skip today?",
-      "Plan my Saturday",
-      "Am I on track for my weight goal?",
-    ],
+    get hint() {
+      return askHint(); // depends on sync, the Ask Jarvis key and today's limit
+    },
+    get chips() {
+      return askSuggestions(); // change with the day and time
+    },
   },
   capture: {
     label: "Capture",
@@ -216,6 +214,10 @@ function consoleAddedText(todos, shop) {
 // consoleReviewHtml() (the Weekly Review card in this slot) lives in review.js
 function consoleShellHtml() {
   return `<div class="cn">
+    <div class="cn-top">
+      <span class="cn-usage" id="cn-usage"></span>
+      <button type="button" class="cn-hist" data-action="ask-history" aria-label="History: your questions to Jarvis"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</button>
+    </div>
     <div class="cn-switch" role="group" aria-label="Mode">
       <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Ask</button>
       <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false">Capture</button>
@@ -224,10 +226,12 @@ function consoleShellHtml() {
       <label class="cn-sr" for="console-input" id="console-input-label">Ask Jarvis</label>
       <input id="console-input" class="cn-input" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"
         maxlength="${CONSOLE_TEXT_MAX}" aria-describedby="cn-hint" data-keydown-action="console-key" data-input-action="console-input" />
+      ${voiceMicHtml("console")}
       <button type="button" class="cn-send" id="cn-send" data-action="console-send" aria-label="Send question">${CONSOLE_SEND_ICON}</button>
     </div>
     <div class="cn-chips" id="cn-chips" role="group" aria-label="Suggestions"></div>
     <p class="cn-hint" id="cn-hint"></p>
+    <div id="cn-ask-note"></div>
     <div id="cn-preview"></div>
     <div class="cn-review" id="cn-review"></div>
     <div id="cn-feed"></div>
@@ -250,8 +254,15 @@ function consoleRefreshBox() {
   document.getElementById("console-input-label").textContent =
     mode === "ask" ? "Ask Jarvis" : "Capture to-dos, Shopping items and notes";
   document.getElementById("cn-send").setAttribute("aria-label", cfg.send);
-  document.getElementById("cn-hint").textContent =
-    text.trim() && !consoleMode ? "Switched by what you typed. Tap to change." : cfg.hint;
+  document.getElementById("cn-hint").textContent = voiceListening("console")
+    ? VOICE_LISTENING_HINT
+    : text.trim() && !consoleMode
+      ? "Switched by what you typed. Tap to change."
+      : cfg.hint;
+  const note = askNoteHtml(mode),
+    noteEl = document.getElementById("cn-ask-note");
+  if (noteEl.innerHTML !== note) noteEl.innerHTML = note; // only when it changes, so typing doesn't redraw it
+  document.getElementById("cn-usage").textContent = askUsageText();
   if (consoleChipsMode !== mode) {
     consoleChipsMode = mode;
     const chips = document.getElementById("cn-chips");
@@ -278,7 +289,7 @@ function consoleRowMeta(row) {
     const f = consoleExpenseOf(row);
     return [f.amount != null ? `$${fmtMoney(f.amount)}` : "", "Not added: check it in Budget"];
   }
-  if (row.type === "ask") return ["Saved as a question here"];
+  if (row.type === "ask") return ["Goes back in the box to ask Jarvis"];
   return ["Won't be added"];
 }
 function consoleRowTitle(row) {
@@ -316,7 +327,7 @@ function consolePreviewHtml() {
     .join("");
   const c = consoleCounts(p.rows),
     n = c.todo + c.shop;
-  const add = n ? `Add ${n}` : c.ask ? `Save ${c.ask === 1 ? "question" : `${c.ask} questions`}` : "Nothing to add";
+  const add = n ? `Add ${n}` : c.ask ? `Ask ${c.ask === 1 ? "it" : "them"} instead` : "Nothing to add";
   return `<section class="cn-preview" aria-labelledby="cn-preview-title">
     <div class="cn-preview-head"><h2 class="jv-kicker" id="cn-preview-title" tabindex="-1">Preview · ${p.rows.length} item${p.rows.length === 1 ? "" : "s"}</h2><span>Tap one to change it</span></div>
     <ul class="cn-rows">${rows}</ul>
@@ -356,11 +367,16 @@ function consoleEntryHtml(e) {
     <span class="cn-who cn-j">J</span><div class="cn-reply">${reply}</div>
   </li>`;
 }
+// Captures from this week, and questions to Jarvis from today and yesterday (ask.js), newest first
 function consoleFeedHtml() {
-  if (!consoleFeed.length)
+  const all = [
+    ...consoleFeed.map((e) => ({ at: e.at, html: () => consoleEntryHtml(e) })),
+    ...askFeedEntries().map((q) => ({ at: q.at, html: () => askEntryHtml(q) })),
+  ].sort((a, b) => b.at - a.at);
+  if (!all.length)
     return `<div class="jv-label"><span>Today</span><i></i></div><p class="cn-empty">Nothing here yet this week. Ask a question or capture a few to-dos above.</p>`;
   const days = [];
-  consoleFeed.forEach((e) => {
+  all.forEach((e) => {
     const iso = isoDate(new Date(e.at));
     const last = days[days.length - 1];
     if (last && last.iso === iso) last.list.push(e);
@@ -369,7 +385,7 @@ function consoleFeedHtml() {
   return days
     .map(
       (d) =>
-        `<div class="jv-label"><span>${escapeHtml(consoleDayLabel(d.iso))}</span><i></i></div><ul class="cn-feed">${d.list.map(consoleEntryHtml).join("")}</ul>`,
+        `<div class="jv-label"><span>${escapeHtml(consoleDayLabel(d.iso))}</span><i></i></div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
     )
     .join("");
 }
@@ -384,6 +400,7 @@ function renderConsole() {
   document.getElementById("cn-preview").innerHTML = consolePreviewHtml();
   document.getElementById("cn-review").innerHTML = consoleReviewHtml();
   document.getElementById("cn-feed").innerHTML = consoleFeedHtml();
+  askPollEnsure(); // waiting for an answer: check the gist while Console is on screen
 }
 
 // ---- actions (wired in shell.js's SHELL_* tables) ----
@@ -418,15 +435,20 @@ function consoleSubmit() {
     return;
   }
   const mode = consoleCurrentMode(text);
-  input.value = "";
-  consoleMode = null;
   if (mode === "ask") {
-    consoleLog({ kind: "ask", text });
+    if (voiceListening("console")) voiceCancel();
+    if (!askSend(text)) {
+      input.focus(); // not taken (sync off, cooldown): the text stays to try again
+      return;
+    }
+    input.value = "";
+    consoleMode = null;
     renderConsole();
-    showToast("Saved here");
     input.focus();
     return;
   }
+  input.value = "";
+  consoleMode = null;
   const rows = consoleParse(text);
   if (!rows.length) return;
   consolePreview = { src: text, rows };
@@ -494,10 +516,14 @@ function consoleAdd() {
   if (todos.length) saveContent("todo-content", todoList, { toast: false });
   if (shops.length) saveContent("wants-content", wantsList, { toast: false });
   const after = dataSnapshot();
-  asks
-    .slice()
-    .reverse()
-    .forEach((r) => consoleLog({ kind: "ask", text: r.src }));
+  // questions aren't added: they go back in the box, in Ask mode, to send (never sent by themselves)
+  if (asks.length) {
+    consoleInput().value = asks
+      .map((r) => r.src)
+      .join(" ")
+      .slice(0, CONSOLE_TEXT_MAX);
+    consoleMode = "ask";
+  }
   const entry =
     todos.length || shops.length
       ? consoleLog({ kind: "capture", text: p.src, todos: todos.length, shop: shops.length })
@@ -509,7 +535,8 @@ function consoleAdd() {
   }
   renderConsole(); // focus isn't moved back to the box: on a phone the keyboard would cover the Undo
   if (!entry) {
-    showToast("Saved here");
+    showToast(asks.length === 1 ? "Your question is in the box: send it to Jarvis" : "Your questions are in the box");
+    consoleInput().focus();
     return;
   }
   // one Undo for everything this Add saved

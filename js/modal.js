@@ -100,13 +100,16 @@ function syncSheets() {
   const modal = document.getElementById("modal-backdrop"),
     comp = document.getElementById("composer");
   const review = document.getElementById("review-sheet"); // the Weekly Review (review.js)
+  const ask = document.getElementById("ask-sheet"); // Ask Jarvis's History (ask.js)
   const mo = modal.classList.contains("open"),
     co = comp.classList.contains("open"),
-    ro = !!review && review.classList.contains("open");
+    ro = !!review && review.classList.contains("open"),
+    ao = !!ask && ask.classList.contains("open");
   modal.inert = !mo;
   comp.inert = !co || mo;
   if (review) review.inert = !ro || mo || co;
-  document.querySelectorAll("body > header, main, #fab, nav.tabbar").forEach((x) => (x.inert = mo || co || ro));
+  if (ask) ask.inert = !ao || mo || co || ro;
+  document.querySelectorAll("body > header, main, #fab, nav.tabbar").forEach((x) => (x.inert = mo || co || ro || ao));
 }
 function closeModal() {
   document.getElementById("modal-backdrop").classList.remove("open");

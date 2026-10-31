@@ -160,7 +160,8 @@ function isEditing() {
   return (
     document.getElementById("modal-backdrop").classList.contains("open") ||
     document.getElementById("composer").classList.contains("open") ||
-    !!(active && (active.id === "jv-quick" || active.id === "console-input")) // typing in Home's quick add or Console
+    !!(active && (active.id === "jv-quick" || active.id === "console-input")) || // typing in Home's quick add or Console
+    voiceListening() // or speaking into one of them
   );
 }
 function localSnapshot() {
@@ -179,6 +180,8 @@ async function fetchRemote(gistId) {
   const g = await gistApi("/gists/" + gistId);
   ingestBriefingFile(g.files && g.files[BRIEFING_FILENAME]); // Jarvis's read-only briefing rides along
   ingestReviewFile(g.files && g.files[REVIEWS_FILENAME]); // and so do the weekly reviews
+  ingestAskFile(g.files && g.files[ASK_FILE]); // Ask Jarvis: questions from other devices, Clear history
+  ingestAnswersFile(g.files && g.files[ANSWERS_FILE]); // and Jarvis's answers (read-only)
   const file = g.files && g.files[GIST_FILENAME];
   if (!file) return null;
   const text = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;

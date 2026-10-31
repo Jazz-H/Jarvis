@@ -14,6 +14,7 @@ let currentTab = "home";
 
 function activateTab(tab) {
   tab = NAV_TAB(tab);
+  if (tab !== currentTab) voiceCancel(); // the mic stops when you leave the box
   currentTab = tab;
   document.body.dataset.tab = tab; // shows/hides the floating + button
   const fabCfg = COMPOSER_MODES[FAB_MODE_BY_TAB[tab]];
@@ -600,6 +601,24 @@ const SHELL_CLICK = {
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
   "console-go": (el) => consoleGo(el.getAttribute("data-go")),
+  // Ask Jarvis (ask.js): History, answer chips, Follow up, Try again. Ids and indexes are re-checked there.
+  "ask-history": () => openAskHistory(),
+  "ask-history-close": () => closeAskHistory(),
+  "ask-history-backdrop": (el, e) => {
+    if (e.target === el) closeAskHistory();
+  },
+  "ask-clear": () => askClearHistory(),
+  "ask-chip": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d$/.test(i || "")) askAddChip(el.getAttribute("data-ask-id"), Number(i));
+  },
+  "ask-follow": (el) => askFollow(el.getAttribute("data-ask-id")),
+  "ask-thread-cancel": () => askThreadCancel(),
+  "ask-retry": (el) => askRetry(el.getAttribute("data-ask-id")),
+  "ask-again": (el) => askAgain(el.getAttribute("data-ask-id")),
+  "ask-token-remove": () => askTokenRemove(),
+  // Voice input (voice.js): the mic in Console's box and Home's quick add
+  "voice-toggle": (el) => voiceToggle(el.getAttribute("data-target")),
   // Weekly Review (review.js): the Console card / row and Home's line open it; the sheet's arrows,
   // links and suggestion chips. Ids, directions, stat keys and indexes are all re-checked.
   "review-open": (el) => openReview(el.getAttribute("data-review-id")),

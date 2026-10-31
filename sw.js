@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v144`;
+const CACHE_NAME = `${CACHE_PREFIX}v145`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -28,6 +28,8 @@ const ASSETS = [
   "./js/jazz3.js",
   "./js/console.js",
   "./js/review.js",
+  "./js/ask.js",
+  "./js/voice.js",
   "./js/shell.js",
   "./js/gestures.js",
   "./js/drag-reorder.js",

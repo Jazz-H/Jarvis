@@ -17,7 +17,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   and a greeting ("Good morning, Jazz."). The date is in the header.
 - **Quick add:** one line under the greeting ("Add a to-do"). Type "call mom tomorrow" (or "…friday", "…today")
   and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
-  stays ready for the next one. Sync waits while you're typing there.
+  stays ready for the next one. Sync waits while you're typing there. The **mic** next to + fills
+  the box by voice (see Console's voice input); nothing is added until you tap +.
 - **Tomorrow (from 5 PM):** tomorrow at a glance above the briefing: its forecast, to-dos,
   bills, wash day and workouts. **Plan tomorrow** opens tomorrow in the Planner. Under it,
   **Next 14 days** lists upcoming birthdays, car maintenance, appointments and
@@ -150,14 +151,28 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
+- **Top row:** "N of 10 questions left today" (once Jarvis has reported today's count) and
+  **History**.
 - **Ask | Capture:** a full-width switch. The mode is guessed from what you type (a question
   word first or a "?" at the end means Ask; several items, or anything else, means Capture)
   and labelled "Switched by what you typed". Tapping the switch locks the mode until the box
   is cleared.
-- **The box:** one line with the send button inside it ("Ask Jarvis…" / "Add to-dos, items,
-  notes…"). Enter sends.
+- **The box:** one line with the mic and send buttons inside it ("Ask Jarvis…" / "Add to-dos,
+  items, notes…"). Enter sends.
+- **Voice input:** the mic (where the browser has the Web Speech API; otherwise it's hidden and
+  the keyboard's own dictation still works). Tap it and speak: the words stream into the box,
+  listening stops on a pause or a second tap, and the Ask / Capture guess runs on what you said.
+  Nothing is ever sent by voice; you check the text, then send. While listening the mic pulses,
+  the hint says "Listening…" and screen readers hear it. Speech is turned into text by the
+  browser's service: **in Chrome that's Google's servers** (Safari uses Apple's). A blocked
+  microphone says "Microphone blocked: allow it in your browser settings"; no speech or no
+  connection say so too. Switching tabs stops it.
 - **Suggestions:** one row of chips under the box that swipes sideways (different per mode);
-  a tap fills the box. A short hint line follows.
+  a tap fills the box. A short hint line follows. Ask's chips change with the day and time:
+  "How did my week go?" leads on Sunday and Monday, then "What's due before payday?", "Can I
+  afford <your top Shopping need> this pay period?", "What should I focus on today / tomorrow?"
+  (morning / afternoon), "When will I hit my weight goal?" (with a goal set) and "What's on my
+  calendar this week?".
 - **Capture** works on this device, offline, with nothing sent anywhere. Separate items with
   " / ", ";" or new lines (a short comma list like "eggs, milk, and bread" also splits; a
   leading "buy" carries over). Each piece is read with the app's own rules: a trailing day
@@ -165,14 +180,41 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   order / pick up…) makes it a Shopping item ("helmet $250", "buy eggs $5"; "need batteries"
   is a Need, other items follow the usual need/want rule), "pay / call / book…" stay to-dos,
   "get a haircut" stays a to-do because its type is an appointment, and "note: …" is an
-  Anytime to-do. Questions go to Ask. Spending ("groceries $54 spent") is recognized but only
+  Anytime to-do. A question in a capture isn't added: after **Add** it goes back in the box in
+  Ask mode, to send yourself. Spending ("groceries $54 spent") is recognized but only
   offered as a **Log … in Budget** chip that opens Add to budget pre-filled.
   - **Preview:** nothing is saved until you look. Each row shows its type, title and date or
     price; tap a row to switch it between To-do, Shopping and Skip. **Add N** saves them all
     (to-dos at the top of their group, items on the Shopping list) with one Undo; **Edit** puts
     the text back in the box.
-- **Ask** isn't switched on yet (the backend is a later step). A question is kept in the feed
-  with "Ask Jarvis isn't switched on yet — this question is saved here"; nothing is sent.
+- **Ask Jarvis** needs sync. Without it, Ask says so (with **Open Sync**) and Capture still
+  works.
+  - **Send:** the question is saved to your private sync gist (`jazz2-ask.json`), then, if this
+    device has an **Ask Jarvis key** (see Sync below), the app starts Jarvis's `jarvis-ask`
+    workflow on GitHub with only the question's id; the text never goes anywhere else. The feed
+    shows the question and a pulsing **"Jarvis is on it · usually about a minute"**. Without a
+    key, or if starting the workflow fails, it says **"Queued — Jarvis will answer on the next
+    run (tomorrow ~7am)"**. A key GitHub refuses shows "Ask Jarvis key isn't working — check it
+    in Sync" and the question is queued. If GitHub says the key expires within 14 days, a
+    gentle note under the hint says so.
+  - **Waiting:** while Console is on screen the app checks the gist every 10 seconds for up to 3
+    minutes (not while the app or another tab is in front). After that: "Still working — you'll
+    get a notification". The answer also arrives with the next sync, and the "ask" notification
+    opens `?tab=console&ask=<id>`, which scrolls to that answer (or opens it in History).
+  - **Answers** show Jarvis's text, up to 5 bullets, chips and source tags (Jazz, Calendar,
+    Inbox, Deliveries, Weather, News, Review) like the briefing's. **Chips** ("+ Pay Rent ·
+    Mon") add a to-do with its date or a Shopping item only when tapped, with Undo. **Follow up**
+    makes your next question part of the same thread (a note under the hint says what it
+    follows; Cancel drops it). Answers that weren't given say so plainly: **Over the limit**,
+    **Jarvis couldn't answer** (with Ask again) and **Jarvis didn't answer this**. An answer to a
+    question asked on another device shows as "Asked on another device".
+  - **Limits** are enforced by the workflow: 1,000 characters a question; 10 questions and $1 a
+    day; 40 a week; $8 a month; 5 questions and $0.40 a run. Over a limit, the answer is
+    "Over the limit" at no model cost. The app adds a 10-second wait between questions and
+    sends one at a time.
+  - **History** (top right) is a sheet with the last 50 questions and answers, newest first.
+    **Clear history** hides them all on this device at once and tells the gist (`clearBefore`),
+    so Jarvis's next run deletes them there and your other devices clear too.
 - **Weekly Review:** Jarvis's Sunday-evening look back at the week (Mon–Sun), under the hint
   line. From the review's Sunday through Tuesday, and any time it hasn't been opened yet, it's a
   card: "Week in review · Oct 26 – Nov 1" with a **New** pill until opened, the headline, one
@@ -198,7 +240,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     The app only reads the review: it's never edited, synced back or backed up.
 - **Feed:** what you did here this week, grouped Today, Yesterday, then earlier days
   ("Added 2 to-dos and 1 Shopping item" with links to To-Do and Shopping, marked Undone if you
-  undid it). Kept on this device only: the last 7 days, at most 50 entries.
+  undid it). Kept on this device only: the last 7 days, at most 50 entries. Questions to Jarvis
+  show here for today and yesterday; older ones are in History. Questions saved before Ask was
+  switched on say "Not sent".
 - **Jazz 3.0 →** at the bottom opens Jazz 3.0.
 
 There's no floating + on Console; the box is the way to add. The first time the orb is used
@@ -439,6 +483,8 @@ only turning sync off still asks first.
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, month calendar, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
+   | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), History (`openAskHistory`, `askClearHistory`), chips / Follow up, suggestions (`askSuggestions`), the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
+   | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
    | `shell.js` | Tab switching and the delegated `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_INPUT` / `SHELL_CHANGE` tables |
    | `gestures.js`, `drag-reorder.js` | Swipe between tabs and pull-to-refresh; press-to-drag and sortable lists |
@@ -582,16 +628,30 @@ Everything lives in `localStorage` on the device:
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |
+| `ask-token` | The Ask Jarvis key (a fine-grained GitHub token, `github_pat_…`, Actions read/write on this repo only). This device only: never synced, never in backups, never logged, never put back on the page; only sent as the Authorization header of the workflow dispatch |
+| `ask-token-bad`, `ask-token-expires` | GitHub refused the key on the last send; when GitHub says the key expires (ms). This device only |
+| `ask-questions` | Questions asked on this device (or seen in the gist): `[{id, text, at (ms), thread?, state: "sent" \| "queued" \| "failed" \| "seen", sentAt?}]`, newest first, at most 50. This device only; cleaned by `normalizeAskLocal()` on every read |
+| `jarvis-answers` | Jarvis's answers pulled from the gist's `jazz2-answers.json`, stored already cleaned by `normalizeAnswers()` (`{version: 1, answers, usage}`, newest first, at most 50, every field capped). Read-only, this device only |
+| `ask-clear-before` | When Clear history was last used (ms): older questions and answers stay hidden. This device only |
 | `console-feed` | Console's feed: `[{id, at (ms), kind: "ask" \| "capture", text, todos?, shop?, undone?}]`, newest first, last 7 days, at most 50. This device only: not in `SYNC_KEYS`, never pushed, not in backups; cleaned by `normalizeConsoleFeed()` on every load and sync |
 | `console-moved-seen` | The one-time "Jazz 3.0 moved" notice was shown (this device only) |
 | `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 | `jarvis-reviews`, `jarvis-review-seen` | The Weekly Reviews pulled from the gist's `jazz2-reviews.json`, stored already cleaned by `normalizeReviews()` (`{version: 1, reviews}`, newest first, at most 12, every field capped), and the id of the newest review opened. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 
 **Gist files written only by the Jarvis Action** (the app never writes them): `jazz2-briefing.json`
-(the morning briefing), `jazz2-reviews.json` (the Weekly Reviews, `{version: 1, reviews}`, last 12)
-and `jazz2-week.json` (a small digest of each morning's briefing, last 8 days, which the Sunday review
-reads; the app doesn't use it). Sync reads the first two on every pull, normalizes them and keeps a
-local copy; it only ever pushes `jazz2-data.json`.
+(the morning briefing), `jazz2-reviews.json` (the Weekly Reviews, `{version: 1, reviews}`, last 12),
+`jazz2-week.json` (a small digest of each morning's briefing, last 8 days, which the Sunday review
+reads; the app doesn't use it) and `jazz2-answers.json` (Ask Jarvis's answers, `{version: 1,
+answers: [{id, askedAt, answeredAt, status, text, bullets, sources, chips, by}], usage}`). Sync reads
+the briefing, reviews and answers on every pull, normalizes them and keeps a local copy; it only
+ever pushes `jazz2-data.json`.
+
+**Gist files written only by the app** (besides `jazz2-data.json`): `jazz2-push.json` (this
+phone's push address) and `jazz2-ask.json` (questions waiting for Jarvis: `{version: 1, items:
+[{id, kind: "ask", text ≤1000, at, thread?}], clearBefore?}`, at most 20). Each is re-read right
+before every write and PATCHed on its own, so other files are never touched. On each write, answered questions (any status) are
+pruned, except those in a thread asked in the last 24 hours (Jarvis reads them for follow-ups);
+at the cap of 20, that thread context goes before pending questions.
 
 Lists still on their built-in defaults have no key until first edited.
 
@@ -614,7 +674,13 @@ Lists still on their built-in defaults have no key until first edited.
   adds and deletes, and the other side's edits to items this side left alone); only when both
   changed the very same item does the device syncing now win for that item. A failed sync
   retries when the connection comes back or the app is reopened. The gist is re-read right before every write, and sync waits while an
-  edit form is open. A device's very first sync falls back to "newest copy wins".
+  edit form is open (or while you're typing or speaking into a box). A device's very first sync falls back to "newest copy wins".
+- **Ask Jarvis key (optional):** the same dialog has an **Ask Jarvis key** field. It's a
+  fine-grained GitHub token for this one repo with only Actions: read and write, so this device
+  can start Jarvis right away (answers in about a minute). How to make one is in
+  `docs/jarvis/SETUP.md` section 8. The app only checks that it starts with `github_pat_`; it's
+  kept on this device only and never shown again (paste a new one to replace it, or **Remove
+  Ask Jarvis key**). Saving only the key doesn't reconnect sync.
 
 **Backup.** The same dialog has **Download backup** and **Restore…**.
 - **Format:** one JSON file containing the full live value of every list.
@@ -681,6 +747,12 @@ devices so iOS doesn't zoom.
   back to the full label.
 - **Sync push replaces the gist file.** A device on an outdated app version can drop keys
   it doesn't know about until it updates.
+- **Ask Jarvis answers in about a minute, not instantly.** A GitHub runner has to start each
+  time; answers use this morning's briefing (no live calendar or inbox). The key-expiry warning
+  depends on GitHub exposing its expiration header to the browser; if it doesn't, there's no
+  warning before the key (1 year) runs out, only "isn't working" after.
+- **Voice input** needs the browser's Web Speech API (Chrome, Edge, Safari); Firefox has none,
+  so the mic is hidden there. In Chrome, speech goes to Google to be turned into text.
 
 ## Working style
 Make judgment calls and show finished output; expect targeted corrections rather than full rewrites.

@@ -498,20 +498,51 @@ function reviewChipLabel(c) {
   const where = c.kind === "todo" ? (c.due ? dueLabel(c.due) : "To-do") : "Shopping";
   return { text: c.text, where };
 }
+// One tap-to-add chip ({kind, text, due}); shared with Ask Jarvis's answers (ask.js).
+// attrs: the trusted data-action / data-* attributes that say which chip it is.
+function jarvisChipHtml(c, tapped, attrs) {
+  const l = reviewChipLabel(c);
+  const onList = tapped || reviewChipOnList(c);
+  const state = tapped ? "Added" : "On your list";
+  return onList
+    ? `<button type="button" class="rv-chip added" ${attrs} aria-disabled="true" aria-label="${escapeAttr(`${l.text}: ${state.toLowerCase()}`)}"><span aria-hidden="true">✓</span> ${escapeHtml(l.text)} <small>${state}</small></button>`
+    : `<button type="button" class="rv-chip" ${attrs} aria-label="${escapeAttr(`Add ${c.kind === "todo" ? "to-do" : "to Shopping"}: ${l.text}${c.kind === "todo" && c.due ? `, due ${l.where}` : ""}`)}"><span aria-hidden="true">+</span> ${escapeHtml(l.text)} <small>${escapeHtml(l.where)}</small></button>`;
+}
+// Adds a chip's to-do (with its due date) or Shopping item through saveContent(); returns the
+// before/after snapshots for its Undo
+function jarvisChipAdd(c) {
+  const before = dataSnapshot();
+  if (c.kind === "todo") {
+    const t = {
+      id: genId("todo"),
+      text: c.text.slice(0, TODO_MAX_LEN),
+      done: false,
+      due: c.due,
+      starred: false,
+      subitems: [],
+      completedAt: null,
+    };
+    const at = todoList.findIndex((x) => !x.done && todoGroup(x) === todoGroup(t));
+    if (at >= 0) todoList.splice(at, 0, t);
+    else todoList.push(t);
+    saveContent("todo-content", todoList, { toast: false });
+  } else {
+    const w = { id: genId("want"), name: c.text.slice(0, TODO_MAX_LEN), meta: "", price: null, link: null };
+    setWantCategory(w, "General");
+    wantsList.push(w);
+    saveContent("wants-content", wantsList, { toast: false });
+  }
+  const after = dataSnapshot();
+  renderHome();
+  renderWants();
+  return { before, after };
+}
 function reviewFocusHtml(r) {
   const focus = r.focus.length
     ? `<ul class="rv-focus">${r.focus.map((f) => `<li>${escapeHtml(f.text)}</li>`).join("")}</ul>`
     : "";
   const chips = r.suggestions
-    .map((c, i) => {
-      const l = reviewChipLabel(c);
-      const tapped = reviewTapped.has(`${r.id}|${i}`),
-        onList = tapped || reviewChipOnList(c);
-      const state = tapped ? "Added" : "On your list";
-      return onList
-        ? `<button type="button" class="rv-chip added" data-action="review-chip" data-index="${i}" aria-disabled="true" aria-label="${escapeAttr(`${l.text}: ${state.toLowerCase()}`)}"><span aria-hidden="true">✓</span> ${escapeHtml(l.text)} <small>${state}</small></button>`
-        : `<button type="button" class="rv-chip" data-action="review-chip" data-index="${i}" aria-label="${escapeAttr(`Add ${c.kind === "todo" ? "to-do" : "to Shopping"}: ${l.text}${c.kind === "todo" && c.due ? `, due ${l.where}` : ""}`)}"><span aria-hidden="true">+</span> ${escapeHtml(l.text)} <small>${escapeHtml(l.where)}</small></button>`;
-    })
+    .map((c, i) => jarvisChipHtml(c, reviewTapped.has(`${r.id}|${i}`), `data-action="review-chip" data-index="${i}"`))
     .join("");
   if (!focus && !chips) return "";
   return `<section class="rv-box" aria-labelledby="rv-h-focus">
@@ -661,31 +692,8 @@ function reviewAddChip(i) {
     showToast("Already on your list");
     return;
   }
-  const before = dataSnapshot();
-  if (c.kind === "todo") {
-    const t = {
-      id: genId("todo"),
-      text: c.text.slice(0, TODO_MAX_LEN),
-      done: false,
-      due: c.due,
-      starred: false,
-      subitems: [],
-      completedAt: null,
-    };
-    const at = todoList.findIndex((x) => !x.done && todoGroup(x) === todoGroup(t));
-    if (at >= 0) todoList.splice(at, 0, t);
-    else todoList.push(t);
-    saveContent("todo-content", todoList, { toast: false });
-  } else {
-    const w = { id: genId("want"), name: c.text.slice(0, TODO_MAX_LEN), meta: "", price: null, link: null };
-    setWantCategory(w, "General");
-    wantsList.push(w);
-    saveContent("wants-content", wantsList, { toast: false });
-  }
-  const after = dataSnapshot();
+  const { before, after } = jarvisChipAdd(c);
   reviewTapped.add(key);
-  renderHome();
-  renderWants();
   renderReviewSheet();
   const chip = document.querySelector(`#review-body .rv-chip[data-index="${i}"]`);
   if (chip) chip.focus({ preventScroll: true });

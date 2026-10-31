@@ -111,10 +111,11 @@ function openSyncModal() {
         label: `Syncs everything (to-dos, routines, shopping, budget) through a private gist on
       your GitHub account. Create a <b>classic</b> personal access token with only the
       <b>gist</b> scope at github.com &rsaquo; Settings &rsaquo; Developer settings &rsaquo; Tokens (classic),
-      then paste the same token into the app on each device. Newest change wins when
-      two devices disagree.`,
+      then paste the same token into the app on each device. Changes from both devices are
+      combined item by item.`,
       },
       { key: "token", label: "GitHub token", type: "password" },
+      { type: "html", key: "askToken", label: askKeyFieldHtml() },
       {
         type: "note",
         label: `<span class="modal-section">Backup</span>
@@ -127,7 +128,9 @@ function openSyncModal() {
     ],
     { token: localStorage.getItem("sync-token") || "" },
     (v) => {
+      askKeySave(v.askToken); // the Ask Jarvis key (ask.js); never shown or synced
       if (!v.token) return; // closing without a token (e.g. after a backup) is fine
+      if (v.askToken && v.token === localStorage.getItem("sync-token")) return; // only the Ask key was touched
       localStorage.setItem("sync-token", v.token);
       localStorage.removeItem("sync-gist-id"); // re-resolve under the (possibly new) account
       localStorage.removeItem(SYNC_BASE_KEY);
