@@ -2,7 +2,7 @@
 
 An installable mobile web app that pulls the Jazz 2.0 series (originally separate Word
 docs) into one place, now named **Jarvis**, with five tabs: **Home, To-Do, Console, Wallet**
-(Budget | Shopping) and **You** (Beauty | Jazz 3.0). Jarvis, an AI chief of staff that runs in GitHub
+(Budget | Shopping) and **Glow** (Beauty | Jazz 3.0). Jarvis, an AI chief of staff that runs in GitHub
 Actions, writes a morning briefing that leads Home (see *Jarvis* below and `docs/jarvis/`).
 Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
 was removed; its data is still loaded, synced and backed up, just not shown.)
@@ -117,8 +117,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 - **US holidays:** worked out by rule for every year: the 11 federal holidays (plus the
   weekday they're observed on; "banks closed") and common observances (Valentine's,
   St. Patrick's, Easter, Mother's/Father's Day, Election Day, Halloween, Christmas Eve,
-  New Year's Eve). Holiday dates are colored on the calendar and named on the day;
-  Budget's calendar notes the bank holidays.
+  New Year's Eve). Holiday dates are colored on the calendar and named on the day.
 - **Day list:** Overdue, the day's open to-dos (starred first; finished ones leave Home but
   still count in the ring, and live on in To-Do's Completed),
   bills due ("Pay Rent · $1,450"), the Wash hair item on wash days, future repeats of
@@ -251,7 +250,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   show here for today and yesterday; older ones are in History. Questions saved before Ask was
   switched on say "Not sent".
 There's no floating + on Console; the box is the way to add. (The old **Jazz 3.0 →** row at the
-bottom is gone: Jazz 3.0 has a tab again, under You.)
+bottom is gone: Jazz 3.0 has a tab again, under Glow.)
 
 **Beauty** is built around doing the routine, not just reading it. Cards, top to bottom:
 - **Today:** a checklist of AM and PM steps with done/total counts, the wash-day badge, and
@@ -293,10 +292,10 @@ clothes, moto gear, and everything else.
 
 **Jazz 3.0** is a tab made of sections; more are coming. It opens on a gradient banner with a
 chip per section (Weight %, Glow 3/7…); tapping a chip opens that section and jumps to it.
-It lives in the **You** tab, next to Beauty (the switch at the top). Other ways in: Home's
+It lives in the **Glow** tab, next to Beauty (the switch at the top). Other ways in: Home's
 Jazz 3.0 tile (its goal bars, and **Open Jazz 3.0** at the end of its detail), `?tab=jazz3`
 (the home-screen shortcut), old `?tab=fitness` links, and `#import=` jazz3 links; each lights
-You in the tab bar. The goal of the day, today's workouts and Last 7 days stay on Home.
+Glow in the tab bar. The goal of the day, today's workouts and Last 7 days stay on Home.
 
 **Fitness** (the first Jazz 3.0 section) tracks weight toward a goal; the workouts themselves live in To-Do.
 - **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
@@ -353,7 +352,7 @@ right now, with the full month folded under it:
   expenses.
 - **Goal:** the first goal as a ring: saved of target and what a paycheck puts toward it
   (from its plan lines). Tap to edit it.
-- **<Month> in full · bills, paycheck plan, calendar:** a folded row that opens the month
+- **<Month> in full · bills and paycheck plan:** a folded row that opens the month
   view (open/closed is remembered on this device). On a wide screen the summary sits in two
   columns.
 
@@ -369,9 +368,6 @@ The month view is laid out like the budget sheet, one calendar month at a time (
   goal) and **Remaining**. Tap the check to set its amount; with pay that varies, its box
   marks it Received. "+ Bills due Oct 15–28 · $X" adds that check's bills as a line.
 - **Month at a Glance:** Income, Bills & spending, To <goal>, Left over.
-- **Calendar** (folded at the bottom): starts as the selected day's week (swipe down or tap
-  the bar for the month): a dot per bill due (red overdue, grey paid) and a $ on paydays.
-  Tap a day to see and tick off its bills or open its paycheck.
 - **Copy plans:** when a month's paydays are empty, one tap copies last month's lines,
   moving month names along ("1/2 of Oct Bills" → "1/2 of Nov Bills").
 - **Bills:** amount, due date, repeat, Monthly or Joint, the card/bank that pays it,
@@ -439,11 +435,11 @@ only turning sync off still asks first.
 **Navigation.**
 - **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
   column (760px, or 920px at ≥1440px).
-- **Tabs:** Home, To-Do, Console (the orb), **Wallet** and **You** (`TAB_ORDER`). Wallet and You
+- **Tabs:** Home, To-Do, Console (the orb), **Wallet** and **Glow** (`TAB_ORDER`). Wallet and Glow
   are groups (`TAB_GROUPS` in `shell.js`): each holds two views, swapped by a full-width switch
-  at the top (Wallet: Budget | Shopping; You: Beauty | Jazz 3.0), styled like Console's
+  at the top (Wallet: Budget | Shopping; Glow: Beauty | Jazz 3.0), styled like Console's
   Ask | Capture switch. The header shows the group's name, the switch the view. Tapping Wallet
-  or You opens the view you used last there (remembered on this device; the first view the
+  or Glow opens the view you used last there (remembered on this device; the first view the
   first time). Nothing is hidden any more (`HIDDEN_TABS` is empty; the mechanism stays).
   Every way in (`?tab=budget|wants|skin|jazz3|fitness|style`, `?tab=wallet|you`, Home's tiles,
   Weekly Review links, `#import=` links, home-screen shortcuts, notifications) opens the
@@ -451,11 +447,11 @@ only turning sync off still asks first.
   view's own id, so each view keeps its own + button and styles.
 - **Swiping:** swipe left or right to move between views in one left-to-right order
   (`SWIPE_ORDER`): Home, To-Do, Console, Budget, Shopping, Beauty, Jazz 3.0. Inside Wallet
-  or You a swipe first moves to the group's other view, then on to the next tab, so a swipe
+  or Glow a swipe first moves to the group's other view, then on to the next tab, so a swipe
   always goes to the view that sits beside the current one. Swiping Console's suggestion chips
   scrolls them instead.
 - **Once:** the first time the tab bar is used on a device, a notice says "Budget and Jazz 3.0
-  are back: Wallet and You".
+  are back: Wallet and Glow".
 - **Pull to sync:** pull down from the top of a tab to sync (which also brings in a new Jarvis
   briefing) and redraw. Without sync it just redraws.
 - **Hard refresh:** pull all the way down ("Release to reload the app"), or use the refresh
@@ -514,7 +510,7 @@ only turning sync off still asks first.
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
    | `skin.js` | Beauty routine, wash-day schedule, rules |
    | `shopping.js` | Shopping tab and wardrobe items |
-   | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, month calendar, `renderBudget`, data normalizing |
+   | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
    | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), History (`openAskHistory`, `askClearHistory`), chips / Follow up, suggestions (`askSuggestions`), the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
@@ -670,7 +666,7 @@ Everything lives in `localStorage` on the device:
 | `ask-clear-before` | When Clear history was last used (ms): older questions and answers stay hidden. This device only |
 | `console-feed` | Console's feed: `[{id, at (ms), kind: "ask" \| "capture", text, todos?, shop?, undone?}]`, newest first, last 7 days, at most 50. This device only: not in `SYNC_KEYS`, never pushed, not in backups; cleaned by `normalizeConsoleFeed()` on every load and sync |
 | `console-moved-seen` | Retired: the old one-time "Jazz 3.0 moved" notice was shown (no longer read) |
-| `tabs-back-seen` | The one-time "Budget and Jazz 3.0 are back: Wallet and You" notice was shown (this device only) |
+| `tabs-back-seen` | The one-time "Budget and Jazz 3.0 are back: Wallet and Glow" notice was shown (this device only) |
 | `tab-group-last` | The last view used in each tab group: `{wallet: "budget" \| "wants", you: "skin" \| "jazz3"}`. This device only: not synced, not in backups; anything else falls back to the group's first view |
 | `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |
 | `jarvis-calendar` | The Google Calendar history pulled from the gist's `jazz2-calendar.json`, stored already cleaned by `normalizeCalendar()` (`{version: 1, generatedAt, tz, from, to, events: [{date, start, end, allDay, title, location}]}`, valid dates inside from..to only, times HH:MM, title ≤80, location ≤60, at most 1500, sorted by date, all-day first, then start). Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |

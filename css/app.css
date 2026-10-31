@@ -725,11 +725,8 @@ nav.tabbar button.orb-tab::before {
   font-weight: 600;
   opacity: 0.8;
 }
-.bcal-detail .holiday-chips {
-  margin: 0 2px 8px;
-}
-.home-day.other:not(.on),
-.bcal .home-day.other {
+
+.home-day.other:not(.on) {
   opacity: 0.28;
 }
 .home-day.on {
@@ -757,8 +754,7 @@ nav.tabbar button.orb-tab::before {
 .home-day .marks i.over {
   background: var(--danger);
 }
-.home-day .marks em.pay,
-.bcal-pay em.pay {
+.home-day .marks em.pay {
   font-style: normal;
   font-size: 11px;
   font-weight: 900;
@@ -770,15 +766,7 @@ nav.tabbar button.orb-tab::before {
 .home-day.on .marks em.pay {
   opacity: 1;
 }
-.bcal .home-day.past:not(.on) {
-  opacity: 0.8;
-}
-.bcal .home-day.other:not(.on) {
-  opacity: 0.55;
-}
-.bcal-wrap {
-  touch-action: none;
-}
+
 .card.manage {
   padding: 12px 16px 6px;
   margin-top: 12px;
@@ -1098,29 +1086,7 @@ nav.tabbar button.orb-tab::before {
 .modal-note .goal-ideas .acct-add {
   margin: 0;
 } /* past days stay readable: they carry paid/overdue dots */
-.bcal-detail {
-  margin-top: 6px;
-  border-top: 1px solid var(--line);
-}
-.bcal-pay {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 11px 2px;
-  border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  text-align: left;
-}
-.bcal-pay em.pay {
-  font-size: 12px;
-  margin-right: 8px;
-}
+
 .home-day .marks svg {
   width: 9px;
   height: 9px;
@@ -1372,11 +1338,7 @@ nav.tabbar button.orb-tab::before {
   font-size: 13.5px;
   font-weight: 700;
 }
-.bcal-pay .approx {
-  color: var(--text-dim);
-  font-size: 0.85em;
-  margin-right: 1px;
-}
+
 .period-sub {
   display: flex;
   justify-content: space-between;
@@ -5309,6 +5271,43 @@ body.todo-dragging {
   50% {
     opacity: 0.25;
     transform: scale(0.7);
+  }
+}
+/* "Jarvis is thinking…": three dots that rise in turn (still, with Reduce Motion) */
+.ak-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+.ak-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--olive);
+  animation: ak-think 1.2s ease-in-out infinite;
+}
+.ak-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.ak-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes ak-think {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ak-dots i {
+    animation: none;
+    opacity: 0.8;
   }
 }
 .ak-on {

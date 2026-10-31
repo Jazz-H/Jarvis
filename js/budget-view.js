@@ -71,134 +71,6 @@ function openAccounts() {
     () => {},
   );
 }
-// ---------- budget month calendar ----------
-// Like Home's month view, for money: each day shows a dot per bill due (red if
-// overdue, green once paid) and a $ on paydays. Tapping a day lists its bills
-// (tickable) and paycheck below the grid; it starts on today.
-let budgetCalDay = null;
-let budgetCalMonth = false; // false: just the selected day's week
-function setBudgetCalMonth(open) {
-  if (open === budgetCalMonth) return;
-  budgetCalMonth = open;
-  renderBudget();
-}
-function selectBudgetDay(iso) {
-  budgetCalDay = iso;
-  const cur = addDaysIso(0).slice(0, 7),
-    [y1, m1] = cur.split("-").map(Number),
-    [y2, m2] = iso.slice(0, 7).split("-").map(Number);
-  budgetMonthOffset = (y2 - y1) * 12 + (m2 - m1); // a week can cross into the next/previous month
-  renderBudget();
-}
-function budgetCalHtml(key, rows, paychecks, today) {
-  const start = key + "-01",
-    days = Number(monthEndIso(key).slice(8));
-  // per-day bills and paydays, for this month and (in week view) its neighbours
-  const byDay = {},
-    pays = {},
-    seen = new Set();
-  const addMonth = (k, list, pc) => {
-    if (seen.has(k)) return;
-    seen.add(k);
-    list
-      .filter((r) => r.due.slice(0, 7) === k)
-      .forEach((r) => {
-        (byDay[r.due] = byDay[r.due] || []).push(r);
-      });
-    pc.forEach((p) => {
-      (pays[p.date] = pays[p.date] || []).push(p);
-    });
-  };
-  addMonth(key, rows, paychecks);
-  const sel =
-    budgetCalDay && budgetCalDay.slice(0, 7) === key ? budgetCalDay : today.slice(0, 7) === key ? today : start;
-  let first, count;
-  if (budgetCalMonth) {
-    first = noonOf(start);
-    first.setDate(1 - first.getDay());
-    count = Math.ceil((noonOf(start).getDay() + days) / 7) * 7;
-  } else {
-    first = noonOf(sel);
-    first.setDate(first.getDate() - first.getDay());
-    count = 7;
-  }
-  const cellIsos = [];
-  for (let n = 0; n < count; n++) {
-    const d = new Date(first);
-    d.setDate(first.getDate() + n);
-    cellIsos.push(isoDate(d));
-  }
-  cellIsos.forEach((iso) => {
-    const k = iso.slice(0, 7);
-    if (!seen.has(k)) addMonth(k, billsInMonth(k), incomeInMonth(k));
-  });
-  let cells = WEEK_LETTERS.map((x) => `<div class="cal-dow">${x}</div>`).join("");
-  cellIsos.forEach((iso) => {
-    if (budgetCalMonth && iso.slice(0, 7) !== key) {
-      // last month's tail shows greyed; next month's stays blank
-      cells +=
-        iso < key
-          ? `<div class="home-day other" aria-hidden="true"><b>${Number(iso.slice(8))}</b></div>`
-          : `<div class="home-day blank"></div>`;
-      return;
-    }
-    const list = byDay[iso] || [],
-      pay = pays[iso];
-    const dots = list
-      .slice(0, 3)
-      .map((r) => `<i class="${r.payment ? "paid" : r.due < today ? "over" : ""}"></i>`)
-      .join("");
-    const due = list.filter((r) => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const fed = holidaysOn(iso).filter((h) => h.federal);
-    const label = `${noonOf(iso).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${list.length ? `${list.length} bill${list.length === 1 ? "" : "s"}${due ? `, ${money(due)} due` : ", paid"}` : "no bills"}${pay ? ", payday" : ""}${fed.map((h) => `, ${h.name} (banks closed)`).join("")}`;
-    const cls = [
-      "home-day",
-      iso === sel ? "on" : "",
-      iso === today ? "today" : "",
-      iso < today ? "past" : "",
-      iso.slice(0, 7) !== key ? "other" : "",
-      fed.length ? "holiday" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    cells += `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${escapeAttr(label)}" data-action="budget-select-day" data-date="${iso}">
-        <b>${Number(iso.slice(8))}</b><span class="marks">${dots}${pay ? `<em class="pay">$</em>` : ""}</span>
-      </button>`;
-  });
-  let detail = "";
-  if (sel) {
-    const list = byDay[sel] || [],
-      pay = pays[sel] || [];
-    const due = list.filter((r) => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    detail = `<div class="bcal-detail">
-        <div class="period-sub"><span>${escapeHtml(noonOf(sel).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }))}</span><span>${list.length ? (due ? `${money(due)} due` : "All paid") : ""}</span></div>
-        ${(() => {
-          const fed = holidaysOn(sel).filter((h) => h.federal);
-          return fed.length
-            ? `<div class="holiday-chips">${fed.map((h) => `<span class="holiday-chip fed">${STAR_ICON_SMALL}${escapeHtml(h.name)}<em> · banks closed</em></span>`).join("")}</div>`
-            : "";
-        })()}
-        ${pay.map((p) => `<button class="bcal-pay" data-action="paycheck-edit" data-src-id="${escapeAttr(p.src.id)}" data-date="${p.date}"><span><em class="pay">$</em>${escapeHtml(p.src.name)}</span><b>${payAmt(p)}</b></button>`).join("")}
-        ${list.map((r) => billRowHtml(r, today)).join("")}
-        ${!list.length && !pay.length ? `<div class="empty">Nothing due this day.</div>` : ""}
-      </div>`;
-  }
-  const billDays = Object.keys(byDay).length,
-    payDays = Object.keys(pays).length;
-  return collapsibleCard({
-    id: "budget-cal",
-    title: "Calendar",
-    insight:
-      [
-        billDays && `${billDays} bill day${billDays === 1 ? "" : "s"}`,
-        payDays && `${payDays} payday${payDays === 1 ? "" : "s"}`,
-      ]
-        .filter(Boolean)
-        .join(" · ") || "Nothing due",
-    body: `<div class="bcal-wrap"><div class="home-month bcal">${cells}</div>
-      <button class="home-cal-grab" data-action="budget-cal-open" data-open="${!budgetCalMonth}" aria-expanded="${budgetCalMonth}" aria-label="${budgetCalMonth ? "Show week" : "Show month"}"><span></span></button></div>${detail}`,
-  });
-}
 function billRowsBetween(from, toExclusive) {
   const lastKey = isoDate(new Date(noonOf(toExclusive).getTime() - 864e5)).slice(0, 7);
   const months = [];
@@ -681,7 +553,6 @@ function renderBudget() {
   if (budget.goals.length) html += goalsCardHtml();
   const spendingShown = spent.length || showSpending;
   if (spendingShown) html += spendingCardHtml(spent, spentTotal);
-  html += budgetCalHtml(key, rows, paychecks, today); // folded by default
 
   // Manage: the set-up-once things, one line each
   const mrow = (label, value, attrs) =>
@@ -712,7 +583,7 @@ function renderBudget() {
   // the month view folds under the "now" top (a native <details>: its toggle is saved below)
   html = `${budgetTopHtml(today)}
     <details class="wb-month" id="wb-month"${wbMonthOpen() ? " open" : ""}>
-      <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills, paycheck plan, calendar</span>${CHEVRON_RIGHT}</summary>
+      <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills and paycheck plan</span>${CHEVRON_RIGHT}</summary>
       <div class="wb-month-body">${html}</div>
     </details>
     <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards &amp; imports</em></button>`;
@@ -861,37 +732,5 @@ function normalizeBudgetData() {
       } catch (err) {}
     },
     true,
-  );
-  let sx = 0,
-    sy = 0,
-    on = false;
-  panel.addEventListener(
-    "touchstart",
-    (e) => {
-      on = !!e.target.closest(".bcal-wrap");
-      if (on) {
-        sx = e.touches[0].clientX;
-        sy = e.touches[0].clientY;
-      }
-    },
-    { passive: true },
-  );
-  panel.addEventListener(
-    "touchmove",
-    (e) => {
-      if (on) e.preventDefault();
-    },
-    { passive: false },
-  );
-  panel.addEventListener(
-    "touchend",
-    (e) => {
-      if (!on) return;
-      on = false;
-      const dx = e.changedTouches[0].clientX - sx,
-        dy = e.changedTouches[0].clientY - sy;
-      if (Math.abs(dy) > 35 && Math.abs(dy) > Math.abs(dx)) setBudgetCalMonth(dy > 0);
-    },
-    { passive: true },
   );
 })();

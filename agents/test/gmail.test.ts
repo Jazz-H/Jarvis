@@ -47,7 +47,12 @@ describe("gmail tool", () => {
       [
         /\/messages\?/,
         (url) =>
-          json(url.includes("maxResults=1") ? { resultSizeEstimate: 14 } : { messages: [{ id: "a" }, { id: "b" }] }),
+          json(
+            url.includes("maxResults=100")
+              ? // the estimate is a rough guess; the count must come from the ids
+                { resultSizeEstimate: 201, messages: Array.from({ length: 14 }, (_, i) => ({ id: "u" + i })) }
+              : { messages: [{ id: "a" }, { id: "b" }] },
+          ),
       ],
       [/\/messages\/a\?/, () => json(msg("a", "Sam <sam@x.com>", "Lunch?", true))],
       [/\/messages\/b\?/, () => json(msg("b", "Bank <b@bank.com>", "Statement", false))],
@@ -75,6 +80,16 @@ describe("gmail tool", () => {
     );
     expect(calls.every((c) => (c.init!.headers as any).Authorization === "Bearer at")).toBe(true);
     expect(await g.count("is:unread")).toBe(14);
+  });
+
+  it("caps the unread count at 100 when there are more pages", async () => {
+    const { impl } = fakeFetch([
+      [
+        /\/messages\?/,
+        () => json({ messages: Array.from({ length: 100 }, (_, i) => ({ id: "m" + i })), nextPageToken: "p2" }),
+      ],
+    ]);
+    expect(await gmailClient("at", impl).count("is:unread")).toBe(100);
   });
 
   it("throws on API errors", async () => {

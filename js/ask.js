@@ -465,7 +465,7 @@ async function askDeliver(id) {
       askSet(ASK_TOKEN_BAD_KEY, null);
       askUpdateLocal(id, { state: "sent", sentAt: Date.now() });
       askPollStart();
-      liveAnnounce("Jarvis is on it. Answers usually take about a minute");
+      liveAnnounce("Jarvis is thinking");
     } else {
       askUpdateLocal(id, { state: "queued" });
       if (result === "bad") {
@@ -611,7 +611,7 @@ function askStatusHtml(q) {
   if (q.state === "sent") {
     const fresh = Date.now() - (q.sentAt || q.at) < ASK_TIMING.pollFor;
     return fresh
-      ? `<span class="cn-status ak-on"><span class="cn-dot pulse" aria-hidden="true"></span>Jarvis is on it · usually about a minute</span>`
+      ? `<span class="cn-status ak-on ak-thinking">Jarvis is thinking<span class="ak-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`
       : `<span class="cn-status"><span class="cn-dot" aria-hidden="true"></span>Still working — you'll get a notification</span>`;
   }
   if (q.state === "failed")
@@ -691,7 +691,7 @@ function askHint() {
   if (!askToken())
     return "Questions wait for Jarvis's next run (~7am). Add an Ask Jarvis key in Sync for answers in about a minute.";
   if (askUsageLeft() === 0) return "You've used today's 10 questions. Ask again tomorrow.";
-  return "Jarvis answers in about a minute, from this morning's briefing and your lists.";
+  return "Jarvis answers from this morning's briefing, your calendar and your lists.";
 }
 function askNoteHtml(mode) {
   const parts = [];

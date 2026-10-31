@@ -61,6 +61,7 @@ export interface Gmail {
   count(q: string): Promise<number>;
 }
 
+export const COUNT_CAP = 100;
 export function gmailClient(accessToken: string, fetchImpl: typeof fetch = fetch): Gmail {
   const base = "https://gmail.googleapis.com/gmail/v1/users/me";
   const get = async (path: string) => {
@@ -93,9 +94,12 @@ export function gmailClient(accessToken: string, fetchImpl: typeof fetch = fetch
         };
       });
     },
+    // Counts the matches (up to COUNT_CAP) instead of trusting resultSizeEstimate, which is a rough
+    // guess (it said ~201 for a handful of unread). Past the cap it returns COUNT_CAP ("99+").
     async count(q) {
-      const j = await list(q, 1);
-      return Number(j.resultSizeEstimate) || 0;
+      const j = await list(q, COUNT_CAP);
+      const n = Array.isArray(j.messages) ? j.messages.length : 0;
+      return j.nextPageToken ? COUNT_CAP : n;
     },
   };
 }

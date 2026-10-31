@@ -741,7 +741,7 @@ function dashInboxTile(b) {
   return {
     go: "inbox",
     label: "Inbox",
-    value: x ? `${x.unread} new` : "—", // unread Primary mail from the last 36 h
+    value: x ? `${x.unread >= 100 ? "99+" : x.unread} new` : "—", // unread Primary mail from the last 36 h (counted to 100)
     sub: x
       ? [
           x.urgent.length ? `${x.urgent.length} urgent` : "",

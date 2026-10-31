@@ -2,12 +2,12 @@
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
 // ---------- TAB SWITCHING ----------
-const TAB_ORDER = ["home", "todo", "console", "wallet", "you"]; // the tab bar, left to right
-// Wallet and You are groups: each bar button holds two panels, swapped by the switch at the top
+const TAB_ORDER = ["home", "todo", "console", "wallet", "glow"]; // the tab bar, left to right
+// Wallet and Glow are groups: each bar button holds two panels, swapped by the switch at the top
 // (#tab-switch). `currentTab` and body[data-tab] are always a panel id (budget, wants, skin,
 // jazz3), never the group, so per-panel CSS and the + button work as before.
-const TAB_GROUPS = { wallet: ["budget", "wants"], you: ["skin", "jazz3"] };
-const TAB_GROUP_LAST_KEY = "tab-group-last"; // this device only: {wallet, you} = the last sub-view of each
+const TAB_GROUPS = { wallet: ["budget", "wants"], glow: ["skin", "jazz3"] };
+const TAB_GROUP_LAST_KEY = "tab-group-last"; // this device only: {wallet, glow} = the last sub-view of each
 // Tabs kept but not in the bar (none now; the mechanism stays for links to a future hidden tab)
 const HIDDEN_TABS = [];
 const tabGroupOf = (tab) => Object.keys(TAB_GROUPS).find((g) => TAB_GROUPS[g].includes(tab)) || "";
@@ -18,7 +18,9 @@ const isTab = (tab) =>
 const SWIPE_ORDER = TAB_ORDER.flatMap((t) => TAB_GROUPS[t] || [t]);
 // Old links to the removed closet view (?tab=style) land on Shopping
 // ?tab=jarvis is the briefing link: Jarvis lives at the top of the main (home) tab
-const NAV_TAB = (tab) => (tab === "style" ? "wants" : tab === "fitness" ? "jazz3" : tab === "jarvis" ? "home" : tab); // old links
+// ?tab=you: the Glow tab was briefly called You
+const NAV_TAB = (tab) =>
+  tab === "style" ? "wants" : tab === "fitness" ? "jazz3" : tab === "jarvis" ? "home" : tab === "you" ? "glow" : tab; // old links
 let currentTab = "home";
 
 function tabGroupLast() {
@@ -30,7 +32,8 @@ function tabGroupLast() {
 }
 // The group's remembered view, or its first one
 function tabGroupView(group) {
-  const last = tabGroupLast()[group];
+  const saved = tabGroupLast();
+  const last = saved[group] || (group === "glow" ? saved.you : undefined); // saved while it was called You
   return TAB_GROUPS[group].includes(last) ? last : TAB_GROUPS[group][0];
 }
 function rememberTabGroupView(group, tab) {
@@ -358,14 +361,6 @@ const SHELL_CLICK = {
     if (Number.isInteger(i) && i >= 0 && i < budget.accounts.length) editAccount(i);
   },
   "account-add": () => editAccount(),
-  "budget-select-day": (el) => {
-    const d = el.getAttribute("data-date");
-    if (isIsoDate(d)) selectBudgetDay(d);
-  },
-  "budget-cal-open": (el) => {
-    const v = el.getAttribute("data-open");
-    if (v === "true" || v === "false") setBudgetCalMonth(v === "true");
-  },
   "budget-month": (el) => {
     const n = el.getAttribute("data-delta");
     if (n === "1" || n === "-1") shiftBudgetMonth(Number(n));
@@ -790,7 +785,7 @@ document.addEventListener(
 
 // Once per device, the first time the tab bar is used: Budget and Jazz 3.0 have tabs again
 const TABS_BACK_KEY = "tabs-back-seen";
-const TABS_BACK_MSG = "Budget and Jazz 3.0 are back: Wallet and You";
+const TABS_BACK_MSG = "Budget and Jazz 3.0 are back: Wallet and Glow";
 function tabsBackNotice() {
   try {
     if (localStorage.getItem(TABS_BACK_KEY) || undoPending) return;
