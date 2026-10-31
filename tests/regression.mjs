@@ -2829,7 +2829,7 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   );
   const ui = await page.evaluate(() => ({
     weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "),
-    section: document.querySelector("#panel-jazz3 .j3-sec").textContent.trim(),
+    order: [...document.querySelectorAll("#panel-jazz3 > [id]")].map((e) => e.id).slice(0, 3).join(),
     tally: !!document.querySelector(".fit-tally"),
     week: document.getElementById("todo-list").textContent.replace(/\s+/g, " "),
     planOnFitness: !!document.querySelector("#panel-jazz3 #fit-plan"),
@@ -2837,13 +2837,13 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   }));
   check(
     "Weight card shows now, goal and to go",
-    ui.weight.includes("112") && ui.weight.includes("Goal 120") && ui.weight.includes("8 lb to go"),
+    ui.weight.includes("112") && ui.weight.includes("goal 120") && ui.weight.includes("8 to go"),
     ui.weight,
   );
   check("workouts fill the To-Do list on their days", ui.week.includes("Gym A") && ui.week.includes("Walk"), ui.week);
   check(
-    "Jazz 3.0 tab: a Fitness section with Weight, no workout tally; plan lives in To-Do",
-    ui.section === "Fitness" && !ui.tally && !ui.planOnFitness,
+    "Jazz 3.0 tab: banner, Today, then Weight; no workout tally; plan lives in To-Do",
+    ui.order === "j3-today,weight-card,j3-grid" && !ui.tally && !ui.planOnFitness,
     ui,
   );
   check(
@@ -2963,22 +2963,22 @@ await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
   const r = await page.evaluate(() => ({
     secs: [
-      document.querySelector("#panel-jazz3 .j3-sec").textContent.trim(),
-      ...[...document.querySelectorAll("#panel-jazz3 .p3-title")].map((e) => e.textContent.trim()),
+      document.querySelector("#panel-jazz3 .j3-areas").textContent.trim(),
+      ...[...document.querySelectorAll("#panel-jazz3 .p3-name")].map((e) => e.firstChild.textContent.trim()),
     ],
     glow: document.querySelectorAll("#p3-glow .p3-row").length,
     lead: document.querySelectorAll("#p3-leadership .p3-row").length,
     text: document.getElementById("p3-glow").textContent.replace(/\s+/g, " "),
-    insight: document.querySelector("#p3-leadership .insight").textContent,
+    insight: document.querySelector("#p3-leadership .p3-ring").textContent,
   }));
   check(
-    "sections: Fitness, then Glow and Leadership",
-    JSON.stringify(r.secs) === '["Fitness","Glow","Leadership"]',
+    "sections: Goal areas, then Glow and Leadership",
+    JSON.stringify(r.secs) === '["Goal areas","Glow","Leadership"]',
     r.secs,
   );
   check(
     "Glow has 7 items, Leadership 4, with notes",
-    r.glow === 7 && r.lead === 4 && r.text.includes("Nightly") && r.insight === "0/4 done",
+    r.glow === 7 && r.lead === 4 && r.text.includes("Nightly") && r.insight === "0/4",
     r,
   );
   await page.click('#p3-leadership .todo-check[aria-label="Done: Join a speaking club"]');
@@ -2987,7 +2987,8 @@ await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
     await page.evaluate(
       () =>
         plan3.find((x) => x.item === "Join a speaking club").done === true &&
-        document.querySelector("#p3-leadership .insight").textContent === "1/4 done",
+        document.querySelector("#p3-leadership .p3-ring").textContent === "1/4" &&
+        document.querySelector("#p3-leadership .p3-name i").textContent === "Next: Blazer",
     ),
   );
   // add to a section, and start a new one
@@ -3038,7 +3039,7 @@ await section("Jazz 3.0 plan: Glow and Leadership checklists", async () => {
   await ctx.close();
 });
 
-await section("Console orb stands out; Jazz 3.0 hero chips", async () => {
+await section("Console orb stands out; Jazz 3.0 banner", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=home" });
   check(
     "the Console nav button has its orb even when inactive",
@@ -3057,24 +3058,90 @@ await section("Console orb stands out; Jazz 3.0 hero chips", async () => {
     openPinned.delete("p3-leadership");
     renderFitness();
   });
-  const chips = await page.evaluate(() =>
-    [...document.querySelectorAll("#panel-jazz3 .j3-hero .j3-chip")].map((c) =>
-      c.textContent.replace(/\s+/g, " ").trim(),
+  check(
+    "banner counts goal steps done",
+    await page.evaluate(() => {
+      plan3[0].done = true;
+      renderFitness();
+      const h = document.querySelector("#panel-jazz3 .j3-hero");
+      return h.textContent.includes("1 of 11 steps done") && h.querySelector(".progress-fill").style.width === "9%";
+    }),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Jazz 3.0: Today card, workout streak and the last 4 weeks", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
+  const r = await page.evaluate(() => {
+    const all = [0, 1, 2, 3, 4, 5, 6];
+    fitness = { start: null, goal: null, weights: [], weighDay: -1, checks: {}, plan: [
+      { id: "wo1", name: "Gym", days: all, every: 1, anchor: addDaysIso(-40), time: "07:30", kind: "fitness" },
+    ] };
+    normalizeFitness();
+    // the last 3 days done, 4 days ago missed
+    [-1, -2, -3].forEach((n) => (fitness.checks[addDaysIso(n) + "|wo1"] = true));
+    routineChecks = {};
+    [-1, -2, -5].forEach((n) => (routineChecks[addDaysIso(n)] = { am: [], pm: [], amDone: true, pmDone: true }));
+    localStorage.removeItem("jv-goal-skip");
+    renderFitness();
+    const t = document.getElementById("j3-today");
+    return {
+      head: t.querySelector(".j3-head").textContent,
+      streak: t.querySelector(".j3-streak")?.textContent,
+      rows: t.querySelectorAll(".j3-trow").length,
+      goal: dashGoalOfDay().item,
+      shown: t.querySelector('[data-action="plan3-edit"] b').textContent,
+      grid: [...document.querySelectorAll("#j3-grid .j3-grid-row")].map((x) => [
+        x.querySelector(".jv-mini").textContent,
+        x.querySelectorAll(".j3-cells i").length,
+        x.querySelector(".jv-streak-n").textContent,
+        x.querySelector(".j3-cells i:last-child").className,
+      ]),
+      best: document.querySelector("#j3-grid .j3-label span")?.textContent,
+    };
+  });
+  check("Today headline counts workouts and names the goal area", /^1 workout and one step toward \S/.test(r.head), r);
+  check("streak counts days in a row with workouts done", r.streak === "3-day streak", r);
+  check("Today lists the workout and the goal of the day", r.rows === 2 && r.shown === r.goal, r);
+  check(
+    "grid: 28 days per row, today outlined until done",
+    JSON.stringify(r.grid) === '[["Routine",28,"3/27","wait"],["Workout",28,"3/27","wait"]]',
+    r.grid,
+  );
+  check("grid shows the best streak", r.best === "best streak 3 days", r);
+  await page.click('#j3-today [data-action="workout-occ-toggle"]');
+  check(
+    "ticking today's workout counts it and grows the streak",
+    await page.evaluate(
+      () =>
+        workoutDone(addDaysIso(0), "wo1") &&
+        document.querySelector("#j3-today .j3-streak").textContent === "4-day streak" &&
+        document.querySelector("#j3-today .j3-head").textContent.startsWith("Workouts done, one step toward") &&
+        document.querySelector("#j3-grid .j3-grid-row.warn .j3-cells i:last-child").className === "on",
+    ),
+  );
+  const before = r.goal;
+  await page.click('#j3-today [data-action="jv-goal-another"]');
+  check(
+    "Another swaps the goal step on Jazz 3.0",
+    await page.evaluate(
+      (b) => {
+        const shown = document.querySelector('#j3-today [data-action="plan3-edit"] b').textContent;
+        return shown !== b && shown === dashGoalOfDay().item;
+      },
+      before,
     ),
   );
   check(
-    "hero shows weight progress and each section's tally",
-    JSON.stringify(chips) === '["Weight72%","Glow0/7","Leadership0/4"]',
-    chips,
-  );
-  await page.click('#panel-jazz3 .j3-chip:has-text("Leadership")');
-  await page.waitForTimeout(600);
-  check(
-    "tapping a chip opens and scrolls to its section",
+    "no Today card and no grid with nothing planned",
     await page.evaluate(() => {
-      const el = document.getElementById("p3-leadership");
-      const r = el.getBoundingClientRect();
-      return el.classList.contains("open") && r.top >= 0 && r.top < innerHeight / 2;
+      fitness.plan = [];
+      plan3.forEach((x) => (x.done = true));
+      skinRoutine.am = [];
+      skinRoutine.pm = [];
+      renderFitness();
+      return !document.getElementById("j3-today") && !document.getElementById("j3-grid");
     }),
   );
   check("no JS errors", errors.length === 0, errors);
@@ -3098,7 +3165,7 @@ await section("Fitness: month-by-month weight history", async () => {
     const s = weightStatus();
     return {
       months: document.querySelectorAll("#weight-card .weight-months > div").length - 1,
-      text: document.querySelector("#weight-card .goal-outlook").textContent.replace(/\s+/g, " "),
+      text: document.getElementById("weight-card").textContent.replace(/\s+/g, " "),
       rateAll: s.rateAll,
       rate: s.rate,
       eta: !!s.eta,
@@ -3371,11 +3438,12 @@ await section(
       normalizeFitness();
       saveFitness();
       showWeighIns = false;
+      j3WeightMore = true;
       renderFitness();
     });
     check(
-      "populated card controls have no inline onclick (shared collapsible header is out of scope)",
-      await page.evaluate(() => document.querySelectorAll("#weight-card .coll-body [onclick]").length === 0),
+      "populated card controls have no inline onclick",
+      await page.evaluate(() => document.querySelectorAll("#weight-card [onclick]").length === 0),
     );
     await page.click('#weight-card [data-action="fitness-weight-goal"]');
     check(
@@ -3397,7 +3465,7 @@ await section(
           document.getElementById("weight-card").textContent.includes("Weigh-in day: Fridays"),
       ),
     );
-    await page.click('#weight-card .goal-actions [data-action="fitness-log-weight"]');
+    await page.click("#weight-card .j3-log");
     check("populated + Log weight opens a new entry", (await page.textContent("#modal-heading")) === "Log weight");
     await page.fill("#modal-lbs", "144");
     await save();
@@ -7243,7 +7311,7 @@ await section("skin + shopping controls: delegated markup, behavior, invalid/sta
   await ctx.close();
 });
 // Inline-handler migration, batch 3: Jazz 3.0 (Plan 3 rows/sections/hero chips) and the weigh-in row.
-await section("jazz 3.0: plan rows, sections, hero chips and weigh-in rows are delegated and validated", async () => {
+await section("jazz 3.0: plan rows, sections and weigh-in rows are delegated and validated", async () => {
   const { ctx, page, errors } = await openApp({
     query: "?tab=jazz3",
     seed: {
@@ -7311,23 +7379,11 @@ await section("jazz 3.0: plan rows, sections, hero chips and weigh-in rows are d
     "sortable rows still match .p3-list > .p3-row",
     await page.evaluate(() => document.querySelectorAll(".p3-list > .p3-row[data-sort-id]").length === plan3.length),
   );
-  const chips = await page.evaluate(() =>
-    [...document.querySelectorAll('[data-action="j3-jump"]')].map((b) => b.getAttribute("data-target")),
-  );
-  check("hero chips carry targets", chips[0] === "weight-card" && chips.some((c) => c.startsWith("p3-")), chips);
   await page.evaluate(() => {
     openPinned.delete("p3-glow");
     renderFitness();
     window.__scroll = 0;
-    Element.prototype.scrollIntoView = function () {
-      window.__scroll++;
-    };
   });
-  await page.click('[data-action="j3-jump"][data-target="p3-glow"]');
-  check(
-    "hero chip opens and scrolls to its card",
-    await page.evaluate(() => openPinned.has("p3-glow") && window.__scroll === 1),
-  );
   const snap = () =>
     page.evaluate(() =>
       JSON.stringify([
@@ -9533,9 +9589,9 @@ await section("Console: every Jazz 3.0 entry point still works", async () => {
     dashGo("jazz3", "weight-card");
   });
   check(
-    'dashGo("jazz3", "weight-card") lands on the open Weight card',
+    'dashGo("jazz3", "weight-card") lands on the Weight card',
     await page.evaluate(
-      () => currentTab === "jazz3" && document.getElementById("weight-card").classList.contains("open"),
+      () => currentTab === "jazz3" && !!document.querySelector("#panel-jazz3.active #weight-card"),
     ),
   );
   check("no JS errors", errors.length === 0, errors);
@@ -12892,7 +12948,7 @@ await section("Wallet / Glow: every entry point lands on the right view with the
   check(
     'dashGo("jazz3", "weight-card") opens Glow → Jazz 3.0 at the Weight card',
     (await at()) === "jazz3,glow,jazz3" &&
-      (await page.evaluate(() => document.getElementById("weight-card").classList.contains("open"))),
+      (await page.evaluate(() => !!document.querySelector("#panel-jazz3.active #weight-card"))),
   );
   // a Home tile tap (real UI)
   await page.evaluate(() => activateTab("home"));

@@ -872,6 +872,7 @@ function dashGoalAnother() {
     localStorage.setItem(DASH_GOAL_SKIP, JSON.stringify({ date: today, n: n + 1 }));
   } catch (e) {}
   renderHome();
+  renderFitness(); // Jazz 3.0 shows the same goal step
 }
 function dashGoalHtml() {
   const g = dashGoalOfDay();

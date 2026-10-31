@@ -601,11 +601,7 @@ const SHELL_CLICK = {
     e.stopPropagation();
     weighRowOpen(el);
   },
-  // Jazz 3.0 (Plan 3): hero chips jump to a card; rows toggle/edit by id; add buttons name their section by position.
-  "j3-jump": (el) => {
-    const id = el.getAttribute("data-target");
-    if (id === "weight-card" || (id && plan3Cats().some((c) => id === "p3-" + plan3Slug(c)))) jumpToJ3(id);
-  },
+  // Jazz 3.0 (Plan 3): rows toggle/edit by id; add buttons name their section by position.
   "plan3-toggle": (el) => {
     const x = plan3FromEl(el);
     if (x) togglePlan3(x.id);

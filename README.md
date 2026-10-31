@@ -290,15 +290,27 @@ clothes, moto gear, and everything else.
   **Back to list** brings it back.
 - **Priority.** High-priority items get a badge and sort first.
 
-**Jazz 3.0** is a tab made of sections; more are coming. It opens on a gradient banner with a
-chip per section (Weight %, Glow 3/7…); tapping a chip opens that section and jumps to it.
+**Jazz 3.0** is one page, top to bottom:
+- **Banner:** "Your next chapter · 11 of 22 steps done" with a bar for all goal items.
+- **Today:** today's workouts (tick them here) and one goal step, the same goal of the day as
+  Home (**Another** picks a different one). A headline sums it up ("1 workout and one step
+  toward Leadership") and a badge shows the workout streak (days in a row with every planned
+  workout done; rest days don't break it). Hidden when nothing is planned.
+- **Weight:** the number, goal and how far to go, pace and finish date, and the trend chart
+  with **+ Log** up top; **History and settings** folds the rest (see Fitness below).
+- **Last 4 weeks:** a square a day for the Beauty routine (AM and PM both done) and workouts:
+  lit = done, dim = missed, dashed = rest day, outlined = today, still to do. Shows each
+  row's count and the best streak.
+- **Goal areas:** each section as a card with a progress ring and its next step.
+
 It lives in the **Glow** tab, next to Beauty (the switch at the top). Other ways in: Home's
 Jazz 3.0 tile (its goal bars, and **Open Jazz 3.0** at the end of its detail), `?tab=jazz3`
 (the home-screen shortcut), old `?tab=fitness` links, and `#import=` jazz3 links; each lights
 Glow in the tab bar. The goal of the day, today's workouts and Last 7 days stay on Home.
 
 **Fitness** (the first Jazz 3.0 section) tracks weight toward a goal; the workouts themselves live in To-Do.
-- **Weight:** the latest weigh-in, the goal and how far to go, a bar from your starting
+- **Weight:** the latest weigh-in, the goal and how far to go, and (in the History and
+  settings fold, open for the session once opened) a bar from your starting
   weight to the goal, the change since you started, your pace over the last 8 weeks
   ("+0.6 lb/week lately"; with fewer than 3 weigh-ins in that window it uses your whole
   history, "on average") with a finish date at that pace, the change since your first
@@ -311,10 +323,10 @@ Glow in the tab bar. The goal of the day, today's workouts and Last 7 days stay 
   with your last weight. Ticking it opens Log weight for that date, and it ticks itself once
   the day has a weigh-in. If a week goes by without one, it also shows today.
 
-**Goal sections** (Glow, Leadership…) follow Fitness on the Jazz 3.0 tab: each is a card
-with a checklist of items and a short note ("Hand cream — nightly"), a "2/7
-done" count, tap to edit / move / delete, press and drag to reorder, **+ Add item**, and
-**+ New section** for another goal area. Stored as `plan3-content`; the first list ships as
+**Goal areas** (Glow, Leadership…) close the Jazz 3.0 tab: each is a card with a progress
+ring ("2/7"), "Next: <first open item>", and a checklist of items with a short note
+("Hand cream — nightly"); tap to edit / move / delete, press and drag to
+reorder, **+ Add to <area>**, and **+ New goal area**. Stored as `plan3-content`; the first list ships as
 the starting items.
 
 **Workouts** are a weekly plan that fills your to-dos by itself:

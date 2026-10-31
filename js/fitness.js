@@ -408,15 +408,22 @@ function workoutsCardHtml() {
       `<button class="add-row" data-action="fitness-workout-add">+ Add workout</button>`,
   });
 }
+let j3WeightMore = false; // the Weight card's History and settings fold (this session)
 function renderFitness() {
   const el = document.getElementById("panel-jazz3");
   if (!el) return;
   const today = addDaysIso(0),
     s = weightStatus();
-  // 1. Weight
-  let wBody;
+  const md = (iso) =>
+    noonOf(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: iso.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric",
+    });
+  // Weight: the number, pace and trend up top; history and settings fold below
+  let wHtml;
   if (s.cur == null && fitness.goal == null) {
-    wBody = `<div class="empty">Track your weight toward a goal: log a weigh-in and set where you're headed.</div>
+    wHtml = `<div class="j3-label">Weight</div><div class="empty">Track your weight toward a goal: log a weigh-in and set where you're headed.</div>
       <div class="goal-actions"><button class="goal-add" data-action="fitness-log-weight">+ Log weight</button><button class="goal-hist" data-action="fitness-weight-goal">Set goal</button></div>`;
   } else {
     const dir = s.change > 0 ? "Up" : s.change < 0 ? "Down" : "No change";
@@ -424,10 +431,14 @@ function renderFitness() {
       s.rate != null
         ? `${s.rate > 0 ? "+" : ""}${s.rate} lb/week ${s.rateAll ? "on average" : "lately"}`
         : "Log a few weigh-ins to see your pace";
-    wBody = `<div class="weight-top">
-        <div class="weight-now"><b>${s.cur != null ? s.cur : "—"}</b><span>lb</span></div>
-        <button class="weight-goal" data-action="fitness-weight-goal">${s.goal != null ? (s.reached ? `${BOX_CHECK_SVG}Goal ${s.goal} reached` : `Goal ${s.goal} · <b>${s.toGo} lb to go</b>`) : "Set a goal"}</button>
-      </div>
+    const chart = weightChartHtml(),
+      first = fitness.weights.slice(-16)[0];
+    wHtml = `<div class="j3-label">Weight<button class="j3-log" data-action="fitness-log-weight">+ Log</button></div>
+      <div class="j3-wnow"><b>${s.cur != null ? s.cur : "—"}</b><button class="j3-wgoal" data-action="fitness-weight-goal">lb · ${s.goal != null ? (s.reached ? `goal ${s.goal} <b>reached</b>` : `goal ${s.goal} · <b>${s.toGo} to go</b>`) : "<b>set a goal</b>"}</button></div>
+      <div class="j3-wpace">${escapeHtml(rate)}${s.eta ? ` · on pace for <b>${escapeHtml(md(s.eta))}</b>` : ""}</div>
+      ${chart}
+      ${chart && first ? `<div class="j3-wscale"><span>${escapeHtml(md(first.date))} · ${first.lbs}</span>${s.goal != null ? `<span>Goal ${s.goal}</span>` : ""}</div>` : ""}
+      <details class="j3-more" id="j3-weight-more"${j3WeightMore ? " open" : ""}><summary class="jv-label wb-fold"><span>History and settings</span><i></i>${CHEVRON_DOWN}</summary>
       ${
         s.goal != null && s.start != null
           ? `<div class="progress-bar"><div class="progress-fill" style="width:${s.pct}%"></div></div>
@@ -437,15 +448,14 @@ function renderFitness() {
       <div class="goal-outlook">
         ${s.change != null ? `<div>${dir}${s.change ? ` <b>${Math.abs(s.change)} lb</b>` : ""} since you started at ${s.start}</div>` : ""}
         ${((a) => (a ? `<div>Since ${escapeHtml(noonOf(a.since).toLocaleDateString("en-US", { month: "short", year: a.since.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }))}: <b>${a.change > 0 ? "+" : ""}${a.change} lb</b> · about ${a.perMonth > 0 ? "+" : ""}${a.perMonth} lb a month</div>` : ""))(weightAllTime())}
-        <div>${escapeHtml(rate)}${s.eta ? ` · At this pace: <b>${escapeHtml(noonOf(s.eta).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</b>` : ""}</div>
       </div>
       <button class="weigh-day-link" data-action="fitness-weigh-day">${CALENDAR_ICON}<span>${weighDay() < 0 ? "Weigh-in reminder off" : `Weigh-in day: ${WEEKDAYS[weighDay()]}s`}</span><b>Change</b></button>
-      ${weightChartHtml()}
       ${weightMonthsHtml()}
-      <div class="goal-actions">
-        <button class="goal-add" data-action="fitness-log-weight">+ Log weight</button>
-        ${fitness.weights.length ? `<button class="goal-hist" data-action="fitness-weigh-history" aria-expanded="${showWeighIns}">Weigh-ins (${fitness.weights.length})${CHEVRON_DOWN}</button>` : ""}
-      </div>
+      ${
+        fitness.weights.length
+          ? `<div class="goal-actions"><button class="goal-hist" data-action="fitness-weigh-history" aria-expanded="${showWeighIns}">Weigh-ins (${fitness.weights.length})${CHEVRON_DOWN}</button></div>`
+          : ""
+      }
       ${
         showWeighIns
           ? `<div class="goal-entries">${fitness.weights
@@ -453,30 +463,26 @@ function renderFitness() {
               .reverse()
               .map(
                 (w) => `<button class="goal-entry" data-action="fitness-weigh-edit" data-weight-id="${w.id}">
-          <span>${escapeHtml(noonOf(w.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: w.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }))}</span>
+          <span>${escapeHtml(md(w.date))}</span>
           <span class="goal-note"></span><b>${w.lbs} lb</b></button>`,
               )
               .join("")}</div>`
           : ""
-      }`;
+      }</details>`;
   }
-  // The Jazz 3.0 tab is a set of sections; Fitness is the first
-  let html =
-    j3HeroHtml(s) +
-    `<div class="j3-sec">${KIND_SVG('<path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/>')}Fitness</div>`;
-  html += collapsibleCard({
-    id: "weight-card",
-    title: "Weight",
-    insight:
-      s.cur != null && s.goal != null
-        ? s.reached
-          ? "Goal reached"
-          : `${s.cur} → ${s.goal}`
-        : s.cur != null
-          ? `${s.cur} lb`
-          : "Not set",
-    body: wBody,
-  });
-  html += plan3SectionsHtml();
-  el.innerHTML = html;
+  // Jazz 3.0, top to bottom: banner, today, weight, the last 4 weeks, goal areas
+  el.innerHTML =
+    j3HeroHtml() +
+    j3TodayHtml() +
+    `<section class="card j3-weight" id="weight-card" aria-label="Weight">${wHtml}</section>` +
+    j3GridHtml() +
+    plan3SectionsHtml();
 }
+// the Weight fold stays open across redraws (toggle doesn't bubble, so capture it)
+document.getElementById("panel-jazz3")?.addEventListener(
+  "toggle",
+  (e) => {
+    if (e.target.id === "j3-weight-more") j3WeightMore = e.target.open;
+  },
+  true,
+);

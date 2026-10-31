@@ -529,5 +529,10 @@ Steps 1–5 deliver value with **no new credentials** and can ship on their own.
   without it (or when dispatch fails) wait for the next morning/Sunday run. **Limits:** 1,000 chars a
   question; per run 5 questions and $0.40; per day 10 questions and $1; per week 40; per month $8
   (`ASK_MONTHLY_BUDGET_USD`). Over a limit → `over_limit` at no model cost.
+- **Jazz 3.0 redesign (Oct 31):** mockups A (Progress) and B (Goals board) were combined and
+  shipped under Glow: banner with a step count and bar (the section chips are gone), a Today
+  card (today's workouts + the goal of the day, workout streak), Weight with the chart up top
+  and the rest in a History and settings fold, a Last 4 weeks grid (routine + workouts), and
+  goal areas as ring cards with their next step.
 - **Voice (added Oct 30):** a mic in Console's box and Home's quick add (Web Speech API); the
   transcript fills the box and is never sent automatically.

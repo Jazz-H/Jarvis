@@ -367,28 +367,236 @@ nav.tabbar button.orb-tab::before {
   font-size: 13.5px;
   color: var(--text-dim);
 }
-.j3-chips {
+.j3-hero h2,
+.j3-hero p {
   position: relative;
   z-index: 1;
+}
+.j3-hero .j3-bar {
+  position: relative;
+  z-index: 1;
+  background: var(--track);
+}
+.j3-hero .j3-bar .progress-fill {
+  background: var(--olive);
+}
+/* Jazz 3.0 cards: a small mono label, then the content */
+.j3-label {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  min-height: 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
-.j3-chip {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 7px 12px;
-  font: inherit;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--surface-2);
-  cursor: pointer;
-  min-height: 36px;
-}
-.j3-chip b {
-  font-weight: 800;
+.j3-label.on {
   color: var(--olive);
-  margin-left: 4px;
+}
+.j3-label > span {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-dim);
+}
+.j3-label > .j3-streak {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--warn);
+}
+.j3-today {
+  border-color: var(--olive-dim);
+  box-shadow: 0 0 24px var(--glow);
+}
+.card .j3-head {
+  margin: 6px 0 6px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.j3-trow:last-child {
+  border-bottom: none;
+}
+.j3-trow .jv-chip-sm {
+  flex: none;
+}
+.j3-log {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--olive);
+  color: var(--on-accent);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.j3-wnow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 4px 0 2px;
+}
+.j3-wnow > b {
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.j3-wgoal {
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.j3-wgoal b,
+.j3-wpace b {
+  color: var(--text);
+}
+.j3-wgoal b {
+  color: var(--olive);
+}
+.j3-wpace {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.j3-wscale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.j3-more > .jv-label {
+  margin: 12px 0 0;
+}
+.j3-more[open] > .jv-label {
+  margin-bottom: 10px;
+}
+.j3-grid-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 40px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.j3-grid-row.pm .jv-mini {
+  color: var(--navy);
+}
+.j3-grid-row.warn .jv-mini {
+  color: var(--warn);
+}
+.j3-cells {
+  display: grid;
+  grid-template-columns: repeat(28, minmax(0, 1fr));
+  gap: 2px;
+}
+.j3-cells i {
+  height: 12px;
+  border-radius: 2px;
+  background: var(--track);
+}
+.j3-grid-row.pm .j3-cells i.on {
+  background: var(--navy);
+}
+.j3-grid-row.warn .j3-cells i.on {
+  background: var(--warn);
+}
+.j3-cells i.none {
+  background: none;
+  border: 1px dashed var(--trace);
+}
+.j3-cells i.wait {
+  background: none;
+  border: 1px solid var(--text-dim);
+}
+.j3-legend {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.j3-areas {
+  margin-top: 8px;
+}
+/* goal areas: a progress ring, the name and the next step */
+.p3-ring {
+  --c: var(--olive);
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--track) 0);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.p3-ring::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.p3-ring > span {
+  position: relative;
+}
+.p3-ring.pm {
+  --c: var(--navy);
+}
+.p3-ring.warn {
+  --c: var(--warn);
+}
+.p3-ring.am {
+  --c: var(--gold);
+}
+.p3-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+.p3-name i {
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+.p3-new {
+  min-height: 52px;
+  border: 1px dashed var(--olive-dim);
+  border-radius: 14px;
+  justify-content: center;
 }
 
 .card {
@@ -3424,32 +3632,10 @@ body[data-tab="wants"] main {
 .fw-foot b {
   color: var(--text);
 }
-.j3-sec {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 4px 10px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-.j3-sec svg {
-  width: 15px;
-  height: 15px;
-  color: hsl(205 85% var(--hue-l));
-}
 .p3-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-.p3-title svg {
-  width: 15px;
-  height: 15px;
-  color: hsl(320 70% var(--hue-l));
-  flex-shrink: 0;
+  gap: 10px;
 }
 .p3-row {
   display: flex;
@@ -3500,7 +3686,9 @@ body[data-tab="wants"] main {
   color: var(--text-dim);
 }
 .p3-new {
-  margin-top: 14px;
+  margin-top: 6px;
+  font-size: 14.5px;
+  border-radius: 14px;
 }
 .p3-row {
   -webkit-touch-callout: none;
