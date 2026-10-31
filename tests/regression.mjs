@@ -13419,13 +13419,15 @@ await section("wallet: Next 14 days folds from its label and remembers", async (
   const a = await st();
   check("open by default, with the bills", a.open && a.rows >= 1, a);
   await page.click("#wb-next > summary");
+  // the toggle event (which saves it) fires a moment after the tap
+  await page.waitForFunction(() => localStorage.getItem("budget-next-open") === "0").catch(() => {});
   const b = await st();
   check("tapping the label folds it and remembers", !b.open && b.kept === "0", b);
   await page.evaluate(() => renderBudget());
   check("stays folded after a redraw", !(await st()).open);
   await page.focus("#wb-next > summary");
   await page.keyboard.press("Enter");
-  await page.waitForTimeout(150); // the toggle event fires after the click
+  await page.waitForFunction(() => localStorage.getItem("budget-next-open") === "1").catch(() => {});
   const c = await st();
   check("Enter on the label opens it again", c.open && c.kept === "1", c);
   check("no JS errors", errors.length === 0, errors);
