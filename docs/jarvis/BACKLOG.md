@@ -8,6 +8,11 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
   ends every 7 days. Publishing was blocked on Branding (likely a privacy policy link); a
   one-page privacy policy on the Pages site would fix it. Until then, redo `npm run google-auth`
   weekly and update `GOOGLE_REFRESH_TOKEN`.
+- [ ] **Check the morning schedule** (Nov 1): GitHub had never fired `jarvis.yml`'s cron; every
+  briefing so far was started by hand, and a 5-minute probe on Oct 31 didn't fire either. If no
+  briefing arrives by itself, pick a fallback: an outside timer (cron-job.org with a dispatch
+  token) or the app starting a run when today's is missing. Home now says when it's late.
+- [ ] **Top up Claude API credit** (you) when it runs low: briefing, review and Ask stop without it.
 
 ## Decide
 - (nothing open)
@@ -16,13 +21,15 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
-- [x] Tab bar: Home · To-Do · Console · Wallet (Budget | Shopping) · You (Beauty | Jazz 3.0); phone-first
+- [x] Jazz 3.0 redesign (Oct 31): banner, Today, Weight, last 4 weeks, goal-area rings
+- [x] Inbox counts and reads unread Primary mail only (Oct 31)
+- [x] Tab bar: Home · To-Do · Console · Wallet (Budget | Shopping) · Glow (Beauty | Jazz 3.0); phone-first
   Budget top (safe to spend, next 14 days, spending bars, goal) (Oct 30)
 - [x] Console (Ask Jarvis with cost limits, Capture, voice, Hey Jarvis), Weekly Review, calendar history (Oct 30)
 - [x] Google connected (Calendar, Inbox, Deliveries) and phone notifications on; tested Oct 30
 - [x] Skin & Hair renamed Beauty; notification badge; cleaner notification text (Oct 30)
 - [x] Workflow passes the Google and VAPID secrets to the morning run (Oct 30, `main`)
-- [x] Budget stays out of the tab bar; Home's Money tile is the way in (decided Oct 30)
+- [x] ~~Budget stays out of the tab bar~~ (Oct 30; replaced the same day by the Wallet tab group)
 - [x] Backlog build, steps 7–16 (Oct 30, `main`): skin weather (UV + SPF, air quality), wash-day
   swap, one goal item a day, consistency (last 7 days), money extras (safe to spend, payday
   countdown, not-autopay warning), coming up (next 14 days, gift idea), outfit from your closet,

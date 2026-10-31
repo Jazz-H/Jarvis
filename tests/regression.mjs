@@ -7812,7 +7812,19 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
     notes: document.querySelector(".jv-notes summary").textContent,
     fallback: document.querySelector(".jv-card > .jv-meta").textContent,
   }));
-  check("yesterday's briefing is labeled and dimmed", r.when.startsWith("From ") && r.stale, r);
+  check(
+    "yesterday's briefing is labeled and dimmed (or flagged late after 8 AM)",
+    (new Date().getHours() >= 8 ? r.when.startsWith("Today's briefing hasn't arrived. Showing ") : r.when.startsWith("From ")) && r.stale,
+    r,
+  );
+  check(
+    "the late notice turns on at 8 AM",
+    await page.evaluate(() => {
+      const b = { date: addDaysIso(-1) };
+      const at = (h) => { const d = new Date(); d.setHours(h, 0, 0, 0); return briefingLateHtml(b, d); };
+      return at(7).includes("From ") && !at(7).includes("jv-late") && at(8).includes("jv-late") && !briefingLateHtml({ date: addDaysIso(0) }).includes("jv-late");
+    }),
+  );
   check("failed agent shows its error", r.newsErr.includes("timed out") && r.newsInsight === "Unavailable", r);
   check(
     "unreadable card data shows an error",
@@ -11588,7 +11600,7 @@ await section(
         dayCostUsd: 0.18,
         week: "2030-W01",
         weekCount: 9,
-        month: "2030-01",
+        month: isoOffset(0).slice(0, 7),
         monthCostUsd: 1.2,
       },
     );
@@ -11661,7 +11673,11 @@ await section(
       /Asked on another device/.test(r.other) && /laptop question/.test(r.other),
       r.other,
     );
-    check("today's questions left come from usage", r.usage === "7 of 10 questions left today", r.usage);
+    check(
+      "today's questions left and this month's spending come from usage",
+      r.usage === "7 of 10 questions left today · $1.20 of $8 used this month",
+      r.usage,
+    );
     // chips: nothing until tapped; then one item with its date, and Undo
     const n0 = await page.evaluate(() => [todoList.length, wantsList.length]);
     await page.tap('#cn-feed .rv-chip[data-ask-id="a-q-ok-000001"][data-index="0"]');

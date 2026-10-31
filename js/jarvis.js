@@ -377,11 +377,20 @@ function jarvisHeroHtml(b) {
   return `<section class="card jv-card jv-hero${b.date === today ? "" : " jv-stale"}">
       <div class="jv-kicker">Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}</div>
       ${((p) => (b.headline ? `<h2 class="jv-headline">${escapeHtml(p.title)}</h2>${p.sub ? `<p class="jv-headsub">${escapeHtml(p.sub)}</p>` : ""}` : ""))(briefingHeadParts(b.headline || ""))}
-      ${b.date === today ? "" : `<div class="jv-when">From ${noonOf(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>`}
+      ${b.date === today ? "" : briefingLateHtml(b)}
       <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${notes}
     </section>`;
+}
+
+// An older briefing on screen: after 8 AM, today's is late (the run usually lands by 7), so say so
+const BRIEFING_LATE_HOUR = 8;
+function briefingLateHtml(b, now = new Date()) {
+  const from = noonOf(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return b.date < isoDate(now) && now.getHours() >= BRIEFING_LATE_HOUR
+    ? `<div class="jv-when jv-late" role="status">Today's briefing hasn't arrived. Showing ${from}.</div>`
+    : `<div class="jv-when">From ${from}</div>`;
 }
 
 // Skin weather: UV (with SPF advice) and air quality, from the Weather agent's facts

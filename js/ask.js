@@ -28,6 +28,7 @@ const ASK_TEXT_MAX = 1000;
 const ASK_FILE_MAX = 20;
 const ASK_HISTORY_MAX = 50;
 const ASK_DAY_LIMIT = 10;
+const ASK_MONTH_BUDGET = 8; // ASK_MONTHLY_BUDGET_USD's default (dollars)
 const ASK_EXPIRY_WARN_MS = 14 * 864e5;
 // Timings (tests shorten these)
 const ASK_TIMING = { cooldown: 10000, pollEvery: 10000, pollFor: 180000 };
@@ -598,9 +599,21 @@ function askUsageLeft() {
   if (u.day !== isoDate(new Date())) return u.day < isoDate(new Date()) ? ASK_DAY_LIMIT : null;
   return Math.max(0, ASK_DAY_LIMIT - u.dayCount);
 }
+// This month's Ask spending, from the backend's usage counts (0 once a new month starts)
+function askMonthSpent() {
+  const u = loadAnswers().usage;
+  if (!u || !u.month) return null;
+  return u.month === isoDate(new Date()).slice(0, 7) ? u.monthCostUsd : u.month < isoDate(new Date()).slice(0, 7) ? 0 : null;
+}
 function askUsageText() {
-  const left = askUsageLeft();
-  return left == null ? "" : `${left} of ${ASK_DAY_LIMIT} questions left today`;
+  const left = askUsageLeft(),
+    spent = askMonthSpent();
+  return [
+    left == null ? "" : `${left} of ${ASK_DAY_LIMIT} questions left today`,
+    spent == null ? "" : `$${spent.toFixed(2)} of $${ASK_MONTH_BUDGET} used this month`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 function askNextRunText(now = new Date()) {
   return `Queued — Jarvis will answer on the next run (${now.getHours() < 7 ? "today" : "tomorrow"} ~7am)`;

@@ -31,7 +31,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   rule, with its tag lined up with the first line of text. Every row except Jarvis's own drills
   into its detail (the › on the right): Budget opens Money, To-do the Planner, and so on.
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
-  older day's briefing is dimmed and labeled "From <date>". Problems from the run are listed
+  older day's briefing is dimmed and labeled "From <date>"; from 8 AM on, it says in amber
+  "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed
   under "notes".
 - **Wash-day swap:** on a wash day with 50%+ rain or 70%+ humidity, when tomorrow looks drier,
   Jarvis suggests moving wash day to tomorrow. **Move it** moves just this one; **Keep today**
@@ -157,7 +158,8 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
-- **Top row:** "N of 10 questions left today" (once Jarvis has reported today's count) and
+- **Top row:** "N of 10 questions left today · $X of $8 used this month" (once Jarvis has reported
+  its counts; $8 is the default monthly cap) and
   **History**.
 - **Ask | Capture:** a full-width switch. The mode is guessed from what you type (a question
   word first or a "?" at the end means Ask; several items, or anything else, means Capture)
