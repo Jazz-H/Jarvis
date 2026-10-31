@@ -134,7 +134,7 @@ describe("Weekly Review orchestrator", () => {
     const days = [{ ...DIGESTS[2], inbox: { ...DIGESTS[2].inbox!, needsReply: [{ from: "Eve", summary: evil.slice(0, 80) }] } }];
     const q = fakeQuery([{ structured_output: OUT }]);
     await runReview(deps({ gist: memoryGist(files({ "jazz2-week.json": JSON.stringify({ version: 1, days }) })).gist, queryFn: q.fn }));
-    const p = q.seen[0].prompt;
+    const p = String(q.seen[0].prompt);
     expect(p.match(/<\/untrusted_data>/g)).toHaveLength(1); // only the real closing tag
     expect(p.trim().endsWith("</untrusted_data>\nReturn the JSON object.")).toBe(true);
   });

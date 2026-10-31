@@ -244,9 +244,12 @@ function consoleShellHtml() {
       <label class="cn-sr" for="console-input" id="console-input-label">Ask Jarvis</label>
       <textarea id="console-input" class="cn-input" rows="1" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"
         maxlength="${CONSOLE_TEXT_MAX}" aria-describedby="cn-hint" data-keydown-action="console-key" data-input-action="console-input"></textarea>
+      <button type="button" class="cn-attach" data-action="ask-attach" aria-label="Attach a photo or PDF"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg></button>
+      <input type="file" id="cn-file" accept="image/*,application/pdf" hidden data-change-action="ask-file">
       ${voiceMicHtml("console")}
       <button type="button" class="cn-send" id="cn-send" data-action="console-send" aria-label="Send question">${CONSOLE_SEND_ICON}</button>
     </div>
+    <div id="cn-attach"></div>
     <div class="cn-under">
       <div class="cn-switch cn-route" role="group" aria-label="Send to">
         <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Jarvis</button>
@@ -265,10 +268,10 @@ function consoleShellHtml() {
   </div>`;
 }
 let consoleChipsMode = null; // which mode's chips are drawn, so typing doesn't redraw them
-// The box grows with what's typed (up to 4 lines, then scrolls) so a long question stays readable
+// The box grows with what's typed (up to 5 lines, then scrolls) so a long question stays readable
 function consoleFitBox(input) {
   input.style.height = "auto";
-  input.style.height = Math.min(input.scrollHeight, 4 * 24 + 20) + "px";
+  input.style.height = Math.min(input.scrollHeight, 5 * 24 + 20) + "px";
 }
 function consoleRefreshBox() {
   const input = document.getElementById("console-input");
@@ -294,6 +297,9 @@ function consoleRefreshBox() {
   const note = askNoteHtml(mode),
     noteEl = document.getElementById("cn-ask-note");
   if (noteEl.innerHTML !== note) noteEl.innerHTML = note; // only when it changes, so typing doesn't redraw it
+  const att = askAttachHtml(),
+    attEl = document.getElementById("cn-attach");
+  if (attEl.innerHTML !== att) attEl.innerHTML = att;
   document.getElementById("cn-usage-text").textContent = askUsageShort();
   document.getElementById("cn-usage-pop").innerHTML = askUsagePopHtml();
   if (consoleChipsMode !== mode) {
@@ -502,11 +508,11 @@ function consoleSubmit() {
   const input = consoleInput();
   if (!input) return;
   const text = input.value.trim().slice(0, CONSOLE_TEXT_MAX);
-  if (!text) {
+  if (!text && !askAttachment) {
     input.focus();
     return;
   }
-  const mode = consoleCurrentMode(text);
+  const mode = askAttachment ? "ask" : consoleCurrentMode(text); // a photo or PDF always goes to Jarvis
   if (mode === "ask") {
     if (voiceListening("console")) voiceCancel();
     const cmd = consoleCommand(text);

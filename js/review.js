@@ -501,6 +501,8 @@ function reviewChipLabel(c) {
 // One tap-to-add chip ({kind, text, due}); shared with Ask Jarvis's answers (ask.js).
 // attrs: the trusted data-action / data-* attributes that say which chip it is.
 function jarvisChipHtml(c, tapped, attrs) {
+  if (c.kind === "expense")
+    return `<button type="button" class="rv-chip" ${attrs} aria-label="${escapeAttr(`Log ${c.text}, $${c.amount}, in Budget`)}"><span aria-hidden="true">+</span> ${escapeHtml(`$${c.amount} · ${c.text}`)} <small>Budget</small></button>`;
   const l = reviewChipLabel(c);
   const onList = tapped || reviewChipOnList(c);
   const state = tapped ? "Added" : "On your list";

@@ -57,6 +57,71 @@ const ASK_ACTIONS = [
 ];
 const ASK_APPLIED_KEY = "ask-applied"; // this device: answers whose actions were applied here
 let askShowAll = false; // the conversation shows every kept question (Earlier), not just 2 days
+// A photo or PDF waiting to go with the next question ({name, mime, data (base64), size}); and the
+// ones on their way (by question id) until they're saved to the gist. In memory only.
+let askAttachment = null;
+const askFiles = new Map();
+const ASK_FILE_RE = /^jazz2-file-[a-z0-9-]{8,40}\.json$/;
+const ASK_PDF_MAX = 3 * 1024 * 1024; // bytes
+const ASK_IMG_SIDE = 1600; // photos are shrunk to this many pixels on the long side
+
+function askAttachPick() {
+  const input = document.getElementById("cn-file");
+  if (input) input.click();
+}
+async function askAttachFile(input) {
+  const file = input && input.files && input.files[0];
+  if (input) input.value = "";
+  if (!file) return;
+  try {
+    if (file.type === "application/pdf") {
+      if (file.size > ASK_PDF_MAX) {
+        showToast("That PDF is over 3 MB: try a smaller one or a photo of the page", true);
+        return;
+      }
+      askAttachment = { name: file.name.slice(0, 120), mime: "application/pdf", data: await askBase64(file), size: file.size };
+    } else if (/^image\//.test(file.type)) {
+      const data = await askShrinkImage(file);
+      askAttachment = { name: file.name.slice(0, 120) || "photo.jpg", mime: "image/jpeg", data, size: Math.round((data.length * 3) / 4) };
+    } else {
+      showToast("Attach a photo or a PDF", true);
+      return;
+    }
+  } catch (e) {
+    console.warn("attach failed", e);
+    showToast("Couldn't read that file", true);
+    return;
+  }
+  consoleSetMode("ask"); // a file always goes to Jarvis
+  renderConsole();
+}
+function askBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1] || "");
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+async function askShrinkImage(file) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, ASK_IMG_SIDE / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(bmp.width * scale));
+  c.height = Math.max(1, Math.round(bmp.height * scale));
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  return c.toDataURL("image/jpeg", 0.82).split(",")[1] || "";
+}
+function askAttachClear() {
+  askAttachment = null;
+  renderConsole();
+}
+function askAttachHtml() {
+  if (!askAttachment) return "";
+  const kb = Math.max(1, Math.round(askAttachment.size / 1024));
+  return `<div class="cn-attached"><span aria-hidden="true">📎</span><span class="cn-attached-name">${escapeHtml(askAttachment.name)}</span><small>${kb >= 1024 ? (kb / 1024).toFixed(1) + " MB" : kb + " KB"}</small><button type="button" class="br-x" data-action="ask-attach-clear" aria-label="Remove the attachment">&times;</button></div>`;
+}
 const ASK_KEY_BROKEN = "Ask Jarvis key isn't working — check it in Sync";
 const ASK_NEEDS_SYNC = "Jarvis needs sync: turn it on with the cloud button. Quick lists work without it.";
 let askBusy = false; // a question is being saved / sent
@@ -181,6 +246,7 @@ function normalizeAskLocal(raw, now = Date.now()) {
       const state = q.state === "sending" ? "failed" : ASK_STATES.includes(q.state) ? q.state : "queued";
       const out = { id: q.id, text, at, state };
       if (q.kind === "sort") out.kind = "sort"; // Sort with Jarvis: a brain dump to split into chips
+      if (typeof q.file === "string" && ASK_FILE_RE.test(q.file)) out.file = q.file; // sent with a photo or PDF
       else if (typeof q.thread === "string" && ASK_ID.test(q.thread) && q.thread !== q.id) out.thread = q.thread;
       const sentAt = Number(q.sentAt);
       if (state === "sent" && isFinite(sentAt) && sentAt > 0) out.sentAt = Math.min(sentAt, now);
@@ -237,9 +303,16 @@ function normalizeAnswer(a) {
       ),
     ].slice(0, 6),
     chips: arr(a.chips)
-      .filter((c) => askIsObj(c) && (c.kind === "todo" || c.kind === "shopping"))
-      .map((c) => ({ kind: c.kind, text: askStr(c.text, 120), due: c.kind === "todo" && isDay(c.due) ? c.due : null }))
-      .filter((c) => c.text)
+      .filter((c) => askIsObj(c) && (c.kind === "todo" || c.kind === "shopping" || c.kind === "expense"))
+      .map((c) => ({
+        kind: c.kind,
+        text: askStr(c.text, 120),
+        due: c.kind === "todo" && isDay(c.due) ? c.due : null,
+        ...(c.kind === "expense"
+          ? { amount: typeof c.amount === "number" && isFinite(c.amount) && c.amount > 0 && c.amount <= 1e5 ? Math.round(c.amount * 100) / 100 : null }
+          : {}),
+      }))
+      .filter((c) => c.text && (c.kind !== "expense" || c.amount != null))
       .slice(0, 12), // 3 for a question, up to 12 for a sort
     // what Jarvis did (applied by askApplyActions on the device that asked): known types only
     actions: arr(a.actions)
@@ -442,6 +515,7 @@ function normalizeAskFile(raw) {
       const kind = typeof i.kind === "string" && /^[a-z_]{1,12}$/.test(i.kind) ? i.kind : "ask";
       const item = { id: i.id, kind, text, at: new Date(at).toISOString() };
       if (typeof i.thread === "string" && ASK_ID.test(i.thread)) item.thread = i.thread;
+      if (typeof i.file === "string" && ASK_FILE_RE.test(i.file)) item.file = i.file;
       return item;
     })
     .filter((i) => i && !seen.has(i.id) && seen.add(i.id));
@@ -450,12 +524,12 @@ function normalizeAskFile(raw) {
   return out;
 }
 // Writes go one at a time
-function askWriteFile(update) {
-  const run = askWriteChain.then(() => askWriteNow(update));
+function askWriteFile(update, extra = null) {
+  const run = askWriteChain.then(() => askWriteNow(update, extra));
   askWriteChain = run.catch(() => {});
   return run;
 }
-async function askWriteNow(update) {
+async function askWriteNow(update, extra = null) {
   const id = askGet("sync-gist-id") || (await findOrCreateGist());
   const g = await gistApi("/gists/" + id); // always re-read right before writing
   const files = (g && g.files) || {};
@@ -490,10 +564,17 @@ async function askWriteNow(update) {
   const next = { version: 1, items };
   if (clearBefore) next.clearBefore = new Date(clearBefore).toISOString();
   const content = JSON.stringify(next);
-  if (text != null && content === text) return; // nothing to change
+  const more = extra
+    ? Object.fromEntries(
+        Object.entries(extra)
+          .filter(([n]) => ASK_FILE_RE.test(n))
+          .map(([n, c]) => [n, { content: c }]),
+      )
+    : {};
+  if (text != null && content === text && !Object.keys(more).length) return; // nothing to change
   await gistApi("/gists/" + id, {
     method: "PATCH",
-    body: JSON.stringify({ files: { [ASK_FILE]: { content } } }),
+    body: JSON.stringify({ files: { [ASK_FILE]: { content }, ...more } }),
   });
 }
 // Called by sync's pull with the gist's ask file: questions asked on another device show here
@@ -531,7 +612,8 @@ function askCooldownLeft(now = Date.now()) {
 // The Console's Send in Ask mode, and Capture's Sort with Jarvis (kind "sort"). Returns true when
 // it was taken (the box clears).
 function askSend(text, kind = "ask") {
-  const q = askStr(text, ASK_TEXT_MAX);
+  const withFile = kind === "ask" && !!askAttachment;
+  const q = askStr(text, ASK_TEXT_MAX) || (withFile ? "What's in this, and what should I do with it?" : "");
   if (!q) return false;
   if (!askSyncOn()) {
     showToast(ASK_NEEDS_SYNC, true);
@@ -547,6 +629,11 @@ function askSend(text, kind = "ask") {
     return false;
   }
   const item = { id: askNewId(), text: q, at: Date.now(), state: "queued" };
+  if (withFile) {
+    item.file = `jazz2-file-${item.id}.json`;
+    askFiles.set(item.id, askAttachment);
+    askAttachment = null;
+  }
   if (kind === "sort") item.kind = "sort";
   else if (askThread && loadAskEntries().some((e) => e.id === askThread)) item.thread = askThread;
   askThread = null;
@@ -565,16 +652,23 @@ async function askDeliver(id) {
   liveAnnounce("Sending your question to Jarvis");
   try {
     try {
-      await askWriteFile((items) => [
-        ...items.filter((i) => i.id !== q.id),
-        {
-          id: q.id,
-          kind: q.kind === "sort" ? "sort" : "ask",
-          text: q.text,
-          at: new Date(q.at).toISOString(),
-          ...(q.thread ? { thread: q.thread } : {}),
-        },
-      ]);
+      const att = q.file ? askFiles.get(q.id) : null;
+      await askWriteFile(
+        (items) => [
+          ...items.filter((i) => i.id !== q.id),
+          {
+            id: q.id,
+            kind: q.kind === "sort" ? "sort" : "ask",
+            text: q.text,
+            at: new Date(q.at).toISOString(),
+            ...(q.thread ? { thread: q.thread } : {}),
+            ...(att ? { file: q.file } : {}),
+          },
+        ],
+        // the photo or PDF goes in the same write, as its own file (the Ask run deletes it)
+        att ? { [q.file]: JSON.stringify({ version: 1, name: att.name, mime: att.mime, data: att.data }) } : null,
+      );
+      askFiles.delete(q.id);
     } catch (e) {
       console.error("ask save failed", e);
       askUpdateLocal(id, { state: "failed" });
@@ -840,6 +934,7 @@ function askEntryHtml(q) {
     : q.answer && q.answer.checkin
       ? `<span class="ak-thread">Check-in</span> ${escapeHtml(q.answer.checkin)}`
       : '<span class="ak-other">Asked on another device</span>';
+  const clip = q.file ? '<span class="ak-thread" aria-label="with a file">📎</span> ' : "";
   const follow =
     q.kind === "sort"
       ? '<span class="ak-thread">Sort</span> '
@@ -847,7 +942,7 @@ function askEntryHtml(q) {
         ? '<span class="ak-thread">Follow-up</span> '
         : "";
   return `<li class="cn-entry ak-entry" data-ask-entry="${escapeAttr(q.id)}" tabindex="-1">
-    <span class="cn-who">You</span><p class="cn-said">${follow}${said}${q.repeats ? ` <span class="ak-repeat" aria-label="asked ${q.repeats + 1} times">×${q.repeats + 1}</span>` : ""} <time class="cn-time">${escapeHtml(day + askTime(q.at))}</time></p>
+    <span class="cn-who">You</span><p class="cn-said">${clip}${follow}${said}${q.repeats ? ` <span class="ak-repeat" aria-label="asked ${q.repeats + 1} times">×${q.repeats + 1}</span>` : ""} <time class="cn-time">${escapeHtml(day + askTime(q.at))}</time></p>
     <span class="cn-who cn-j">J</span><div class="cn-reply">${q.answer ? askAnswerHtml(q) : askStatusHtml(q)}</div>
   </li>`;
 }
@@ -948,6 +1043,13 @@ function askAddChip(id, i) {
   const e = askEntryById(id);
   const c = e && e.answer && e.answer.status === "ok" ? e.answer.chips[i] : null;
   if (!c) return;
+  if (c.kind === "expense") {
+    // only offered: Budget's add sheet opens filled in, to check before saving
+    openComposer("money");
+    document.getElementById("composer-text").value = `${c.text} $${c.amount}`;
+    composerTextChanged();
+    return;
+  }
   const key = `${e.id}|${i}`;
   if (askTapped.has(key) || reviewChipOnList(c)) {
     showToast("Already on your list");

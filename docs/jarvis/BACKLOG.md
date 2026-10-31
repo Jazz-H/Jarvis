@@ -23,7 +23,8 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 ## Done
 - [x] Jarvis's brain (Oct 31): memory ("remember …"), ratings, tone / news topics / about you, and
   your own scheduled check-ins (hourly in jarvis-ask.yml)
-- [ ] Photos and files in Console; Google Drive (all of it, read-only); the Ask test set (Oct 31, in progress)
+- [x] Photos and PDFs in Console (📎), with receipt → Budget chips (Oct 31)
+- [ ] Google Drive (all of it, read-only); the Ask test set (Oct 31, in progress)
 - [x] Console: one conversation (History merged in, Earlier, usage chip, chat bubbles, quiet
   declines); Ask sees all app data, can search the web, and acts on small things with Undo (Oct 31)
 - [x] Phase 3 and the rest of Phase 4 (Oct 31): Bill Guard from Budget, suggested to-dos,

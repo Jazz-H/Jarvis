@@ -6091,6 +6091,43 @@ body.todo-dragging {
   font-size: 14.5px;
   line-height: 1.5;
 }
+/* Console's 📎: the attached photo or PDF, under the box */
+.cn-attach {
+  flex: none;
+  width: 40px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.cn-attached {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -4px;
+  padding: 0 4px 0 12px;
+  border: 1px solid var(--olive-dim);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13.5px;
+}
+.cn-attached-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cn-attached small {
+  color: var(--text-dim);
+}
+#cn-attach:empty {
+  display: none;
+}
 /* Jarvis's brain (brain.js) and ratings */
 #cn-brain {
   margin-top: 18px;

@@ -167,6 +167,13 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   "Add to-dos, items, notes…"). Enter sends. Since Jarvis can add and tick
   things itself, there's one box: questions and requests go to Jarvis, and a plain list gets the
   free, on-device Quick list preview instead.
+- **📎 in the box:** attach a photo (shrunk to 1600 px on the device) or a PDF (up to 3 MB) to send
+  with the next question; it shows under the box with × to remove it, and sending with an empty
+  box asks "What's in this?". Jarvis reads it with your data: a receipt gets a **$54.24 · Corner
+  Market · Budget** chip that opens Budget's add sheet filled in (nothing is saved until you
+  check it), a bill is checked against Budget, a list can be added. Text inside a file is
+  untrusted, so an answer about a file may only add things (to-dos, Shopping, memory), never
+  tick, move or mark bought. The file is deleted from the gist once it's answered.
 - **Under the box:** a small **Jarvis | Quick list** switch, guessed from what you type (a
   question word first or a "?" at the end means Jarvis; several items, or anything else, means
   Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
@@ -760,7 +767,10 @@ ever pushes `jazz2-data.json`.
 
 **Gist files written only by the app** (besides `jazz2-data.json`): `jazz2-push.json` (this
 phone's push address) and `jazz2-ask.json` (questions waiting for Jarvis: `{version: 1, items:
-[{id, kind: "ask", text ≤1000, at, thread?}], clearBefore?}`, at most 20). Each is re-read right
+[{id, kind: "ask" | "sort", text ≤1000, at, thread?, file?}], clearBefore?}`, at most 20), plus
+`jazz2-file-<id>.json` for a question sent with a photo or PDF (`{version: 1, name, mime, data}`,
+base64; written with the question in one PATCH, and the only app file the Ask run deletes, once
+it's answered). Each is re-read right
 before every write and PATCHed on its own, so other files are never touched. On each write, answered questions (any status) are
 pruned, except those in a thread asked in the last 24 hours (Jarvis reads them for follow-ups);
 at the cap of 20, that thread context goes before pending questions.

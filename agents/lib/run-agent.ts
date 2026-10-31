@@ -2,7 +2,13 @@
 // its own query() with: no built-in tools, no MCP servers, no filesystem settings or CLAUDE.md,
 // no secrets in its environment except the Anthropic key, a turn cap, a cost cap and a timeout.
 // Its JSON output is validated with zod; invalid output is retried once, then the run fails.
-import { query, type Options, type SDKMessage, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  type Options,
+  type SDKMessage,
+  type SDKResultMessage,
+  type SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { z } from "zod";
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk";
 import type { CostLedger } from "./cost.ts";
@@ -22,9 +28,32 @@ export interface AgentSpec<T> {
   maxTurns?: number;
   // Filled in by runAgent: how many web searches the agent made (so code can tell web was used)
   usage?: { webSearches: number };
+  // A photo or PDF the owner sent (base64), given to the model ahead of the prompt
+  attachments?: { mime: string; data: string }[];
 }
 
-export type QueryFn = (params: { prompt: string; options?: Options }) => AsyncIterable<SDKMessage>;
+export type QueryFn = (params: {
+  prompt: string | AsyncIterable<SDKUserMessage>;
+  options?: Options;
+}) => AsyncIterable<SDKMessage>;
+
+// The prompt as one user message with the attachments first (images and PDFs as content blocks)
+export function promptWithAttachments(spec: AgentSpec<unknown>): string | AsyncIterable<SDKUserMessage> {
+  if (!spec.attachments?.length) return spec.prompt;
+  const blocks = spec.attachments.map((a) =>
+    a.mime === "application/pdf"
+      ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: a.data } }
+      : { type: "image" as const, source: { type: "base64" as const, media_type: a.mime as "image/jpeg", data: a.data } },
+  );
+  const msg: SDKUserMessage = {
+    type: "user",
+    message: { role: "user", content: [...blocks, { type: "text", text: spec.prompt }] },
+    parent_tool_use_id: null,
+  } as SDKUserMessage;
+  return (async function* () {
+    yield msg;
+  })();
+}
 
 export class AgentError extends Error {}
 
@@ -72,7 +101,7 @@ export async function runAgent<T>(
     const started = Date.now();
     let result: SDKResultMessage | undefined;
     try {
-      for await (const msg of queryFn({ prompt: spec.prompt, options: agentOptions(spec, budget, ac) })) {
+      for await (const msg of queryFn({ prompt: promptWithAttachments(spec), options: agentOptions(spec, budget, ac) })) {
         if (msg.type === "result") result = msg;
       }
     } catch (e) {

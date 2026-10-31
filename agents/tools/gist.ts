@@ -1,11 +1,14 @@
 // GitHub Gist access. Only the Jarvis orchestrator receives a GistClient; sub-agents never do.
 // Writes touch only the orchestrator's own files (jazz2-briefing.json, jazz2-week.json, jazz2-calendar.json,
 // jazz2-reviews.json, jazz2-answers.json, and pruning jazz2-push.json), so the app's
-// jazz2-data.json and jazz2-ask.json are never rewritten.
+// jazz2-data.json and jazz2-ask.json are never rewritten. The one exception is deleting a
+// question's photo or PDF (jazz2-file-*.json) once Ask has answered it.
 
 export interface GistClient {
   readFile(name: string): Promise<string | null>;
   writeFile(name: string, content: string): Promise<void>;
+  // Removes files the Ask run is done with: only a question's photo or PDF (jazz2-file-*.json)
+  deleteFiles?(names: string[]): Promise<void>;
 }
 
 export function gistClient(gistId: string, token: string, fetchImpl: typeof fetch = fetch): GistClient {
@@ -37,6 +40,17 @@ export function gistClient(gistId: string, token: string, fetchImpl: typeof fetc
         signal: AbortSignal.timeout(20_000),
       });
       if (!res.ok) throw new Error(`GitHub API ${res.status} writing ${name}`);
+    },
+    async deleteFiles(names) {
+      const ok = names.filter((n) => /^jazz2-file-[a-z0-9-]{8,40}\.json$/.test(n));
+      if (!ok.length) return;
+      const res = await fetchImpl(url, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ files: Object.fromEntries(ok.map((n) => [n, null])) }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!res.ok) throw new Error(`GitHub API ${res.status} deleting files`);
     },
   };
 }

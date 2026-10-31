@@ -662,6 +662,8 @@ const SHELL_CLICK = {
   "console-feed-toggle": () => consoleFeedToggle(),
   // Ask Jarvis (ask.js): History, answer chips, Follow up, Try again. Ids and indexes are re-checked there.
   "ask-earlier": () => askShowEarlier(),
+  "ask-attach": () => askAttachPick(),
+  "ask-attach-clear": () => askAttachClear(),
   // Jarvis's brain (brain.js): memory, settings, check-ins, ratings. Ids and votes are re-checked.
   "brain-add-memory": () => brainAddMemory(),
   "brain-forget": (el) => {
@@ -747,6 +749,7 @@ const SHELL_INPUT = {
   "console-input": () => consoleTextChanged(),
 };
 const SHELL_CHANGE = {
+  "ask-file": (el) => askAttachFile(el), // Console's 📎: a photo or PDF for the next question
   "tde-date": (el) => {
     const f = el.getAttribute("data-field");
     if (tde && (f === "due" || f === "end")) tdeSet({ [f]: el.value });

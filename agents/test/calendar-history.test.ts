@@ -242,7 +242,7 @@ describe("the morning run writes jazz2-calendar.json", () => {
         result: "",
         total_cost_usd: 0.001,
         modelUsage: {},
-        structured_output: params.prompt.includes("Today's inputs") ? jarvisOut : { summary: "Busy middle of the day." },
+        structured_output: String(params.prompt).includes("Today's inputs") ? jarvisOut : { summary: "Busy middle of the day." },
       } as unknown as SDKMessage;
     })();
   const base: Subagents = {

@@ -142,7 +142,8 @@ describe("Ask orchestrator", () => {
   it("gives Opus the question and context as untrusted data, effort low, web search the only tool", async () => {
     const fq = fakeQuery([{ structured_output: ASK_OUT }]);
     await runAsk(deps({ queryFn: fq.fn }));
-    const { prompt, options } = fq.seen[0];
+    const { options } = fq.seen[0];
+    const prompt = String(fq.seen[0].prompt);
     expect(options).toMatchObject({
       model: "claude-opus-5-5",
       effort: "low",
@@ -186,7 +187,7 @@ describe("Ask orchestrator", () => {
     const fq = fakeQuery([out("Answer one."), out("Answer two."), out("Answer three.")]);
     const sent: string[] = [];
     const r = await done(runAsk(deps({ gist: g.gist, queryFn: fq.fn, push: async (_s, p) => void sent.push(p) })));
-    expect(fq.seen.map((s) => /"question": "(\w+)\?"/.exec(s.prompt)![1])).toEqual(["First", "Second", "Third"]);
+    expect(fq.seen.map((s) => /"question": "(\w+)\?"/.exec(String(s.prompt))![1])).toEqual(["First", "Second", "Third"]);
     expect(r.answered.map((a) => [a.id, a.text])).toEqual([
       ["ask-0001", "Answer one."],
       ["ask-0002", "Answer two."],
@@ -560,7 +561,7 @@ describe("Ask safety", () => {
     };
     const fq = fakeQuery([{ structured_output: reply }]);
     const r = await done(runAsk(deps({ gist: g.gist, queryFn: fq.fn })));
-    const p = fq.seen[0].prompt;
+    const p = String(fq.seen[0].prompt);
     expect(p.match(/<\/untrusted_data>/g)).toHaveLength(1); // only the real closing tag
     expect(p.trim().endsWith('</untrusted_data>\nAnswer the question in "question". Return the JSON object.')).toBe(true);
     expect(p).toContain(INBOX_INJECTION.slice(0, 60)); // the email summary is in there, as data
@@ -603,7 +604,7 @@ describe("Ask safety", () => {
     );
     const fq = fakeQuery([{ structured_output: ASK_OUT }]);
     await runAsk(deps({ gist: g.gist, queryFn: fq.fn }));
-    const input = fq.seen[0].prompt;
+    const input = String(fq.seen[0].prompt);
     const thread = JSON.parse(input.slice(input.indexOf("\n") + 1, input.lastIndexOf("</untrusted_data>")).replace(/^<untrusted_data[^>]*>\n/, "")).thread;
     expect(thread).toEqual([{ askedAt: at(0), question: "When is rent due?", answer: "Rent is due Nov 1." }]);
   });

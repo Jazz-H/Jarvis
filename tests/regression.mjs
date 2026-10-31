@@ -11453,6 +11453,77 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
   await ctx.close();
 });
 
+await section("Console 📎: a photo or PDF goes to Jarvis with the question; receipt chips open Budget", async () => {
+  const gh = askGitHub();
+  const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });
+  await a.page.evaluate(() => (ASK_TIMING.cooldown = 0));
+  await a.page.setInputFiles("#cn-file", { name: "bill.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test") });
+  await a.page.waitForTimeout(200);
+  const att = await a.page.evaluate(() => ({
+    chip: document.getElementById("cn-attach").textContent.replace(/\s+/g, " ").trim(),
+    mode: document.querySelector('.cn-seg[data-mode="ask"]').getAttribute("aria-pressed"),
+  }));
+  check("the attached file shows under the box and the box switches to Jarvis", att.chip.replace(/\s/g, "").startsWith("📎bill.pdf") && att.mode === "true", att);
+  // send with an empty box: a default question goes with the file
+  await a.page.click("#cn-send");
+  await a.page.waitForTimeout(600);
+  const patch = gh.log.filter((r) => r.method === "PATCH").pop();
+  const sent = gh.read("jazz2-ask.json");
+  const item = sent && sent.items[sent.items.length - 1];
+  const fileName = item && item.file;
+  const file = fileName ? gh.read(fileName) : null;
+  check(
+    "the question and its file go in one write; the file name only in the ask item",
+    item && /^jazz2-file-[a-z0-9-]{8,40}\.json$/.test(fileName) && patch.files.includes(fileName) && patch.files.includes("jazz2-ask.json"),
+    { item, files: patch && patch.files },
+  );
+  check(
+    "the file holds the PDF as base64, with its name and type",
+    file && file.version === 1 && file.mime === "application/pdf" && Buffer.from(file.data, "base64").toString().startsWith("%PDF") && file.name === "bill.pdf",
+    file && { ...file, data: file.data.slice(0, 12) },
+  );
+  check(
+    "the attachment clears; the bubble shows a paperclip",
+    await a.page.evaluate(() => !askAttachment && !document.getElementById("cn-attach").textContent && document.querySelector("#cn-feed .cn-said").textContent.includes("📎")),
+  );
+  // the answer offers a receipt chip: it opens Budget's add sheet filled in, nothing is saved
+  await a.page.evaluate(
+    ([id, at]) => {
+      writeQuietly(
+        ANSWERS_KEY,
+        normalizeAnswers({
+          version: 1,
+          usage: null,
+          answers: [
+            { id, askedAt: at, answeredAt: new Date().toISOString(), status: "ok", text: "A $54.24 receipt from Corner Market.", bullets: [], sources: [], by: "jarvis",
+              chips: [{ kind: "expense", text: "Corner Market", amount: 54.24 }, { kind: "expense", text: "No amount" }] },
+          ],
+        }),
+      );
+      renderConsole();
+    },
+    [item.id, item.at],
+  );
+  const chips = await a.page.evaluate((id) => [...document.querySelectorAll(`[data-ask-entry="${id}"] .rv-chip`)].map((c) => c.textContent.replace(/\s+/g, " ").trim()), item.id);
+  check("an expense chip needs an amount and reads like a Budget entry", chips.length === 1 && chips[0] === "+ $54.24 · Corner Market Budget", chips);
+  const n0 = await a.page.evaluate(() => budget.expenses.length);
+  await a.page.click(`[data-ask-entry="${item.id}"] .rv-chip`);
+  check(
+    "tapping it opens Budget's add sheet with the text and amount, and saves nothing yet",
+    await a.page.evaluate(
+      (n) => document.getElementById("composer").classList.contains("open") && document.getElementById("composer-text").value === "Corner Market $54.24" && budget.expenses.length === n,
+      n0,
+    ),
+  );
+  // a file that isn't a photo or PDF is refused
+  await a.page.evaluate(() => closeComposer && closeComposer());
+  await a.page.setInputFiles("#cn-file", { name: "x.html", mimeType: "text/html", buffer: Buffer.from("<script>") });
+  await a.page.waitForTimeout(150);
+  check("other file types are refused", await a.page.evaluate(() => !askAttachment && /photo or a PDF/.test(document.getElementById("toast").textContent)));
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+});
+
 await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {
   const gh = askGitHub();
   const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });
@@ -12319,8 +12390,8 @@ await section(
         };
       });
       check(
-        `${theme}: the mic sits left of send in Console's box`,
-        r.kids.join() === "cn-input,vc-mic,cn-send",
+        `${theme}: the 📎 and the mic sit left of send in Console's box`,
+        r.kids.join() === "cn-input,cn-attach,,vc-mic,cn-send", // the empty one is the hidden file input
         r.kids,
       );
       check(

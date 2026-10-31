@@ -6,6 +6,7 @@ import { z } from "zod";
 // The app treats jazz2-answers.json as untrusted, read-only data. Every string and array is capped.
 
 export const ASK_ID = /^[a-z0-9-]{8,40}$/; // opaque; the only thing that crosses into Actions
+export const ASK_FILE_NAME = /^jazz2-file-[a-z0-9-]{8,40}\.json$/; // a question's photo or PDF
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const IsoTime = z
   .string()
@@ -24,8 +25,23 @@ export const AskItem = z.object({
   text: z.string().max(1000), // longer questions are cut to 1,000 characters before this check
   at: IsoTime, // when it was asked
   thread: z.string().regex(ASK_ID).optional(), // id of the first question in a follow-up chain
+  file: z.string().regex(ASK_FILE_NAME).optional(), // a photo or PDF sent with the question
 });
 export type AskItem = z.infer<typeof AskItem>;
+
+// A photo or PDF sent with a question: its own gist file, written by the app with the question and
+// deleted by the Ask run once it's answered. Only these types, at most ~4.5 MB of base64.
+export const ATTACH_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"] as const;
+export const AskAttachment = z.object({
+  version: z.literal(1),
+  name: z.string().max(120),
+  mime: z.enum(ATTACH_TYPES),
+  data: z
+    .string()
+    .max(6_000_000)
+    .regex(/^[A-Za-z0-9+/]+=*$/),
+});
+export type AskAttachment = z.infer<typeof AskAttachment>;
 
 export const AskFile = z.object({
   version: z.literal(1),
@@ -38,9 +54,10 @@ export type AskFile = z.infer<typeof AskFile>;
 // A suggestion the owner can tap to add (never added on its own). A to-do's due date is from
 // today to a year out.
 export const AskChip = z.object({
-  kind: z.enum(["todo", "shopping"]),
+  kind: z.enum(["todo", "shopping", "expense"]), // expense: opens Budget's add sheet, filled in
   text: z.string().min(1).max(120),
   due: IsoDate.optional(),
+  amount: z.number().positive().max(100_000).optional(), // expense only
 });
 export type AskChip = z.infer<typeof AskChip>;
 
@@ -129,9 +146,10 @@ export const AskOutput = z.object({
   chips: z
     .array(
       z.object({
-        kind: z.enum(["todo", "shopping"]),
+        kind: z.enum(["todo", "shopping", "expense"]),
         text: z.string().max(300),
         due: z.string().max(40).nullable(),
+        amount: z.number().nullable().optional(),
       }),
     )
     .max(6),
