@@ -89,6 +89,7 @@ export const CONFIG = {
     pendingKept: 20, // items read from jazz2-ask.json
     answersKept: 50,
     sortMaxItems: 12, // chips from one Sort with Jarvis
+    maxTurns: 8, // a question may search the web a few times before answering
     threadTurns: 6, // earlier question/answer turns in the same thread given as context
     // The calendar list given to Ask (from jazz2-calendar.json): the events nearest to today are
     // listed until this many characters of JSON (about 5k tokens); the rest are counted per week.

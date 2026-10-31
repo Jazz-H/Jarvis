@@ -21,6 +21,8 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
+- [x] Console: one conversation (History merged in, Earlier, usage chip, chat bubbles, quiet
+  declines); Ask sees all app data, can search the web, and acts on small things with Undo (Oct 31)
 - [x] Phase 3 and the rest of Phase 4 (Oct 31): Bill Guard from Budget, suggested to-dos,
   Package Tracker (all carriers), Sort with Jarvis; late-briefing notice; Ask's monthly spending
 - [x] Jazz 3.0 redesign (Oct 31): banner, Today, Weight, last 4 weeks, goal-area rings

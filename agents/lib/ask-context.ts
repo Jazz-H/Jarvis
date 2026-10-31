@@ -43,6 +43,8 @@ const arr = (v: unknown): any[] => (Array.isArray(v) ? v : []);
 const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
 const isIso = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
+const idOf = (v: unknown) =>
+  (typeof v === "string" || typeof v === "number") && SAFE_ID.test(String(v)) ? String(v) : null; // only ids the app keeps stable can be acted on
 const clip = (s: unknown, n: number) =>
   String(s ?? "")
     .replace(/\s+/g, " ")
@@ -329,20 +331,21 @@ function workouts(data: Obj, today: string) {
       missedDays: soFar.missedDays,
       plannedRestOfWeek: later.planned,
     },
-    today: todays.map((p) => ({ name: names.get(p.id) ?? "Workout", done: !!checks[`${today}|${p.id}`] })),
+    today: todays.map((p) => ({ id: p.id, name: names.get(p.id) ?? "Workout", done: !!checks[`${today}|${p.id}`] })),
     next,
   };
 }
 
 function goals(data: Obj) {
-  const out: { section: string; done: number; total: number; open: string[] }[] = [];
+  const out: { section: string; done: number; total: number; open: { id: string | null; item: string; note: string }[] }[] =
+    [];
   for (const x of goalItems(data)) {
     const section = goalSection(x);
     let g = out.find((o) => o.section === section);
     if (!g) out.push((g = { section, done: 0, total: 0, open: [] }));
     g.total++;
     if (x.done) g.done++;
-    else if (g.open.length < 6) g.open.push(clip(x.item, 80));
+    else if (g.open.length < 12) g.open.push({ id: idOf(x.id), item: clip(x.item, 80), note: clip(x.note, 120) });
   }
   return out.slice(0, 8);
 }
@@ -351,6 +354,7 @@ function shopping(data: Obj) {
   const pending = pendingShopping(data);
   const rows = pending
     .map((x) => ({
+      id: idOf(x.id),
       name: clip(x.name, 60) || "Item",
       price: shoppingPrice(x) || null, // null: no price saved
       need: isShoppingNeed(x),
@@ -361,7 +365,7 @@ function shopping(data: Obj) {
     openCount: pending.length,
     needsOpen: pending.filter(isShoppingNeed).length,
     estOpen: sum(pending.map(shoppingPrice)),
-    items: rows.slice(0, 20),
+    items: rows.slice(0, 30),
   };
 }
 
@@ -375,6 +379,55 @@ export interface AskContext {
   review: ReturnType<typeof reviewPart>;
   sources: AskSource[]; // what the answer may cite
   notes: string[];
+  targets: ActionTargets; // what an action may point at (code only; not shown to the model)
+}
+
+// Everything an action may point at, by id, with its name for the action's label: open to-dos,
+// open goal items, Shopping still to buy, and today's planned workouts
+export interface ActionTargets {
+  todos: Map<string, string>;
+  goals: Map<string, string>;
+  shopping: Map<string, string>;
+  workoutsToday: Map<string, string>;
+}
+export function actionTargets(data: Obj | null, today: string): ActionTargets {
+  const t: ActionTargets = { todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map() };
+  if (!data) return t;
+  for (const x of arr(data["todo-content"]))
+    if (isObj(x) && !x.done && idOf(x.id) && clip(x.text, 120)) t.todos.set(String(x.id), clip(x.text, 120));
+  for (const x of goalItems(data)) if (!x.done && idOf(x.id)) t.goals.set(String(x.id), clip(x.item, 80));
+  for (const x of pendingShopping(data)) if (idOf(x.id)) t.shopping.set(String(x.id), clip(x.name, 60) || "Item");
+  for (const w of workouts(data, today).today) t.workoutsToday.set(w.id, w.name);
+  return t;
+}
+
+// Today's Beauty steps (morning and evening) with what's ticked; a step with `days` only shows
+// on those weekdays, like js/skin.js routineForDate (wash-day evenings use the wash steps)
+function routineToday(data: Obj, today: string) {
+  const r = isObj(data["skin-routine-content"]) ? data["skin-routine-content"] : null;
+  if (!r) return null;
+  const dow = weekday(today);
+  const checks = isObj(data["routine-checks"]) && isObj(data["routine-checks"][today]) ? data["routine-checks"][today] : {};
+  const steps = (list: unknown, band: "am" | "pm") =>
+    arr(list)
+      .filter((s) => isObj(s) && (!Array.isArray(s.days) || s.days.includes(dow)))
+      .slice(0, 15)
+      .map((s) => ({
+        step: clip(s.label, 60),
+        product: clip(s.product, 80),
+        done: arr(checks[band]).includes(s.id),
+      }));
+  const wash = isWashDate(today, r) && arr(r.washPm).length > 0;
+  return { morning: steps(r.am, "am"), evening: steps(wash ? r.washPm : r.pm, "pm") };
+}
+// Budget's savings goals: how much is saved toward each target
+function savingsGoals(data: Obj) {
+  const b = isObj(data["budget-content"]) ? data["budget-content"] : {};
+  return arr(b.goals)
+    .filter(isObj)
+    .slice(0, 8)
+    .map((g) => ({ name: clip(g.name, 60), target: amt(g.target), saved: amt(g.saved), by: isIso(g.date) ? g.date : null }))
+    .filter((g) => g.name);
 }
 
 export function jazzPart(data: Obj, today: string) {
@@ -382,7 +435,7 @@ export function jazzPart(data: Obj, today: string) {
   const overdue = todos
     .filter((t) => !t.done && isIso(t.due) && t.due < today)
     .sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0))
-    .map((t) => ({ text: clip(t.text, 120), due: t.due as string, starred: t.starred === true }));
+    .map((t) => ({ id: idOf(t.id), text: clip(t.text, 120), due: t.due as string, starred: t.starred === true }));
   const next14 = todoOccurrences(data, today, addDays(today, 14)).sort((a, b) =>
     a.due < b.due ? -1 : a.due > b.due ? 1 : Number(b.starred) - Number(a.starred),
   );
@@ -413,9 +466,11 @@ export function jazzPart(data: Obj, today: string) {
       overdueCount: overdue.length,
       overdue: overdue.slice(0, 10),
       next14DaysCount: next14.length,
-      next14Days: next14.slice(0, 25).map((t) => ({ text: t.text, due: t.due, starred: t.starred, repeats: t.repeats })),
+      next14Days: next14
+        .slice(0, 30)
+        .map((t) => ({ id: t.id, text: t.text, due: t.due, starred: t.starred, repeats: t.repeats })),
       anytimeCount: anytime.length,
-      anytime: anytime.slice(0, 5).map((t) => clip(t.text, 120)),
+      anytime: anytime.slice(0, 15).map((t) => ({ id: idOf(t.id), text: clip(t.text, 120) })),
     },
     bills: {
       overdue: billsOverdue.slice(0, 10),
@@ -432,7 +487,9 @@ export function jazzPart(data: Obj, today: string) {
       pmDoneToday: !!todayChecks.pmDone,
       washToday: isWashDate(today, routine),
       washTomorrow: isWashDate(addDays(today, 1), routine),
+      today: routineToday(data, today),
     },
+    savingsGoals: savingsGoals(data),
     workouts: workouts(data, today),
     weight,
     goals: goals(data),
@@ -479,6 +536,7 @@ export function buildAskContext(opts: {
     review,
     sources,
     notes,
+    targets: actionTargets(data, today),
   };
 }
 

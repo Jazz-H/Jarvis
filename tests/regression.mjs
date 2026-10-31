@@ -10191,7 +10191,7 @@ await section("Console: feed normalizer drops junk, caps 7 days / 50 entries, su
       { kind: "ask", at: Date.now() - 3 * 864e5, text: "earlier" },
     ]);
     renderConsole();
-    return [...document.querySelectorAll("#cn-feed .jv-sub-label")].map((l) => l.textContent);
+    return [...document.querySelectorAll("#cn-feed .cn-day")].map((l) => l.textContent);
   });
   check(
     "feed is grouped Today, Yesterday, then earlier days",
@@ -11282,6 +11282,84 @@ await section(
   },
 );
 
+await section("ask: Jarvis acts on small things (on the asking device, once, with Undo); links; repeats fold", async () => {
+  const now = Date.now();
+  const qs = [
+    { id: "a-act-mine01", text: "Mark call mom done and log 127.6", at: now - 120000, state: "sent", sentAt: now - 120000 },
+    { id: "a-act-other1", text: "Laptop question", at: now - 100000, state: "seen" },
+    { id: "a-dup-000001", text: "what's the last letter", at: now - 90000, state: "queued" },
+    { id: "a-dup-000002", text: "What's the last letter", at: now - 80000, state: "queued" },
+  ];
+  const a = await openAsk({
+    seed: {
+      ...askSync({ "ask-questions": qs }),
+      "todo-content": [{ id: "t-mom", text: "Call mom", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null }],
+    },
+  });
+  const act = (type, over) => ({ type, label: type, ...over });
+  const file = answersFile([
+    answerFixture("a-act-mine01", {
+      text: "Done.",
+      chips: [],
+      bullets: [],
+      actions: [
+        act("todo_done", { id: "t-mom", label: 'Ticked "Call mom"' }),
+        act("weight_log", { lbs: 127.6, date: isoOffset(0), label: "Logged weight 127.6 lb today" }),
+        act("delete_everything", { label: "nope" }),
+      ],
+      links: [
+        { title: "Good <b>", url: "https://example.com/a" },
+        { title: "Bad", url: "javascript:alert(1)" },
+      ],
+    }),
+    answerFixture("a-act-other1", {
+      text: "Done on the laptop.",
+      actions: [act("todo_add", { text: "From the laptop", label: 'Added to-do "From the laptop"' })],
+    }),
+    answerFixture("a-dup-000001", { status: "declined", text: "That's general trivia.", chips: [], bullets: [], sources: [] }),
+    answerFixture("a-dup-000002", { status: "declined", text: "Still trivia.", chips: [], bullets: [], sources: [] }),
+  ]);
+  await a.page.evaluate(async (f) => ingestAnswersFile({ content: JSON.stringify(f) }), file);
+  const r = await a.page.evaluate(() => ({
+    done: todoList.find((t) => t.id === "t-mom")?.done || !todoList.some((t) => t.id === "t-mom" && !t.done),
+    weight: fitness.weights.find((w) => w.date === addDaysIso(0))?.lbs,
+    laptop: todoList.some((t) => t.text === "From the laptop"),
+    toast: document.getElementById("toast").textContent,
+    acts: [...document.querySelectorAll('[data-ask-entry="a-act-mine01"] .ak-acts li')].map((li) => li.textContent),
+    links: [...document.querySelectorAll('[data-ask-entry="a-act-mine01"] .ak-link')].map((l) => [l.textContent.trim(), l.getAttribute("href"), l.target]),
+    dups: document.querySelectorAll('[data-ask-entry^="a-dup-"]').length,
+    repeat: document.querySelector('[data-ask-entry^="a-dup-"] .ak-repeat')?.textContent,
+    line: !!document.querySelector('[data-ask-entry^="a-dup-"] details.ak-flag-line'),
+  }));
+  check("the asking device applies Jarvis's actions (to-do ticked, weight logged)", r.done && r.weight === 127.6, r);
+  check("an unknown action type is ignored", r.acts.length === 2, r.acts);
+  check("a question from another device doesn't act here", !r.laptop, r);
+  check("one Undo toast for everything Jarvis did", /^Jarvis did 2 things/.test(r.toast), r.toast);
+  check("the answer lists what Jarvis did", r.acts[0].includes('Ticked "Call mom"'), r.acts);
+  check(
+    "web links: https only, shown as text, opened in a new tab",
+    r.links.length === 1 && r.links[0][0] === "↗ Good <b>" && r.links[0][1] === "https://example.com/a" && r.links[0][2] === "_blank",
+    r.links,
+  );
+  check("the same declined question asked twice shows once, ×2, as one quiet line", r.dups === 1 && r.repeat === "×2" && r.line, r);
+  await a.page.evaluate(() => document.querySelector("#toast .toast-action").click());
+  check(
+    "Undo puts it all back",
+    await a.page.evaluate(() => todoList.some((t) => t.id === "t-mom" && !t.done) && !fitness.weights.some((w) => w.date === addDaysIso(0))),
+  );
+  // the same answers again (the next sync): nothing is applied twice
+  await a.page.evaluate(async (f) => {
+    writeQuietly(ANSWERS_KEY, { version: 1, answers: [], usage: null });
+    await ingestAnswersFile({ content: JSON.stringify(f) });
+  }, file);
+  check(
+    "actions apply once per answer on this device",
+    await a.page.evaluate(() => todoList.some((t) => t.id === "t-mom" && !t.done)),
+  );
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+});
+
 await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {
   const gh = askGitHub();
   const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });
@@ -11800,12 +11878,12 @@ await section(
         bullets: entry("a-q-ok-000001").querySelectorAll(".ak-bullets li").length,
         chips: entry("a-q-ok-000001").querySelectorAll(".rv-chip").length,
         limit: t("a-q-limit-001"),
-        limitCls: !!entry("a-q-limit-001").querySelector(".ak-flagged.ak-over_limit"),
+        limitCls: !!entry("a-q-limit-001").querySelector(".ak-flag-line.ak-over_limit"),
         error: t("a-q-error-001"),
         again: !!entry("a-q-error-001").querySelector('[data-action="ask-again"]'),
         declined: t("a-q-decl-0001"),
         other: t("a-other-dev01"),
-        usage: document.getElementById("cn-usage").textContent,
+        usage: [document.getElementById("cn-usage-text").textContent, document.getElementById("cn-usage-pop").textContent],
       };
     });
     check("an ok answer shows its text and bullets", r.ok.includes("You have 2 bills") && r.bullets === 2, r.ok);
@@ -11829,7 +11907,7 @@ await section(
     );
     check(
       "today's questions left and this month's spending come from usage",
-      r.usage === "7 of 10 questions left today · $1.20 of $8 used this month",
+      r.usage[0] === "7 left · $1.20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $8 used this month."),
       r.usage,
     );
     // chips: nothing until tapped; then one item with its date, and Undo
@@ -11938,7 +12016,7 @@ await section(
   },
 );
 
-await section("ask: History shows the last 50; the feed keeps today and yesterday; Clear history", async () => {
+await section("ask: the conversation keeps today and yesterday; Earlier shows the rest; Clear history", async () => {
   const now = Date.now();
   const qs = Array.from({ length: 60 }, (_, i) => ({
     id: "a-hist-" + String(i).padStart(3, "0"),
@@ -11964,7 +12042,7 @@ await section("ask: History shows the last 50; the feed keeps today and yesterda
     );
     return {
       n: ats.length,
-      labels: [...document.querySelectorAll("#cn-feed .jv-sub-label")].map((l) => l.textContent),
+      labels: [...document.querySelectorAll("#cn-feed .cn-day")].map((l) => l.textContent),
     };
   });
   check(
@@ -11972,43 +12050,30 @@ await section("ask: History shows the last 50; the feed keeps today and yesterda
     feed.n >= 3 && feed.n <= 6 && feed.labels.every((l) => l === "Today" || l === "Yesterday"),
     feed,
   );
-  await page.tap('[data-action="ask-history"]');
+  await page.tap('[data-action="ask-earlier"]');
   const h = await page.evaluate(() => ({
-    open: document.getElementById("ask-sheet").classList.contains("open"),
-    ids: [...document.querySelectorAll("#ask-body [data-ask-entry]")].map((e) => e.getAttribute("data-ask-entry")),
-    focus: document.activeElement.id,
-    inert: document.querySelector("main").inert,
-    clear: !!document.querySelector('#ask-body [data-action="ask-clear"]'),
+    ids: [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) => e.getAttribute("data-ask-entry")),
+    earlier: !!document.querySelector('[data-action="ask-earlier"]'),
+    clear: !!document.querySelector('#cn-feed [data-action="ask-clear"]'),
+    sheet: !!document.getElementById("ask-sheet"),
   }));
   check(
-    "History opens as a sheet with focus inside and the page behind it inert",
-    h.open && h.focus === "ask-title" && h.inert,
-    h,
+    "Earlier shows the last 50 in place, newest first; no separate History sheet",
+    h.ids.length === 50 && h.ids[0] === "a-hist-000" && h.ids[49] === "a-hist-049" && !h.earlier && !h.sheet,
+    [h.ids.length, h.ids[0], h.ids[49], h.earlier, h.sheet],
   );
-  check(
-    "History lists the last 50, newest first",
-    h.ids.length === 50 && h.ids[0] === "a-hist-000" && h.ids[49] === "a-hist-049",
-    [h.ids.length, h.ids[0], h.ids[49]],
-  );
-  await page.keyboard.press("Escape");
-  const closed = await page.evaluate(() => ({
-    open: document.getElementById("ask-sheet").classList.contains("open"),
-    focus: document.activeElement.getAttribute("data-action"),
-  }));
-  check("Escape closes it and focus goes back to History", !closed.open && closed.focus === "ask-history", closed);
-  await page.tap('[data-action="ask-history"]');
+  check("Clear history sits at the end of the conversation", h.clear);
   const before = gh.log.length;
-  await page.tap('#ask-body [data-action="ask-clear"]');
+  await page.tap('#cn-feed [data-action="ask-clear"]');
   const cleared = await page.evaluate(() => ({
     feed: document.querySelectorAll("#cn-feed [data-ask-entry]").length,
-    hist: document.querySelectorAll("#ask-body [data-ask-entry]").length,
     stored: JSON.parse(localStorage.getItem("ask-questions")),
     clear: Number(localStorage.getItem("ask-clear-before")),
     toast: document.getElementById("toast").textContent,
   }));
   check(
     "Clear history hides everything on this device at once",
-    cleared.feed === 0 && cleared.hist === 0 && cleared.stored.length === 0 && /cleared/.test(cleared.toast),
+    cleared.feed === 0 && cleared.stored.length === 0 && /cleared/.test(cleared.toast),
     cleared,
   );
   await page.waitForTimeout(500);
@@ -12039,7 +12104,6 @@ await section("ask: History shows the last 50; the feed keeps today and yesterda
     [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) => e.getAttribute("data-ask-entry")),
   );
   check("after a clear, only newer questions show", after.join() === "a-new-laptop", after);
-  await page.evaluate(() => closeAskHistory());
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
   // a clear done on another device (newer clearBefore in the gist) clears this one too
@@ -12083,12 +12147,8 @@ await section("ask: ?tab=console&ask=<id> opens Console at that answer, now or w
     seed: { "ask-questions": qs, "jarvis-answers": ans },
   });
   check(
-    "an older answer opens in History",
-    await b.page.evaluate(
-      () =>
-        document.getElementById("ask-sheet").classList.contains("open") &&
-        !!document.querySelector('#ask-body [data-ask-entry="a-link-older1"].ak-hit'),
-    ),
+    "an older answer opens in the conversation (Earlier shown)",
+    await b.page.evaluate(() => askShowAll && !!document.querySelector('#cn-feed [data-ask-entry="a-link-older1"].ak-hit')),
   );
   await b.ctx.close();
   const c = await openAsk({ query: "?tab=console&ask=a-link-today1", seed: { "ask-questions": qs } });

@@ -5336,25 +5336,70 @@ body.todo-dragging {
   gap: 14px;
 }
 .cn-entry {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 4px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
+/* "You" / "J" stay for screen readers only: the bubble and its side say who's talking */
 .cn-who {
-  padding-top: 3px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-.cn-who.cn-j {
-  color: var(--olive);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 .cn-said {
+  align-self: flex-end;
+  max-width: 82%;
   margin: 0;
+  padding: 10px 14px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--surface-3);
+  border: 1px solid var(--olive-dim);
   font-size: 15px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+.cn-said .cn-time {
+  display: block;
+  margin-top: 2px;
+  text-align: right;
+  font-size: 11px;
+}
+.ak-repeat {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.cn-day {
+  margin: 18px 0 10px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.cn-earlier {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  border: 1px dashed var(--olive-dim);
+  border-radius: 14px;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cn-clear {
+  display: block;
+  margin: 12px auto 0;
+  color: var(--text-dim);
 }
 .cn-time {
   font-family: var(--font-mono);
@@ -5403,35 +5448,46 @@ body.todo-dragging {
   font-size: 14px;
   color: var(--text-dim);
 }
-/* Ask Jarvis (js/ask.js): the usage + History row, notes under the hint, answers, the History sheet */
+/* Ask Jarvis (js/ask.js): the usage chip, notes under the hint, and answers */
 .cn-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   margin-bottom: -4px;
 }
 .cn-usage {
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-}
-.cn-hist {
-  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--olive-dim);
   border-radius: 999px;
-  border: 1px solid var(--line);
   background: var(--surface);
-  color: var(--link);
+  color: var(--text);
   font: inherit;
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cn-usage svg {
+  color: var(--olive);
+}
+.cn-usage-pop {
+  padding: 10px 14px;
+  border: 1px solid var(--olive-dim);
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.cn-usage-pop p {
+  margin: 0;
+}
+.cn-usage-pop p + p {
+  margin-top: 6px;
 }
 #cn-ask-note {
   display: flex;
@@ -5593,6 +5649,68 @@ body.todo-dragging {
 .ak-declined .ak-flag {
   color: var(--text-dim);
 }
+.ak-flag-line {
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.ak-flag-line > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  cursor: pointer;
+  list-style: none;
+}
+.ak-flag-line > summary::-webkit-details-marker {
+  display: none;
+}
+.ak-flag-what {
+  flex: 1;
+  min-width: 0;
+}
+.ak-why {
+  color: var(--link);
+  font-weight: 600;
+}
+.ak-flag-line[open] .ak-why {
+  display: none;
+}
+.ak-flag-line .ak-text {
+  margin: 2px 0 6px 16px;
+}
+.ak-over_limit .cn-dot {
+  border-color: var(--warn);
+}
+.ak-acts {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13.5px;
+}
+.ak-acts li {
+  display: flex;
+  gap: 8px;
+}
+.ak-acts li + li {
+  margin-top: 6px;
+}
+.ak-acts span {
+  color: var(--olive);
+  font-weight: 800;
+}
+.ak-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13.5px;
+}
+.ak-link {
+  color: var(--link);
+  overflow-wrap: anywhere;
+}
 .ak-other {
   font-style: italic;
   color: var(--text-dim);
@@ -5614,29 +5732,6 @@ body.todo-dragging {
   box-shadow: 0 0 0 2px var(--olive-dim);
   padding: 6px 4px;
   margin: -6px -4px;
-}
-.ak-sheet .modal-head {
-  margin-bottom: 4px;
-}
-.ak-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
-}
-.ak-title:focus {
-  outline: none;
-}
-.ak-hist-sub {
-  margin: 0 0 14px;
-}
-.ak-hist {
-  margin-bottom: 18px;
-}
-.ak-clear {
-  width: 100%;
-  min-height: 48px;
-  margin-bottom: 10px;
 }
 .ak-key .modal-note {
   margin-bottom: 8px;

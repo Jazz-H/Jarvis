@@ -40,8 +40,21 @@ const ASK_SOURCES = {
   weather: ["Weather", "jv-src-weather"],
   news: ["News", "jv-src-news"],
   review: ["Review", "jv-src-jarvis"],
+  web: ["Web", "jv-src-news"],
 };
 const ASK_STATUSES = ["ok", "error", "declined", "over_limit"];
+const ASK_ACTIONS = [
+  "todo_done",
+  "todo_add",
+  "todo_move",
+  "goal_done",
+  "shopping_add",
+  "shopping_bought",
+  "weight_log",
+  "workout_done",
+];
+const ASK_APPLIED_KEY = "ask-applied"; // this device: answers whose actions were applied here
+let askShowAll = false; // the conversation shows every kept question (Earlier), not just 2 days
 const ASK_KEY_BROKEN = "Ask Jarvis key isn't working — check it in Sync";
 const ASK_NEEDS_SYNC = "Ask needs sync: turn it on with the cloud button. Capture works without it.";
 let askBusy = false; // a question is being saved / sent
@@ -51,7 +64,6 @@ let askTapped = new Set(); // "answerId|chipIndex" added this session
 let askPendingLink = null; // a ?ask= id still waiting for its answer
 let askPollTimer = null;
 let askPollUntil = 0;
-let askReturnFocus = null;
 let askAnswersCache = { raw: undefined, data: null };
 let askWriteChain = Promise.resolve();
 
@@ -227,6 +239,23 @@ function normalizeAnswer(a) {
       .map((c) => ({ kind: c.kind, text: askStr(c.text, 120), due: c.kind === "todo" && isDay(c.due) ? c.due : null }))
       .filter((c) => c.text)
       .slice(0, 12), // 3 for a question, up to 12 for a sort
+    // what Jarvis did (applied by askApplyActions on the device that asked): known types only
+    actions: arr(a.actions)
+      .filter((x) => askIsObj(x) && ASK_ACTIONS.includes(x.type) && askStr(x.label, 160))
+      .slice(0, 5)
+      .map((x) => ({
+        type: x.type,
+        id: typeof x.id === "string" && SAFE_ID.test(x.id) ? x.id : null,
+        text: askStr(x.text, 120),
+        date: isDay(x.date) ? x.date : null,
+        lbs: typeof x.lbs === "number" && isFinite(x.lbs) && x.lbs >= 40 && x.lbs <= 800 ? Math.round(x.lbs * 10) / 10 : null,
+        label: askStr(x.label, 160),
+      })),
+    // web pages the answer used: https only (linkHtml checks again when drawing)
+    links: arr(a.links)
+      .filter((l) => askIsObj(l) && typeof l.url === "string" && /^https:\/\/[^\s<>"']+$/.test(l.url) && l.url.length <= 500)
+      .slice(0, 3)
+      .map((l) => ({ url: l.url, title: askStr(l.title, 100) || "Link" })),
     by: a.by === "fallback" ? "fallback" : "jarvis",
   };
 }
@@ -295,18 +324,101 @@ async function ingestAnswersFile(file) {
     writeQuietly(ANSWERS_KEY, next); // stored already cleaned
     const mine = new Set(loadAskLocal().map((q) => q.id));
     const fresh = next.answers.filter((a) => !had.has(a.id) && mine.has(a.id));
+    const acted = askApplyActions(next.answers);
     renderConsole();
-    askRenderHistory();
     if (askPendingLink && next.answers.some((a) => a.id === askPendingLink) && currentTab === "console") {
       const id = askPendingLink;
       askPendingLink = null;
       askFocusEntry(id);
-    } else if (fresh.length) {
+    } else if (fresh.length && !acted) {
       showToast(fresh.length === 1 ? "Jarvis answered" : `Jarvis answered ${fresh.length} questions`);
     }
   } catch (e) {
     console.warn("answers not loaded", e);
   }
+}
+
+// ---- what Jarvis did ----
+// An answer's actions are applied once, on the device that asked (a question seen from another
+// device is left alone: its changes arrive by sync), within a day of the answer. Each goes through
+// the app's own save path and checks again that its target is there and still open. One Undo
+// covers all of them. Returns true when something was done.
+function askAppliedSet() {
+  try {
+    const v = JSON.parse(askGet(ASK_APPLIED_KEY) || "[]");
+    return new Set(Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+function askDoAction(x) {
+  const today = addDaysIso(0);
+  if (x.type === "todo_done") {
+    const t = todoList.find((y) => y.id === x.id);
+    if (!t || t.done) return false;
+    toggleTodo(t.id);
+  } else if (x.type === "todo_move") {
+    const t = todoList.find((y) => y.id === x.id);
+    if (!t || t.done || !x.date) return false;
+    t.due = x.date;
+    saveContent("todo-content", todoList, { toast: false });
+  } else if (x.type === "todo_add" || x.type === "shopping_add") {
+    const c = { kind: x.type === "todo_add" ? "todo" : "shopping", text: x.text, due: x.date };
+    if (!c.text || reviewChipOnList(c)) return false;
+    jarvisChipAdd(c);
+  } else if (x.type === "goal_done") {
+    const g = plan3.find((y) => y.id === x.id);
+    if (!g || g.done) return false;
+    togglePlan3(g.id);
+  } else if (x.type === "shopping_bought") {
+    if (!wantsList.some((w) => w.id === x.id) || wantsState[x.id]) return false;
+    toggleWant(x.id);
+  } else if (x.type === "weight_log") {
+    const date = x.date && x.date <= today ? x.date : today;
+    if (x.lbs == null) return false;
+    const w = fitness.weights.find((y) => y.date === date) || { id: genId("wt") }; // one weigh-in a day
+    w.lbs = x.lbs;
+    w.date = date;
+    if (!fitness.weights.includes(w)) fitness.weights.push(w);
+    fitness.weights.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    saveFitness();
+  } else if (x.type === "workout_done") {
+    const w = fitness.plan.find((y) => y.id === x.id);
+    if (!w || !workoutOn(w, today) || workoutDone(today, w.id)) return false;
+    toggleWorkout(today, w.id);
+  } else return false;
+  return true;
+}
+function askApplyActions(answers) {
+  const local = new Map(loadAskLocal().map((q) => [q.id, q]));
+  const applied = askAppliedSet();
+  const due = answers.filter(
+    (a) =>
+      a.status === "ok" &&
+      a.actions.length &&
+      !applied.has(a.id) &&
+      local.has(a.id) &&
+      local.get(a.id).state !== "seen" &&
+      Date.now() - (Date.parse(a.answeredAt) || 0) < 864e5,
+  );
+  if (!due.length) return false;
+  const before = dataSnapshot();
+  const done = [];
+  due.forEach((a) => {
+    a.actions.forEach((x) => {
+      try {
+        if (askDoAction(x)) done.push(x.label);
+      } catch (e) {
+        console.warn("Jarvis action skipped", e);
+      }
+    });
+    applied.add(a.id);
+  });
+  askSet(ASK_APPLIED_KEY, JSON.stringify([...applied].slice(-100)));
+  if (!done.length) return false;
+  const after = dataSnapshot();
+  showUndoToast(done.length === 1 ? `Jarvis: ${done[0]}` : `Jarvis did ${done.length} things`, () => undoTo(before, after));
+  return true;
 }
 
 // ---- the ask file (this app is its only writer) ----
@@ -400,7 +512,6 @@ async function ingestAskFile(file) {
     if (!add.length && f.clearBefore <= localClear) return;
     saveAskLocal([...add, ...list]);
     renderConsole();
-    askRenderHistory();
   } catch (e) {
     console.warn("ask file not loaded", e);
   }
@@ -618,6 +729,17 @@ function askUsageText() {
     .filter(Boolean)
     .join(" · ");
 }
+// The usage chip at the top of Console ("10 left · $0.18") and the limits it opens
+function askUsageShort() {
+  const left = askUsageLeft(),
+    spent = askMonthSpent();
+  const parts = [left == null ? "" : `${left} left`, spent == null ? "" : `$${spent.toFixed(2)}`].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Limits";
+}
+function askUsagePopHtml() {
+  const t = askUsageText();
+  return `${t ? `<p>${escapeHtml(t)}.</p>` : ""}<p>Limits: ${ASK_DAY_LIMIT} questions a day, 40 a week, $${ASK_MONTH_BUDGET} a month. A sort counts as a question; web answers cost a little more.</p>`;
+}
 function askNextRunText(now = new Date()) {
   return `Queued — Jarvis will answer on the next run (${now.getHours() < 7 ? "today" : "tomorrow"} ~7am)`;
 }
@@ -647,6 +769,15 @@ function askAnswerHtml(q) {
   const id = escapeAttr(a.id);
   const answered = Date.parse(a.answeredAt);
   const when = isFinite(answered) ? `Answered ${askTime(answered)}` : "";
+  if (a.status === "declined" || a.status === "over_limit") {
+    // one quiet line; the reason opens under it
+    const [title, plain] = ASK_FLAGS[a.status];
+    return `<details class="ak-flag-line ak-${a.status}">
+        <summary><span class="cn-dot" aria-hidden="true"></span><span class="ak-flag-what">${title}</span><span class="ak-why">Why</span>${isFinite(answered) ? `<time class="ak-meta">${escapeHtml(askTime(answered))}</time>` : ""}</summary>
+        <p class="ak-text">${escapeHtml(a.text || plain)}</p>
+        ${a.status === "over_limit" ? '<p class="ak-meta">Limits: 10 questions a day, 40 a week.</p>' : ""}
+      </details>`;
+  }
   if (a.status !== "ok") {
     const [title, plain] = ASK_FLAGS[a.status];
     const again =
@@ -671,9 +802,18 @@ function askAnswerHtml(q) {
       jarvisChipHtml(c, askTapped.has(`${a.id}|${i}`), `data-action="ask-chip" data-ask-id="${id}" data-index="${i}"`),
     )
     .join("");
+  const acts = a.actions.length
+    ? `<ul class="ak-acts" aria-label="What Jarvis did">${a.actions.map((x) => `<li><span aria-hidden="true">✓</span>${escapeHtml(x.label)}</li>`).join("")}</ul>`
+    : "";
+  const links = a.links
+    .map((l) => linkHtml(l.url, 'class="ak-link"', `<span aria-hidden="true">↗</span> ${escapeHtml(l.title)}`))
+    .filter(Boolean)
+    .join("");
   return `<div class="ak-ans">
       ${a.text ? `<p class="ak-text">${escapeHtml(a.text)}</p>` : bullets ? "" : '<p class="ak-text">Jarvis didn\'t say anything.</p>'}
+      ${acts}
       ${bullets}
+      ${links ? `<div class="ak-links">${links}</div>` : ""}
       ${chips ? `<div class="rv-chips ak-chips" role="group" aria-label="Suggestions: tap one to add it">${chips}</div>` : ""}
       ${srcs}
       <div class="ak-foot">
@@ -682,11 +822,9 @@ function askAnswerHtml(q) {
       </div>
     </div>`;
 }
-// One question and its answer (or status). withDay: the History sheet shows the date too.
-function askEntryHtml(q, withDay = false) {
-  const day = withDay
-    ? `${noonOf(isoDate(new Date(q.at))).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · `
-    : "";
+// One question and its answer (or status); repeats: the same question asked again in a row
+function askEntryHtml(q) {
+  const day = "";
   const said = q.text ? escapeHtml(q.text) : '<span class="ak-other">Asked on another device</span>';
   const follow =
     q.kind === "sort"
@@ -695,14 +833,40 @@ function askEntryHtml(q, withDay = false) {
         ? '<span class="ak-thread">Follow-up</span> '
         : "";
   return `<li class="cn-entry ak-entry" data-ask-entry="${escapeAttr(q.id)}" tabindex="-1">
-    <span class="cn-who">You</span><p class="cn-said">${follow}${said} <time class="cn-time">${escapeHtml(day + askTime(q.at))}</time></p>
+    <span class="cn-who">You</span><p class="cn-said">${follow}${said}${q.repeats ? ` <span class="ak-repeat" aria-label="asked ${q.repeats + 1} times">×${q.repeats + 1}</span>` : ""} <time class="cn-time">${escapeHtml(day + askTime(q.at))}</time></p>
     <span class="cn-who cn-j">J</span><div class="cn-reply">${q.answer ? askAnswerHtml(q) : askStatusHtml(q)}</div>
   </li>`;
 }
-// Today and yesterday go in the Console feed; everything else is in History
+// The conversation shows today and yesterday; Earlier (askShowAll) shows every kept question.
+// The same question asked again in a row, with the same kind of non-answer, shows once (×2).
 function askFeedEntries() {
   const from = noonOf(addDaysIso(-1)).getTime() - 12 * 3600e3; // yesterday's midnight
-  return loadAskEntries().filter((q) => q.at >= from);
+  const list = loadAskEntries().filter((q) => askShowAll || q.at >= from);
+  const out = [];
+  list.forEach((q) => {
+    const prev = out[out.length - 1];
+    const same =
+      prev &&
+      q.text &&
+      prev.text.trim().toLowerCase() === q.text.trim().toLowerCase() &&
+      prev.answer &&
+      q.answer &&
+      prev.answer.status !== "ok" &&
+      prev.answer.status === q.answer.status;
+    if (same) prev.repeats = (prev.repeats || 0) + 1;
+    else out.push({ ...q });
+  });
+  return out;
+}
+// Questions kept but older than the conversation shows (for its Earlier row)
+function askEarlierCount() {
+  if (askShowAll) return 0;
+  const from = noonOf(addDaysIso(-1)).getTime() - 12 * 3600e3;
+  return loadAskEntries().filter((q) => q.at < from).length;
+}
+function askShowEarlier() {
+  askShowAll = true;
+  renderConsole();
 }
 
 // ---- the Ask hint and notes under the box ----
@@ -741,57 +905,6 @@ function askNoteHtml(mode) {
   return parts.join("");
 }
 
-// ---- History sheet ----
-function askSheetEl() {
-  return document.getElementById("ask-sheet");
-}
-function askHistoryOpenNow() {
-  const el = askSheetEl();
-  return !!el && el.classList.contains("open");
-}
-function askHistoryHtml() {
-  const list = loadAskEntries();
-  const body = list.length
-    ? `<ul class="cn-feed ak-hist">${list.map((q) => askEntryHtml(q, true)).join("")}</ul>`
-    : '<p class="cn-empty">No questions yet. Ask Jarvis something from Console.</p>';
-  return `<div class="modal-head"><h2 class="ak-title" id="ask-title" tabindex="-1">History</h2><button type="button" class="modal-x rv-x" data-action="ask-history-close" aria-label="Close">&times;</button></div>
-    <p class="ak-meta ak-hist-sub">Your last ${ASK_HISTORY_MAX} questions to Jarvis, newest first. ${escapeHtml(askUsageText())}</p>
-    ${body}
-    ${list.length ? '<button type="button" class="modal-btn danger ak-clear" data-action="ask-clear">Clear history</button>' : ""}
-    <p class="ak-meta">Questions and answers live in your private sync gist, never in backups.</p>`;
-}
-function askRenderHistory() {
-  const body = document.getElementById("ask-body");
-  if (body && askHistoryOpenNow()) {
-    const top = body.scrollTop;
-    body.innerHTML = askHistoryHtml();
-    body.scrollTop = top;
-  }
-}
-function openAskHistory() {
-  const el = askSheetEl();
-  if (!el) return;
-  if (!askHistoryOpenNow()) askReturnFocus = document.activeElement;
-  el.classList.add("open");
-  el.setAttribute("aria-hidden", "false");
-  document.getElementById("ask-body").innerHTML = askHistoryHtml();
-  syncSheets();
-  document.getElementById("ask-body").scrollTop = 0;
-  document.getElementById("ask-title").focus({ preventScroll: true });
-}
-function closeAskHistory(restore = true) {
-  const el = askSheetEl();
-  if (!el || !askHistoryOpenNow()) return;
-  el.classList.remove("open");
-  el.setAttribute("aria-hidden", "true");
-  syncSheets();
-  const back = askReturnFocus;
-  askReturnFocus = null;
-  if (restore && back && document.contains(back))
-    try {
-      back.focus({ preventScroll: true });
-    } catch (e) {}
-}
 function askClearHistory() {
   if (
     !confirm(
@@ -807,8 +920,8 @@ function askClearHistory() {
   askThread = null;
   askPendingLink = null;
   askPollStop();
+  askShowAll = false;
   renderConsole();
-  askRenderHistory();
   showToast("History cleared");
   if (askSyncOn()) askWriteFile((items) => items).catch(() => {}); // sets clearBefore; retried on the next sync
 }
@@ -829,22 +942,18 @@ function askAddChip(id, i) {
   const { before, after } = jarvisChipAdd(c);
   askTapped.add(key);
   renderConsole();
-  askRenderHistory();
-  const scope = askHistoryOpenNow() ? "#ask-body" : "#cn-feed";
-  const chip = document.querySelector(`${scope} .rv-chip[data-ask-id="${CSS.escape(e.id)}"][data-index="${i}"]`);
+  const chip = document.querySelector(`#cn-feed .rv-chip[data-ask-id="${CSS.escape(e.id)}"][data-index="${i}"]`);
   if (chip) chip.focus({ preventScroll: true });
   showUndoToast(c.kind === "todo" ? "Added to To-Do" : "Added to Shopping", () => {
     undoTo(before, after);
     askTapped.delete(key);
     renderConsole();
-    askRenderHistory();
   });
 }
 function askFollow(id) {
   const e = askEntryById(id);
   if (!e || !e.answer) return;
   askThread = e.thread || e.id;
-  closeAskHistory(false);
   if (currentTab !== "console") activateTab("console");
   consoleSetMode("ask");
   renderConsole();
@@ -861,7 +970,6 @@ function askAgain(id) {
   const e = askEntryById(id);
   const input = consoleInput();
   if (!e || !e.text || !input) return;
-  closeAskHistory(false);
   input.value = e.text;
   consoleSetMode("ask");
   input.focus();
@@ -872,8 +980,13 @@ function askFocusEntry(id) {
   const inFeed = document.querySelector(`#cn-feed [data-ask-entry="${CSS.escape(id)}"]`);
   let el = inFeed;
   if (!el && loadAskEntries().some((e) => e.id === id)) {
-    openAskHistory();
-    el = document.querySelector(`#ask-body [data-ask-entry="${CSS.escape(id)}"]`);
+    // an older question: show the whole conversation and open it
+    askShowAll = true;
+    try {
+      localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1");
+    } catch (e) {}
+    renderConsole();
+    el = document.querySelector(`#cn-feed [data-ask-entry="${CSS.escape(id)}"]`);
   }
   if (!el) return false;
   el.classList.add("ak-hit");
@@ -888,9 +1001,4 @@ function askDeepLink(id) {
   if (!askFocusEntry(id) || !has) askPendingLink = id;
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape" || !askHistoryOpenNow()) return;
-  if (document.getElementById("modal-backdrop").classList.contains("open")) return;
-  e.preventDefault();
-  closeAskHistory();
-});
+

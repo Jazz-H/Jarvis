@@ -14,7 +14,7 @@ const IsoTime = z
 const N = z.number().int().min(0).max(100_000);
 const Usd = z.number().min(0).max(100_000);
 
-export const AskSource = z.enum(["jazz", "calendar", "inbox", "deliveries", "weather", "news", "review"]);
+export const AskSource = z.enum(["jazz", "calendar", "inbox", "deliveries", "weather", "news", "review", "web"]);
 export type AskSource = z.infer<typeof AskSource>;
 
 // ---- jazz2-ask.json (the app's file) ----
@@ -44,6 +44,40 @@ export const AskChip = z.object({
 });
 export type AskChip = z.infer<typeof AskChip>;
 
+// Small things Jarvis may do when the owner asks it to (Ask only). Code checks every one against
+// the owner's data and writes the label; only the app applies them, on the device that asked,
+// with Undo. An answer that used web search carries none.
+export const ACTION_TYPES = [
+  "todo_done",
+  "todo_add",
+  "todo_move",
+  "goal_done",
+  "shopping_add",
+  "shopping_bought",
+  "weight_log",
+  "workout_done",
+] as const;
+export const AskAction = z.object({
+  type: z.enum(ACTION_TYPES),
+  id: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{1,80}$/)
+    .optional(), // the to-do, goal item, Shopping item or workout plan
+  text: z.string().min(1).max(120).optional(), // todo_add, shopping_add
+  date: IsoDate.optional(), // todo_add / todo_move: the due date; weight_log / workout_done: the day
+  lbs: z.number().min(40).max(800).optional(), // weight_log
+  label: z.string().min(1).max(160), // what was done, in plain words (written by code)
+});
+export type AskAction = z.infer<typeof AskAction>;
+export const AskLink = z.object({
+  title: z.string().min(1).max(100),
+  url: z
+    .string()
+    .max(500)
+    .regex(/^https:\/\/[^\s<>"']+$/),
+});
+export type AskLink = z.infer<typeof AskLink>;
+
 export const Answer = z.object({
   id: z.string().regex(ASK_ID), // the question's id
   askedAt: z.string().max(40), // the question's `at`, as the app wrote it
@@ -55,6 +89,8 @@ export const Answer = z.object({
   bullets: z.array(z.string().max(200)).max(5),
   sources: z.array(AskSource).max(6),
   chips: z.array(AskChip).max(12), // 3 for a question, up to 12 for a sort
+  actions: z.array(AskAction).max(5).optional(), // what Jarvis did (the app applies them)
+  links: z.array(AskLink).max(3).optional(), // web pages the answer used
   by: z.enum(["jarvis", "fallback"]), // fallback: written by code (limits, errors), not the model
 });
 export type Answer = z.infer<typeof Answer>;
@@ -96,6 +132,22 @@ export const AskOutput = z.object({
       }),
     )
     .max(6),
+  actions: z
+    .array(
+      z.object({
+        type: z.enum(ACTION_TYPES),
+        id: z.string().max(80).nullable(),
+        text: z.string().max(300).nullable(),
+        date: z.string().max(40).nullable(),
+        lbs: z.number().nullable(),
+      }),
+    )
+    .max(8)
+    .optional(),
+  links: z
+    .array(z.object({ title: z.string().max(300), url: z.string().max(1000) }))
+    .max(6)
+    .optional(),
 });
 export type AskOutput = z.infer<typeof AskOutput>;
 

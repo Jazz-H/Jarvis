@@ -163,9 +163,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
-- **Top row:** "N of 10 questions left today · $X of $8 used this month" (once Jarvis has reported
-  its counts; $8 is the default monthly cap) and
-  **History**.
+- **Top row:** a usage chip, "7 left · $0.18" (questions left today and this month's Ask
+  spending, once Jarvis has reported its counts). Tap it for the full line and the limits ($8 a
+  month is the default cap).
 - **Ask | Capture:** a full-width switch. The mode is guessed from what you type (a question
   word first or a "?" at the end means Ask; several items, or anything else, means Capture)
   and labelled "Switched by what you typed". Tapping the switch locks the mode until the box
@@ -216,21 +216,42 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   - **Waiting:** while Console is on screen the app checks the gist every 10 seconds for up to 3
     minutes (not while the app or another tab is in front). After that: "Still working — you'll
     get a notification". The answer also arrives with the next sync, and the "ask" notification
-    opens `?tab=console&ask=<id>`, which scrolls to that answer (or opens it in History).
+    opens `?tab=console&ask=<id>`, which scrolls to that answer (showing Earlier if it's older).
+  - **What Jarvis sees:** everything in the app, worked out by code: to-dos (with ids), bills,
+    the pay period and safe to spend, spending against limits, savings goals, today's Beauty
+    steps, workouts, weight (pace and goal date once weigh-ins span a week), Jazz 3.0 goal items
+    with notes, Shopping, plus this morning's briefing, the calendar (90 days back, 60 ahead) and
+    the latest Weekly Review.
+  - **Web search:** for questions your data can't answer ("is it worth fixing the AC?"), Jarvis
+    can search the web. Those answers list up to 3 links (https only, opened in a new tab) and
+    are tagged **Web**; they cost a little more and still fall under the same limits. Web pages
+    are untrusted data.
+  - **Jarvis acts on small things** when you ask it to ("mark call mom done", "log 127.6", "add
+    oat milk", "move the dentist to Friday", "I did the gym"): tick, add or move a to-do, tick a
+    Jazz 3.0 goal item, add a Shopping item or mark one bought, log your weight, tick today's
+    workout. Nothing else (no bills, money or deleting). The answer lists what was done
+    ("✓ Ticked "Call mom""), the app applies it through its normal saves on the device that asked
+    (once, within a day; other devices get it by sync), and one toast offers **Undo** for all of
+    it. Code checks every action against your data first, and an answer that searched the web
+    can't act at all.
   - **Answers** show Jarvis's text, up to 5 bullets, chips and source tags (Jazz, Calendar,
-    Inbox, Deliveries, Weather, News, Review) like the briefing's. **Chips** ("+ Pay Rent ·
+    Inbox, Deliveries, Weather, News, Review, Web) like the briefing's. **Chips** ("+ Pay Rent ·
     Mon") add a to-do with its date or a Shopping item only when tapped, with Undo. **Follow up**
     makes your next question part of the same thread (a note under the hint says what it
-    follows; Cancel drops it). Answers that weren't given say so plainly: **Over the limit**,
-    **Jarvis couldn't answer** (with Ask again) and **Jarvis didn't answer this**. An answer to a
+    follows; Cancel drops it). Answers that weren't given say so plainly: **Jarvis couldn't answer** (with Ask
+    again), and one quiet line for **Over the limit** and **Jarvis didn't answer this** (**Why**
+    opens the reason). The same question asked again in a row with the same non-answer shows once,
+    marked ×2. An answer to a
     question asked on another device shows as "Asked on another device".
   - **Limits** are enforced by the workflow: 1,000 characters a question; 10 questions and $1 a
     day; 40 a week; $8 a month; 5 questions and $0.40 a run. Over a limit, the answer is
     "Over the limit" at no model cost. The app adds a 10-second wait between questions and
     sends one at a time.
-  - **History** (top right) is a sheet with the last 50 questions and answers, newest first.
-    **Clear history** hides them all on this device at once and tells the gist (`clearBefore`),
-    so Jarvis's next run deletes them there and your other devices clear too.
+  - **One conversation:** there's no separate History. The conversation shows today and
+    yesterday; **Earlier · N more ›** at the end loads the rest of the last 50 in place, and
+    **Clear history** sits at the very end: it hides them all on this device at once and tells
+    the gist (`clearBefore`), so Jarvis's next run deletes them there and your other devices
+    clear too.
 - **Weekly Review:** Jarvis's Sunday-evening look back at the week (Mon–Sun), under the hint
   line. From the review's Sunday through Tuesday, and any time it hasn't been opened yet, it's a
   card: "Week in review · Oct 26 – Nov 1" with a **New** pill until opened, the headline, one
@@ -254,10 +275,11 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     Today in 60 seconds starts with "Your week in review is ready ›".
   - The numbers are counted by code in the Jarvis Action; only the wording comes from Jarvis.
     The app only reads the review: it's never edited, synced back or backed up.
-- **Feed:** what you did here this week, grouped Today, Yesterday, then earlier days
+- **Conversation:** a chat: what you said in a bubble on the right, Jarvis's reply under it at
+  full width, with a small day divider (Today, Yesterday, then dates). Captures show here too
   ("Added 2 to-dos and 1 Shopping item" with links to To-Do and Shopping, marked Undone if you
-  undid it). Kept on this device only: the last 7 days, at most 50 entries. Questions to Jarvis
-  show here for today and yesterday; older ones are in History. Questions saved before Ask was
+  undid it; kept on this device only: the last 7 days, at most 50 entries). Questions to Jarvis
+  show for today and yesterday, and the rest under Earlier. Questions saved before Ask was
   switched on say "Not sent".
 There's no floating + on Console; the box is the way to add. (The old **Jazz 3.0 →** row at the
 bottom is gone: Jazz 3.0 has a tab again, under Glow.)
@@ -535,7 +557,7 @@ only turning sync off still asks first.
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
-   | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), History (`openAskHistory`, `askClearHistory`), chips / Follow up, the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
+   | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), Earlier and Clear history (`askShowEarlier`, `askClearHistory`), Jarvis's actions (`askApplyActions`), the usage chip, chips / Follow up, the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
    | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
    | `calendar.js` | Google Calendar history on the Planner: `ingestCalendarFile` (sync's pull), `normalizeCalendar`, `calendarEventsOn` (null outside the imported range), the day's events section (`homeEventsHtml`); Home's strip and hero read it |

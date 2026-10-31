@@ -661,10 +661,12 @@ const SHELL_CLICK = {
   },
   "console-feed-toggle": () => consoleFeedToggle(),
   // Ask Jarvis (ask.js): History, answer chips, Follow up, Try again. Ids and indexes are re-checked there.
-  "ask-history": () => openAskHistory(),
-  "ask-history-close": () => closeAskHistory(),
-  "ask-history-backdrop": (el, e) => {
-    if (e.target === el) closeAskHistory();
+  "ask-earlier": () => askShowEarlier(),
+  "ask-usage": (el) => {
+    const pop = document.getElementById("cn-usage-pop");
+    if (!pop) return;
+    pop.hidden = !pop.hidden;
+    el.setAttribute("aria-expanded", String(!pop.hidden));
   },
   "ask-clear": () => askClearHistory(),
   "jv-suggest": (el) => {

@@ -241,9 +241,9 @@ function consoleAddedText(todos, shop) {
 function consoleShellHtml() {
   return `<div class="cn">
     <div class="cn-top">
-      <span class="cn-usage" id="cn-usage"></span>
-      <button type="button" class="cn-hist" data-action="ask-history" aria-label="History: your questions to Jarvis"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</button>
+      <button type="button" class="cn-usage" id="cn-usage" data-action="ask-usage" aria-expanded="false" aria-controls="cn-usage-pop" aria-label="Ask Jarvis usage and limits"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V3a9 9 0 0 1 9 9z"/></svg><span id="cn-usage-text"></span></button>
     </div>
+    <div class="cn-usage-pop" id="cn-usage-pop" hidden></div>
     <div class="cn-switch" role="group" aria-label="Mode">
       <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Ask</button>
       <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false">Capture</button>
@@ -293,7 +293,8 @@ function consoleRefreshBox() {
   const note = askNoteHtml(mode),
     noteEl = document.getElementById("cn-ask-note");
   if (noteEl.innerHTML !== note) noteEl.innerHTML = note; // only when it changes, so typing doesn't redraw it
-  document.getElementById("cn-usage").textContent = askUsageText();
+  document.getElementById("cn-usage-text").textContent = askUsageShort();
+  document.getElementById("cn-usage-pop").innerHTML = askUsagePopHtml();
   if (consoleChipsMode !== mode) {
     consoleChipsMode = mode;
     const chips = document.getElementById("cn-chips");
@@ -426,10 +427,17 @@ function consoleFeedHtml() {
   const body = days
     .map(
       (d) =>
-        `<div class="jv-sub-label">${escapeHtml(consoleDayLabel(d.iso))}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
+        `<div class="cn-day">${escapeHtml(consoleDayLabel(d.iso))}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
     )
     .join("");
-  return `${head}<div id="cn-feed-body"${open ? "" : " hidden"}>${body}</div>`;
+  // older questions load in place; once they're all showing, Clear history sits at the end
+  const earlier = askEarlierCount();
+  const foot = earlier
+    ? `<button type="button" class="cn-earlier" data-action="ask-earlier">Earlier · ${earlier} more ›</button>`
+    : askShowAll || all.length
+      ? `<button type="button" class="cn-link cn-clear" data-action="ask-clear">Clear history</button>`
+      : "";
+  return `${head}<div id="cn-feed-body"${open ? "" : " hidden"}>${body}${foot}</div>`;
 }
 // Questions from today/yesterday that have no answer yet
 function consolePendingCount() {

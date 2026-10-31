@@ -17,6 +17,11 @@ export interface AgentSpec<T> {
   schema: z.ZodType<T>;
   effort?: EffortLevel;
   timeoutMs: number;
+  // Built-in tools this agent may use (only Ask's "WebSearch"); none when left out
+  tools?: string[];
+  maxTurns?: number;
+  // Filled in by runAgent: how many web searches the agent made (so code can tell web was used)
+  usage?: { webSearches: number };
 }
 
 export type QueryFn = (params: { prompt: string; options?: Options }) => AsyncIterable<SDKMessage>;
@@ -37,14 +42,14 @@ export function agentOptions(spec: AgentSpec<unknown>, budgetUsd: number, signal
     model: spec.model,
     systemPrompt: spec.system,
     effort: spec.effort,
-    tools: [], // no built-in tools at all
-    allowedTools: [],
+    tools: spec.tools ?? [], // no built-in tools unless the spec names them (Ask: WebSearch only)
+    allowedTools: spec.tools ?? [],
     mcpServers: {},
     strictMcpConfig: true,
     settingSources: [], // don't load CLAUDE.md or any settings from the repo or home dir
     persistSession: false,
     permissionMode: "dontAsk",
-    maxTurns: 3,
+    maxTurns: spec.maxTurns ?? 3,
     maxBudgetUsd: budgetUsd,
     outputFormat: { type: "json_schema", schema: outputSchema(spec.schema) },
     env: agentEnv(),
@@ -76,6 +81,8 @@ export async function runAgent<T>(
       clearTimeout(timer);
     }
     if (result) recordUsage(spec, result, ledger);
+    if (result && spec.usage)
+      for (const u of Object.values(result.modelUsage ?? {})) spec.usage.webSearches += Number(u.webSearchRequests) || 0;
     trace.log(spec.name, "attempt", {
       attempt,
       ms: Date.now() - started,

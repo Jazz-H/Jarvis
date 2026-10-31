@@ -139,18 +139,18 @@ describe("Ask orchestrator", () => {
     expect(fq.seen).toHaveLength(1);
   });
 
-  it("gives Opus the question and context as untrusted data, effort low, no tools, 3 turns", async () => {
+  it("gives Opus the question and context as untrusted data, effort low, web search the only tool", async () => {
     const fq = fakeQuery([{ structured_output: ASK_OUT }]);
     await runAsk(deps({ queryFn: fq.fn }));
     const { prompt, options } = fq.seen[0];
     expect(options).toMatchObject({
       model: "claude-opus-5-5",
       effort: "low",
-      tools: [],
-      allowedTools: [],
+      tools: ["WebSearch"],
+      allowedTools: ["WebSearch"],
       mcpServers: {},
       settingSources: [],
-      maxTurns: 3,
+      maxTurns: 8,
       persistSession: false,
     });
     expect(options!.maxBudgetUsd).toBeLessThanOrEqual(CONFIG.ask.maxQuestionCostUsd);

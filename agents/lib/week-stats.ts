@@ -153,6 +153,7 @@ function todoStats(data: Obj, w: ReviewWeek, timeZone: string): WeekStats["todos
 // Open to-dos due from `from` to `to`, with repeating ones projected (js/todo-dates.js occursOn).
 // Also used by the Ask context (lib/ask-context.ts).
 export interface TodoRow {
+  id: string | null; // the to-do's id (null when it isn't a safe token)
   text: string;
   due: string;
   starred: boolean;
@@ -163,7 +164,8 @@ export function todoOccurrences(data: Obj, from: string, to: string): TodoRow[] 
   for (const t of arr(data["todo-content"])) {
     if (!isObj(t) || t.done || !isIso(t.due) || t.due > to) continue;
     const repeats = TODO_REPEATS.has(t.repeat);
-    const add = (due: string) => out.push({ text: clip(t.text, 120), due, starred: t.starred === true, repeats });
+    const id = typeof t.id === "string" && SAFE_ID.test(t.id) ? t.id : null;
+    const add = (due: string) => out.push({ id, text: clip(t.text, 120), due, starred: t.starred === true, repeats });
     if (t.due >= from) add(t.due);
     if (!repeats) continue;
     let d: string | null = t.due;

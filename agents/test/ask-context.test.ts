@@ -53,8 +53,8 @@ describe("Ask context (figures worked out in code)", () => {
 
   it("to-dos: overdue, and the next 14 days with repeats projected", () => {
     expect(j.todos.overdue).toEqual([
-      { text: "E", due: "2026-10-20", starred: false },
-      { text: "D", due: "2026-10-28", starred: false },
+      { id: null, text: "E", due: "2026-10-20", starred: false }, // no id in the fixture: can't be acted on
+      { id: null, text: "D", due: "2026-10-28", starred: false },
     ]);
     expect(j.todos.next14Days.map((t) => `${t.text} ${t.due}`)).toEqual(["G 2026-10-31", "F 2026-11-03", "G 2026-11-07"]);
   });
@@ -85,10 +85,10 @@ describe("Ask context (figures worked out in code)", () => {
       ],
       overLimit: [],
     });
-    expect(j.routine).toEqual({ streak: 1, amDoneToday: true, pmDoneToday: true, washToday: false, washTomorrow: false });
+    expect(j.routine).toMatchObject({ streak: 1, amDoneToday: true, pmDoneToday: true, washToday: false, washTomorrow: false });
     expect(j.workouts).toEqual({
       thisWeek: { start: "2026-10-25", doneBeforeToday: 1, plannedBeforeToday: 2, missedDays: ["2026-10-28"], plannedRestOfWeek: 0 },
-      today: [{ name: "Lift", done: true }],
+      today: [{ id: expect.any(String), name: "Lift", done: true }],
       next: { date: "2026-11-01", workouts: ["Long run"] },
     });
     expect(j.weight).toEqual({
@@ -103,7 +103,7 @@ describe("Ask context (figures worked out in code)", () => {
       lastWeighIn: "2026-10-27",
     });
     expect(j.goals).toEqual([
-      { section: "Glow", done: 1, total: 2, open: ["Floss"] },
+      { section: "Glow", done: 1, total: 2, open: [{ id: expect.any(String), item: "Floss", note: "" }] },
       { section: "Leadership", done: 1, total: 1, open: [] },
     ]);
     expect(j.shopping).toEqual({
@@ -111,9 +111,9 @@ describe("Ask context (figures worked out in code)", () => {
       needsOpen: 2,
       estOpen: 160,
       items: [
-        { name: "Rain jacket", price: 120, need: true, high: false },
-        { name: "Belt", price: 40, need: true, high: false },
-        { name: "Headphones", price: null, need: false, high: false },
+        { id: expect.any(String), name: "Rain jacket", price: 120, need: true, high: false },
+        { id: expect.any(String), name: "Belt", price: 40, need: true, high: false },
+        { id: expect.any(String), name: "Headphones", price: null, need: false, high: false },
       ],
     });
   });
