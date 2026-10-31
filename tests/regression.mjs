@@ -3071,6 +3071,84 @@ await section("Console orb stands out; Jazz 3.0 banner", async () => {
   await ctx.close();
 });
 
+await section("Briefing: suggested to-dos and Bill Guard", async () => {
+  const b = briefingFixture({
+    suggestions: [
+      { text: "Pay Rent", due: isoOffset(2) },
+      { text: "<img src=x onerror=window.__pwned=1>", due: "not-a-date" },
+      { text: "", due: null },
+      { text: "Fourth", due: null },
+      { text: "Fifth", due: null },
+    ],
+  });
+  b.summary.push({ text: "Bills before payday are $40 more than your paycheck.", source: "money" });
+  b.cards.money = {
+    status: "ok",
+    agent: "Bill Guard",
+    model: "code",
+    updatedAt: b.generatedAt,
+    data: {
+      period: null,
+      guard: [
+        { reason: "short", name: "Bills before payday", amount: 40, due: isoOffset(9), budgetAmount: null },
+        { reason: "differs", name: "Electric <b>x</b>", amount: 142, due: null, budgetAmount: 110 },
+        { reason: "not-in-budget", name: "Spotify", amount: 12, due: null, budgetAmount: null },
+        { reason: "manual", name: "Rent", amount: 1450, due: isoOffset(1), budgetAmount: null },
+        { reason: "nope", name: "Junk", amount: 1, due: null, budgetAmount: null },
+      ],
+      overspent: [{ name: "Dining out", spent: 150.5, limit: 100 }],
+    },
+  };
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  const r = await page.evaluate(() => ({
+    chips: [...document.querySelectorAll(".jv-suggest .rv-chip")].map((c) => c.textContent.replace(/\s+/g, " ").trim()),
+    tag: [...document.querySelectorAll(".jv-hero .jv-src")].map((x) => x.textContent).pop(),
+    pwned: !!window.__pwned,
+  }));
+  check("suggested to-dos show as chips (at most 3, blanks dropped)", r.chips.length === 3, r.chips);
+  check("unsafe suggestion text is shown as text", r.chips[1].includes("<img") && !r.pwned, r.chips);
+  check("Bill Guard items are tagged Bill Guard", r.tag === "Bill Guard", r.tag);
+  const n0 = await page.evaluate(() => todoList.length);
+  await page.click('.jv-suggest .rv-chip[data-index="0"]');
+  check(
+    "tapping a chip adds the to-do with its due date",
+    await page.evaluate(
+      (n) => todoList.length === n + 1 && todoList.some((t) => t.text === "Pay Rent" && t.due === addDaysIso(2)),
+      n0,
+    ),
+  );
+  check(
+    "the chip then reads Added, and a second tap adds nothing",
+    await page.evaluate(() => document.querySelector('.jv-suggest .rv-chip[data-index="0"]').classList.contains("added")),
+  );
+  await page.evaluate(() => document.getElementById("toast").querySelector("button")?.click());
+  check(
+    "Undo removes it again",
+    await page.evaluate((n) => todoList.length === n && !todoList.some((t) => t.text === "Pay Rent"), n0),
+  );
+  await page.tap('.jv-tile[data-go="money"]');
+  const guard = await page.evaluate(() =>
+    [...document.querySelectorAll("#jv-detail-money .jv-guard li")].map((li) => li.textContent),
+  );
+  check(
+    "Money detail lists Bill Guard's findings (not the bills Budget already shows)",
+    JSON.stringify(guard) ===
+      JSON.stringify([
+        "Bills due before payday are $40 more than your paycheck.",
+        "Electric <b>x</b>: the email says $142, Budget says $110.",
+        "Spotify ($12) emailed a bill that isn't in Budget.",
+        "Dining out: $150.50 spent of $100 this month.",
+      ]),
+    guard,
+  );
+  check(
+    "an older briefing's Bill Guard isn't shown",
+    await page.evaluate(() => billGuardLines({ ...loadBriefing(), date: addDaysIso(-1) }).length === 0),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Jazz 3.0: Today card, workout streak and the last 4 weeks", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
   const r = await page.evaluate(() => {

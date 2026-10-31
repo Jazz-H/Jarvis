@@ -4,8 +4,9 @@ import { NewsCard } from "./news.ts";
 import { CalendarCard } from "./calendar.ts";
 import { InboxCard } from "./inbox.ts";
 import { DeliveryCard } from "./deliveries.ts";
+import { MoneyCard } from "./money.ts";
 
-export const SummarySource = z.enum(["weather", "news", "jazz", "jarvis", "calendar", "inbox", "deliveries"]);
+export const SummarySource = z.enum(["weather", "news", "jazz", "jarvis", "calendar", "inbox", "deliveries", "money"]);
 
 // What the Jarvis agent returns.
 export const JarvisOutput = z.object({
@@ -14,6 +15,11 @@ export const JarvisOutput = z.object({
     .array(z.object({ text: z.string().min(1).max(240), source: SummarySource }))
     .min(1)
     .max(5),
+  // to-dos worth adding (one-tap chips in the app, never added automatically); code checks the dates
+  suggestions: z
+    .array(z.object({ text: z.string().min(1).max(120), due: z.string().max(40).nullable() }))
+    .max(6) // loose on purpose: code keeps the first 3 good ones (cleanSuggestions)
+    .optional(),
 });
 export type JarvisOutput = z.infer<typeof JarvisOutput>;
 
@@ -32,6 +38,18 @@ export const Briefing = z.object({
   headline: z.string().max(100),
   summary: JarvisOutput.shape.summary,
   summaryBy: z.enum(["jarvis", "fallback"]),
+  suggestions: z
+    .array(
+      z.object({
+        text: z.string().min(1).max(80),
+        due: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable(),
+      }),
+    )
+    .max(3)
+    .optional(),
   // calendar, inbox and deliveries are left out until their source is connected (SETUP.md)
   cards: z.object({
     weather: BriefingCard(WeatherCard),
@@ -39,6 +57,7 @@ export const Briefing = z.object({
     calendar: BriefingCard(CalendarCard).optional(),
     inbox: BriefingCard(InboxCard).optional(),
     deliveries: BriefingCard(DeliveryCard).optional(),
+    money: BriefingCard(MoneyCard).optional(), // Bill Guard: code over Budget data, no model
   }),
   notes: z.array(z.string().max(200)).max(10),
 });

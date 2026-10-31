@@ -18,6 +18,7 @@ const BRIEFING_SOURCES = {
   calendar: "Calendar",
   inbox: "Inbox",
   deliveries: "Amazon",
+  money: "Bill Guard",
 };
 openPinned.add("jarvis-news");
 
@@ -165,6 +166,29 @@ function normalizeBriefing(b) {
             .filter((x) => x.item),
         }
       : null;
+  // Bill Guard (Phase 3): code over Budget data, so every field is checked again here
+  const GUARD_REASONS = ["overdue", "manual", "short", "differs", "not-in-budget"];
+  const money = (d) =>
+    isObj(d)
+      ? {
+          guard: arr(d.guard)
+            .filter(isObj)
+            .slice(0, 8)
+            .map((g) => ({
+              reason: GUARD_REASONS.includes(g.reason) ? g.reason : null,
+              name: str(g.name, 60),
+              amount: num(g.amount, 0, 1e7),
+              due: isoDay(g.due) ? g.due : null,
+              budgetAmount: num(g.budgetAmount, 0, 1e7),
+            }))
+            .filter((g) => g.reason && g.name),
+          overspent: arr(d.overspent)
+            .filter(isObj)
+            .slice(0, 5)
+            .map((c) => ({ name: str(c.name, 40), spent: num(c.spent, 0, 1e7), limit: num(c.limit, 0, 1e7) }))
+            .filter((c) => c.name && c.spent != null && c.limit != null),
+        }
+      : null;
   const cards = isObj(b.cards) ? b.cards : {};
   return {
     id: str(b.id, 40),
@@ -177,11 +201,19 @@ function normalizeBriefing(b) {
       .map((s) => ({ text: str(s.text, 240), source: BRIEFING_SOURCES[s.source] ? s.source : "jarvis" }))
       .filter((s) => s.text),
     summaryBy: b.summaryBy === "fallback" ? "fallback" : "jarvis",
+    // suggested to-dos: one-tap chips, never added by themselves
+    suggestions: arr(b.suggestions)
+      .filter(isObj)
+      .slice(0, 10)
+      .map((s) => ({ kind: "todo", text: str(s.text, 80).trim(), due: isoDay(s.due) ? s.due : null }))
+      .filter((s) => s.text)
+      .slice(0, 3),
     weather: card(cards.weather, weather),
     news: card(cards.news, news),
     calendar: cards.calendar ? card(cards.calendar, calendar) : null,
     inbox: cards.inbox ? card(cards.inbox, inbox) : null,
     deliveries: cards.deliveries ? card(cards.deliveries, deliveries) : null,
+    money: cards.money ? card(cards.money, money) : null,
     notes: arr(b.notes)
       .map((n) => str(n, 200))
       .filter(Boolean)
@@ -333,6 +365,7 @@ const BRIEFING_AREAS = [
   { area: "fitness", label: "Fitness", go: "jazz3", re: /\b(weigh[- ]?in|weight|workout|gym|run|lift)\b/i },
 ];
 function briefingTag(s) {
+  if (s.source === "money") return { cls: "budget", label: BRIEFING_SOURCES.money, go: "money" };
   if (s.source !== "jazz") return { cls: s.source, label: BRIEFING_SOURCES[s.source], go: BRIEFING_DRILL[s.source] };
   const a = BRIEFING_AREAS.find((x) => x.re.test(s.text)) || { area: "todo", label: "To-do", go: "todo" };
   return { cls: a.area, label: a.label, go: a.go };
@@ -379,9 +412,60 @@ function jarvisHeroHtml(b) {
       ${((p) => (b.headline ? `<h2 class="jv-headline">${escapeHtml(p.title)}</h2>${p.sub ? `<p class="jv-headsub">${escapeHtml(p.sub)}</p>` : ""}` : ""))(briefingHeadParts(b.headline || ""))}
       ${b.date === today ? "" : briefingLateHtml(b)}
       <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
+      ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${notes}
     </section>`;
+}
+
+// Suggested to-dos under the summary: tap to add (with its due date), Undo in the toast.
+// Tapped chips are remembered for this briefing until the page reloads.
+const briefingTapped = new Set();
+function briefingSuggestHtml(b) {
+  if (!b.suggestions.length) return "";
+  const chips = b.suggestions
+    .map((c, i) =>
+      jarvisChipHtml(c, briefingTapped.has(`${b.id}|${i}`), `data-action="jv-suggest" data-index="${i}"`),
+    )
+    .join("");
+  return `<div class="jv-suggest"><div class="jv-mini">Suggested to-dos</div><div class="rv-chips">${chips}</div></div>`;
+}
+function briefingSuggestAdd(i) {
+  const b = loadBriefing();
+  const c = b && b.suggestions[i];
+  if (!c) return;
+  const key = `${b.id}|${i}`;
+  if (briefingTapped.has(key) || reviewChipOnList(c)) {
+    showToast("Already on your list");
+    return;
+  }
+  const { before, after } = jarvisChipAdd(c);
+  briefingTapped.add(key);
+  renderHome();
+  document.querySelector(`.jv-suggest .rv-chip[data-index="${i}"]`)?.focus({ preventScroll: true });
+  showUndoToast("Added to To-Do", () => {
+    undoTo(before, after);
+    briefingTapped.delete(key);
+    renderHome();
+  });
+}
+// Bill Guard's lines for Home's Money detail, from today's briefing. Bills due soon and not on
+// autopay are already shown from Budget itself, so this adds what only the morning run knows.
+function billGuardLines(b, today = addDaysIso(0)) {
+  const m = b && b.date === today && b.money && b.money.status === "ok" ? b.money.data : null;
+  if (!m) return [];
+  const $ = (n) => (n == null ? "" : moneyShort(n));
+  const out = [];
+  m.guard.forEach((g) => {
+    if (g.reason === "short")
+      out.push(`Bills due before payday are ${$(g.amount)} more than your paycheck.`);
+    else if (g.reason === "differs")
+      out.push(`${g.name}: the email says ${$(g.amount)}, Budget says ${$(g.budgetAmount)}.`);
+    else if (g.reason === "not-in-budget")
+      out.push(`${g.name}${g.amount != null ? ` (${$(g.amount)})` : ""} emailed a bill that isn't in Budget.`);
+  });
+  m.overspent.forEach((c) => out.push(`${c.name}: ${$(c.spent)} spent of ${$(c.limit)} this month.`));
+  return out.slice(0, 6);
 }
 
 // An older briefing on screen: after 8 AM, today's is late (the run usually lands by 7), so say so

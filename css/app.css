@@ -5986,6 +5986,23 @@ body.todo-dragging {
   font-size: 14.5px;
   line-height: 1.5;
 }
+.jv-suggest {
+  margin-top: 12px;
+}
+.jv-suggest .jv-mini {
+  margin-bottom: 8px;
+  color: var(--text-dim);
+}
+.jv-guard {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--warn);
+}
+.jv-guard li + li {
+  margin-top: 4px;
+}
 .rv-chips {
   display: flex;
   flex-wrap: wrap;

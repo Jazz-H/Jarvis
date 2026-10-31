@@ -34,6 +34,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   older day's briefing is dimmed and labeled "From <date>"; from 8 AM on, it says in amber
   "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed
   under "notes".
+- **Suggested to-dos:** up to 3 chips under the summary ("+ Pay Rent · Monday"), picked by
+  Jarvis from the morning's data. Tap one to add it with its due date (Undo in the toast); it
+  then reads Added. Nothing is added by itself.
 - **Wash-day swap:** on a wash day with 50%+ rain or 70%+ humidity, when tomorrow looks drier,
   Jarvis suggests moving wash day to tomorrow. **Move it** moves just this one; **Keep today**
   hides the suggestion for today (this device).
@@ -69,7 +72,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     hour-by-hour list (every 3 hours: temperature, conditions, rain). Skin weather sits in
     the detail: the UV peak and its hours with SPF advice, and air quality (both from
     Open-Meteo). Names its agent and time.
-  - **Money:** a warning for bills due within 3 days that aren't on autopay, bills due in the
+  - **Money:** a warning for bills due within 3 days that aren't on autopay, **Bill Guard**'s
+    findings from this morning (bills before payday over the paycheck, bill emails that differ
+    from Budget or aren't in it, categories over their limit), bills due in the
     next 7 days (tick to pay, tap to edit), then the current pay period (payday to payday):
     **Safe to spend** until payday (with the countdown) and a bar of paid vs. due; tap it for
     Budget. The tile names a not-autopay bill when one is due soon.
@@ -558,18 +563,27 @@ Setup: `docs/jarvis/SETUP.md`.
   - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
   - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
   - **Deliveries:** `claude-haiku-5-5`, from Amazon order and shipping emails in Gmail.
+  - **Bill Guard (Money):** no model; `agents/lib/money.ts` reads Budget from the same data
+    with the app's own rules (pay period, Safe to spend, bill repeats, joint shares). It flags
+    bills overdue or due within 3 days that aren't on autopay, bills due before payday that come
+    to more than the paycheck, bill emails whose amount differs from Budget or that aren't in
+    it (from the Inbox card), and categories over their limit this month. There's no bank link:
+    Budget is the source (decided Oct 31).
 
   The three Google ones run only when their secrets are set (`npm run google-auth` does the
   one-time Gmail sign-in).
 
   Code does all fetching, parsing and math, and each model only judges, ranks and summarizes.
   Every sub-agent's output is checked with zod and retried once if invalid. **Jarvis**
-  (`claude-opus-5-5`) gets only that checked output plus the app data and writes the summary.
+  (`claude-opus-5-5`) gets only that checked output plus the app data and Bill Guard, and writes
+  the summary and up to 3 suggested to-dos (code drops duplicates of today's or overdue to-dos
+  and keeps a due date only when it's a real date within 60 days).
   The orchestrator then writes `jazz2-briefing.json` to the gist.
 - **Phone notifications:** after the briefing is written, the orchestrator sends Web Push
   (`agents/tools/push.ts`, `web-push`) to every phone that turned them on (addresses in
   `jazz2-push.json` in the gist; the app writes only that file for this). Up to 3 messages: the
-  headline, a bill not on autopay due by tomorrow, and a package arriving today. Signed with the
+  headline, bills not on autopay due within 3 days (or overdue), "bills before payday are more
+  than your paycheck", and a package arriving today (the first three that apply). Signed with the
   `VAPID_PRIVATE_KEY` secret (the public key is in `js/push.js` and `agents/config.ts`). Phones
   that revoked access are removed; a push failure never fails the run.
 - **Safety:**

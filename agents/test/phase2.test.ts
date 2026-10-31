@@ -201,7 +201,7 @@ describe("orchestrator with Phase 2 sources", () => {
       subagents: base,
     });
     if (r.status !== "delivered") throw new Error("not delivered");
-    expect(Object.keys(r.briefing.cards)).toEqual(["weather", "news"]);
+    expect(Object.keys(r.briefing.cards)).toEqual(["weather", "news", "money"]); // Bill Guard needs only Budget
     expect(Object.keys(defaultSubagents({}, NOW))).toEqual(["weather", "news"]);
     expect(
       Object.keys(defaultSubagents({ calendarUrl: "https://x/c.ics", gmail: async () => fakeGmail([]) }, NOW)).sort(),

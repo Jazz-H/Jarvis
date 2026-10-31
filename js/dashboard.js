@@ -161,7 +161,11 @@ function dashMoneyDetail(d) {
   const warn = manual.length
     ? `<div class="jv-money-warn">${manual.map((b) => `<span>${escapeHtml(b.name)} (${moneyShort(billShare(b))}) is due ${escapeHtml(dashDueWord(b.due))} and isn't on autopay.</span>`).join("")}</div>`
     : "";
-  return `${warn}<div class="jv-sub-label">Due this week · tap a bill to edit</div>${list}${period}${dashOpen("money", "Open Budget")}`;
+  const guard = billGuardLines(loadBriefing());
+  const guardHtml = guard.length
+    ? `<div class="jv-sub-label">Bill Guard · this morning</div><ul class="jv-guard">${guard.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`
+    : "";
+  return `${warn}${guardHtml}<div class="jv-sub-label">Due this week · tap a bill to edit</div>${list}${period}${dashOpen("money", "Open Budget")}`;
 }
 function dashSkinDetail(d) {
   const { r, c } = d;

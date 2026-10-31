@@ -666,6 +666,10 @@ const SHELL_CLICK = {
     if (e.target === el) closeAskHistory();
   },
   "ask-clear": () => askClearHistory(),
+  "jv-suggest": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d$/.test(i || "")) briefingSuggestAdd(Number(i));
+  },
   "ask-chip": (el) => {
     const i = el.getAttribute("data-index");
     if (/^\d$/.test(i || "")) askAddChip(el.getAttribute("data-ask-id"), Number(i));
