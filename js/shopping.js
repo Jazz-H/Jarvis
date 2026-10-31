@@ -130,6 +130,7 @@ function renderWants() {
           ${w.moto ? `<div class="want-tag moto">${MOTO_ICON}Moto</div>` : ""}
           ${w.meta ? `<div class="meta">${escapeHtml(w.meta)}</div>` : ""}
           ${w.price != null ? `<div class="price">${priceStr}</div>` : ""}
+          ${((pc) => (pc && pc.drop && !isDone ? `<div class="want-tag drop">↓ ${moneyShort(pc.found)}${pc.store ? ` at ${escapeHtml(pc.store)}` : ""} · price check</div>` : ""))(priceCheckFor(w.id))}
           ${linkLine}
         </div>
         ${

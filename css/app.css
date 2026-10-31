@@ -6226,6 +6226,43 @@ body.todo-dragging {
   filter: none;
   opacity: 1;
 }
+/* Price watcher: Home's Shopping detail and the Shopping list */
+.jv-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.jv-price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+}
+.jv-price span {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+.jv-price.drop {
+  border-color: var(--olive-dim);
+}
+.jv-drop {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.want-tag.drop {
+  color: var(--olive);
+  font-weight: 600;
+}
 .jv-speak {
   flex: none;
   min-width: 40px;

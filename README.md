@@ -630,6 +630,14 @@ Setup: `docs/jarvis/SETUP.md`.
     Gmail: Amazon, UPS, FedEx, USPS, DHL and any store's "has shipped" / "out for delivery" mail
     (promotions left out). The model groups emails into packages; code names the carrier from
     the senders (shown on each package in Home's Deliveries detail) and matches Shopping items.
+  - **Price watcher:** `claude-sonnet-5-5` with web search, once a week (when the last check is 7
+    days old). Code picks up to 8 open Shopping items with a saved price (high priority and needs
+    first); the model looks up the lowest current price for the same product, new, at a reputable
+    US store; code checks every price and link and calls it a **drop** when it's at least 5% and $2
+    under your saved price. The result is kept in `jazz2-prices.json` (this Action's own file) and
+    carried in every briefing that week. Drops show first under **Price check** in Home's Shopping
+    detail (each a link to the store), as "↓ $89 at REI · price check" on the item in Shopping, in
+    Jarvis's summary when worth it, and as a phone alert on the morning they're found.
   - **Bill Guard (Money):** no model; `agents/lib/money.ts` reads Budget from the same data
     with the app's own rules (pay period, Safe to spend, bill repeats, joint shares). It flags
     bills overdue or due within 3 days that aren't on autopay, bills due before payday that come
@@ -650,7 +658,8 @@ Setup: `docs/jarvis/SETUP.md`.
   (`agents/tools/push.ts`, `web-push`) to every phone that turned them on (addresses in
   `jazz2-push.json` in the gist; the app writes only that file for this). Up to 3 messages: the
   headline, bills not on autopay due within 3 days (or overdue), "bills before payday are more
-  than your paycheck", and a package arriving today (the first three that apply). Signed with the
+  than your paycheck", price drops on your Shopping list, and a package arriving today (the first
+  three that apply). Signed with the
   `VAPID_PRIVATE_KEY` secret (the public key is in `js/push.js` and `agents/config.ts`). Phones
   that revoked access are removed; a push failure never fails the run.
 - **Safety:**
@@ -756,7 +765,7 @@ Everything lives in `localStorage` on the device:
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
 | `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
-| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" | "always" | "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8}` |
+| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" \| "always" \| "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8}` |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

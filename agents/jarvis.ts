@@ -21,6 +21,8 @@ import type { InboxCard } from "./schemas/inbox.ts";
 import type { DeliveryCard } from "./schemas/deliveries.ts";
 import type { MoneyCard } from "./schemas/money.ts";
 import { buildMoneyCard } from "./lib/money.ts";
+import { PricesCard } from "./schemas/prices.ts";
+import { runPrices, watchItems, type WatchItem } from "./subagents/prices.ts";
 import { gistClient, type GistClient } from "./tools/gist.ts";
 import { calendarHistory, fetchIcs } from "./tools/ics.ts";
 import { gmailClient, googleAccessToken, type Gmail } from "./tools/gmail.ts";
@@ -68,7 +70,8 @@ overdue, to-dos already overdue, weather that affects today's errands, a Shoppin
 today's weather or plans make timely (a rain jacket on a rainy day), overlapping calendar events,
 an event that leaves no time for a to-do, a bill email whose amount differs from Budget
 (status "differs"), a delivery that matches a Shopping item, urgent email, bills due before
-payday that eat the paycheck (Bill Guard "short") or a category over its limit. Keep at most one news item
+payday that eat the paycheck (Bill Guard "short") or a category over its limit, a Shopping item
+whose price dropped (priceDrops, from this week's price check). Keep at most one news item
 in the summary. Use only facts in the data; never invent numbers, names or events. If a source
 failed, don't guess what it would have said. Plain, direct tone; no greetings or sign-offs.`;
 
@@ -79,6 +82,7 @@ export interface Subagents {
   calendar?: (deps: SubagentDeps) => Promise<CalendarCard>;
   inbox?: (deps: SubagentDeps, context: JazzContext) => Promise<InboxCard>;
   deliveries?: (deps: SubagentDeps, context: JazzContext) => Promise<DeliveryCard>;
+  prices?: (deps: SubagentDeps, items: WatchItem[], today: string) => Promise<PricesCard>; // weekly
 }
 
 // Where Phase 2 data comes from. Built in main() from secrets; tests pass stubs or nothing.
@@ -89,7 +93,7 @@ export interface Sources {
 
 // `ics`, when given, is the run's one shared read of the calendar feed (see runBriefing).
 export function defaultSubagents(sources: Sources, now: Date, ics?: (() => Promise<string>) | null): Subagents {
-  const subs: Subagents = { weather: runWeather, news: runNews };
+  const subs: Subagents = { weather: runWeather, news: runNews, prices: runPrices };
   if (sources.calendarUrl) {
     const url = sources.calendarUrl;
     subs.calendar = (d) => runCalendar(d, url, now, ics ?? undefined);
@@ -129,6 +133,7 @@ const AGENT_LABEL: Record<SubagentName, string> = {
   calendar: "Calendar",
   inbox: "Inbox",
   deliveries: "Deliveries",
+  prices: "Price watcher",
 };
 
 async function readPrevious(gist: GistClient, trace: Trace): Promise<string | null> {
@@ -194,6 +199,23 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   if (impl.calendar) tasks.calendar = () => impl.calendar!(sub);
   if (impl.inbox) tasks.inbox = () => impl.inbox!(sub, context);
   if (impl.deliveries) tasks.deliveries = () => impl.deliveries!(sub, context);
+  // Price watcher: once a week (or when the last check is a week old), if anything has a price
+  let jazzData: unknown = null;
+  try {
+    jazzData = jazzRaw ? JSON.parse(jazzRaw)?.data : null;
+  } catch {
+    jazzData = null;
+  }
+  const watch = watchItems(jazzData);
+  let lastPrices: PricesCard | null = null;
+  try {
+    const p = PricesCard.safeParse(JSON.parse((await gist.readFile(CONFIG.gistFiles.prices)) ?? "null"));
+    lastPrices = p.success ? p.data : null;
+  } catch {
+    lastPrices = null;
+  }
+  const pricesDue = watch.length > 0 && (!lastPrices || lastPrices.checkedAt <= addDays(today, -CONFIG.prices.everyDays));
+  if (impl.prices && pricesDue) tasks.prices = () => impl.prices!(sub, watch, today);
   const names = Object.keys(tasks) as SubagentName[];
   const settled = await Promise.all(
     names.map(async (name) => {
@@ -247,6 +269,16 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     inbox: okData<InboxCard>("inbox"),
     deliveries: okData<DeliveryCard>("deliveries"),
   };
+  // A fresh price check is saved for the coming week; otherwise the briefing carries the last one
+  const freshPrices = okData<PricesCard>("prices");
+  if (freshPrices)
+    try {
+      await gist.writeFile(CONFIG.gistFiles.prices, JSON.stringify(freshPrices));
+    } catch (e) {
+      trace.log("prices", "not saved", { error: trace.publicError(e) });
+    }
+  const onList = new Set(watch.map((w) => w.id));
+  const prices = freshPrices ?? (lastPrices ? { ...lastPrices, items: lastPrices.items.filter((i) => onList.has(i.id)) } : null);
   // Bill Guard: code over Budget (and the Inbox card's bill checks). Never fails the briefing.
   let money: MoneyCard | null = null;
   try {
@@ -258,7 +290,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   let out: JarvisOutput;
   let summaryBy: "jarvis" | "fallback" = "jarvis";
   try {
-    out = await run(jarvisSpec(context, weather, news, notes, { ...extra, money, brain }));
+    out = await run(jarvisSpec(context, weather, news, notes, { ...extra, money, brain, prices }));
   } catch (e) {
     trace.log("jarvis", "failed, using fallback summary", { error: trace.publicError(e) });
     out = fallbackSummary(context, weather, news);
@@ -285,12 +317,17 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
       ...(results.inbox ? { inbox: card(results.inbox) } : {}),
       ...(results.deliveries ? { deliveries: card(results.deliveries) } : {}),
       ...(money ? { money: { status: "ok" as const, data: money, agent: "Bill Guard", model: "code", updatedAt } } : {}),
+      ...(prices
+        ? { prices: { status: "ok" as const, data: prices, agent: "Price watcher", model: CONFIG.models.prices, updatedAt: freshPrices ? updatedAt : prices.checkedAt + "T12:00:00.000Z" } }
+        : results.prices
+          ? { prices: card(results.prices) }
+          : {}),
     },
     notes: notes.map((n) => n.slice(0, 200)).slice(0, 10),
   });
   await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
-  if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries, money), trace);
+  if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries, money, freshPrices), trace);
   await appendDayDigest(gist, briefing, trace);
   if (ics) await writeCalendarHistory(gist, ics, deps.now, trace);
   if (deps.ask)
@@ -372,6 +409,7 @@ export function jarvisSpec(
     deliveries?: DeliveryCard | null;
     money?: MoneyCard | null;
     brain?: Brain | null;
+    prices?: PricesCard | null;
   } = {},
 ): AgentSpec<JarvisOutput> {
   const input = {
@@ -396,6 +434,7 @@ export function jarvisSpec(
     deliveries: extra.deliveries,
     money: extra.money,
     brain: extra.brain ? brainForPrompt(extra.brain) : null,
+    priceDrops: (extra.prices?.items ?? []).filter((i) => i.drop).map((i) => ({ item: i.name, now: i.found, saved: i.saved, store: i.store })),
     problems: notes,
   };
   return {
@@ -420,6 +459,7 @@ export function pushMessages(
   c: JazzContext,
   deliveries: DeliveryCard | null | undefined,
   money: MoneyCard | null = null,
+  prices: PricesCard | null = null, // only on the morning a fresh check found drops
 ): PushMessage[] {
   const url = CONFIG.push.url;
   const day = new Date(c.today + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
@@ -464,6 +504,14 @@ export function pushMessages(
       body: `Bills due before payday are $${short.amount.toFixed(2)} more than your paycheck.`,
       url,
       tag: "bill-short",
+    });
+  const drops = (prices?.items ?? []).filter((i) => i.drop && i.found != null);
+  if (drops.length)
+    out.push({
+      title: drops.length > 1 ? "Price drops on your list" : "Price drop on your list",
+      body: lines(drops.slice(0, 3).map((i) => `${i.name}: $${i.found!.toFixed(2)}${i.store ? ` at ${i.store}` : ""} (you saved $${i.saved.toFixed(2)})`)),
+      url,
+      tag: "price",
     });
   const arriving = (deliveries?.packages ?? []).filter(
     (p) => p.status === "out" || (p.eta === c.today && p.status !== "delivered"),

@@ -5,6 +5,7 @@ import { CalendarCard } from "./calendar.ts";
 import { InboxCard } from "./inbox.ts";
 import { DeliveryCard } from "./deliveries.ts";
 import { MoneyCard } from "./money.ts";
+import { PricesCard } from "./prices.ts";
 
 export const SummarySource = z.enum(["weather", "news", "jazz", "jarvis", "calendar", "inbox", "deliveries", "money"]);
 
@@ -58,6 +59,7 @@ export const Briefing = z.object({
     inbox: BriefingCard(InboxCard).optional(),
     deliveries: BriefingCard(DeliveryCard).optional(),
     money: BriefingCard(MoneyCard).optional(), // Bill Guard: code over Budget data, no model
+    prices: BriefingCard(PricesCard).optional(), // Price watcher: the latest weekly check
   }),
   notes: z.array(z.string().max(200)).max(10),
 });

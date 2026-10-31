@@ -45,6 +45,7 @@ export const CONFIG = {
     inbox: "claude-sonnet-5-5",
     deliveries: "claude-haiku-5-5",
     sorter: "claude-haiku-5-5", // Sort with Jarvis (runs through Ask's pipeline and limits)
+    prices: "claude-sonnet-5-5", // Price watcher (weekly, with web search)
   },
   // Gmail searches (read-only). Unread mail in the primary inbox only; promotions and social are left out.
   inbox: {
@@ -67,6 +68,7 @@ export const CONFIG = {
     calendar: 0.01,
     inbox: 0.06,
     deliveries: 0.02,
+    prices: 0.15, // weekly: up to 8 items, a web search or two each
     review: 0.15,
     ask: 0.1, // one Ask answer (Opus, effort low: ~8k in / ~1.5k out, about $0.06)
   },
@@ -110,7 +112,10 @@ export const CONFIG = {
     ask: "jazz2-ask.json",
     answers: "jazz2-answers.json",
     calendar: "jazz2-calendar.json",
+    prices: "jazz2-prices.json", // the Price watcher's last check (this Action's own file)
   },
+  // Price watcher: Shopping items with a saved price, checked once a week in the morning run
+  prices: { maxItems: 8, everyDays: 7 },
   // Web Push (phone notifications). The public key is also in js/push.js; the private key is the
   // VAPID_PRIVATE_KEY secret.
   push: {
@@ -122,4 +127,4 @@ export const CONFIG = {
   },
 };
 
-export type SubagentName = "weather" | "news" | "calendar" | "inbox" | "deliveries";
+export type SubagentName = "weather" | "news" | "calendar" | "inbox" | "deliveries" | "prices";

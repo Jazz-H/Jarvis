@@ -3150,6 +3150,54 @@ await section("Briefing: suggested to-dos and Bill Guard", async () => {
   await ctx.close();
 });
 
+await section("Price watcher: this week's check on Home's Shopping detail and the Shopping list", async () => {
+  const b = briefingFixture({});
+  b.cards.prices = {
+    status: "ok",
+    agent: "Price watcher",
+    model: "m",
+    updatedAt: b.generatedAt,
+    data: {
+      checkedAt: isoOffset(-2),
+      items: [
+        { id: "w-jacket", name: "Rain jacket", saved: 120, found: 89, store: "REI <b>", url: "https://www.rei.com/p/1", drop: true },
+        { id: "w-belt", name: "Belt", saved: 40, found: 39, store: "Target", url: "javascript:alert(1)", drop: false },
+        { id: "w-none", name: "Headphones", saved: 300, found: null, store: "x", url: "https://x.com", drop: false },
+        { id: "bad id!", name: "Junk", saved: 1, found: 1, drop: true },
+      ],
+    },
+  };
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "jarvis-briefing": b,
+      "wants-content": [
+        { id: "w-jacket", name: "Rain jacket", kind: "need", price: 120 },
+        { id: "w-belt", name: "Belt", kind: "need", price: 40 },
+      ],
+    },
+  });
+  await page.tap('.jv-tile[data-go="shop"]');
+  const r = await page.evaluate(() => ({
+    label: document.querySelector("#jv-detail-shop .jv-sub-label").textContent,
+    rows: [...document.querySelectorAll("#jv-detail-shop .jv-price")].map((x) => [x.tagName, x.textContent.replace(/\s+/g, " ").trim(), x.getAttribute("href")]),
+  }));
+  check("Home's Shopping detail leads with this week's price check", r.label.startsWith("Price check · "), r.label);
+  check(
+    "drops first, as store links; a bad link isn't a link; not-found items are left out",
+    r.rows.length === 2 &&
+      r.rows[0][0] === "A" &&
+      r.rows[0][2] === "https://www.rei.com/p/1" &&
+      r.rows[0][1] === "Price dropRain jacket$89 at REI <b> · you saved $120" && // label, name, line (separate blocks)
+      r.rows[1][0] === "DIV",
+    r.rows,
+  );
+  await page.evaluate(() => activateTab("wants"));
+  const tags = await page.evaluate(() => [...document.querySelectorAll(".want-tag.drop")].map((t) => t.textContent));
+  check("the Shopping list tags an item whose price dropped", tags.length === 1 && tags[0] === "↓ $89 at REI <b> · price check", tags);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Jazz 3.0: Today card, workout streak and the last 4 weeks", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
   const r = await page.evaluate(() => {

@@ -213,10 +213,10 @@ describe("orchestrator with Phase 2 sources", () => {
     });
     if (r.status !== "delivered") throw new Error("not delivered");
     expect(Object.keys(r.briefing.cards)).toEqual(["weather", "news", "money"]); // Bill Guard needs only Budget
-    expect(Object.keys(defaultSubagents({}, NOW))).toEqual(["weather", "news"]);
+    expect(Object.keys(defaultSubagents({}, NOW))).toEqual(["weather", "news", "prices"]); // prices needs no setup (it runs weekly)
     expect(
       Object.keys(defaultSubagents({ calendarUrl: "https://x/c.ics", gmail: async () => fakeGmail([]) }, NOW)).sort(),
-    ).toEqual(["calendar", "deliveries", "inbox", "news", "weather"]);
+    ).toEqual(["calendar", "deliveries", "inbox", "news", "prices", "weather"]);
   });
 
   it("ships connected cards, notes a failed one, and gives Jarvis the new inputs", async () => {

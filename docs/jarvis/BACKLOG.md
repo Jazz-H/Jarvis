@@ -21,6 +21,8 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
+- [x] Read aloud (🔊 on answers and the briefing; spoken questions answered out loud) and the weekly
+  Price watcher for Shopping (Oct 31)
 - [x] Jarvis's brain (Oct 31): memory ("remember …"), ratings, tone / news topics / about you, and
   your own scheduled check-ins (hourly in jarvis-ask.yml)
 - [x] Photos and PDFs in Console (📎), with receipt → Budget chips (Oct 31)

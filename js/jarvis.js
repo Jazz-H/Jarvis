@@ -190,6 +190,30 @@ function normalizeBriefing(b) {
             .filter((c) => c.name && c.spent != null && c.limit != null),
         }
       : null;
+  // Price watcher (weekly): every number and link checked again
+  const prices = (d) =>
+    isObj(d) && isoDay(d.checkedAt)
+      ? {
+          checkedAt: d.checkedAt,
+          items: arr(d.items)
+            .filter((x) => isObj(x) && SAFE_ID.test(String(x.id)) && str(x.name, 60))
+            .slice(0, 8)
+            .map((x) => {
+              const found = num(x.found, 0.01, 1e5);
+              const url = typeof x.url === "string" && /^https:\/\/[^\s<>"']+$/.test(x.url) && x.url.length <= 500 ? x.url : null;
+              return {
+                id: String(x.id),
+                name: str(x.name, 60),
+                saved: num(x.saved, 0.01, 1e5),
+                found,
+                store: found != null ? str(x.store, 60) : "",
+                url: found != null ? url : null,
+                drop: x.drop === true && found != null,
+              };
+            })
+            .filter((x) => x.saved != null),
+        }
+      : null;
   const cards = isObj(b.cards) ? b.cards : {};
   return {
     id: str(b.id, 40),
@@ -215,6 +239,7 @@ function normalizeBriefing(b) {
     inbox: cards.inbox ? card(cards.inbox, inbox) : null,
     deliveries: cards.deliveries ? card(cards.deliveries, deliveries) : null,
     money: cards.money ? card(cards.money, money) : null,
+    prices: cards.prices ? card(cards.prices, prices) : null,
     notes: arr(b.notes)
       .map((n) => str(n, 200))
       .filter(Boolean)
@@ -476,6 +501,13 @@ function billGuardLines(b, today = addDaysIso(0)) {
   });
   m.overspent.forEach((c) => out.push(`${c.name}: ${$(c.spent)} spent of ${$(c.limit)} this month.`));
   return out.slice(0, 6);
+}
+
+// The latest price check for one Shopping item (or null), from the briefing's prices card
+function priceCheckFor(wantId) {
+  const b = loadBriefing();
+  const c = b && b.prices && b.prices.status === "ok" ? b.prices.data : null;
+  return c ? c.items.find((x) => x.id === wantId) || null : null;
 }
 
 // An older briefing on screen: after 8 AM, today's is late (the run usually lands by 7), so say so

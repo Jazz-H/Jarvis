@@ -247,8 +247,21 @@ function dashShopDetail(d, b) {
         .join("")}</div>`
     : `<div class="empty">No needs on the list.</div>`;
   const more = d.needs.length - needs.length;
+  // this week's price check: drops first, then what was found; links open the store
+  const pc = b && b.prices && b.prices.status === "ok" ? b.prices.data : null;
+  const priced = pc ? pc.items.filter((x) => x.found != null).sort((x, y) => Number(y.drop) - Number(x.drop)) : [];
+  const prices = priced.length
+    ? `<div class="jv-sub-label">Price check · ${escapeHtml(noonOf(pc.checkedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</div><div class="jv-prices">${priced
+        .map((x) => {
+          const body = `<b>${escapeHtml(x.name)}</b><span>${moneyShort(x.found)}${x.store ? ` at ${escapeHtml(x.store)}` : ""} · you saved ${moneyShort(x.saved)}</span>`;
+          const inner = `${x.drop ? '<i class="jv-drop">Price drop</i>' : ""}${body}`;
+          return linkHtml(x.url, `class="jv-price${x.drop ? " drop" : ""}"`, inner) || `<div class="jv-price${x.drop ? " drop" : ""}">${inner}</div>`;
+        })
+        .join("")}</div>`
+    : "";
   return (
     (match ? `<div class="jv-shop-match">Jarvis: ${escapeHtml(match.text)}</div>` : "") +
+    prices +
     `<div class="jv-sub-label">Needs · tap one to edit</div>${list}` +
     `<div class="jv-skin-meta">${more > 0 ? `${more} more needs · ` : ""}${d.wants} want${d.wants === 1 ? "" : "s"}${d.est ? ` · est. ${moneyShort(Math.round(d.est))} in all` : ""}</div>` +
     dashOpen("shop", "Open Shopping")
