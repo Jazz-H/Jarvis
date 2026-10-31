@@ -4557,7 +4557,7 @@ await section("handlers: bill logo falls back to a letter when the icon host fai
     query: "?tab=budget",
     seed: {
       "bills-content": [
-        { id: "lg1", name: "Spotify", amount: 12, due: isoOffset(1), repeat: "monthly", autopay: false, account: null },
+        { id: "lg1", name: "Spotify", amount: 12, due: isoInMonth(1), repeat: "monthly", autopay: false, account: null },
       ],
     },
   });
