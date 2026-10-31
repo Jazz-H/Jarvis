@@ -164,7 +164,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
 - **Top row:** a usage chip, "7 left · $0.18" (questions left today and this month's Ask
-  spending, once Jarvis has reported its counts). Tap it for the full line and the limits ($8 a
+  spending, once Jarvis has reported its counts). Tap it for the full line and the limits ($20 a
   month is the default cap).
 - **Ask | Capture:** a full-width switch. The mode is guessed from what you type (a question
   word first or a "?" at the end means Ask; several items, or anything else, means Capture)
@@ -244,7 +244,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     marked ×2. An answer to a
     question asked on another device shows as "Asked on another device".
   - **Limits** are enforced by the workflow: 1,000 characters a question; 10 questions and $1 a
-    day; 40 a week; $8 a month; 5 questions and $0.40 a run. Over a limit, the answer is
+    day; 40 a week; $20 a month; 5 questions and $0.40 a run. Over a limit, the answer is
     "Over the limit" at no model cost. The app adds a 10-second wait between questions and
     sends one at a time.
   - **One conversation:** there's no separate History. The conversation shows today and

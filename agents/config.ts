@@ -84,7 +84,7 @@ export const CONFIG = {
     perDay: 10,
     dailyBudgetUsd: 1.0, // ASK_DAILY_BUDGET_USD
     perWeek: 40,
-    monthlyBudgetUsd: 8.0, // ASK_MONTHLY_BUDGET_USD
+    monthlyBudgetUsd: 20.0, // ASK_MONTHLY_BUDGET_USD (raised from $8, Oct 31)
     ceilings: { runUsd: 2, dayUsd: 5, monthUsd: 40 }, // overrides are clamped to these
     pendingKept: 20, // items read from jazz2-ask.json
     answersKept: 50,

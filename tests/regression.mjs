@@ -11907,7 +11907,7 @@ await section(
     );
     check(
       "today's questions left and this month's spending come from usage",
-      r.usage[0] === "7 left · $1.20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $8 used this month."),
+      r.usage[0] === "7 left · $1.20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
       r.usage,
     );
     // chips: nothing until tapped; then one item with its date, and Undo

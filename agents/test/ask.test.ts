@@ -310,8 +310,8 @@ describe("Ask limits", () => {
     expect(r.answered[0].text).toBe("You've reached this week's 40 questions. Ask again on Monday.");
   });
 
-  it("$8.00 a month", async () => {
-    const { fq, run } = withUsage({ monthCostUsd: 7.95 });
+  it("$20.00 a month", async () => {
+    const { fq, run } = withUsage({ monthCostUsd: 19.95 });
     const r = await done(run);
     expect(fq.seen).toHaveLength(0);
     expect(r.answered[0].text).toBe("You've reached this month's Ask budget. Ask again on November 1.");
@@ -359,9 +359,9 @@ describe("Ask limits", () => {
   });
 
   it("overLimit picks the longest wait first; rollUsage and env overrides", () => {
-    expect(overLimit(usage({ dayCount: 10, weekCount: 40, monthCostUsd: 8 }), LIMITS)).toMatch(/this month's/);
+    expect(overLimit(usage({ dayCount: 10, weekCount: 40, monthCostUsd: 20 }), LIMITS)).toMatch(/this month's/);
     expect(overLimit(usage({ dayCount: 10, weekCount: 40 }), LIMITS)).toMatch(/this week's/);
-    expect(overLimit(usage({ month: "2026-12", monthCostUsd: 8 }), LIMITS)).toMatch(/January 1/);
+    expect(overLimit(usage({ month: "2026-12", monthCostUsd: 20 }), LIMITS)).toMatch(/January 1/);
     expect(overLimit(usage({ dayCount: 9, dayCostUsd: 0.9 }), LIMITS)).toBeNull();
     expect(rollUsage(null, usagePeriods(NOW))).toEqual(usage());
 
@@ -372,7 +372,7 @@ describe("Ask limits", () => {
       perDay: 10,
       dailyBudgetUsd: 1,
       perWeek: 40,
-      monthlyBudgetUsd: 8,
+      monthlyBudgetUsd: 20,
       estimateUsd: 0.1,
     });
     const env = askLimits({ MAX_ASK_COST_USD: "0.25", ASK_DAILY_BUDGET_USD: "abc", ASK_MONTHLY_BUDGET_USD: "500" });

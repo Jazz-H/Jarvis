@@ -28,7 +28,7 @@ const ASK_TEXT_MAX = 1000;
 const ASK_FILE_MAX = 20;
 const ASK_HISTORY_MAX = 50;
 const ASK_DAY_LIMIT = 10;
-const ASK_MONTH_BUDGET = 8; // ASK_MONTHLY_BUDGET_USD's default (dollars)
+const ASK_MONTH_BUDGET = 20; // ASK_MONTHLY_BUDGET_USD's default (dollars)
 const ASK_EXPIRY_WARN_MS = 14 * 864e5;
 // Timings (tests shorten these)
 const ASK_TIMING = { cooldown: 10000, pollEvery: 10000, pollFor: 180000 };

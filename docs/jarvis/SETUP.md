@@ -123,7 +123,7 @@ your gist, or your code, and it can't push anything. A run with no question wait
    each device you ask from. Don't paste it anywhere else (not in chat, not in a note).
 
 **Limits** (enforced by the Action, so they hold whatever the app does): 1,000 characters a
-question, 5 questions and $0.40 per run, 10 questions and $1 a day, 40 a week, and $8 a month.
+question, 5 questions and $0.40 per run, 10 questions and $1 a day, 40 a week, and $20 a month.
 Over a limit, Jarvis answers "over the limit" at no cost. Typical use is about $1 a week. To change
 a dollar cap, add a repository **variable** (Settings → Secrets and variables → Actions →
 Variables): `ASK_MONTHLY_BUDGET_USD` (default 8, max 40), `ASK_DAILY_BUDGET_USD` (default 1, max 5)

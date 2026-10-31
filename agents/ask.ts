@@ -11,7 +11,7 @@
 //                 next dispatch, or the morning/Sunday run), so nothing has to be asked again.
 //   per day       10 questions and ASK_DAILY_BUDGET_USD ($1.00)
 //   per ISO week  40 questions
-//   per month     ASK_MONTHLY_BUDGET_USD ($8.00)
+//   per month     ASK_MONTHLY_BUDGET_USD ($20.00)
 //   (America/New_York days, weeks and months.) Over any of these, the question is answered
 //   "over_limit" with a short message and costs nothing.
 //
