@@ -949,6 +949,8 @@ nav.tabbar button.orb-tab::before {
   align-items: center;
   gap: 2px;
   height: 9px;
+  max-width: 100%;
+  overflow: hidden; /* fewer dots when an event bar or wash drop shares the row (home.js); never past the pill */
 }
 .home-day .marks i {
   width: 5px;

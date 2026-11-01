@@ -120,7 +120,7 @@ function homeCalDayHtml(d, counts, monthView, other = false) {
   const label = `${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${count ? `${count} to-do${count === 1 ? "" : "s"}` : "nothing due"}${evN ? `, ${calCountLabel(evN)}` : ""}${wash ? ", wash day" : ""}${hol.map((h) => `, ${h.name}`).join("")}`;
   return `<button class="${cls}" aria-pressed="${iso === sel}" aria-label="${label}" data-action="home-select-date" data-date="${iso}">
       ${monthView ? "" : `<span class="dow">${iso === today ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}</span>`}<b>${d.getDate()}</b>
-      <span class="marks">${"<i></i>".repeat(Math.min(count, 3))}${evN ? '<span class="ev"></span>' : ""}${wash ? DROPLET_ICON : ""}</span>
+      <span class="marks">${"<i></i>".repeat(Math.min(count, Math.max(1, 3 - !!evN - wash)))}${evN ? '<span class="ev"></span>' : ""}${wash ? DROPLET_ICON : ""}</span>
     </button>`;
 }
 function holidayChips(iso) {

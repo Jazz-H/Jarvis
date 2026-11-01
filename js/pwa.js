@@ -64,4 +64,21 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
       .register("sw.js", { updateViaCache: "none" })
       .catch((err) => console.log("SW registration skipped:", err));
   });
+  // A deploy: the page itself comes from the network but the old worker still serves the old
+  // CSS/JS, so new markup can show unstyled. When the new worker takes over, reload once (later,
+  // when the app is in the background, if you're typing or in a dialog).
+  const hadController = !!navigator.serviceWorker.controller;
+  let swReloaded = false;
+  const swReload = () => {
+    if (swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  };
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return;
+    const busy =
+      document.querySelector("#modal-backdrop.open") || (document.activeElement || {}).matches?.("input, textarea");
+    if (!busy || document.hidden) return swReload();
+    document.addEventListener("visibilitychange", () => document.hidden && swReload());
+  });
 }
