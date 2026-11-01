@@ -681,6 +681,8 @@ const SHELL_CLICK = {
   "want-edit": (el, e) => {
     if (!e.target.closest("a") && wantFromEl(el)) editWant(el.getAttribute("data-want-id"));
   },
+  "wx-locate": () => weatherUseLocation(),
+  "wx-unlocate": () => weatherForgetLocation(),
   "pkg-hide": (el) => {
     const item = el.getAttribute("data-item");
     if (item) hidePackage(item); // only a package in today's briefing (checked there)

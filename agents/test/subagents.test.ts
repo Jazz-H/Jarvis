@@ -39,6 +39,32 @@ describe("weather sub-agent", () => {
     });
     const card = await runWeather(d, false);
     expect(card).toMatchObject({ highF: 69, lowF: 49, summary: "Rain by noon.", washDay: false, washDayNote: null });
+    expect(card.location).toBe("Springfield, IL"); // no saved location: the config's
+  });
+
+  it("uses the location saved from the phone, without logging it or showing the model the 90 days", async () => {
+    const urls: string[] = [];
+    const d = deps(
+      [
+        [
+          /open-meteo/,
+          (u) => {
+            urls.push(u);
+            return json(meteo);
+          },
+        ],
+      ],
+      { summary: "Rain by noon.", wear: "Jacket.", washDayNote: null },
+    );
+    const logs: string[] = [];
+    (console.log as any).mockImplementation((...a: unknown[]) => logs.push(a.map(String).join(" ")));
+    const card = await runWeather(d, false, { latitude: 39.781, longitude: -89.656 });
+    expect(urls.every((u) => u.includes("latitude=39.781") && u.includes("longitude=-89.656"))).toBe(true);
+    expect(card.location).toBe("Your location");
+    expect(card.outlook!.length).toBeGreaterThan(0);
+    expect(String(d.specs[0].prompt)).not.toContain('"outlook"');
+    expect(logs.join(" ")).not.toMatch(/35\.151|80\.826/);
+    (console.log as any).mockImplementation(() => {});
   });
 });
 

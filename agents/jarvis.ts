@@ -8,7 +8,7 @@
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
 //   npm run brief -- --now        (deliver now, like a manual run)
-import { readBrain, brainForPrompt, emptyBrain, withoutHidden, BRAIN_RULES, type Brain } from "./lib/brain.ts";
+import { readBrain, brainForPrompt, emptyBrain, withoutHidden, BRAIN_RULES, type Brain, type DeviceLocation } from "./lib/brain.ts";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -72,7 +72,8 @@ Write:
   Weigh deadlines, money, overdue age, stars and today's plans. Fewer when there are fewer; none
   when there are no open to-dos.
 Look for connections worth acting on: rain or high humidity on a wash day, a bill due today or
-overdue, to-dos already overdue, weather that affects today's errands, a Shopping need that
+overdue, to-dos already overdue, weather that affects today's errands or a plan later this week
+(weather.next7Days), a Shopping need that
 today's weather or plans make timely (a rain jacket on a rainy day), overlapping calendar events,
 an event that leaves no time for a to-do, a bill email whose amount differs from Budget
 (status "differs"), a delivery that matches a Shopping item, urgent email, bills due before
@@ -84,7 +85,7 @@ in the summary. Use only facts in the data; never invent numbers, names or event
 failed, don't guess what it would have said. Plain, direct tone; no greetings or sign-offs.`;
 
 export interface Subagents {
-  weather: (deps: SubagentDeps, washDay: boolean) => Promise<WeatherCard>;
+  weather: (deps: SubagentDeps, washDay: boolean, here?: DeviceLocation | null) => Promise<WeatherCard>;
   news: (deps: SubagentDeps, topics?: string[]) => Promise<NewsCard>;
   // Phase 2: present only when their source is connected
   calendar?: (deps: SubagentDeps) => Promise<CalendarCard>;
@@ -201,7 +202,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   const updatedAt = deps.now.toISOString();
 
   const tasks: Partial<Record<SubagentName, () => Promise<unknown>>> = {
-    weather: () => impl.weather(sub, context.washDay),
+    weather: () => impl.weather(sub, context.washDay, brain.location),
     news: () => impl.news(sub, brain.newsTopics.length ? brain.newsTopics : undefined),
   };
   if (impl.calendar) tasks.calendar = () => impl.calendar!(sub);
@@ -437,6 +438,8 @@ export function jarvisSpec(
       humidityPct: weather.humidityPct,
       rainChanceMax: weather.rainChanceMax,
       washDayNote: weather.washDayNote,
+      // the coming week, for a plan worth moving ("rain Thursday")
+      next7Days: (weather.outlook ?? []).slice(1, 8).map(({ date, highF, lowF, rainChance, conditions }) => ({ date, highF, lowF, rainChance, conditions })),
     },
     news: news && news.stories.map((s) => ({ topic: s.topic, title: s.title, source: s.source })),
     calendar: extra.calendar && {

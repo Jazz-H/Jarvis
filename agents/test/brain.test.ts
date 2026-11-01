@@ -70,6 +70,20 @@ describe("Jarvis's brain", () => {
     expect(p[8]).toEqual({ id: "f6", title: "Filler 6", updated: null, text: null });
   });
 
+  it("reads the location saved from the phone, rounded to about 100 m, and keeps it out of prompts", () => {
+    const b = readBrain({ "jarvis-settings": { location: { lat: 39.78123456, lon: -89.65649, at: "2026-11-01" } } });
+    expect(b.location).toEqual({ latitude: 39.781, longitude: -89.656 });
+    expect(JSON.stringify(brainForPrompt(b))).not.toContain("39.78");
+    for (const bad of [{ lat: 91, lon: 0 }, { lat: "x", lon: 1 }, { lat: 10 }, "35,-80", null])
+      expect(readBrain({ "jarvis-settings": { location: bad } }).location).toBeNull();
+  });
+
+  it("the briefing and Ask write clock times the 12-hour way, in Eastern time", () => {
+    const spec = jarvisSpec(emptyContext(TODAY), null, null, [], { brain: readBrain(DATA) });
+    expect(spec.system).toContain('"7:30 PM"');
+    expect(spec.system).toContain("America/New_York");
+  });
+
   it("a check-in is due once its time has passed today (New York), within 6 hours, once a day", () => {
     const b = readBrain(DATA);
     const fri = (hhmm: string) => new Date(`2026-10-30T${hhmm}:00-04:00`); // a Friday, EDT

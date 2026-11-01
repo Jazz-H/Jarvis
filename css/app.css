@@ -4614,6 +4614,70 @@ body.todo-dragging {
 .jv-hour-rain.wet {
   color: var(--olive);
 }
+/* The days ahead: 16-day forecast, then the outlook (folded) */
+.jv-days-head {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.jv-day {
+  grid-template-columns: 88px 64px minmax(0, 1fr) 44px;
+}
+.jv-week {
+  grid-template-columns: 88px 64px minmax(0, 1fr);
+}
+.jv-day small {
+  font-weight: 400;
+  color: var(--text-dim);
+}
+.jv-outlook {
+  margin-top: 12px;
+}
+.jv-outlook > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+.jv-outlook > summary span {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.jv-outlook-days > summary {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.jv-place {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.jv-place > span {
+  flex: 1 1 100%;
+}
+.jv-place-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
 /* News: headline list */
 .jv-stories {
   list-style: none;

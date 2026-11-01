@@ -207,6 +207,7 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
       humidityPct: w.humidityPct,
       rainChanceMax: w.rainChanceMax,
       washDayNote: w.washDayNote,
+      ...weatherDays(w.outlook ?? [], today),
     },
     news: n && n.stories.map((s) => ({ topic: s.topic, title: s.title, source: s.source })),
     calendar: cal && { summary: cal.summary, events: cal.events, overlaps: cal.overlaps },
@@ -214,6 +215,33 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
     deliveries: del && { packages: withoutHidden(del.packages, hidden.packages) },
     top3: (b.top3 ?? []).map((t) => ({ id: t.id, text: t.text, why: t.why, done: false })), // done: set from the app data
   };
+}
+
+// The days ahead from this morning's 90: the 16-day forecast day by day, then the long-range
+// outlook by week (Monday start), with each week's figures worked out here
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+type OutlookDay = { date: string; highF: number; lowF: number; rainChance: number; conditions: string | null; kind: "forecast" | "outlook" };
+export function weatherDays(days: OutlookDay[], today: string) {
+  const ahead = days.filter((d) => d.date >= today);
+  const forecast = ahead
+    .filter((d) => d.kind === "forecast")
+    .map((d) => ({ date: d.date, day: DOW[weekday(d.date)], highF: d.highF, lowF: d.lowF, rainChance: d.rainChance, conditions: d.conditions }));
+  const weeks = new Map<string, OutlookDay[]>();
+  for (const d of ahead.filter((x) => x.kind === "outlook")) {
+    const k = mondayOf(d.date);
+    weeks.set(k, [...(weeks.get(k) ?? []), d]);
+  }
+  const avg = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  const outlookWeeks = [...weeks].map(([weekOf, ds]) => ({
+    weekOf,
+    from: ds[0].date,
+    to: ds[ds.length - 1].date,
+    highF: avg(ds.map((d) => d.highF)),
+    lowF: avg(ds.map((d) => d.lowF)),
+    wetDays: ds.filter((d) => d.rainChance >= 50).length,
+    days: ds.length,
+  }));
+  return { forecast, outlookWeeks, outlookThrough: ahead.at(-1)?.date ?? null };
 }
 
 function reviewPart(raw: string | null, today: string) {

@@ -62,4 +62,5 @@ function writeQuietly(key, value) {
   initSync();
   importFromLink();
   pushCheck();
+  weatherRefreshLocation();
 })();

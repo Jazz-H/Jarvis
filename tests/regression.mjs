@@ -7914,6 +7914,109 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
   await ctx.close();
 });
 
+await section("jarvis: weather for 90 days, and your own location", async () => {
+  const b = briefingFixture();
+  const day = (n, kind) => ({ date: isoOffset(n), highF: 60 + (n % 5), lowF: 40, rainChance: n % 3 === 0 ? 70 : 10, conditions: kind === "forecast" ? "Clear" : null, kind });
+  b.cards.weather.data.outlook = [
+    ...Array.from({ length: 16 }, (_, i) => day(i, "forecast")),
+    ...Array.from({ length: 74 }, (_, i) => day(i + 16, "outlook")),
+    { date: "junk", highF: 1, lowF: 1 },
+    { date: isoOffset(3), highF: "x", lowF: 1 },
+  ];
+  b.cards.weather.data.outlook[1].conditions = "<img src=x onerror=window.__pwned=1>";
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  await page.tap('.jv-tile[data-go="weather"]');
+  const read = () =>
+    page.evaluate(() => ({
+      head: document.querySelector("#jarvis-weather .jv-days-head")?.textContent,
+      next: [...document.querySelectorAll('#jarvis-weather [aria-label^="Next"] .jv-day')].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+      weeks: [...document.querySelectorAll('#jarvis-weather [aria-label="Outlook by week"] .jv-day')].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+      days: document.querySelectorAll('#jarvis-weather [aria-label="Outlook day by day"] .jv-day').length,
+      summary: document.querySelector("#jarvis-weather .jv-outlook > summary")?.textContent || "",
+      open: document.querySelector("#jarvis-weather .jv-outlook")?.open,
+      pwned: window.__pwned || 0,
+      imgs: document.querySelectorAll("#jarvis-weather img").length,
+      place: document.querySelector("#jarvis-weather .jv-place")?.textContent.replace(/\s+/g, " ").trim() || "",
+      hours: document.querySelectorAll("#jarvis-weather .jv-hour:not(.jv-day)").length,
+      saved: JSON.parse(localStorage.getItem("jarvis-settings") || "{}").location || null,
+      shown: document.getElementById("panel-home").innerHTML.includes("39.78"),
+      toast: document.getElementById("toast").textContent,
+    }));
+  const r = await read();
+  check("the next 15 days after today, day by day", r.head === "Next 15 days" && r.next.length === 15, r);
+  check("a forecast day shows high, low, conditions and rain", /^\w{3}, \w{3} \d+ \d+° 40° Clear \d+%$/.test(r.next[1]), r.next);
+  check("weather text from the briefing is escaped", r.pwned === 0 && r.imgs === 0 && r.next[0].includes("<img"), r.next[0]);
+  check(
+    "the outlook is folded, says it's a trend, and has every day (junk rows dropped)",
+    r.open === false && r.summary.startsWith("Outlook to ") && r.summary.includes("A trend, not a forecast") && r.days === 74,
+    r,
+  );
+  check("the outlook by week (Monday start)", r.weeks.length >= 11 && r.weeks.length <= 12 && r.weeks.every((w) => /° \d+° (\d of \d days lean wet|Leans dry)$/.test(w)), r.weeks);
+  check("the hour-by-hour list is unchanged", r.hours === 3, r.hours);
+  check("whose forecast, and Use my location", r.place.startsWith("Forecast for Springfield, IL") && r.place.includes("Use my location") && !r.place.includes("Forget"), r.place);
+
+  // Use my location: saved to 3 decimals, synced in jarvis-settings, never shown
+  await page.evaluate(() => {
+    window.__geo = { latitude: 39.78123456, longitude: -89.65649 };
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition: (ok, bad) => (window.__geo ? ok({ coords: window.__geo }) : bad({ code: 1 })) },
+    });
+  });
+  await page.tap('#jarvis-weather [data-action="wx-locate"]');
+  if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
+  const a = await read();
+  check("Use my location saves it rounded to about 100 m, with today's date", a.saved && a.saved.lat === 39.781 && a.saved.lon === -89.656 && a.saved.at === isoOffset(0), a.saved);
+  check("the coordinates are never shown", !a.shown);
+  check("it says the next briefing uses it, and offers Update and Forget", a.place.includes("Your location is saved: the next briefing uses it") && a.place.includes("Update my location") && a.place.includes("Forget it"), a.place);
+  check("a toast confirms it", a.toast.startsWith("Location saved"), a.toast);
+
+  // Opening the app keeps it current, but only a move of 1 km or more is saved
+  await page.evaluate(() => {
+    window.__geo = { latitude: 39.7839, longitude: -89.6565 }; // about 300 m away
+    weatherUseLocation(true);
+  });
+  check("a small move isn't saved", (await read()).saved.lat === 39.781);
+  await page.evaluate(() => {
+    window.__geo = { latitude: 35.3, longitude: -80.8 };
+    weatherUseLocation(true);
+  });
+  check("a real move is saved quietly", (await read()).saved.lat === 35.3);
+
+  // A briefing written for your location says so
+  await page.evaluate(() => {
+    const k = JSON.parse(localStorage.getItem("jarvis-briefing"));
+    k.cards.weather.data.location = "Your location";
+    localStorage.setItem("jarvis-briefing", JSON.stringify(k));
+    loadBriefing();
+    renderHome();
+  });
+  if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
+  const m = await read();
+  check("a briefing for your location says so", m.place.startsWith("Forecast for your location") && !m.place.includes("is saved"), m.place);
+
+  // Blocked, then Forget it
+  await page.evaluate(() => (window.__geo = null));
+  await page.tap('#jarvis-weather [data-action="wx-locate"]');
+  check("blocked location explains how to allow it", (await read()).toast.includes("blocked"), (await read()).toast);
+  if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
+  await page.tap('#jarvis-weather [data-action="wx-unlocate"]');
+  check("Forget it clears it", (await read()).saved === null);
+  check(
+    "junk saved locations are dropped by the normalizer",
+    await page.evaluate(() => {
+      jarvisSettings.location = { lat: 200, lon: 0 };
+      normalizeJarvisBrain();
+      const a = jarvisSettings.location === null;
+      jarvisSettings.location = { lat: "35.2", lon: "-80.8", at: "nope" };
+      normalizeJarvisBrain();
+      return a && jarvisSettings.location.lat === 35.2 && jarvisSettings.location.at === "";
+    }),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("jarvis: error cards, stale briefing and junk data", async () => {
   const b = briefingFixture({
     date: isoOffset(-1),

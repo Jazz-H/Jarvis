@@ -81,7 +81,16 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
     hour-by-hour list (every 3 hours: temperature, conditions, rain). Skin weather sits in
     the detail: the UV peak and its hours with SPF advice, and air quality (both from
-    Open-Meteo). Names its agent and time.
+    Open-Meteo). Then **90 days**: the next 15 days one per row (high, low, conditions, chance of
+    rain), and a folded **Outlook** to day 90 by week (typical high and low, how many days lean
+    wet; "Day by day" lists each one). Days 1–16 are Open-Meteo's forecast; the outlook is ECMWF's
+    long-range ensemble (EC46, then SEAS5, 51 members): code takes the members' middle high and
+    low and counts how many have rain (0.04 in or more), and it's labeled "a trend, not a
+    forecast". **Use my location** saves this phone's position (rounded to about 100 m, never
+    shown) in `jarvis-settings`; the next briefing's weather and outlook are for it ("Forecast for
+    your location"), and opening the app on a device that already allows location keeps it
+    current (a move of 1 km or more). **Forget it** goes back to the default city. Names its agent
+    and time.
   - **Money:** a warning for bills due within 3 days that aren't on autopay, **Bill Guard**'s
     findings from this morning (bills before payday over the paycheck, a credit card due soon
     that isn't in a paycheck plan, bill emails that differ from Budget or aren't in it,
@@ -690,7 +699,12 @@ Setup: `docs/jarvis/SETUP.md`.
 - **How it works:** `agents/jarvis.ts` reads `jazz2-data.json` from the sync gist for today's
   to-dos, bills due in 3 days, wash days, Shopping needs, Jazz 3.0 goal sections and weight-goal
   progress. It then runs the sub-agents in parallel:
-  - **Weather:** `claude-haiku-5-5`, with data from Open-Meteo.
+  - **Weather:** `claude-haiku-5-5`, with data from Open-Meteo, for your saved location (else the
+    default city). Code adds the 90 days (`outlook` on the card: 16 forecast days, then the
+    ensemble outlook); the model never sees them. The briefing gets the next 7 days; Ask gets the
+    forecast day by day and the outlook by week (`weatherDays`), and says the outlook is a trend.
+    Coordinates are never logged or put in a prompt. Times in briefings and answers are written
+    the 12-hour way, in Eastern time ("7:30 PM").
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
   - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
   - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
@@ -837,7 +851,7 @@ Everything lives in `localStorage` on the device:
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
 | `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
-| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" \| "always" \| "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8, hiddenPackages: [{item, at}] ≤20 (14 days), hiddenLines: [{text, at}] ≤10 (2 days)}`; the hidden lists are what you dismissed on Home or asked Jarvis to (the Action leaves hidden packages out of briefings, alerts and Ask) |
+| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" \| "always" \| "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8, hiddenPackages: [{item, at}] ≤20 (14 days), hiddenLines: [{text, at}] ≤10 (2 days), location: {lat, lon, at} \| null}`; location is "Use my location" (3 decimals) for the weather; the hidden lists are what you dismissed on Home or asked Jarvis to (the Action leaves hidden packages out of briefings, alerts and Ask) |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAskContext, jazzPart, payPeriod, threadTurns } from "../lib/ask-context.ts";
+import { buildAskContext, jazzPart, payPeriod, threadTurns, weatherDays } from "../lib/ask-context.ts";
 import type { Answer, AskItem } from "../schemas/ask.ts";
 import { ASK_DATA, BRIEFING_FILE, TODAY } from "./ask-fixture.ts";
 
@@ -129,6 +129,36 @@ describe("Ask context (figures worked out in code)", () => {
     expect(old.sources).toEqual([]);
     expect(old.jazz).toBeNull();
     expect(buildAskContext({ data: null, today: TODAY, briefingRaw: "{", reviewsRaw: null }).briefing).toBeNull();
+  });
+
+  it("weather ahead: the forecast day by day, then the outlook by week, from today on", () => {
+    const day = (date: string, kind: "forecast" | "outlook", highF: number, rainChance = 10) => ({ date, highF, lowF: highF - 20, rainChance, conditions: kind === "forecast" ? "Clear" : null, kind });
+    const days = [
+      day("2026-10-29", "forecast", 70), // yesterday's briefing day: dropped
+      day("2026-10-30", "forecast", 68, 60),
+      day("2026-10-31", "forecast", 66),
+      day("2026-11-01", "outlook", 60, 70), // a Sunday: the week of Oct 26
+      day("2026-11-02", "outlook", 58, 20),
+      day("2026-11-03", "outlook", 55, 55),
+    ];
+    expect(weatherDays(days, TODAY)).toEqual({
+      forecast: [
+        { date: "2026-10-30", day: "Fri", highF: 68, lowF: 48, rainChance: 60, conditions: "Clear" },
+        { date: "2026-10-31", day: "Sat", highF: 66, lowF: 46, rainChance: 10, conditions: "Clear" },
+      ],
+      outlookWeeks: [
+        { weekOf: "2026-10-26", from: "2026-11-01", to: "2026-11-01", highF: 60, lowF: 40, wetDays: 1, days: 1 },
+        { weekOf: "2026-11-02", from: "2026-11-02", to: "2026-11-03", highF: 57, lowF: 37, wetDays: 1, days: 2 },
+      ],
+      outlookThrough: "2026-11-03",
+    });
+    // the briefing's weather card carries them into Ask
+    const b = JSON.parse(BRIEFING_FILE);
+    b.cards.weather.data.outlook = days;
+    const c = buildAskContext({ data: ASK_DATA, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null });
+    expect(c.briefing!.weather!.forecast).toHaveLength(2);
+    expect(c.briefing!.weather!.outlookWeeks).toHaveLength(2);
+    expect(weatherDays([], TODAY)).toEqual({ forecast: [], outlookWeeks: [], outlookThrough: null });
   });
 
   it("carries this morning's Top 3 with whether each is done now", () => {

@@ -40,6 +40,23 @@ export const WeatherFacts = z.object({
     })
     .nullable()
     .optional(),
+  // Up to 90 days from today: "forecast" days (the next 16, with conditions and a real chance of
+  // rain), then "outlook" days (ECMWF's long-range ensemble: the middle high and low of its members,
+  // and the share of members with rain; a trend, not a forecast). Never shown to the Weather model.
+  outlook: z
+    .array(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        highF: z.number(),
+        lowF: z.number(),
+        rainChance: z.number().min(0).max(100),
+        conditions: z.string().nullable(),
+        kind: z.enum(["forecast", "outlook"]),
+      }),
+    )
+    .max(92)
+    .nullable()
+    .optional(),
 });
 export type WeatherFacts = z.infer<typeof WeatherFacts>;
 

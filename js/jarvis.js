@@ -118,6 +118,17 @@ function normalizeBriefing(b) {
           ? { from: num(d.uvHigh.from, 0, 23), to: num(d.uvHigh.to, 1, 24) }
           : null,
       aqi: num(d.aqi, 0, 500),
+      outlook: arr(d.outlook)
+        .filter((o) => isObj(o) && isoDay(o.date) && num(o.highF, -80, 150) != null && num(o.lowF, -80, 150) != null)
+        .slice(0, 92)
+        .map((o) => ({
+          date: o.date,
+          highF: Math.round(num(o.highF, -80, 150)),
+          lowF: Math.round(num(o.lowF, -80, 150)),
+          rainChance: Math.round(num(o.rainChance, 0, 100) || 0),
+          conditions: str(o.conditions, 40),
+          kind: o.kind === "outlook" ? "outlook" : "forecast",
+        })),
       tomorrow:
         isObj(d.tomorrow) && isoDay(d.tomorrow.date) && num(d.tomorrow.highF, -80, 150) != null
           ? {
@@ -397,7 +408,72 @@ function jarvisWeatherDetail(c) {
     ${w.washDay && w.washDayNote ? `<p class="jv-line jv-wash">${DROPLET_ICON}<span>${escapeHtml(w.washDayNote)}</span></p>` : ""}
     ${jvSkinWeatherHtml(w)}
     <div class="jv-facts">${escapeHtml(w.conditions)}${w.humidityPct != null ? ` · ${w.humidityPct}% humidity` : ""}</div>
-    ${list}${jvMeta(c)}`;
+    ${list}${jvDaysAheadHtml(w.outlook || [])}${jvPlaceHtml(w)}${jvMeta(c)}`;
+}
+// The days after today: the forecast day by day (about 16 days), then the long-range outlook by
+// week, with every day of it under "Day by day". Outlook figures are a trend, and say so.
+function jvDayLabel(iso, withDow = true) {
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-US", withDow ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric" });
+}
+function jvDayRow(d) {
+  return `<div class="jv-hour jv-day" role="row">
+    <span role="cell" class="jv-hour-t">${escapeHtml(jvDayLabel(d.date))}</span>
+    <span role="cell" class="jv-hour-temp">${d.highF}° <small>${d.lowF}°</small></span>
+    <span role="cell" class="jv-hour-cond">${escapeHtml(d.conditions || (d.rainChance >= 50 ? "Leans wet" : "Leans dry"))}</span>
+    <span role="cell" class="jv-hour-rain${d.rainChance >= 50 ? " wet" : ""}">${d.rainChance}%</span>
+  </div>`;
+}
+function jvShiftIso(iso, n) {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function jvDaysAheadHtml(days) {
+  const ahead = days.filter((d) => d.date > addDaysIso(0));
+  if (!ahead.length) return "";
+  const forecast = ahead.filter((d) => d.kind === "forecast");
+  const later = ahead.filter((d) => d.kind === "outlook");
+  const weeks = []; // Monday to Sunday
+  for (const d of later) {
+    const monday = jvShiftIso(d.date, -((new Date(d.date + "T12:00:00Z").getUTCDay() + 6) % 7));
+    if (!weeks.length || weeks[weeks.length - 1].monday !== monday) weeks.push({ monday, days: [] });
+    weeks[weeks.length - 1].days.push(d);
+  }
+  const avg = (xs) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  const weekRows = weeks
+    .map((w) => {
+      const wet = w.days.filter((d) => d.rainChance >= 50).length;
+      return `<div class="jv-hour jv-day jv-week" role="row">
+        <span role="cell" class="jv-hour-t">${escapeHtml(jvDayLabel(w.days[0].date, false))}</span>
+        <span role="cell" class="jv-hour-temp">${avg(w.days.map((d) => d.highF))}° <small>${avg(w.days.map((d) => d.lowF))}°</small></span>
+        <span role="cell" class="jv-hour-cond">${wet ? `${wet} of ${w.days.length} days lean wet` : "Leans dry"}</span>
+      </div>`;
+    })
+    .join("");
+  const next = forecast.length
+    ? `<div class="jv-days-head">Next ${forecast.length} days</div><div class="jv-hours" role="table" aria-label="Next ${forecast.length} days">${forecast.map(jvDayRow).join("")}</div>`
+    : "";
+  const outlook = later.length
+    ? `<details class="jv-outlook">
+        <summary>Outlook to ${escapeHtml(jvDayLabel(later[later.length - 1].date, false))}<span>A trend, not a forecast</span></summary>
+        <div class="jv-hours" role="table" aria-label="Outlook by week">${weekRows}</div>
+        <details class="jv-outlook jv-outlook-days">
+          <summary>Day by day</summary>
+          <div class="jv-hours" role="table" aria-label="Outlook day by day">${later.map(jvDayRow).join("")}</div>
+        </details>
+      </details>`
+    : "";
+  return next + outlook;
+}
+// Whose weather this is, and the location buttons (coordinates are never shown)
+function jvPlaceHtml(w) {
+  const saved = jarvisSettings.location;
+  const mine = w.location === "Your location";
+  const where = w.location ? `Forecast for ${escapeHtml(mine ? "your location" : w.location)}` : "";
+  const pending = saved && !mine ? " · Your location is saved: the next briefing uses it" : "";
+  return `<div class="jv-place"><span>${where}${pending}</span>
+    <button type="button" class="jv-place-btn" data-action="wx-locate">${saved ? "Update my location" : "Use my location"}</button>
+    ${saved ? `<button type="button" class="jv-place-btn" data-action="wx-unlocate">Forget it</button>` : ""}</div>`;
 }
 
 // News: a headline list. Each story: "TOPIC · Source" with a Read link on the right, then the

@@ -23,6 +23,12 @@ export interface Brain {
   feedback: { kind: "answer" | "briefing"; item: string; vote: 1 | -1; at: number }[];
   hiddenPackages: string[]; // lowercased item names the owner hid ("Got it" in Home's Deliveries)
   hiddenLines: string[]; // lowercased briefing lines the owner dismissed (first 200 characters)
+  location: DeviceLocation | null; // where the owner is, from the app ("Use my location"), for the weather
+}
+// Rounded to 3 decimals (about 100 m): finer than any forecast grid. Never logged or put in a prompt.
+export interface DeviceLocation {
+  latitude: number;
+  longitude: number;
 }
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -37,7 +43,14 @@ const clip = (s: unknown, n: number) =>
 export const BRAIN_LIMITS = { notes: 30, notesPromptChars: 12_000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10 };
 
 export function emptyBrain(): Brain {
-  return { memory: [], notes: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [] };
+  return { memory: [], notes: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [], location: null };
+}
+function readLocation(v: unknown): DeviceLocation | null {
+  if (!isObj(v)) return null;
+  const lat = Number(v.lat),
+    lon = Number(v.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { latitude: Math.round(lat * 1000) / 1000, longitude: Math.round(lon * 1000) / 1000 };
 }
 
 export function readBrain(data: unknown): Brain {
@@ -91,6 +104,7 @@ export function readBrain(data: unknown): Brain {
       .filter((h) => isObj(h) && clip(h.text, 200))
       .slice(0, BRAIN_LIMITS.hiddenLines)
       .map((h) => clip(h.text, 200).toLowerCase()),
+    location: readLocation(s.location),
   };
 }
 
@@ -123,7 +137,9 @@ export const BRAIN_RULES = `"brain" is what the owner set up for you: "remember"
 use them whenever they matter, never repeat them back for no reason), "about" (a note about
 themselves), "tone" ("brief": as short as possible; "normal"; "detailed": a little more context)
 and "recentRatings" (what they found useful or not lately: lean toward what they liked, away from
-what they didn't).`;
+what they didn't).
+Clock times: the data's times are already Eastern (America/New_York); write them the 12-hour way
+("7:30 PM", "7 AM"), never as 24-hour times like "19:30".`;
 
 // Check-ins due now: today's weekday is one of its days, its time has passed (New York), not more
 // than 6 hours ago (a late run doesn't send a stale one), and it hasn't run today (`done` holds the

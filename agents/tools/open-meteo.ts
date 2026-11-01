@@ -51,10 +51,84 @@ export function forecastUrl(q: WeatherQuery): string {
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
     temperature_unit: "fahrenheit",
     timezone: q.timezone,
-    forecast_days: "2", // today, plus tomorrow for the evening view
+    forecast_days: String(FORECAST_DAYS), // today, tomorrow for the evening view, and the 16-day list
   });
   return `https://api.open-meteo.com/v1/forecast?${p}`;
 }
+export const FORECAST_DAYS = 16; // Open-Meteo's longest forecast
+export const OUTLOOK_DAYS = 90;
+// Past the forecast: ECMWF's long-range ensemble (EC46, then SEAS5), every one of its 51 members,
+// so code can take the middle high and low and count how many members have rain
+export function seasonalUrl(q: WeatherQuery): string {
+  const p = new URLSearchParams({
+    latitude: String(q.latitude),
+    longitude: String(q.longitude),
+    daily: "temperature_2m_max,temperature_2m_min,precipitation_sum",
+    temperature_unit: "fahrenheit",
+    precipitation_unit: "inch",
+    timezone: q.timezone,
+    forecast_days: String(OUTLOOK_DAYS + 2),
+  });
+  return `https://seasonal-api.open-meteo.com/v1/seasonal?${p}`;
+}
+const WET_INCHES = 0.04; // about 1 mm: a member counts as a wet day from here
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+type OutlookDay = NonNullable<WeatherFacts["outlook"]>[number];
+// The forecast's days (from the main response): conditions and a real chance of rain
+function forecastDays(j: any): OutlookDay[] {
+  const d = j?.daily ?? {};
+  const out: OutlookDay[] = [];
+  (Array.isArray(d.time) ? d.time : []).forEach((date: unknown, i: number) => {
+    const hi = d.temperature_2m_max?.[i],
+      lo = d.temperature_2m_min?.[i];
+    if (typeof date !== "string" || !finite(hi) || !finite(lo)) return;
+    out.push({
+      date,
+      highF: Math.round(hi),
+      lowF: Math.round(lo),
+      rainChance: finite(d.precipitation_probability_max?.[i]) ? Math.round(d.precipitation_probability_max[i]) : 0,
+      conditions: finite(d.weather_code?.[i]) ? describeWeatherCode(d.weather_code[i]) : null,
+      kind: "forecast",
+    });
+  });
+  return out;
+}
+// The outlook's days after `after`: the members' middle high and low, and the share of members with rain
+async function outlookDays(q: WeatherQuery, after: string, until: string, fetchImpl: typeof fetch): Promise<OutlookDay[]> {
+  try {
+    const res = await fetchImpl(seasonalUrl(q), { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return [];
+    const d = ((await res.json()) as any)?.daily ?? {};
+    const members = (base: string) => Object.keys(d).filter((k) => k === base || k.startsWith(base + "_member"));
+    const [his, los, wet] = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"].map(members);
+    const at = (keys: string[], i: number) => keys.map((k) => d[k]?.[i]).filter(finite);
+    const out: OutlookDay[] = [];
+    (Array.isArray(d.time) ? d.time : []).forEach((date: unknown, i: number) => {
+      if (typeof date !== "string" || date <= after || date > until) return;
+      const hi = at(his, i),
+        lo = at(los, i),
+        rain = at(wet, i);
+      if (hi.length < 10 || lo.length < 10) return; // too few members to say anything
+      out.push({
+        date,
+        highF: Math.round(median(hi)),
+        lowF: Math.round(median(lo)),
+        rainChance: rain.length ? Math.round((100 * rain.filter((r) => r >= WET_INCHES).length) / rain.length) : 0,
+        conditions: null,
+        kind: "outlook",
+      });
+    });
+    return out;
+  } catch {
+    return [];
+  }
+}
+const addDaysIso = (iso: string, n: number) => new Date(Date.parse(iso + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
 // Open-Meteo's air-quality API (also keyless): today's hourly US AQI
 export function airQualityUrl(q: WeatherQuery): string {
   const p = new URLSearchParams({
@@ -121,7 +195,14 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
   const uvMax = uvHours.length ? Math.round(Math.max(...uvHours.map((h) => h.uv))) : null;
   const high = uvHours.filter((h) => h.uv >= 6);
   const uvHigh = high.length ? { from: high[0].hour, to: high[high.length - 1].hour + 1 } : null;
-  const aqi = await fetchAqi(q, fetchImpl);
+  // The 90 days: the forecast's 16, then the long-range outlook (optional: a failure keeps the 16)
+  const forecast = forecastDays(j);
+  const lastDay = today ? addDaysIso(today, OUTLOOK_DAYS - 1) : "";
+  const [aqi, later] = await Promise.all([
+    fetchAqi(q, fetchImpl),
+    today ? outlookDays(q, forecast.at(-1)?.date ?? addDaysIso(today, -1), lastDay, fetchImpl) : Promise.resolve([]),
+  ]);
+  const outlook = [...forecast, ...later].slice(0, OUTLOOK_DAYS);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
   // Tomorrow's outlook, for the app's evening Tomorrow view (null if the second day is missing)
   const d1 = (k: string) => j?.daily?.[k]?.[1];
@@ -143,6 +224,7 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
       : null;
   return WeatherFacts.parse({
     tomorrow,
+    outlook: outlook.length ? outlook : null,
     location: q.name,
     date: today,
     conditions: describeWeatherCode(num(j?.daily?.weather_code?.[0], "daily weather code")),

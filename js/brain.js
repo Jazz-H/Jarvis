@@ -20,7 +20,7 @@ const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Ne
 let jarvisMemory = [];
 let jarvisNotes = [];
 let jarvisFeedback = [];
-let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [] };
+let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [], location: null };
 
 function normalizeJarvisBrain() {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -87,7 +87,16 @@ function normalizeJarvisBrain() {
       })),
     hiddenPackages: dismissedList(s.hiddenPackages, "item", 80, BRAIN_MAX.hiddenDays, BRAIN_MAX.hiddenPackages),
     hiddenLines: dismissedList(s.hiddenLines, "text", 200, 2, BRAIN_MAX.hiddenLines),
+    location: savedLocation(s.location),
   };
+}
+// Where you are, for the weather: {lat, lon} to 3 decimals (about 100 m) and the day it was saved
+function savedLocation(l) {
+  if (!l || typeof l !== "object") return null;
+  const lat = Number(l.lat),
+    lon = Number(l.lon);
+  if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat: Math.round(lat * 1000) / 1000, lon: Math.round(lon * 1000) / 1000, at: typeof l.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(l.at) ? l.at : "" };
 }
 // What you dismissed on Home (jarvis.js): [{[field]: name, at}] from the last `days`, no repeats, newest first
 function dismissedList(list, field, max, days, n) {
@@ -105,6 +114,48 @@ function saveBrain(key) {
   else if (key === "jarvis-feedback") saveContent(key, jarvisFeedback, { toast: false });
   else saveContent("jarvis-settings", jarvisSettings, { toast: false });
   renderConsole();
+}
+
+// ---- your location (Weather) ----
+// "Use my location" saves this phone's position in jarvis-settings (synced, never shown); the next
+// briefing's weather and 90-day outlook are for it. Once saved, opening the app on a device that
+// already allows location keeps it current, saving only a move of 1 km or more.
+function weatherUseLocation(quiet = false) {
+  const fail = (msg) => !quiet && showToast(msg, true);
+  if (!navigator.geolocation) return fail("Location isn't available on this device");
+  navigator.geolocation.getCurrentPosition(
+    (p) => {
+      const next = savedLocation({ lat: p.coords.latitude, lon: p.coords.longitude, at: addDaysIso(0) });
+      if (!next) return fail("Couldn't read your location");
+      const old = jarvisSettings.location;
+      if (quiet && old && locationKm(old, next) < 1) return;
+      jarvisSettings.location = next;
+      saveBrain("jarvis-settings");
+      renderHome();
+      if (!quiet) showToast("Location saved: the next briefing's weather is for where you are");
+    },
+    (e) => fail(e && e.code === 1 ? "Location is blocked for this site: allow it in your browser's settings" : "Couldn't get your location"),
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10 * 60 * 1000 },
+  );
+}
+function weatherForgetLocation() {
+  jarvisSettings.location = null;
+  saveBrain("jarvis-settings");
+  renderHome();
+  showToast("Location forgotten: the weather goes back to the default city");
+}
+function weatherRefreshLocation() {
+  if (!jarvisSettings.location || !navigator.geolocation || !navigator.permissions) return;
+  navigator.permissions
+    .query({ name: "geolocation" })
+    .then((s) => s.state === "granted" && weatherUseLocation(true))
+    .catch(() => {});
+}
+// Distance in km between two saved locations (equirectangular: plenty at these distances)
+function locationKm(a, b) {
+  const rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  return Math.hypot(x, (b.lat - a.lat) * rad) * 6371;
 }
 
 // ---- memory ----

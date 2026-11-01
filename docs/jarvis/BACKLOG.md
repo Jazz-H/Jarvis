@@ -15,16 +15,18 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Top up Claude API credit** (you) when it runs low: briefing, review and Ask stop without it.
 
 ## Decide
-- (nothing open)
+- [ ] **Obsidian vault** (`OBSIDIAN-SCOPE.md` section 8): phone or computer, Obsidian Sync ($4/mo)
+  or a private GitHub repo, new or existing vault, what goes in the daily note, what Jarvis may read.
+  Replaces the "daily log as markdown" idea.
 
 ## Build
-- [ ] **Daily log as markdown**: each day's briefing, answers and what you did as one dated note,
-  browsable in the app and exportable (or synced to Drive) so it opens in Obsidian.
 - [ ] **HUD**: a small glance view for a desktop corner (next event, Top 3, safe to spend, latest alert).
 - [ ] **Run the Ask test set** (you: Actions → Jarvis Eval, about $0.30) to check the per-question
   models against the Oct 31 baseline (12/12).
 
 ## Done
+- [x] **Weather for 90 days at your location** (Nov 1): 16-day forecast plus ECMWF's long-range
+  outlook on Home and for Ask; "Use my location" from the phone; 12-hour Eastern times in answers.
 - [x] From the Jarvis OS slides (Nov 1): **Top 3 today** in the briefing (and the Evening Top 3
   recap check-in), **a model per question** for Ask (`askTier`: Haiku / Sonnet / Opus), and the
   **Notebook** (notes by topic that Ask reads; Jarvis saves or adds to one when asked; Note it after

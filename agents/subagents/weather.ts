@@ -4,6 +4,7 @@ import { WeatherAdvice, WeatherCard, type WeatherFacts } from "../schemas/weathe
 import { fetchWeather } from "../tools/open-meteo.ts";
 import { dataBlock, type AgentSpec } from "../lib/run-agent.ts";
 import type { SubagentDeps } from "./types.ts";
+import type { DeviceLocation } from "../lib/brain.ts";
 
 export const WEATHER_SYSTEM = `You are the Weather sub-agent for a personal morning briefing.
 You get today's forecast as JSON measured by code. Every number is already correct: never change,
@@ -21,16 +22,18 @@ export function weatherSpec(facts: WeatherFacts): AgentSpec<WeatherAdvice> {
     name: "weather",
     model: CONFIG.models.weather,
     system: WEATHER_SYSTEM,
-    prompt: `Today's forecast:\n${dataBlock("open-meteo", facts)}\nReturn the JSON object.`,
+    prompt: `Today's forecast:\n${dataBlock("open-meteo", { ...facts, outlook: undefined })}\nReturn the JSON object.`,
     schema: WeatherAdvice,
     effort: "low",
     timeoutMs: CONFIG.agentTimeoutMs,
   };
 }
 
-export async function runWeather(deps: SubagentDeps, washDay: boolean): Promise<WeatherCard> {
-  const facts = await fetchWeather({ ...CONFIG.location, timezone: CONFIG.timezone, washDay }, deps.fetchImpl);
-  deps.trace.log("weather", "fetched", { hours: facts.hourlyRain.length, washDay });
+// `here`: the owner's own location, saved from their phone (jarvis-settings); never logged
+export async function runWeather(deps: SubagentDeps, washDay: boolean, here: DeviceLocation | null = null): Promise<WeatherCard> {
+  const place = here ? { name: "Your location", latitude: here.latitude, longitude: here.longitude } : CONFIG.location;
+  const facts = await fetchWeather({ ...place, timezone: CONFIG.timezone, washDay }, deps.fetchImpl);
+  deps.trace.log("weather", "fetched", { hours: facts.hourlyRain.length, days: facts.outlook?.length ?? 0, washDay, device: !!here });
   const advice = await deps.run(weatherSpec(facts));
   return WeatherCard.parse({ ...facts, ...advice, washDayNote: washDay ? advice.washDayNote : null });
 }
