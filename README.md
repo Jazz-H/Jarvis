@@ -78,18 +78,33 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   - **Inbox:** the tile shows how much unread Primary mail came in over the last 36 hours ("3 new") and what needs you; the detail lists unread urgent mail,
     people waiting on a reply, and bills found in email, each checked against Budget (a
     mismatch shows the Budget amount and opens Budget).
-  - **Weather:** the forecast summary, what to wear, a wash-day note and humidity, then an
-    hour-by-hour list (every 3 hours: temperature, conditions, rain). Skin weather sits in
-    the detail: the UV peak and its hours with SPF advice, and air quality (both from
-    Open-Meteo). Then **90 days**: the next 15 days one per row (high, low, conditions, chance of
-    rain), and a folded **Outlook** to day 90 by week (typical high and low, how many days lean
+  - **Weather** (`js/weather.js`), laid out like a phone weather app in the Reactor theme:
+    - **Alerts** from the National Weather Service (tornado, storm, flood…), most severe first,
+      in red for Severe and Extreme. They come with the briefing ("as of this morning"); with a
+      saved location the app also checks NWS itself (every 10 minutes while Weather is open) and
+      shows those instead. Ended ones drop off.
+    - **Hero:** a location pill, the temperature now in large type, conditions, ↑high / ↓low and
+      feels like, with a big icon over a glow that follows the sky (sun, clouds, rain, storm,
+      snow, night). "Now" is this hour from the briefing's 48-hour forecast, so it stays right
+      through the day (the tile's "Now" too); older briefings use the temperature at the run.
+    - Jarvis's summary, what to wear and the wash-day note.
+    - **Hourly:** a strip you swipe sideways, from Now through the next 24 hours: icon, chance of
+      rain and the temperature on a cyan line (midnight shows the day's name).
+    - **Daily:** Today and 6 more days (rain, a day icon, an overnight icon, high, low), then
+      **16-day forecast** for the rest. The overnight icon is the night's most common
+      conditions, 6 PM to 6 AM.
+    - **Sunrise / sunset:** "Sunset will be at 5:27 PM" with the sun on its arc.
+    - **Tiles:** feels like, wind (mph, direction; gusts from the run), humidity, UV (with SPF
+      advice and its hours) and air quality; high UV or unhealthy air is flagged. The last tile,
+      **Location**, says whose forecast it is, with Use my location (then Update and Forget).
+    - Under Daily, the long-range **Outlook** to day 90 by week (typical high and low, how many days lean
     wet; "Day by day" lists each one). Days 1–16 are Open-Meteo's forecast; the outlook is ECMWF's
     long-range ensemble (EC46, then SEAS5, 51 members): code takes the members' middle high and
-    low and counts how many have rain (0.04 in or more), and it's labeled "a trend, not a
-    forecast". **Use my location** saves this phone's position (rounded to about 100 m, never
+    low and counts how many have rain (0.04 in or more); Jarvis calls it a trend, never a
+    forecast. **Use my location** saves this phone's position (rounded to about 100 m, never
     shown) in `jarvis-settings`; the next briefing's weather and outlook are for it ("Forecast for
     your location"), and opening the app on a device that already allows location keeps it
-    current (a move of 1 km or more). **Forget it** goes back to the default city. Names its agent
+    current (a move of 1 km or more). **Forget** goes back to the default city. Names its agent
     and time.
   - **Money:** a warning for bills due within 3 days that aren't on autopay, **Bill Guard**'s
     findings from this morning (bills before payday over the paycheck, a credit card due soon
@@ -660,7 +675,8 @@ only turning sync off still asks first.
    | `todo-dates.js` | To-do dates, quick-add parsing, recurring to-dos |
    | `holidays.js` | US holidays by rule |
    | `home.js` | Home calendar strip, day agenda, `renderHome` |
-   | `jarvis.js` | Jarvis briefing: normalizing, the new-briefing notice, `ingestBriefingFile` (called by sync), and the briefing, Weather detail and News card |
+   | `jarvis.js` | Jarvis briefing: normalizing, the new-briefing notice, `ingestBriefingFile` (called by sync), and the briefing and News card |
+   | `weather.js` | Home's Weather detail: alerts (and the live NWS check), hero, hourly strip, daily rows, tiles, sunrise/sunset, the outlook and the location buttons |
    | `dashboard.js` | Home's dashboard: status, tiles and their drill-down details for Weather, Money, Beauty, Jazz 3.0 and Shopping (`dashboardHtml`, `dashDrill`, `dashGo`) |
    | `composer.js` | The floating + button's add sheet |
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
@@ -703,7 +719,12 @@ Setup: `docs/jarvis/SETUP.md`.
     default city). Code adds the 90 days (`outlook` on the card: 16 forecast days, then the
     ensemble outlook); the model never sees them. The briefing gets the next 7 days; Ask gets the
     forecast day by day and the outlook by week (`weatherDays`), and says the outlook is a trend.
-    Coordinates are never logged or put in a prompt. Times in briefings and answers are written
+    The card also carries now (feels like, humidity, wind), the next 48 hours, each forecast
+    day's overnight conditions, sunrise and sunset, and National Weather Service alerts
+    (`agents/tools/nws.ts`, no key; outside the US there are none). The Weather model sees the
+    alerts (it leads with the worst) but not the 48 hours; Jarvis leads with a Severe or Extreme
+    alert; Ask gets the alerts, sun times and the hours as short lines. Coordinates are never
+    logged or put in a prompt. Times in briefings and answers are written
     the 12-hour way, in Eastern time ("7:30 PM").
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
   - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).

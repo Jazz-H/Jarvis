@@ -63,6 +63,7 @@ describe("weather sub-agent", () => {
     expect(card.location).toBe("Your location");
     expect(card.outlook!.length).toBeGreaterThan(0);
     expect(String(d.specs[0].prompt)).not.toContain('"outlook"');
+    expect(String(d.specs[0].prompt)).not.toContain('"hours"');
     expect(logs.join(" ")).not.toMatch(/35\.151|80\.826/);
     (console.log as any).mockImplementation(() => {});
   });

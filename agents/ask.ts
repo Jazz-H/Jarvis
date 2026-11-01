@@ -135,7 +135,10 @@ than totalling them; for weeks in "otherWeeks" use the counts as given. Weather 
 day-by-day forecast for about the next 16 days (rainChance is the chance of rain); for later dates,
 up to about 90 days out, briefing.weather.outlookWeeks gives each week's typical high and low and
 how many of its days lean wet. That's a long-range trend, not a forecast: say "the outlook leans
-…" and never promise a specific day's weather past the forecast. For a follow-up, use
+…" and never promise a specific day's weather past the forecast.
+briefing.weather.hourly has this morning's hour-by-hour forecast for about 48 hours, sun has
+sunrise and sunset, and alerts are National Weather Service warnings (always mention a Severe or
+Extreme one when it bears on the question). For a follow-up, use
 "thread" to see what the question refers to. Plain, direct, kind tone; no greetings or sign-offs.`;
 
 export type AskTrigger = "dispatch" | "manual" | "briefing" | "review";

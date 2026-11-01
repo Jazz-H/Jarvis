@@ -73,7 +73,8 @@ Write:
   when there are no open to-dos.
 Look for connections worth acting on: rain or high humidity on a wash day, a bill due today or
 overdue, to-dos already overdue, weather that affects today's errands or a plan later this week
-(weather.next7Days), a Shopping need that
+(weather.next7Days), a National Weather Service alert (weather.alerts: always lead with a Severe
+or Extreme one), a Shopping need that
 today's weather or plans make timely (a rain jacket on a rainy day), overlapping calendar events,
 an event that leaves no time for a to-do, a bill email whose amount differs from Budget
 (status "differs"), a delivery that matches a Shopping item, urgent email, bills due before
@@ -438,6 +439,7 @@ export function jarvisSpec(
       humidityPct: weather.humidityPct,
       rainChanceMax: weather.rainChanceMax,
       washDayNote: weather.washDayNote,
+      alerts: (weather.alerts ?? []).map(({ event, severity, ends }) => ({ event, severity, ends })),
       // the coming week, for a plan worth moving ("rain Thursday")
       next7Days: (weather.outlook ?? []).slice(1, 8).map(({ date, highF, lowF, rainChance, conditions }) => ({ date, highF, lowF, rainChance, conditions })),
     },

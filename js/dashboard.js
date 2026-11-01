@@ -287,7 +287,7 @@ function dashTilesHtml(b, progress, d) {
       label: "Weather",
       value: w ? `${w.highF}° / ${w.lowF}°` : "—",
       sub: w
-        ? `${w.currentF != null ? `Now ${w.currentF}° · ` : ""}${w.rainChanceMax}% rain${rainWin ? ` ${rainWin}` : ""}`
+        ? `${wxNow(w).tempF != null ? `Now ${wxNow(w).tempF}° · ` : ""}${w.rainChanceMax}% rain${rainWin ? ` ${rainWin}` : ""}`
         : wc
           ? "Unavailable"
           : "No forecast yet",

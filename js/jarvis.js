@@ -88,6 +88,8 @@ function normalizeBriefing(b) {
   const num = (v, lo, hi) => (typeof v === "number" && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null);
   const isoDay = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
   const isoTime = (v) => (typeof v === "string" && !isNaN(Date.parse(v)) ? v : "");
+  const wmo = (v) => (Number.isInteger(v) && v >= 0 && v <= 99 ? v : null); // a WMO weather code
+  const compass = (v) => (["N", "NE", "E", "SE", "S", "SW", "W", "NW"].includes(v) ? v : null);
   if (!isObj(b) || b.version !== 1 || !str(b.id, 40) || !isoDay(b.date)) return null;
   const weather = (d) => {
     if (!isObj(d)) return null;
@@ -127,8 +129,41 @@ function normalizeBriefing(b) {
           lowF: Math.round(num(o.lowF, -80, 150)),
           rainChance: Math.round(num(o.rainChance, 0, 100) || 0),
           conditions: str(o.conditions, 40),
+          code: wmo(o.code),
+          nightCode: wmo(o.nightCode),
           kind: o.kind === "outlook" ? "outlook" : "forecast",
         })),
+      code: wmo(d.code),
+      now: isObj(d.now)
+        ? {
+            feelsF: num(d.now.feelsF, -80, 150),
+            humidityPct: num(d.now.humidityPct, 0, 100),
+            windMph: num(d.now.windMph, 0, 250),
+            gustMph: num(d.now.gustMph, 0, 250),
+            windDir: compass(d.now.windDir),
+            isDay: d.now.isDay !== false,
+          }
+        : null,
+      // the next 48 hours from the run, for the hourly strip and "now" later in the day
+      hours: arr(d.hours)
+        .filter((h) => isObj(h) && typeof h.time === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(h.time) && num(h.tempF, -80, 150) != null)
+        .slice(0, 48)
+        .map((h) => ({
+          time: h.time,
+          tempF: Math.round(num(h.tempF, -80, 150)),
+          feelsF: num(h.feelsF, -80, 150),
+          chance: Math.round(num(h.chance, 0, 100) || 0),
+          code: wmo(h.code),
+          isDay: h.isDay !== false,
+          humidityPct: num(h.humidityPct, 0, 100),
+          windMph: num(h.windMph, 0, 250),
+          windDir: compass(h.windDir),
+        })),
+      sun: arr(d.sun)
+        .filter((s) => isObj(s) && isoDay(s.date) && /^\d{2}:\d{2}$/.test(s.rise) && /^\d{2}:\d{2}$/.test(s.set))
+        .slice(0, 2)
+        .map((s) => ({ date: s.date, rise: s.rise, set: s.set })),
+      alerts: weatherAlerts(d.alerts),
       tomorrow:
         isObj(d.tomorrow) && isoDay(d.tomorrow.date) && num(d.tomorrow.highF, -80, 150) != null
           ? {
@@ -383,99 +418,6 @@ function jvRainWindow(hours) {
   const wet = hours.filter((h) => h.chance >= 50);
   return wet.length ? `${jvHourLabel(wet[0].hour)}–${jvHourLabel((wet[wet.length - 1].hour + 1) % 24)}` : "";
 }
-// Weather detail (under the Weather tile, which already shows high/low, now and rain): the
-// summary, what to wear, a wash-day note, then an hour-by-hour list
-function jarvisWeatherDetail(c) {
-  if (!c) return "";
-  if (c.status !== "ok") return jvErrorBody(c);
-  const w = c.data;
-  // every third waking hour keeps the list short
-  const hours = w.hourlyRain.filter((h) => h.hour % 3 === 0);
-  const list = hours.length
-    ? `<div class="jv-hours" role="table" aria-label="Hour by hour">${hours
-        .map(
-          (h) => `<div class="jv-hour" role="row">
-            <span role="cell" class="jv-hour-t">${jvHourLabel(h.hour)}</span>
-            <span role="cell" class="jv-hour-temp">${h.tempF != null ? `${h.tempF}°` : ""}</span>
-            <span role="cell" class="jv-hour-cond">${escapeHtml(h.conditions || "")}</span>
-            <span role="cell" class="jv-hour-rain${h.chance >= 50 ? " wet" : ""}">${h.chance}%</span>
-          </div>`,
-        )
-        .join("")}</div>`
-    : "";
-  return `<p class="jv-lede">${escapeHtml(w.summary)}</p>
-    ${w.wear ? `<p class="jv-line"><b>Wear:</b> ${escapeHtml(w.wear)}</p>` : ""}
-    ${w.washDay && w.washDayNote ? `<p class="jv-line jv-wash">${DROPLET_ICON}<span>${escapeHtml(w.washDayNote)}</span></p>` : ""}
-    ${jvSkinWeatherHtml(w)}
-    <div class="jv-facts">${escapeHtml(w.conditions)}${w.humidityPct != null ? ` · ${w.humidityPct}% humidity` : ""}</div>
-    ${list}${jvDaysAheadHtml(w.outlook || [])}${jvPlaceHtml(w)}${jvMeta(c)}`;
-}
-// The days after today: the forecast day by day (about 16 days), then the long-range outlook by
-// week, with every day of it under "Day by day". Outlook figures are a trend, and say so.
-function jvDayLabel(iso, withDow = true) {
-  return new Date(iso + "T12:00:00").toLocaleDateString("en-US", withDow ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric" });
-}
-function jvDayRow(d) {
-  return `<div class="jv-hour jv-day" role="row">
-    <span role="cell" class="jv-hour-t">${escapeHtml(jvDayLabel(d.date))}</span>
-    <span role="cell" class="jv-hour-temp">${d.highF}° <small>${d.lowF}°</small></span>
-    <span role="cell" class="jv-hour-cond">${escapeHtml(d.conditions || (d.rainChance >= 50 ? "Leans wet" : "Leans dry"))}</span>
-    <span role="cell" class="jv-hour-rain${d.rainChance >= 50 ? " wet" : ""}">${d.rainChance}%</span>
-  </div>`;
-}
-function jvShiftIso(iso, n) {
-  const d = new Date(iso + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-function jvDaysAheadHtml(days) {
-  const ahead = days.filter((d) => d.date > addDaysIso(0));
-  if (!ahead.length) return "";
-  const forecast = ahead.filter((d) => d.kind === "forecast");
-  const later = ahead.filter((d) => d.kind === "outlook");
-  const weeks = []; // Monday to Sunday
-  for (const d of later) {
-    const monday = jvShiftIso(d.date, -((new Date(d.date + "T12:00:00Z").getUTCDay() + 6) % 7));
-    if (!weeks.length || weeks[weeks.length - 1].monday !== monday) weeks.push({ monday, days: [] });
-    weeks[weeks.length - 1].days.push(d);
-  }
-  const avg = (xs) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
-  const weekRows = weeks
-    .map((w) => {
-      const wet = w.days.filter((d) => d.rainChance >= 50).length;
-      return `<div class="jv-hour jv-day jv-week" role="row">
-        <span role="cell" class="jv-hour-t">${escapeHtml(jvDayLabel(w.days[0].date, false))}</span>
-        <span role="cell" class="jv-hour-temp">${avg(w.days.map((d) => d.highF))}° <small>${avg(w.days.map((d) => d.lowF))}°</small></span>
-        <span role="cell" class="jv-hour-cond">${wet ? `${wet} of ${w.days.length} days lean wet` : "Leans dry"}</span>
-      </div>`;
-    })
-    .join("");
-  const next = forecast.length
-    ? `<div class="jv-days-head">Next ${forecast.length} days</div><div class="jv-hours" role="table" aria-label="Next ${forecast.length} days">${forecast.map(jvDayRow).join("")}</div>`
-    : "";
-  const outlook = later.length
-    ? `<details class="jv-outlook">
-        <summary>Outlook to ${escapeHtml(jvDayLabel(later[later.length - 1].date, false))}<span>A trend, not a forecast</span></summary>
-        <div class="jv-hours" role="table" aria-label="Outlook by week">${weekRows}</div>
-        <details class="jv-outlook jv-outlook-days">
-          <summary>Day by day</summary>
-          <div class="jv-hours" role="table" aria-label="Outlook day by day">${later.map(jvDayRow).join("")}</div>
-        </details>
-      </details>`
-    : "";
-  return next + outlook;
-}
-// Whose weather this is, and the location buttons (coordinates are never shown)
-function jvPlaceHtml(w) {
-  const saved = jarvisSettings.location;
-  const mine = w.location === "Your location";
-  const where = w.location ? `Forecast for ${escapeHtml(mine ? "your location" : w.location)}` : "";
-  const pending = saved && !mine ? " · Your location is saved: the next briefing uses it" : "";
-  return `<div class="jv-place"><span>${where}${pending}</span>
-    <button type="button" class="jv-place-btn" data-action="wx-locate">${saved ? "Update my location" : "Use my location"}</button>
-    ${saved ? `<button type="button" class="jv-place-btn" data-action="wx-unlocate">Forget it</button>` : ""}</div>`;
-}
-
 // News: a headline list. Each story: "TOPIC · Source" with a Read link on the right, then the
 // title and a short summary. The Read link is the one tap target (the title is plain text), and
 // unsafe links get no Read link at all.
@@ -707,18 +649,4 @@ function jvAqiLevel(aqi) {
           : aqi > 50
             ? "Moderate"
             : "Good";
-}
-function jvSkinWeatherHtml(w) {
-  const lines = [];
-  if (w.uvMax != null) {
-    const when = w.uvHigh ? ` ${jvHourLabel(w.uvHigh.from)}–${jvHourLabel(w.uvHigh.to % 24)}` : "";
-    lines.push(
-      `<div class="jv-skinwx-row${w.uvMax >= 6 ? " warn" : ""}"><span class="jv-mini">UV</span><span>${jvUvLevel(w.uvMax)} (${w.uvMax})${when}: ${jvUvAdvice(w.uvMax)}</span></div>`,
-    );
-  }
-  if (w.aqi != null)
-    lines.push(
-      `<div class="jv-skinwx-row${w.aqi > 100 ? " warn" : ""}"><span class="jv-mini">Air</span><span>${jvAqiLevel(w.aqi)} (AQI ${w.aqi})</span></div>`,
-    );
-  return lines.length ? `<div class="jv-skinwx">${lines.join("")}</div>` : "";
 }

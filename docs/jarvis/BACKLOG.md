@@ -25,6 +25,7 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
   models against the Oct 31 baseline (12/12).
 
 ## Done
+- [x] **Weather like a phone weather app** (Nov 1): hero with a sky glow, hourly strip with a temperature line, day and night icons, tiles, sunrise/sunset and NWS alerts (live on the phone with a saved location).
 - [x] **Weather for 90 days at your location** (Nov 1): 16-day forecast plus ECMWF's long-range
   outlook on Home and for Ask; "Use my location" from the phone; 12-hour Eastern times in answers.
 - [x] From the Jarvis OS slides (Nov 1): **Top 3 today** in the briefing (and the Evening Top 3

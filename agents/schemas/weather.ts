@@ -51,10 +51,62 @@ export const WeatherFacts = z.object({
         lowF: z.number(),
         rainChance: z.number().min(0).max(100),
         conditions: z.string().nullable(),
+        code: z.number().int().nullable().optional(), // WMO code (forecast days), for the app's icons
+        nightCode: z.number().int().nullable().optional(), // the night's most common code, 6pm to 6am
         kind: z.enum(["forecast", "outlook"]),
       }),
     )
     .max(92)
+    .nullable()
+    .optional(),
+  code: z.number().int().nullable().optional(), // today's WMO code
+  // at the run: feels like, humidity, wind (mph, 8-point direction), day or night
+  now: z
+    .object({
+      feelsF: z.number().nullable(),
+      humidityPct: z.number().min(0).max(100).nullable(),
+      windMph: z.number().min(0).nullable(),
+      gustMph: z.number().min(0).nullable(),
+      windDir: z.string().max(2).nullable(),
+      isDay: z.boolean(),
+    })
+    .nullable()
+    .optional(),
+  // the next 48 hours from the run (local "YYYY-MM-DDTHH:MM"), for the hourly strip and "now" later in the day
+  hours: z
+    .array(
+      z.object({
+        time: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
+        tempF: z.number(),
+        feelsF: z.number().nullable(),
+        chance: z.number().min(0).max(100),
+        code: z.number().int().nullable(),
+        isDay: z.boolean(),
+        humidityPct: z.number().min(0).max(100).nullable(),
+        windMph: z.number().min(0).nullable(),
+        windDir: z.string().max(2).nullable(),
+      }),
+    )
+    .max(48)
+    .nullable()
+    .optional(),
+  // today's and tomorrow's sunrise and sunset, local "HH:MM"
+  sun: z
+    .array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), rise: z.string().regex(/^\d{2}:\d{2}$/), set: z.string().regex(/^\d{2}:\d{2}$/) }))
+    .max(2)
+    .nullable()
+    .optional(),
+  // National Weather Service alerts for the spot, most severe first (untrusted text)
+  alerts: z
+    .array(
+      z.object({
+        event: z.string().max(80),
+        severity: z.enum(["Extreme", "Severe", "Moderate", "Minor", "Unknown"]),
+        headline: z.string().max(240),
+        ends: z.string().nullable(),
+      }),
+    )
+    .max(5)
     .nullable()
     .optional(),
 });

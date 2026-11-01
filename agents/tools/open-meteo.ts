@@ -1,5 +1,6 @@
 // Open-Meteo forecast (no key). Plain code: fetches and does all the math; the model only advises.
 import { WeatherFacts } from "../schemas/weather.ts";
+import { fetchAlerts } from "./nws.ts";
 
 // WMO weather interpretation codes, as Open-Meteo documents them.
 const WMO: Record<number, string> = {
@@ -46,10 +47,12 @@ export function forecastUrl(q: WeatherQuery): string {
   const p = new URLSearchParams({
     latitude: String(q.latitude),
     longitude: String(q.longitude),
-    current: "temperature_2m,weather_code",
-    hourly: "precipitation_probability,relative_humidity_2m,temperature_2m,weather_code,uv_index",
-    daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code",
+    current: "temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day",
+    hourly:
+      "precipitation_probability,relative_humidity_2m,temperature_2m,weather_code,uv_index,apparent_temperature,is_day,wind_speed_10m,wind_direction_10m",
+    daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset",
     temperature_unit: "fahrenheit",
+    wind_speed_unit: "mph",
     timezone: q.timezone,
     forecast_days: String(FORECAST_DAYS), // today, tomorrow for the evening view, and the 16-day list
   });
@@ -79,6 +82,60 @@ const median = (xs: number[]) => {
 };
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 type OutlookDay = NonNullable<WeatherFacts["outlook"]>[number];
+// The most common code over a day's night (6pm to 6am), ties to the stormier one; null without data
+function nightCode(j: any, date: string): number | null {
+  const times: unknown[] = j?.hourly?.time ?? [];
+  const codes: unknown[] = j?.hourly?.weather_code ?? [];
+  const next = addDaysIso(date, 1);
+  const count = new Map<number, number>();
+  times.forEach((t, i) => {
+    if (typeof t !== "string" || !finite(codes[i])) return;
+    const h = Number(t.slice(11, 13));
+    if ((t.startsWith(date) && h >= 18) || (t.startsWith(next) && h < 6)) count.set(codes[i] as number, (count.get(codes[i] as number) ?? 0) + 1);
+  });
+  let best: number | null = null;
+  for (const [c, n] of count) if (best === null || n > count.get(best)! || (n === count.get(best) && c > best)) best = c;
+  return best;
+}
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const compass = (deg: unknown) => (finite(deg) ? COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8] : null);
+const round = (v: unknown) => (finite(v) ? Math.round(v) : null);
+// The next 48 hours from the forecast's current hour, for the app's hourly strip and "now" figures
+function hoursAhead(j: any): NonNullable<WeatherFacts["hours"]> {
+  const h = j?.hourly ?? {};
+  const times: unknown[] = Array.isArray(h.time) ? h.time : [];
+  const nowHour = typeof j?.current?.time === "string" ? j.current.time.slice(0, 13) : "";
+  const start = nowHour ? times.findIndex((t) => typeof t === "string" && t.slice(0, 13) >= nowHour) : 0;
+  const out: NonNullable<WeatherFacts["hours"]> = [];
+  for (let i = Math.max(0, start); i < times.length && out.length < 48; i++) {
+    const t = times[i];
+    if (typeof t !== "string" || !finite(h.temperature_2m?.[i])) continue;
+    out.push({
+      time: t.slice(0, 16),
+      tempF: Math.round(h.temperature_2m[i]),
+      feelsF: round(h.apparent_temperature?.[i]),
+      chance: round(h.precipitation_probability?.[i]) ?? 0,
+      code: round(h.weather_code?.[i]),
+      isDay: h.is_day?.[i] !== 0,
+      humidityPct: round(h.relative_humidity_2m?.[i]),
+      windMph: round(h.wind_speed_10m?.[i]),
+      windDir: compass(h.wind_direction_10m?.[i]),
+    });
+  }
+  return out;
+}
+// Today's and tomorrow's sunrise and sunset, as local "HH:MM"
+function sunTimes(j: any): NonNullable<WeatherFacts["sun"]> {
+  const d = j?.daily ?? {};
+  const hhmm = (v: unknown) => (typeof v === "string" && /T\d{2}:\d{2}/.test(v) ? v.slice(11, 16) : null);
+  const out: NonNullable<WeatherFacts["sun"]> = [];
+  for (const i of [0, 1]) {
+    const rise = hhmm(d.sunrise?.[i]),
+      set = hhmm(d.sunset?.[i]);
+    if (typeof d.time?.[i] === "string" && rise && set) out.push({ date: d.time[i], rise, set });
+  }
+  return out;
+}
 // The forecast's days (from the main response): conditions and a real chance of rain
 function forecastDays(j: any): OutlookDay[] {
   const d = j?.daily ?? {};
@@ -93,6 +150,8 @@ function forecastDays(j: any): OutlookDay[] {
       lowF: Math.round(lo),
       rainChance: finite(d.precipitation_probability_max?.[i]) ? Math.round(d.precipitation_probability_max[i]) : 0,
       conditions: finite(d.weather_code?.[i]) ? describeWeatherCode(d.weather_code[i]) : null,
+      code: round(d.weather_code?.[i]),
+      nightCode: nightCode(j, date),
       kind: "forecast",
     });
   });
@@ -198,10 +257,12 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
   // The 90 days: the forecast's 16, then the long-range outlook (optional: a failure keeps the 16)
   const forecast = forecastDays(j);
   const lastDay = today ? addDaysIso(today, OUTLOOK_DAYS - 1) : "";
-  const [aqi, later] = await Promise.all([
+  const [aqi, later, alerts] = await Promise.all([
     fetchAqi(q, fetchImpl),
     today ? outlookDays(q, forecast.at(-1)?.date ?? addDaysIso(today, -1), lastDay, fetchImpl) : Promise.resolve([]),
+    fetchAlerts(q.latitude, q.longitude, fetchImpl),
   ]);
+  const c = j?.current ?? {};
   const outlook = [...forecast, ...later].slice(0, OUTLOOK_DAYS);
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
   // Tomorrow's outlook, for the app's evening Tomorrow view (null if the second day is missing)
@@ -225,6 +286,18 @@ export async function fetchWeather(q: WeatherQuery, fetchImpl: typeof fetch = fe
   return WeatherFacts.parse({
     tomorrow,
     outlook: outlook.length ? outlook : null,
+    code: round(j?.daily?.weather_code?.[0]),
+    now: {
+      feelsF: round(c.apparent_temperature),
+      humidityPct: round(c.relative_humidity_2m),
+      windMph: round(c.wind_speed_10m),
+      gustMph: round(c.wind_gusts_10m),
+      windDir: compass(c.wind_direction_10m),
+      isDay: c.is_day !== 0,
+    },
+    hours: hoursAhead(j),
+    sun: sunTimes(j),
+    alerts,
     location: q.name,
     date: today,
     conditions: describeWeatherCode(num(j?.daily?.weather_code?.[0], "daily weather code")),

@@ -38,6 +38,7 @@ import { eventText } from "./text.ts";
 import { CONFIG } from "../config.ts";
 import { CalendarHistoryEvent } from "../schemas/calendar.ts";
 import { Briefing } from "../schemas/briefing.ts";
+import { describeWeatherCode } from "../tools/open-meteo.ts";
 import type { Answer, AskItem, AskSource } from "../schemas/ask.ts";
 
 type Obj = Record<string, any>;
@@ -208,6 +209,10 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
       rainChanceMax: w.rainChanceMax,
       washDayNote: w.washDayNote,
       ...weatherDays(w.outlook ?? [], today),
+      alerts: (w.alerts ?? []).map(({ event, severity, headline, ends }) => ({ event, severity, headline, ends })),
+      sun: w.sun ?? [],
+      // the 48 hours from this morning: "HH:MM tempF° chance% conditions" by date
+      hourly: hourlyLines(w.hours ?? [], today),
     },
     news: n && n.stories.map((s) => ({ topic: s.topic, title: s.title, source: s.source })),
     calendar: cal && { summary: cal.summary, events: cal.events, overlaps: cal.overlaps },
@@ -242,6 +247,16 @@ export function weatherDays(days: OutlookDay[], today: string) {
     days: ds.length,
   }));
   return { forecast, outlookWeeks, outlookThrough: ahead.at(-1)?.date ?? null };
+}
+
+function hourlyLines(hours: { time: string; tempF: number; chance: number; code: number | null }[], today: string) {
+  const out: Record<string, string[]> = {};
+  for (const h of hours) {
+    const date = h.time.slice(0, 10);
+    if (date < today) continue;
+    (out[date] ??= []).push(`${h.time.slice(11)} ${h.tempF}° ${h.chance}%${h.code != null ? " " + describeWeatherCode(h.code) : ""}`);
+  }
+  return out;
 }
 
 function reviewPart(raw: string | null, today: string) {

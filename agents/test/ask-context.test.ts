@@ -159,6 +159,17 @@ describe("Ask context (figures worked out in code)", () => {
     expect(c.briefing!.weather!.forecast).toHaveLength(2);
     expect(c.briefing!.weather!.outlookWeeks).toHaveLength(2);
     expect(weatherDays([], TODAY)).toEqual({ forecast: [], outlookWeeks: [], outlookThrough: null });
+    // alerts, sun and the hourly lines (yesterday's hours dropped)
+    b.cards.weather.data.alerts = [{ event: "Wind Advisory", severity: "Moderate", headline: "h", ends: null }];
+    b.cards.weather.data.sun = [{ date: TODAY, rise: "07:33", set: "18:38" }];
+    b.cards.weather.data.hours = [
+      { time: "2026-10-29T23:00", tempF: 50, feelsF: 48, chance: 0, code: 0, isDay: false, humidityPct: 80, windMph: 3, windDir: "N" },
+      { time: TODAY + "T18:00", tempF: 59, feelsF: 58, chance: 15, code: 3, isDay: false, humidityPct: 70, windMph: 5, windDir: "SW" },
+    ];
+    const w = buildAskContext({ data: ASK_DATA, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null }).briefing!.weather!;
+    expect(w.alerts).toEqual([{ event: "Wind Advisory", severity: "Moderate", headline: "h", ends: null }]);
+    expect(w.sun).toEqual([{ date: TODAY, rise: "07:33", set: "18:38" }]);
+    expect(w.hourly).toEqual({ [TODAY]: ["18:00 59° 15% Overcast"] });
   });
 
   it("carries this morning's Top 3 with whether each is done now", () => {

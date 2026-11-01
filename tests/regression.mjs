@@ -66,11 +66,14 @@ const isoInMonth = (n) => (isoOffset(n).slice(0, 7) === isoOffset(0).slice(0, 7)
 const isoInWeek = (n) => (new Date().getDay() + n <= 6 ? isoOffset(n) : isoOffset(-n));
 
 // A fresh browser profile seeded with localStorage, plus a JS-error collector.
-async function openApp({ seed = {}, phone = true, query = "", route } = {}) {
+async function openApp({ seed = {}, phone = true, query = "", route, setup } = {}) {
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
   if (route) await ctx.route("https://api.github.com/**", route);
+  if (setup) await setup(ctx); // e.g. routes that must be in place before the page loads
+  // NWS alerts (the Weather detail checks them for a saved location): none, unless a test routes its own
+  await ctx.route("https://api.weather.gov/**", (r) => r.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({ features: [] }) }));
   await ctx.addInitScript((s) => {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");
@@ -4701,8 +4704,8 @@ await section("handlers: bill logo falls back to a letter when the icon host fai
         },
       ],
     },
+    setup: (c) => c.route("https://icons.duckduckgo.com/**", (route) => route.abort()),
   });
-  await ctx.route("https://icons.duckduckgo.com/**", (route) => route.abort());
   await page.evaluate(() => {
     activateTab("budget");
     renderBudget();
@@ -7881,9 +7884,8 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
     sources: [...document.querySelectorAll(".jv-summary .jv-src")].map((s) => s.className),
     expanded: document.querySelector('.jv-tile[data-go="weather"]').getAttribute("aria-expanded"),
     wash: document.querySelector("#jarvis-weather .jv-wash")?.textContent || "",
-    hours: [...document.querySelectorAll("#jarvis-weather .jv-hour")].map((h) =>
-      h.textContent.replace(/\s+/g, " ").trim(),
-    ),
+    hero: document.querySelector("#jarvis-weather .wx-hero")?.textContent.replace(/\s+/g, " ").trim() || "",
+    strip: document.querySelectorAll("#jarvis-weather .wx-hr").length,
     meta: document.querySelector("#jarvis-weather .jv-meta").textContent,
     links: [...document.querySelectorAll("#jarvis-news a")].map((a) => a.getAttribute("href")),
     titles: [...document.querySelectorAll("#jarvis-news .jv-story-title")].map((t) => t.textContent),
@@ -7895,10 +7897,11 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
   check("briefing weather line opens the Weather detail", r.expanded === "true", r.expanded);
   check("wash-day note shows", r.wash.includes("frizz"), r.wash);
   check(
-    "hour-by-hour list (every third hour, temp and conditions when present)",
-    r.hours.length === 3 && r.hours[2] === "12p 64° Light rain 60%" && r.hours[0] === "6a 10%",
-    r.hours,
+    "the hero: place, the temperature at the run, conditions, high and low (no 48 hours in an older briefing)",
+    r.hero === "Springfield, IL 51° Light rain ↑69° / ↓49°",
+    r.hero,
   );
+  check("an older briefing with one hour that has a temperature gets no hourly strip", r.strip === 0, r.strip);
   check("card names its agent", r.meta.startsWith("Weather agent ·"), r.meta);
   check("only the http link is a link", JSON.stringify(r.links) === '["https://news.google.com/a1"]', r.links);
   check("unsafe-link story still shows as text", r.titles.includes("Evil link"), r.titles);
@@ -7928,8 +7931,8 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   await page.tap('.jv-tile[data-go="weather"]');
   const read = () =>
     page.evaluate(() => ({
-      head: document.querySelector("#jarvis-weather .jv-days-head")?.textContent,
-      next: [...document.querySelectorAll('#jarvis-weather [aria-label^="Next"] .jv-day')].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+      next: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+      more: document.querySelector("#jarvis-weather .wx-more > summary")?.textContent || "",
       weeks: [...document.querySelectorAll('#jarvis-weather [aria-label="Outlook by week"] .jv-day')].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
       days: document.querySelectorAll('#jarvis-weather [aria-label="Outlook day by day"] .jv-day').length,
       summary: document.querySelector("#jarvis-weather .jv-outlook > summary")?.textContent || "",
@@ -7937,23 +7940,22 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
       pwned: window.__pwned || 0,
       imgs: document.querySelectorAll("#jarvis-weather img").length,
       place: document.querySelector("#jarvis-weather .jv-place")?.textContent.replace(/\s+/g, " ").trim() || "",
-      hours: document.querySelectorAll("#jarvis-weather .jv-hour:not(.jv-day)").length,
+      hours: 0,
       saved: JSON.parse(localStorage.getItem("jarvis-settings") || "{}").location || null,
       shown: document.getElementById("panel-home").innerHTML.includes("39.78"),
       toast: document.getElementById("toast").textContent,
     }));
   const r = await read();
-  check("the next 15 days after today, day by day", r.head === "Next 15 days" && r.next.length === 15, r);
-  check("a forecast day shows high, low, conditions and rain", /^\w{3}, \w{3} \d+ \d+° 40° Clear \d+%$/.test(r.next[1]), r.next);
-  check("weather text from the briefing is escaped", r.pwned === 0 && r.imgs === 0 && r.next[0].includes("<img"), r.next[0]);
+  check("today and the next 15 days, 7 shown and the rest under 16-day forecast", r.next.length === 16 && r.more === "16-day forecast", r);
+  check("a day row: name, rain, high and low", r.next[0].startsWith("Today ") && /^\w{3} \d+% \d+°40°$/.test(r.next[2]), r.next);
+  check("weather text from the briefing is escaped", r.pwned === 0 && r.imgs === 0, r);
   check(
     "the outlook is folded, says it's a trend, and has every day (junk rows dropped)",
-    r.open === false && r.summary.startsWith("Outlook to ") && r.summary.includes("A trend, not a forecast") && r.days === 74,
+    r.open === false && r.summary.startsWith("Outlook to ") && r.days === 74,
     r,
   );
   check("the outlook by week (Monday start)", r.weeks.length >= 11 && r.weeks.length <= 12 && r.weeks.every((w) => /° \d+° (\d of \d days lean wet|Leans dry)$/.test(w)), r.weeks);
-  check("the hour-by-hour list is unchanged", r.hours === 3, r.hours);
-  check("whose forecast, and Use my location", r.place.startsWith("Forecast for Springfield, IL") && r.place.includes("Use my location") && !r.place.includes("Forget"), r.place);
+  check("the Location tile: whose forecast, and Use my location", r.place.startsWith("Location Springfield, IL") && r.place.includes("The default city") && r.place.includes("Use my location") && !r.place.includes("Forget"), r.place);
 
   // Use my location: saved to 3 decimals, synced in jarvis-settings, never shown
   await page.evaluate(() => {
@@ -7968,7 +7970,7 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   const a = await read();
   check("Use my location saves it rounded to about 100 m, with today's date", a.saved && a.saved.lat === 39.781 && a.saved.lon === -89.656 && a.saved.at === isoOffset(0), a.saved);
   check("the coordinates are never shown", !a.shown);
-  check("it says the next briefing uses it, and offers Update and Forget", a.place.includes("Your location is saved: the next briefing uses it") && a.place.includes("Update my location") && a.place.includes("Forget it"), a.place);
+  check("it says the next briefing uses it, and offers Update and Forget", a.place.includes("Your location is saved: the next briefing uses it") && a.place.includes("Update") && a.place.includes("Forget"), a.place);
   check("a toast confirms it", a.toast.startsWith("Location saved"), a.toast);
 
   // Opening the app keeps it current, but only a move of 1 km or more is saved
@@ -7993,7 +7995,7 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   });
   if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
   const m = await read();
-  check("a briefing for your location says so", m.place.startsWith("Forecast for your location") && !m.place.includes("is saved"), m.place);
+  check("a briefing for your location says so", m.place.startsWith("Location Your location") && m.place.includes("From your phone") && !m.place.includes("is saved"), m.place);
 
   // Blocked, then Forget it
   await page.evaluate(() => (window.__geo = null));
@@ -8012,6 +8014,121 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
       normalizeJarvisBrain();
       return a && jarvisSettings.location.lat === 35.2 && jarvisSettings.location.at === "";
     }),
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("weather: the phone-app layout (hero, hourly line, day and night icons, tiles, sun, alerts)", async () => {
+  const b = briefingFixture();
+  const p = (n) => String(n).padStart(2, "0");
+  const start = new Date();
+  start.setMinutes(0, 0, 0);
+  const hours = Array.from({ length: 30 }, (_, i) => {
+    const t = new Date(start.getTime() + (i - 2) * 3600e3); // starts 2 hours ago, like a morning run
+    return {
+      time: `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`,
+      tempF: 50 + i,
+      feelsF: 47 + i,
+      chance: i === 3 ? 70 : 10,
+      code: i === 3 ? 63 : 3,
+      isDay: true,
+      humidityPct: 81,
+      windMph: 9,
+      windDir: "NW",
+    };
+  });
+  const later = new Date(Date.now() + 3 * 3600e3).toISOString();
+  Object.assign(b.cards.weather.data, {
+    code: 3,
+    now: { feelsF: 40, humidityPct: 50, windMph: 4, gustMph: 20, windDir: "S", isDay: true },
+    hours,
+    outlook: [
+      { date: isoOffset(0), highF: 69, lowF: 49, rainChance: 60, conditions: "Light rain", code: 61, nightCode: 0, kind: "forecast" },
+      { date: isoOffset(1), highF: 72, lowF: 52, rainChance: 20, conditions: "Partly cloudy", code: 2, nightCode: 95, kind: "forecast" },
+    ],
+    sun: [{ date: isoOffset(0), rise: "00:01", set: "23:58" }],
+    alerts: [
+      { event: "Wind Advisory", severity: "Moderate", headline: "Wind Advisory until 6PM", ends: later },
+      { event: "<b>Tornado Warning</b>", severity: "Extreme", headline: "<img src=x onerror=window.__pwned=1>", ends: later },
+      { event: "Old Frost Advisory", severity: "Minor", headline: "h", ends: "2020-01-01T00:00:00Z" },
+      { event: "Odd", severity: "Bogus", headline: "h", ends: "nope" },
+    ],
+  });
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+  await page.tap('.jv-tile[data-go="weather"]');
+  const read = () =>
+    page.evaluate(() => ({
+      tileSub: document.querySelector('.jv-tile[data-go="weather"] .jv-tile-sub').textContent,
+      now: document.querySelector("#jarvis-weather .wx-now").textContent,
+      cond: document.querySelector("#jarvis-weather .wx-cond").textContent,
+      feels: document.querySelector("#jarvis-weather .wx-feels")?.textContent || "",
+      sky: document.querySelector("#jarvis-weather .wx-hero").className,
+      hrs: [...document.querySelectorAll("#jarvis-weather .wx-hr")].map((h) => h.getAttribute("aria-label")),
+      dots: document.querySelectorAll("#jarvis-weather .wx-hr-line circle").length,
+      line: document.querySelector("#jarvis-weather .wx-hr-line polyline")?.getAttribute("points") || "",
+      days: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((d) => d.getAttribute("aria-label")),
+      dayIcons: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((d) => d.querySelectorAll("svg.wx-i").length),
+      tiles: [...document.querySelectorAll("#jarvis-weather .wx-tile")].map((e) => [...e.children].map((c) => c.textContent).join(" ")),
+      sun: document.querySelector("#jarvis-weather .wx-sun-text b")?.textContent || "",
+      alerts: [...document.querySelectorAll("#jarvis-weather .wx-alert")].map((a) => ({ cls: a.className, text: a.textContent.replace(/\s+/g, " ").trim() })),
+      pwned: window.__pwned || 0,
+      bold: document.querySelectorAll("#jarvis-weather .wx-alert b b").length,
+    }));
+  const r = await read();
+  check("the hero and the tile show this hour's temperature from the 48 hours", r.now === "52°" && r.tileSub.startsWith("Now 52°"), r);
+  check("the hero names this hour's conditions, with feels like, over a cloudy glow", r.cond === "Overcast" && r.feels === "Feels like 49°" && r.sky.includes("wx-sky-cloudy"), r);
+  check("the hourly strip starts at Now and runs 25 hours", r.hrs.length === 25 && r.hrs[0] === "Now: 52°, 10% rain, Overcast", r.hrs.slice(0, 2));
+  check("a rainy hour says so", r.hrs[1].endsWith("70% rain, Rain"), r.hrs[1]);
+  check("the temperature line has a point per hour, warmest highest", r.dots === 25 && Number(r.line.split(" ")[0].split(",")[1]) > Number(r.line.split(" ")[24].split(",")[1]), r.line);
+  check(
+    "day rows have a day and a night icon and say both",
+    r.days[0] === "Today: Light rain, then clear overnight, high 69°, low 49°, 60% rain" &&
+      r.days[1].includes("then thunderstorms overnight") &&
+      r.dayIcons.every((n) => n === 2),
+    r,
+  );
+  check(
+    "tiles: feels like, wind and humidity from this hour, then UV and air quality",
+    r.tiles[0] === "Feels like 49° Colder than the actual temperature" && r.tiles[1] === "Wind 9 mph From the NW" && r.tiles[2] === "Humidity 81% Humid",
+    r.tiles,
+  );
+  check("the sun card says when the sun sets", r.sun === "Sunset will be at 11:58 PM", r.sun);
+  check(
+    "alerts: most severe first, escaped, ended ones dropped, odd severity kept as Unknown",
+    r.alerts.length === 3 &&
+      r.alerts[0].cls.includes("wx-alert-extreme") &&
+      r.alerts[0].text.startsWith("<b>Tornado Warning</b> until ") &&
+      r.alerts[0].text.endsWith("National Weather Service · as of this morning") &&
+      r.alerts[2].cls.includes("wx-alert-unknown") &&
+      r.pwned === 0 &&
+      r.bold === 0,
+    r.alerts,
+  );
+
+  // With a saved location, the app checks NWS itself; those replace this morning's
+  await page.route("https://api.weather.gov/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/geo+json",
+      body: JSON.stringify({
+        features: [
+          { properties: { event: "Severe Thunderstorm Warning", severity: "Severe", headline: "Storms now", ends: later, status: "Actual", messageType: "Alert" } },
+          { properties: { event: "Test", severity: "Minor", status: "Test" } },
+        ],
+      }),
+    }),
+  );
+  await page.evaluate(() => {
+    jarvisSettings.location = { lat: 39.781, lon: -89.656, at: addDaysIso(0) };
+    renderHome();
+  });
+  await page.waitForFunction(() => document.querySelectorAll("#jarvis-weather .wx-alert").length === 1);
+  const live = await read();
+  check(
+    "live NWS alerts replace the morning's, without 'as of this morning'",
+    live.alerts.length === 1 && live.alerts[0].text.startsWith("Severe Thunderstorm Warning") && live.alerts[0].text.endsWith("National Weather Service"),
+    live.alerts,
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
@@ -8673,26 +8790,27 @@ await section("skin weather: UV with SPF advice and air quality, on Weather and 
   const skinSub = await page.$eval('.jv-tile[data-go="skin"] .jv-tile-sub', (e) => e.textContent);
   check("Beauty tile flags a high-UV day", skinSub.includes("UV 7 · SPF"), skinSub);
   await page.tap('.jv-tile[data-go="weather"]');
-  const rows = await page.$$eval("#jarvis-weather .jv-skinwx-row", (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, " ").trim()),
+  const rows = await page.$$eval("#jarvis-weather .wx-tile", (els) =>
+    els.map((e) => [...e.children].map((c) => c.textContent).join(" ")).filter((t) => /^(UV index|Air quality)/.test(t)),
   );
   check(
-    "Weather detail shows UV with SPF advice and the hours, and air quality",
-    rows.length === 2 &&
-      rows[0].endsWith("High (7) 11a–3p: SPF 50, reapply every 2 h") &&
-      rows[1].endsWith("Good (AQI 42)"),
+    "Weather detail shows UV with SPF advice and the hours, and air quality, as tiles",
+    rows.length === 2 && rows[0] === "UV index 7 High, 11a–3p: SPF 50, reapply every 2 h" && rows[1] === "Air quality 42 Good",
     rows,
   );
+  check("a high UV tile is flagged", (await page.$$eval("#jarvis-weather .wx-tile.warn", (els) => els.length)) === 1);
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem("jarvis-briefing"));
     Object.assign(raw.cards.weather.data, { uvMax: "lots", uvHigh: { from: "x" }, aqi: -5 });
     localStorage.setItem("jarvis-briefing", JSON.stringify(raw));
     renderHome();
   });
-  const junk = await page.$$eval("#jarvis-weather .jv-skinwx-row", (els) => els.map((e) => e.textContent.trim()));
+  const junk = await page.$$eval("#jarvis-weather .wx-tile", (els) =>
+    els.map((e) => [...e.children].map((c) => c.textContent).join(" ")).filter((t) => /^(UV index|Air quality)/.test(t)),
+  );
   check(
     "bad UV / AQI values are dropped or clamped, never shown raw",
-    junk.length === 1 && junk[0].includes("AQI 0"),
+    junk.length === 1 && junk[0] === "Air quality 0 Good",
     junk,
   );
   check("no JS errors", errors.length === 0, errors);

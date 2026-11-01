@@ -4646,27 +4646,10 @@ body.todo-dragging {
   cursor: pointer;
   font-weight: 600;
 }
-.jv-outlook > summary span {
-  font-weight: 400;
-  font-size: 13px;
-  color: var(--text-dim);
-}
 .jv-outlook-days > summary {
   font-weight: 500;
   font-size: 14px;
   color: var(--text-dim);
-}
-.jv-place {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 12px;
-  font-size: 13.5px;
-  color: var(--text-dim);
-}
-.jv-place > span {
-  flex: 1 1 100%;
 }
 .jv-place-btn {
   min-height: 40px;
@@ -8343,4 +8326,450 @@ details[open] > .wb-fold {
   .cn-hist {
     display: none;
   }
+}
+/* ---- Weather detail: laid out like a phone weather app (js/weather.js) ---- */
+.wx-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 14px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+/* the glow follows the sky; colors come from the theme */
+.wx-hero::before {
+  content: "";
+  position: absolute;
+  inset: -30% -20% auto auto;
+  width: 85%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--wx-glow, var(--glow)), transparent);
+  pointer-events: none;
+}
+.wx-hero > * {
+  position: relative;
+}
+.wx-sky-clear {
+  --wx-glow: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+.wx-sky-partly {
+  --wx-glow: color-mix(in srgb, var(--gold) 28%, transparent);
+}
+.wx-sky-cloudy,
+.wx-sky-fog {
+  --wx-glow: color-mix(in srgb, var(--text-dim) 22%, transparent);
+}
+.wx-sky-drizzle,
+.wx-sky-rain {
+  --wx-glow: color-mix(in srgb, var(--olive) 30%, transparent);
+}
+.wx-sky-storm {
+  --wx-glow: color-mix(in srgb, var(--navy) 30%, transparent);
+}
+.wx-sky-snow {
+  --wx-glow: color-mix(in srgb, var(--text) 24%, transparent);
+}
+.wx-hero.wx-night {
+  --wx-glow: color-mix(in srgb, var(--olive-dim) 45%, transparent);
+}
+.wx-place-pill {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 12px 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wx-pin {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--olive);
+  stroke-width: 2;
+}
+.wx-hero-main {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.wx-now {
+  font-family: var(--font-display);
+  font-size: 76px;
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 24px var(--glow);
+}
+.wx-cond {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+.wx-hilo,
+.wx-feels {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+.wx-hilo {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.wx-i {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wx-i .sun,
+.wx-i .bolt {
+  stroke: var(--warn);
+}
+.wx-i .moon {
+  stroke: var(--gold);
+}
+.wx-i .cloud,
+.wx-i .flake {
+  stroke: var(--text);
+}
+.wx-i .drop {
+  stroke: var(--olive);
+}
+.wx-i .fog {
+  stroke: var(--text-dim);
+}
+.wx-hero-i {
+  width: 96px;
+  height: 96px;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 10px var(--glow));
+}
+.wx-summary {
+  margin-top: 4px;
+}
+.wx-head {
+  margin: 18px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+/* hourly: scrolls sideways; the line sits under the columns */
+.wx-hourly {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: 4px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.wx-hourly::-webkit-scrollbar {
+  display: none;
+}
+.wx-hourly:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 2px;
+}
+.wx-hourly-track {
+  width: max-content;
+}
+.wx-hrs {
+  display: flex;
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+}
+.wx-hr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  width: 60px;
+  font-size: 13px;
+}
+.wx-hr-t {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.wx-hr-r,
+.wx-day-r {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.wx-hr-r.wet,
+.wx-day-r.wet {
+  color: var(--olive);
+}
+.wx-umb {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.wx-hr-line {
+  display: block;
+}
+.wx-hr-line polyline {
+  fill: none;
+  stroke: var(--olive);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px var(--glow));
+}
+.wx-hr-line circle {
+  fill: var(--surface-2);
+  stroke: var(--olive);
+  stroke-width: 2;
+}
+.wx-hr-line text {
+  fill: var(--text);
+  font: 600 14px var(--font-body);
+  text-anchor: middle;
+}
+/* daily rows: day, rain, day icon, night icon, high, low */
+.wx-days {
+  margin: 0;
+  padding: 2px 14px;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.wx-day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px 30px 30px 40px 36px;
+  gap: 6px;
+  align-items: center;
+  min-height: 52px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  font-size: 15px;
+}
+.wx-day:last-child {
+  border-bottom: 0;
+}
+.wx-day-n {
+  font-weight: 600;
+}
+.wx-day-r {
+  justify-content: flex-end;
+  font-size: 13px;
+}
+.wx-day-hi,
+.wx-day-lo {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.wx-day-hi {
+  font-weight: 600;
+}
+.wx-day-lo {
+  color: var(--text-dim);
+}
+.wx-more {
+  margin-top: 4px;
+}
+.wx-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--link);
+  font-size: 14.5px;
+  list-style: none;
+}
+.wx-more > summary::-webkit-details-marker {
+  display: none;
+}
+.wx-more > summary::after {
+  content: "\203A";
+  font-size: 20px;
+  transition: transform 0.15s;
+}
+.wx-more[open] > summary::after {
+  transform: rotate(90deg);
+}
+/* tiles */
+.wx-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.wx-tile,
+.wx-sun {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.wx-tile-l {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.wx-tile-v {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.wx-tile-s {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+.wx-tile.warn {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+}
+.wx-tile.warn .wx-tile-v {
+  color: var(--warn);
+}
+/* sunrise / sunset */
+.wx-sun {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+.wx-sun-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wx-sun-text b {
+  font-size: 16px;
+}
+.wx-sun-arc {
+  width: 132px;
+  flex: none;
+  fill: none;
+}
+.wx-sun-arc .arc {
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+.wx-sun-arc .arc-done {
+  stroke: var(--warn);
+  stroke-width: 2;
+}
+.wx-sun-arc .horizon {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+}
+.wx-sun-arc .sun-dot {
+  fill: var(--warn);
+  filter: drop-shadow(0 0 5px var(--warn));
+}
+.wx-sun-arc .sun-dot.down {
+  fill: var(--text-dim);
+  filter: none;
+}
+.wx-sun-arc text {
+  fill: var(--text-dim);
+  stroke: none;
+  font: 9.5px var(--font-mono);
+  text-anchor: middle;
+}
+/* NWS alerts */
+.wx-alert {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--warn) 60%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface));
+}
+.wx-alert-extreme,
+.wx-alert-severe {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+}
+.wx-alert-ic svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wx-alert-extreme .wx-alert-ic svg,
+.wx-alert-severe .wx-alert-ic svg {
+  stroke: var(--danger);
+}
+.wx-alert b {
+  font-size: 15.5px;
+}
+.wx-alert-until {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.wx-alert p {
+  margin: 4px 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.wx-alert-src {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.wx-sun-arc text.l {
+  text-anchor: start;
+}
+.wx-sun-arc text.r {
+  text-anchor: end;
+}
+.wx-deg {
+  margin-left: -0.08em;
+  font-size: 0.6em;
+  vertical-align: 0.55em;
+}
+.wx-loc-v {
+  font-size: 17px;
+  line-height: 1.25;
+}
+.wx-loc-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+.wx-loc .jv-place-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13.5px;
 }
