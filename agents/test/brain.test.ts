@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readBrain, brainForPrompt, dueCheckins, checkinAnswerId, emptyBrain } from "../lib/brain.ts";
+import { readBrain, brainForPrompt, notesForPrompt, dueCheckins, checkinAnswerId, emptyBrain } from "../lib/brain.ts";
 import { runAsk, askLimits, cleanActions } from "../ask.ts";
 import { jarvisSpec } from "../jarvis.ts";
 import { topicFeeds } from "../subagents/news.ts";
@@ -51,6 +51,25 @@ describe("Jarvis's brain", () => {
     expect(brainForPrompt(b).recentRatings[0]).toEqual({ on: "answer", item: "Newest", rating: "not useful" });
   });
 
+  it("reads the Notebook (checked and capped) and gives Ask whole notes until 12k characters, then titles", () => {
+    const b = readBrain({
+      "jarvis-notes": [
+        { id: "n1", title: "Car", text: "Oil every 5k.\r\nTires Nov 2025.", at: "2026-10-30" },
+        { id: "n2", title: "Lease", text: "x".repeat(5000), at: "2026-10-01" }, // capped at 2,000
+        { id: "bad id", title: "Dropped", text: "y" },
+        { id: "n3", title: "", text: "no title" },
+        ...Array.from({ length: 7 }, (_, i) => ({ id: `f${i}`, title: `Filler ${i}`, text: "z".repeat(2000) })),
+      ],
+    });
+    expect(b.notes[0]).toEqual({ id: "n1", title: "Car", text: "Oil every 5k.\nTires Nov 2025.", at: "2026-10-30" });
+    expect(b.notes[1].text).toHaveLength(2000);
+    expect(b.notes.map((n) => n.id)).not.toContain("bad id");
+    const p = notesForPrompt(b);
+    expect(p.length).toBe(9);
+    expect(p.filter((n) => n.text !== null).length).toBe(6); // 29 + 2000 + 4 × 2000 fit under 12k; the rest are titles only
+    expect(p[8]).toEqual({ id: "f6", title: "Filler 6", updated: null, text: null });
+  });
+
   it("a check-in is due once its time has passed today (New York), within 6 hours, once a day", () => {
     const b = readBrain(DATA);
     const fri = (hhmm: string) => new Date(`2026-10-30T${hhmm}:00-04:00`); // a Friday, EDT
@@ -75,7 +94,7 @@ describe("Jarvis's brain", () => {
   });
 
   it("remember and forget are actions like the others", () => {
-    const t = { memory: new Map([["m1", "I don't eat pork"]]), todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map(), packages: new Map(), lines: new Map() };
+    const t = { memory: new Map([["m1", "I don't eat pork"]]), todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map(), packages: new Map(), lines: new Map(), notes: new Map() };
     const A = (type: string, over: object) => ({ type, id: null, text: null, date: null, lbs: null, ...over }) as any;
     expect(cleanActions([A("remember", { text: "Paid early in December" }), A("forget", { id: "m1" }), A("forget", { id: "nope" })], TODAY, t).map((a) => a.label)).toEqual([
       'Remembered "Paid early in December"',

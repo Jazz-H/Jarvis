@@ -12,6 +12,7 @@ beforeEach(() => {
 
 const T: ActionTargets = {
   memory: new Map([["m1", "No pork"]]),
+  notes: new Map([["note-car", "Car"]]),
   todos: new Map([["t1", "Call mom"]]),
   goals: new Map([["p3-2", "Daily floss"]]),
   shopping: new Map([["w1", "Rain jacket"]]),
@@ -64,6 +65,25 @@ describe("Ask actions", () => {
     expect(out).toEqual([
       { type: "package_hide", text: "Acme Glow serum", label: 'Dismissed "Acme Glow serum" from Deliveries' },
       { type: "notice_dismiss", text: "Your Acme Glow serum arrives today.", label: 'Dismissed "Your Acme Glow serum arrives today."' },
+    ]);
+  });
+
+  it("saves a note or adds to one the owner has; plain text, capped, labels from the data", () => {
+    const out = cleanActions(
+      [
+        A("note_add", { text: "Car <b>maintenance</b>", note: "Oil changed at 52k miles on Oct 30." }),
+        A("note_add", { text: "No body", note: null }),
+        A("note_append", { id: "note-car", note: "Tires rotated." }),
+        A("note_append", { id: "nope", note: "Lost" }),
+        A("note_add", { text: "Long", note: "n".repeat(3000) }),
+      ],
+      TODAY,
+      T,
+    );
+    expect(out.map((a) => [a.type, a.text ?? a.id, a.note?.length, a.label])).toEqual([
+      ["note_add", "Car maintenance", 35, 'Saved a note: "Car maintenance"'],
+      ["note_append", "note-car", 14, 'Added to your note "Car"'],
+      ["note_add", "Long", 1500, 'Saved a note: "Long"'],
     ]);
   });
 

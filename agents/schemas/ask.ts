@@ -77,6 +77,8 @@ export const ACTION_TYPES = [
   "forget", // drop one (id)
   "package_hide", // dismiss one of this morning's packages on Home (text: its name); hidden, not deleted
   "notice_dismiss", // dismiss one line of this morning's briefing on Home (text: the line)
+  "note_add", // a new note in the Notebook (text: the title, note: the body); the app adds to one with that title
+  "note_append", // add to a note (id, note: what to add)
 ] as const;
 export const AskAction = z.object({
   type: z.enum(ACTION_TYPES),
@@ -87,6 +89,7 @@ export const AskAction = z.object({
   text: z.string().min(1).max(200).optional(), // todo_add, shopping_add, remember, package_hide, notice_dismiss
   date: IsoDate.optional(), // todo_add / todo_move: the due date; weight_log / workout_done: the day
   lbs: z.number().min(40).max(800).optional(), // weight_log
+  note: z.string().min(1).max(1500).optional(), // note_add, note_append
   label: z.string().min(1).max(160), // what was done, in plain words (written by code)
 });
 export type AskAction = z.infer<typeof AskAction>;
@@ -163,6 +166,7 @@ export const AskOutput = z.object({
         text: z.string().max(300).nullable(),
         date: z.string().max(40).nullable(),
         lbs: z.number().nullable(),
+        note: z.string().max(3000).nullable().optional(),
       }),
     )
     .max(8)

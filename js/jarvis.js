@@ -292,6 +292,11 @@ function normalizeBriefing(b) {
       .map((s) => ({ kind: "todo", text: str(s.text, 80).trim(), due: isoDay(s.due) ? s.due : null }))
       .filter((s) => s.text)
       .slice(0, 3),
+    // Top 3 for today: to-do ids picked by Jarvis (or code), with why; drawn from the live to-dos
+    top3: arr(b.top3)
+      .filter((t) => isObj(t) && SAFE_ID.test(String(t.id)) && str(t.text, 120))
+      .slice(0, 3)
+      .map((t) => ({ id: String(t.id), text: str(t.text, 120), why: str(t.why, 100) })),
     weather: card(cards.weather, weather),
     news: card(cards.news, news),
     calendar: cards.calendar ? card(cards.calendar, calendar) : null,
@@ -499,6 +504,7 @@ function jarvisHeroHtml(b) {
       ${((p) => (b.headline ? `<h2 class="jv-headline">${escapeHtml(p.title)}</h2>${p.sub ? `<p class="jv-headsub">${escapeHtml(p.sub)}</p>` : ""}` : ""))(briefingHeadParts(b.headline || ""))}
       ${b.date === today ? "" : briefingLateHtml(b)}
       <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
+      ${briefingTop3Html(b)}
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       <div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}<span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
@@ -516,6 +522,20 @@ function briefingSpokenText(b) {
 function briefingSpeak() {
   const b = loadBriefing();
   if (b) speakText(briefingSpokenText(b), "briefing:" + b.id);
+}
+// Today's Top 3 as Home's own to-do rows (tick, tap to edit), with Jarvis's reason underneath.
+// A to-do that's since been deleted drops out; a done one stays, ticked, so the three read as a score.
+function briefingTop3Html(b) {
+  if (b.date !== addDaysIso(0) || !b.top3.length) return "";
+  const rows = b.top3
+    .map((x) => {
+      const t = todoList.find((y) => y.id === x.id);
+      return t ? homeRowHtml(t, x.why ? [escapeHtml(x.why)] : []) : "";
+    })
+    .filter(Boolean);
+  if (!rows.length) return "";
+  const done = b.top3.filter((x) => todoList.some((y) => y.id === x.id && y.done)).length;
+  return `<div class="jv-top3"><div class="jv-mini jv-top3-head"><span>Top 3 today</span><span>${done} of ${rows.length} done</span></div>${rows.join("")}</div>`;
 }
 function briefingSuggestHtml(b) {
   if (!b.suggestions.length) return "";

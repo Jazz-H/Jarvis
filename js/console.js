@@ -47,7 +47,10 @@ let consolePreview = null; // {src, rows: [{src, orig, type, note?}]} while a ca
 // ---- reading what was typed ----
 // Questions: a leading/trailing "?" or a question word first. "do" only counts as "do I/we/you…",
 // so "do laundry sat" stays a to-do.
-// "the Acme order came, remove that notification": asks Jarvis to dismiss something, not a to-do
+// Asks Jarvis to do something, not a to-do: dismiss a notification ("the Acme order came, remove
+// that notification") or keep a note ("save that as a note", "add this to my car note")
+const CONSOLE_NOTEBOOK =
+  /\b(?:save|keep|put|add|write)\b.*\b(?:as an? note|in(?:to)? (?:a|my|the) .{0,30}notes?|to (?:a|my|the) .{0,30}notes?|a note)\b|^make a note\b/i;
 const CONSOLE_DISMISS =
   /\b(?:remove|dismiss|hide|clear|delete|get rid of|take off)\b.*\b(?:notifications?|alerts?|notices?|packages?|deliver(?:y|ies)|orders?|briefing)\b|\b(?:was|got|been|it's|is) delivered\b/i;
 const CONSOLE_QUESTION =
@@ -79,7 +82,7 @@ function consoleLooksLikeQuestion(s) {
   const t = String(s || "")
     .trim()
     .replace(CONSOLE_GREETING, "");
-  return /^\?|\?$/.test(t) || CONSOLE_QUESTION.test(t) || CONSOLE_DISMISS.test(t);
+  return /^\?|\?$/.test(t) || CONSOLE_QUESTION.test(t) || CONSOLE_DISMISS.test(t) || CONSOLE_NOTEBOOK.test(t);
 }
 function consoleCleanPiece(s) {
   return String(s || "")

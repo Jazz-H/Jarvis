@@ -21,8 +21,24 @@ export const JarvisOutput = z.object({
     .array(z.object({ text: z.string().min(1).max(120), due: z.string().max(40).nullable() }))
     .max(6) // loose on purpose: code keeps the first 3 good ones (cleanSuggestions)
     .optional(),
+  // the day's three most important open to-dos, by id; code checks each and takes the text from the app
+  top3: z
+    .array(z.object({ id: z.string().max(80), why: z.string().max(200) }))
+    .max(6)
+    .optional(),
 });
 export type JarvisOutput = z.infer<typeof JarvisOutput>;
+
+export const Top3 = z
+  .array(
+    z.object({
+      id: z.string().regex(/^[A-Za-z0-9_-]{1,80}$/),
+      text: z.string().min(1).max(120), // from the app's data, as of the briefing
+      why: z.string().max(100),
+    }),
+  )
+  .max(3);
+export type Top3 = z.infer<typeof Top3>;
 
 const cardMeta = { agent: z.string(), model: z.string(), updatedAt: z.string() };
 const errorCard = z.object({ status: z.literal("error"), error: z.string().max(200), ...cardMeta });
@@ -51,6 +67,7 @@ export const Briefing = z.object({
     )
     .max(3)
     .optional(),
+  top3: Top3.optional(), // Top 3 for today (Home pins them; Ask sees them)
   // calendar, inbox and deliveries are left out until their source is connected (SETUP.md)
   cards: z.object({
     weather: BriefingCard(WeatherCard),

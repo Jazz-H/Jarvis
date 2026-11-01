@@ -1,6 +1,6 @@
 // Jarvis's brain: what the owner has told Jarvis to remember, how they've rated its answers and
-// briefings, its settings (tone, news topics, a note about the owner) and their own check-ins.
-// The app writes all of it (synced keys jarvis-memory, jarvis-feedback, jarvis-settings in
+// briefings, its settings (tone, news topics, a note about the owner), their own check-ins and the
+// Notebook. The app writes all of it (synced keys jarvis-memory, jarvis-notes, jarvis-feedback, jarvis-settings in
 // jazz2-data.json); this only reads it. Synced text is untrusted: trimmed, capped, and only ever
 // shown to a model as data.
 import { localTime } from "./schedule.ts";
@@ -15,6 +15,7 @@ export interface Checkin {
 }
 export interface Brain {
   memory: { id: string; text: string; by: "you" | "jarvis" }[];
+  notes: { id: string; title: string; text: string; at: string }[]; // the Notebook, newest first
   about: string;
   tone: Tone;
   newsTopics: string[];
@@ -33,10 +34,10 @@ const clip = (s: unknown, n: number) =>
     .trim()
     .slice(0, n);
 
-export const BRAIN_LIMITS = { memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10 };
+export const BRAIN_LIMITS = { notes: 30, notesPromptChars: 12_000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10 };
 
 export function emptyBrain(): Brain {
-  return { memory: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [] };
+  return { memory: [], notes: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [] };
 }
 
 export function readBrain(data: unknown): Brain {
@@ -62,8 +63,18 @@ export function readBrain(data: unknown): Brain {
       time: typeof c.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(c.time) ? c.time : "",
     }))
     .filter((c) => c.days.length && c.time);
+  const notes = arr(data["jarvis-notes"])
+    .filter((n) => isObj(n) && SAFE_ID.test(String(n.id)) && clip(n.title, 60))
+    .slice(0, BRAIN_LIMITS.notes)
+    .map((n) => ({
+      id: String(n.id),
+      title: clip(n.title, 60),
+      text: String(n.text ?? "").replace(/\r\n?/g, "\n").trim().slice(0, 2000),
+      at: typeof n.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n.at) ? n.at : "",
+    }));
   return {
     memory,
+    notes,
     about: clip(s.about, 600),
     tone: s.tone === "brief" || s.tone === "detailed" ? s.tone : "normal",
     newsTopics: arr(s.newsTopics)
@@ -86,6 +97,16 @@ export function readBrain(data: unknown): Brain {
 // Packages the owner hid stay out of the briefing, its alerts and Ask (exact name, any case)
 export function withoutHidden<T extends { item: string }>(packages: T[], hidden: string[]): T[] {
   return hidden.length ? packages.filter((p) => !hidden.includes(p.item.toLowerCase())) : packages;
+}
+
+// The Notebook for Ask: newest first, whole notes until about 12k characters, then titles only
+export function notesForPrompt(b: Brain) {
+  let left = BRAIN_LIMITS.notesPromptChars;
+  return b.notes.map((n) => {
+    const fits = n.text.length <= left;
+    if (fits) left -= n.text.length;
+    return { id: n.id, title: n.title, updated: n.at || null, text: fits ? n.text : null };
+  });
 }
 
 // What a model sees: the facts, the note, the tone and the latest ratings (newest first)

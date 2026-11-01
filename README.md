@@ -35,6 +35,14 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   older day's briefing is dimmed and labeled "From <date>"; from 8 AM on, it says in amber
   "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed
   under "notes".
+- **Top 3 today:** under the summary, the three open to-dos that matter most today, picked by
+  Jarvis from today's, overdue and undated ones (deadlines, money, how long it's been overdue,
+  stars, today's plans), each with its reason ("Before payday"). They're your own to-do rows:
+  tick one (Undo) or tap it to edit; "1 of 3 done" keeps score, a deleted one drops out and an
+  old briefing's aren't shown. Code checks every pick against your to-dos (the text is always
+  yours) and picks them itself when the model doesn't (overdue oldest first, then today's
+  starred, today's, starred undated ones). Ask sees them with whether each is done, so the
+  **Evening Top 3 recap** check-in (one tap in Jarvis's brain) can tell you how the day went.
 - **Suggested to-dos:** up to 3 chips under the summary ("+ Pay Rent · Monday"), picked by
   Jarvis from the morning's data. Tap one to add it with its due date (Undo in the toast); it
   then reads Added. Nothing is added by itself.
@@ -229,6 +237,12 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     minutes (not while the app or another tab is in front). After that: "Still working — you'll
     get a notification". The answer also arrives with the next sync, and the "ask" notification
     opens `?tab=console&ask=<id>`, which scrolls to that answer (showing Earlier if it's older).
+  - **Which model answers** (code rules in `askTier`, no extra call): a short lookup in your own
+    data ("when is rent due?", "how much did I spend on dining out?") goes to **Haiku**; a photo
+    or PDF, a check-in, the week or the review, planning or a judgement call ("should I…", "plan
+    my week", "can I afford…") or a long question goes to **Opus** (more thinking); everything
+    else, including web searches and follow-ups, to **Sonnet**. Every answer is checked the same
+    way whichever model wrote it.
   - **What Jarvis sees:** everything in the app, worked out by code: to-dos (with ids), bills,
     the pay period and safe to spend, spending against limits, savings goals, debts in your
     payoff order (paid-off month, which is next), credit cards (next due date and statement), today's Beauty
@@ -277,6 +291,13 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   - **Remembers:** up to 60 facts ("I don't eat pork", "Payday moves early in December"). Add one
     here, or say "remember …" in a chat (Jarvis saves it, marked "from a chat"); × forgets it, or
     say "forget …".
+  - **Notebook:** up to 30 longer notes by topic (your car, the lease, health; title 60 and text
+    2,000 characters), newest first. **+ New note**, or tap one to edit or delete it. Ask reads
+    them (whole notes, newest first, until about 12,000 characters; after that just the titles),
+    and Jarvis can save one or add to one when you ask ("save that as a note", "add this to my car
+    note"; Console sends phrases like these to Jarvis, while "note: …" is still a quick to-do).
+    Saving to a title you already have adds to that note. Finishing a to-do with 2 or more steps
+    offers **Note it** beside Undo, which asks Jarvis for a short note about it.
   - **Settings:** how Jarvis writes (Brief, Normal or Detailed), news topics (up to 6; each is a
     Google News search, replacing the usual AI / tech / cars / trending mix from the next
     briefing) and **About you**, a note Jarvis reads every time.
@@ -701,8 +722,9 @@ Setup: `docs/jarvis/SETUP.md`.
   Code does all fetching, parsing and math, and each model only judges, ranks and summarizes.
   Every sub-agent's output is checked with zod and retried once if invalid. **Jarvis**
   (`claude-opus-5-5`) gets only that checked output plus the app data and Bill Guard, and writes
-  the summary and up to 3 suggested to-dos (code drops duplicates of today's or overdue to-dos
-  and keeps a due date only when it's a real date within 60 days).
+  the summary, up to 3 suggested to-dos (code drops duplicates of today's or overdue to-dos
+  and keeps a due date only when it's a real date within 60 days) and the **Top 3** (to-do ids,
+  checked by code, which fills any gap; `cleanTop3` / `codeTop3`).
   The orchestrator then writes `jazz2-briefing.json` to the gist.
 - **Phone notifications:** after the briefing is written, the orchestrator sends Web Push
   (`agents/tools/push.ts`, `web-push`) to every phone that turned them on (addresses in

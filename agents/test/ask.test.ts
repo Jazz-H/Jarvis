@@ -11,6 +11,7 @@ import {
   usagePeriods,
   rollUsage,
   WEEK_QUESTION,
+  askTier,
   type AskDeps,
 } from "../ask.ts";
 import { ASK_ID, AnswersFile, AskItem, type Answer, type AskOutput, type AskUsage } from "../schemas/ask.ts";
@@ -139,13 +140,37 @@ describe("Ask orchestrator", () => {
     expect(fq.seen).toHaveLength(1);
   });
 
-  it("gives Opus the question and context as untrusted data, effort low, web search the only tool", async () => {
+  it("picks the model per question: quick lookups Haiku, most Sonnet, hard ones Opus", () => {
+    const at = "2026-10-30T14:00:00Z";
+    const tier = (text: string, extra: Record<string, unknown> = {}, thread: any[] = []) =>
+      askTier({ id: "ask-00000001", kind: "ask", text, at, ...extra } as any, thread);
+    const cases: [string, string][] = [
+      ["What's due before payday?", "quick"],
+      ["When is rent due", "quick"],
+      ["How much did I spend on dining out?", "quick"],
+      ["Is it a wash day?", "quick"],
+      ["What's the latest news on the Panthers?", "normal"], // the web: Sonnet
+      ["Mark call mom done", "normal"],
+      ["Find me a good gift for my mom under $50", "normal"],
+      ["Should I pay the car loan off early?", "hard"],
+      ["Plan my week around the dentist", "hard"],
+      ["Can I afford a $300 jacket this month?", "hard"],
+      ["How did my week go?", "hard"],
+      ["word ".repeat(31).trim(), "hard"],
+    ];
+    expect(cases.map(([t]) => [t, tier(t)])).toEqual(cases);
+    expect(tier("What's on today?", { file: "jazz2-file-abcdefgh.json" })).toBe("hard"); // a photo or PDF
+    expect(tier("Remind me", { checkin: "Top 3 recap" })).toBe("hard");
+    expect(tier("When is it?", {}, [{ q: "x", a: "y" }])).toBe("normal"); // a follow-up needs the thread
+  });
+
+  it("gives the model the question and context as untrusted data, effort low, web search the only tool", async () => {
     const fq = fakeQuery([{ structured_output: ASK_OUT }]);
     await runAsk(deps({ queryFn: fq.fn }));
     const { options } = fq.seen[0];
     const prompt = String(fq.seen[0].prompt);
     expect(options).toMatchObject({
-      model: "claude-opus-5-5",
+      model: "claude-haiku-5-5", // a quick lookup (askTier)
       effort: "low",
       tools: ["WebSearch"],
       allowedTools: ["WebSearch"],

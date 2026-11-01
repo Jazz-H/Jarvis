@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runBriefing, fallbackSummary, type JarvisDeps, type Subagents } from "../jarvis.ts";
+import { runBriefing, fallbackSummary, cleanTop3, codeTop3, type JarvisDeps, type Subagents } from "../jarvis.ts";
 import { Trace } from "../lib/trace.ts";
 import { emptyContext } from "../lib/jazz-context.ts";
 import type { GistClient } from "../tools/gist.ts";
@@ -20,7 +20,11 @@ const JARVIS_OUT = {
 const JAZZ = JSON.stringify({
   updatedAt: 1,
   data: {
-    "todo-content": [{ text: "Call the bank", due: "2026-10-29" }],
+    "todo-content": [
+      { id: "t-bank", text: "Call the bank", due: "2026-10-29" },
+      { id: "t-old", text: "Renew passport", due: "2026-10-20" },
+      { id: "t-any", text: "Book a haircut", starred: true },
+    ],
     "bills-content": [{ name: "Rent", amount: 1450, due: "2026-11-01" }],
   },
 });
@@ -191,8 +195,8 @@ describe("Jarvis orchestrator", () => {
     const c = {
       ...emptyContext("2026-10-29"),
       available: true,
-      todosToday: [{ text: "a", starred: false }],
-      overdue: [{ text: "b", due: "2026-10-20" }],
+      todosToday: [{ id: "t1", text: "a", starred: false }],
+      overdue: [{ id: "t2", text: "b", due: "2026-10-20" }],
       billsDueSoon: [{ name: "Rent", amount: 1, due: "2026-10-29", autopay: false }],
       washDay: true,
     };
@@ -204,5 +208,43 @@ describe("Jarvis orchestrator", () => {
     expect(fallbackSummary(emptyContext("2026-10-29"), null, null).summary).toEqual([
       { text: "Nothing to report yet.", source: "jarvis" },
     ]);
+  });
+  it("Top 3: open to-dos by id with the app's text and a plain reason; gaps filled by code", () => {
+    const c = {
+      ...emptyContext("2026-10-29"),
+      available: true,
+      todosToday: [{ id: "t1", text: "Call the bank", starred: false }],
+      overdue: [{ id: "t2", text: "Renew passport", due: "2026-10-20" }],
+      anytime: [{ id: "t3", text: "Book a haircut", starred: true }],
+    };
+    expect(
+      cleanTop3(
+        [
+          { id: "t1", why: "Before <b>payday</b>  closes" },
+          { id: "nope", why: "made up" },
+          { id: "t1", why: "again" },
+        ],
+        c,
+      ),
+    ).toEqual([
+      { id: "t1", text: "Call the bank", why: "Before bpayday/b closes" },
+      { id: "t2", text: "Renew passport", why: "Overdue since Oct 20" },
+      { id: "t3", text: "Book a haircut", why: "Starred" },
+    ]);
+    expect(codeTop3(emptyContext("2026-10-29"))).toEqual([]);
+  });
+
+  it("the briefing carries Jarvis's Top 3, or code's when the model gives none", async () => {
+    const withTop = { ...JARVIS_OUT, top3: [{ id: "t-any", why: "Nothing else is urgent" }] };
+    const r = await runBriefing(deps({ queryFn: fakeQuery([{ structured_output: withTop }]).fn }));
+    if (r.status !== "delivered") throw new Error("not delivered");
+    expect(r.briefing.top3!.map((t) => [t.id, t.why])).toEqual([
+      ["t-any", "Nothing else is urgent"],
+      ["t-old", "Overdue since Oct 20"],
+      ["t-bank", "Due today"],
+    ]);
+    const r2 = await runBriefing(deps());
+    if (r2.status !== "delivered") throw new Error("not delivered");
+    expect(r2.briefing.top3!.map((t) => t.id)).toEqual(["t-old", "t-bank", "t-any"]);
   });
 });

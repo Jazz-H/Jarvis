@@ -41,9 +41,10 @@ function showToast(msg, isError) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove("show"), isError ? 2600 : 1400);
 }
-function showUndoToast(msg, onUndo) {
+// extra: an optional second button {label, run} before Undo (e.g. "Note it" after a to-do with steps)
+function showUndoToast(msg, onUndo, extra = null) {
   const t = document.getElementById("toast");
-  t.innerHTML = `<span>${escapeHtml(msg)}</span><button type="button" class="toast-action">Undo</button>`;
+  t.innerHTML = `<span>${escapeHtml(msg)}</span>${extra ? `<button type="button" class="toast-action toast-extra">${escapeHtml(extra.label)}</button>` : ""}<button type="button" class="toast-action toast-undo">Undo</button>`;
   t.classList.remove("error");
   t.classList.add("show", "actionable");
   undoPending = true;
@@ -51,11 +52,17 @@ function showUndoToast(msg, onUndo) {
     undoPending = false;
     t.classList.remove("show", "actionable");
   };
-  t.querySelector(".toast-action").onclick = () => {
+  t.querySelector(".toast-undo").onclick = () => {
     clearTimeout(toastTimer);
     hide();
     onUndo();
   };
+  if (extra)
+    t.querySelector(".toast-extra").onclick = () => {
+      clearTimeout(toastTimer);
+      hide();
+      extra.run();
+    };
   // 8 seconds, paused while the pointer or keyboard focus is on it
   const start = () => {
     clearTimeout(toastTimer);

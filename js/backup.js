@@ -33,6 +33,7 @@ function liveData() {
     "fitness-content": fitness,
     "plan3-content": plan3,
     "jarvis-memory": jarvisMemory,
+    "jarvis-notes": jarvisNotes,
     "jarvis-feedback": jarvisFeedback,
     "jarvis-settings": jarvisSettings,
   };

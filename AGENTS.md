@@ -32,13 +32,14 @@ that file before any Jarvis work, and README.md before any app work.
   Shopping, memory).
 - Ask Jarvis may return small actions, only the types in `agents/schemas/ask.ts` `ACTION_TYPES`
   (to-dos, Jazz 3.0 goal items, Shopping, weight, today's workout, dismissing one of this morning's
-  packages or briefing lines on Home; never bills, money or deletes).
+  packages or briefing lines on Home, saving or adding to a Notebook note; never bills, money or deletes).
   Code checks each against the owner's data; the backend never writes app data: the app applies
   them on the device that asked, once, through its normal saves, with Undo. An answer that used
   web search carries no actions.
 - Fetching, parsing and math happen in plain code tools; models only judge, rank and
   summarize.
 - Model ids: Jarvis `claude-opus-5-5`; sub-agents `claude-sonnet-5-5` or `claude-haiku-5-5`
+  (Ask picks Haiku, Sonnet or Opus per question with code rules: `agents/ask.ts` `askTier`)
   as set in the plan.
 
 ## Before you say you're done

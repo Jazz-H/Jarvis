@@ -27,6 +27,7 @@ const SYNC_KEYS = [
   "fitness-content",
   "plan3-content",
   "jarvis-memory", // Jarvis's brain (brain.js)
+  "jarvis-notes", // the Notebook (brain.js)
   "jarvis-feedback",
   "jarvis-settings",
 ];

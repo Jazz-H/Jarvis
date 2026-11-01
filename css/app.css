@@ -6370,6 +6370,24 @@ body.todo-dragging {
 .jv-suggest {
   margin-top: 12px;
 }
+/* Top 3 today (jarvis.js briefingTop3Html): Home's to-do rows inside the briefing card */
+.jv-top3 {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.jv-top3-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--olive);
+  margin-bottom: 2px;
+}
+.jv-top3-head span + span {
+  color: var(--text-dim);
+}
+.jv-top3 .todo-wrap:last-child .item {
+  border-bottom: none;
+}
 .jv-suggest .jv-mini {
   margin-bottom: 8px;
   color: var(--text-dim);

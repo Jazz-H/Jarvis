@@ -267,7 +267,7 @@ await section("to-do: legacy weekday migration, date parsing, completion + undo,
 
   await page.tap('#todo-list [data-todo-id="b"] .todo-check');
   check("checkbox completes", await page.evaluate(() => todoList.find((t) => t.id === "b").done));
-  await page.tap(".toast-action");
+  await page.tap(".toast-undo"); // "b" has two steps by now, so Note it is offered too
   check("undo restores", await page.evaluate(() => !todoList.find((t) => t.id === "b").done));
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
@@ -582,9 +582,10 @@ await section("backup: download has every list, restore replaces data, junk reje
       .then(JSON.parse);
   });
   check(
-    "backup holds 19 lists (incl. bills, budget, fitness, plan, Jarvis's brain)",
-    Object.keys(backup.data).length === 19 &&
+    "backup holds 20 lists (incl. bills, budget, fitness, plan, Jarvis's brain and Notebook)",
+    Object.keys(backup.data).length === 20 &&
       "jarvis-memory" in backup.data &&
+      "jarvis-notes" in backup.data &&
       "budget-content" in backup.data &&
       "fitness-content" in backup.data &&
       "plan3-content" in backup.data,
@@ -14542,6 +14543,157 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
     ["Acme order was delivered remove that notifications", "dismiss the package alert", "Clean cars", "order pizza", "Delete old photos"].map(consoleGuess),
   );
   check("Console routes dismiss requests to Jarvis; to-dos stay to-dos", modes.join() === "ask,ask,capture,capture,capture", modes);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Top 3 today in the briefing, and the evening recap check-in", async () => {
+  const b = briefingFixture({
+    top3: [
+      { id: "t1", text: "Call the bank", why: "Before <b>payday</b>" },
+      { id: "gone", text: "Deleted since", why: "x" },
+      { id: "bad id!", text: "Unsafe", why: "x" },
+      { id: "t2", text: "Renew passport", why: "Overdue since Oct 20" },
+    ],
+  });
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "jarvis-briefing": b,
+      "todo-content": [
+        { id: "t1", text: "Call the bank", done: false, due: isoOffset(0) },
+        { id: "t2", text: "Renew <i>passport</i>", done: false, due: isoOffset(-12) },
+      ],
+    },
+  });
+  const top = await page.evaluate(() => {
+    const el = document.querySelector(".jv-hero .jv-top3");
+    return el && {
+      head: el.querySelector(".jv-top3-head").textContent,
+      rows: [...el.querySelectorAll(".todo-wrap")].map((r) => r.dataset.todoId),
+      why: el.querySelector(".todo-meta").textContent,
+      tags: !!el.querySelector(".todo-meta b, .title i"),
+      title: el.querySelectorAll(".title")[1].textContent,
+    };
+  });
+  check(
+    "the Top 3 shows the live to-dos (deleted and bad ids drop out) with the reason, all as text",
+    top && top.rows.join() === "t1,t2" && top.why === "Before <b>payday</b>" && !top.tags && top.title.startsWith("Renew <i>passport</i>") && /0 of 2 done/.test(top.head),
+    top,
+  );
+  await page.click('.jv-top3 [data-action="home-todo-complete"][data-todo-id="t1"]');
+  await page.waitForTimeout(150);
+  check(
+    "ticking one there completes the to-do and the count follows",
+    (await page.evaluate(() => todoList.find((t) => t.id === "t1").done)) && /1 of 2 done/.test(await page.textContent(".jv-top3-head")),
+    "",
+  );
+  check(
+    "an old briefing's Top 3 isn't shown",
+    await page.evaluate(() => briefingTop3Html({ ...loadBriefing(), date: addDaysIso(-1) }) === ""),
+    "",
+  );
+  // the recap preset fills the check-in editor; once saved it's not offered again
+  await page.evaluate(() => {
+    activateTab("console");
+    openPinned.add("cn-brain-card");
+    renderConsole();
+  });
+  await page.click('[data-action="brain-checkin"][data-preset="top3"]');
+  check("the preset fills in the recap", (await page.inputValue("#modal-backdrop textarea")).startsWith("How did today's Top 3 go?"), "");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const ci = await page.evaluate(() => ({
+    c: jarvisSettings.checkins.map((c) => [c.name, c.days.length, c.time]),
+    offer: !!document.querySelector('[data-preset="top3"]'),
+  }));
+  check("saved for every day at 8 PM, and not offered again", JSON.stringify(ci.c) === '[["Top 3 recap",7,"20:00"]]' && !ci.offer, ci);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("the Notebook: notes by hand and by Jarvis, Note it after a to-do with steps", async () => {
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=console",
+    seed: {
+      "jarvis-notes": [
+        { id: "note-car", title: "Car <b>x</b>", text: "Oil at 52k.", at: "2026-10-30", by: "you" },
+        { id: "bad id", title: "Fixed id", text: "x" }, // kept with a new, safe id
+        { id: "n-junk", title: "", text: "no title: dropped" },
+        { id: "note-2", title: "car <B>X</B>", text: "same title: a repeat, dropped" },
+      ],
+      "todo-content": [
+        {
+          id: "t1",
+          text: "Fix the bike",
+          done: false,
+          subitems: [
+            { id: "s1", text: "New chain", done: true },
+            { id: "s2", text: "Pump tires", done: true },
+          ],
+        },
+      ],
+    },
+  });
+  await page.evaluate(() => {
+    openPinned.add("cn-brain-card");
+    renderConsole();
+  });
+  const list = await page.evaluate(() => ({
+    notes: jarvisNotes.map((n) => n.id),
+    rows: [...document.querySelectorAll('[data-action="brain-note"][data-note-id]')].map((b) => b.querySelector("span").textContent),
+    tag: !!document.querySelector('[data-action="brain-note"] span b'),
+  }));
+  check(
+    "the Notebook lists notes (checked, no repeats), titles as text",
+    list.notes.length === 2 && list.notes[0] === "note-car" && /^note-/.test(list.notes[1]) && list.rows.join() === "Car <b>x</b>,Fixed id" && !list.tag,
+    list,
+  );
+  await page.click('[data-action="brain-note"]:not([data-note-id])');
+  await page.fill("#modal-backdrop input", "Lease");
+  await page.fill("#modal-backdrop textarea", "Ends July 31. 60 days' notice.");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check(
+    "+ New note saves it at the top (synced key)",
+    (await page.evaluate(() => JSON.parse(localStorage.getItem("jarvis-notes"))[0].title)) === "Lease" &&
+      (await page.evaluate(() => SYNC_KEYS.includes("jarvis-notes"))),
+    "",
+  );
+  // Jarvis's note actions
+  const acts = await page.evaluate(() => [
+    askDoAction({ type: "note_add", text: "Bike", note: "Chain and tires done Nov 1." }),
+    askDoAction({ type: "note_add", text: "lease", note: "Landlord is Sam." }), // same title: added to it
+    askDoAction({ type: "note_append", id: "note-car", note: "Tires rotated." }),
+    askDoAction({ type: "note_append", id: "nope", note: "x" }),
+    askDoAction({ type: "note_add", text: "Empty", note: "" }),
+    jarvisNotes.map((n) => [n.title, n.by, n.text.split("\n\n").length]),
+  ]);
+  check(
+    "Jarvis saves a note, adds to one with the same title or id, and nothing else",
+    acts.slice(0, 5).join() === "true,true,true,false,false" &&
+      JSON.stringify(acts[5]) === JSON.stringify([["Car <b>x</b>", "jarvis", 2], ["Lease", "jarvis", 2], ["Bike", "jarvis", 1], ["Fixed id", "you", 1]]),
+    acts,
+  );
+  // Note it: finishing a to-do with 2+ steps offers it; it hands Jarvis a note request
+  await page.evaluate(() => activateTab("todo"));
+  await page.click('#todo-list [data-action="home-todo-complete"][data-todo-id="t1"]');
+  const toast = await page.evaluate(() => [...document.querySelectorAll("#toast button")].map((b) => b.textContent));
+  check("the done toast offers Note it beside Undo", toast.join() === "Note it,Undo", toast);
+  const sent = await page.evaluate(() => {
+    let text = null;
+    const real = askSend;
+    askSend = (t) => ((text = t), false); // catch what would go to Jarvis
+    document.querySelector("#toast .toast-extra").click();
+    askSend = real;
+    return text;
+  });
+  check(
+    "Note it sends Jarvis a note request with the steps",
+    /^save a short note about finishing "Fix the bike"\. Steps: New chain; Pump tires\./.test(sent || ""),
+    sent,
+  );
+  const modes = await page.evaluate(() =>
+    ["Save that as a note", "add this to my car note", "make a note of the gate code", "note: call mom", "Add oat milk"].map(consoleGuess),
+  );
+  check("Console sends note requests to Jarvis; note: and lists stay local", modes.join() === "ask,ask,ask,capture,capture", modes);
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });

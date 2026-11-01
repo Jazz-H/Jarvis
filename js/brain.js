@@ -3,7 +3,9 @@
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
 // ---------- JARVIS'S BRAIN ----------
-// Three synced keys, all written only here (the Jarvis Action reads them from jazz2-data.json):
+// Four synced keys, all written only here (the Jarvis Action reads them from jazz2-data.json):
+//   jarvis-notes:    [{id, title, text, at: "YYYY-MM-DD", by: "you" | "jarvis"}]   at most 30 (the Notebook:
+//                    longer notes by topic; title 60, text 2,000 characters; newest first)
 //   jarvis-memory:   [{id, text, at: "YYYY-MM-DD", by: "you" | "jarvis"}]   at most 60
 //   jarvis-feedback: [{id, at: ms, kind: "answer" | "briefing", ref, item, vote: 1 | -1}]   newest 60
 //   jarvis-settings: {tone: "brief" | "normal" | "detailed", newsTopics: [..6], about,
@@ -12,10 +14,11 @@
 //                     hiddenPackages: [{item, at: "YYYY-MM-DD"}]   newest first, 20, gone after 14 days,
 //                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days}
 // Synced data is untrusted: every field is checked and capped here and on the way back in.
-const BRAIN_MAX = { memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenDays: 14, hiddenLines: 10 };
+const BRAIN_MAX = { notes: 30, noteTitle: 60, noteText: 2000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenDays: 14, hiddenLines: 10 };
 const BRAIN_TONES = { brief: "Brief", normal: "Normal", detailed: "Detailed" };
 const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Never" }; // read answers aloud
 let jarvisMemory = [];
+let jarvisNotes = [];
 let jarvisFeedback = [];
 let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [] };
 
@@ -33,6 +36,22 @@ function normalizeJarvisBrain() {
     .map((m) => ({ id: safeId(m.id, "mem"), text: str(m.text, 200), at: day(m.at), by: m.by === "jarvis" ? "jarvis" : "you" }))
     .filter((m) => !seen.has(m.text.toLowerCase()) && seen.add(m.text.toLowerCase()))
     .slice(0, BRAIN_MAX.memory);
+  const noteSeen = new Set();
+  jarvisNotes = (Array.isArray(jarvisNotes) ? jarvisNotes : [])
+    .filter((n) => isObj(n) && str(n.title, BRAIN_MAX.noteTitle))
+    .map((n) => ({
+      id: safeId(n.id, "note"),
+      title: str(n.title, BRAIN_MAX.noteTitle),
+      text: String(n.text == null ? "" : n.text)
+        .replace(/\r\n?/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim()
+        .slice(0, BRAIN_MAX.noteText),
+      at: day(n.at),
+      by: n.by === "jarvis" ? "jarvis" : "you",
+    }))
+    .filter((n) => !noteSeen.has(n.title.toLowerCase()) && noteSeen.add(n.title.toLowerCase()))
+    .slice(0, BRAIN_MAX.notes);
   jarvisFeedback = (Array.isArray(jarvisFeedback) ? jarvisFeedback : [])
     .filter((f) => isObj(f) && (f.kind === "answer" || f.kind === "briefing") && (f.vote === 1 || f.vote === -1))
     .map((f) => ({
@@ -82,6 +101,7 @@ function dismissedList(list, field, max, days, n) {
 }
 function saveBrain(key) {
   if (key === "jarvis-memory") saveContent(key, jarvisMemory, { toast: false });
+  else if (key === "jarvis-notes") saveContent(key, jarvisNotes, { toast: false });
   else if (key === "jarvis-feedback") saveContent(key, jarvisFeedback, { toast: false });
   else saveContent("jarvis-settings", jarvisSettings, { toast: false });
   renderConsole();
@@ -117,6 +137,78 @@ function brainAddMemory() {
     (v) => {
       if (brainRemember(v.text)) showToast("Jarvis will remember that");
     },
+  );
+}
+
+// ---- the Notebook ----
+// A note with the same title (any case) is the same note: saving again adds to it. Jarvis writes
+// here only through an Ask action ("save that as a note", "add this to my car note"), with Undo.
+function brainSaveNote(title, text, by = "you") {
+  const t = String(title || "").replace(/\s+/g, " ").trim().slice(0, BRAIN_MAX.noteTitle);
+  const body = String(text || "").trim();
+  if (!t || !body) return false;
+  const old = jarvisNotes.find((n) => n.title.toLowerCase() === t.toLowerCase());
+  if (old) return brainAppendNote(old.id, body, by);
+  if (jarvisNotes.length >= BRAIN_MAX.notes) return false;
+  jarvisNotes.unshift({ id: genId("note"), title: t, text: body, at: addDaysIso(0), by });
+  normalizeJarvisBrain();
+  saveBrain("jarvis-notes");
+  return true;
+}
+function brainAppendNote(id, text, by = "you") {
+  const n = jarvisNotes.find((x) => x.id === id);
+  const body = String(text || "").trim();
+  if (!n || !body || n.text.includes(body)) return false;
+  n.text = `${n.text}\n\n${body}`.slice(0, BRAIN_MAX.noteText);
+  n.at = addDaysIso(0);
+  if (by === "jarvis") n.by = "jarvis";
+  jarvisNotes = [n, ...jarvisNotes.filter((x) => x !== n)]; // newest first
+  normalizeJarvisBrain();
+  saveBrain("jarvis-notes");
+  return true;
+}
+function brainEditNote(id) {
+  const n = id ? jarvisNotes.find((x) => x.id === id) : null;
+  if (!n && jarvisNotes.length >= BRAIN_MAX.notes) {
+    showToast(`Up to ${BRAIN_MAX.notes} notes`, true);
+    return;
+  }
+  openModal(
+    n ? "Edit note" : "New note",
+    [
+      { key: "title", label: "Title (e.g. Car, Lease, Health)", type: "text" },
+      { key: "text", label: "Note", type: "textarea" },
+      { type: "note", label: "Jarvis reads your notes when it answers. Longer than a fact: what you'd want it to know about a topic." },
+    ],
+    n ? { title: n.title, text: n.text } : {},
+    (v) => {
+      const title = String(v.title || "").replace(/\s+/g, " ").trim().slice(0, BRAIN_MAX.noteTitle);
+      const text = String(v.text || "").trim().slice(0, BRAIN_MAX.noteText);
+      if (!title || !text) {
+        showToast("Give the note a title and some text", true);
+        return;
+      }
+      if (n) {
+        n.title = title;
+        n.text = text;
+        n.at = addDaysIso(0);
+        normalizeJarvisBrain();
+        saveBrain("jarvis-notes");
+      } else brainSaveNote(title, text);
+    },
+    n
+      ? () => {
+          jarvisNotes = jarvisNotes.filter((x) => x.id !== id);
+          saveBrain("jarvis-notes");
+        }
+      : null,
+  );
+}
+// "Harvest": finishing a to-do with steps offers to keep a note of it (the completed toast's Note it)
+function brainHarvestTodo(t) {
+  const steps = (t.subitems || []).map((s) => s.text).filter(Boolean);
+  consoleHandOff(
+    `Jarvis, save a short note about finishing "${t.text}"${steps.length ? `. Steps: ${steps.join("; ")}` : ""}. Put it in the note it belongs to, or a new one.`,
   );
 }
 
@@ -222,7 +314,14 @@ function brainEditAbout() {
 }
 
 // ---- check-ins ----
-function brainEditCheckin(id) {
+// A ready-made one: the evening look back at the briefing's Top 3 (you can change it before saving)
+const TOP3_CHECKIN = {
+  name: "Top 3 recap",
+  prompt: "How did today's Top 3 go? Say which are done and suggest when to fit in the rest.",
+  days: [0, 1, 2, 3, 4, 5, 6],
+  time: "20:00",
+};
+function brainEditCheckin(id, preset = null) {
   const c = id ? jarvisSettings.checkins.find((x) => x.id === id) : null;
   if (!c && jarvisSettings.checkins.length >= BRAIN_MAX.checkins) {
     showToast(`Up to ${BRAIN_MAX.checkins} check-ins`, true);
@@ -240,7 +339,7 @@ function brainEditCheckin(id) {
         label: "Jarvis sends it as a notification and in Console. It counts as a question toward your limits.",
       },
     ],
-    c ? { name: c.name, prompt: c.prompt, days: c.days, time: c.time } : { days: [0], time: "20:00" },
+    c ? { name: c.name, prompt: c.prompt, days: c.days, time: c.time } : preset ? { ...preset } : { days: [0], time: "20:00" },
     (v) => {
       const prompt = String(v.prompt || "").trim().slice(0, 300);
       if (!prompt || !(v.days || []).length) {
@@ -294,9 +393,21 @@ function brainCardHtml() {
   return collapsibleCard({
     id: "cn-brain-card",
     title: "Jarvis's brain",
-    insight: `${jarvisMemory.length} fact${jarvisMemory.length === 1 ? "" : "s"}`,
+    insight: `${jarvisMemory.length} fact${jarvisMemory.length === 1 ? "" : "s"}${jarvisNotes.length ? ` · ${jarvisNotes.length} note${jarvisNotes.length === 1 ? "" : "s"}` : ""}`,
     body: `<div class="jv-sub-label">Remembers</div>${mem}
       <button type="button" class="add-row" data-action="brain-add-memory">+ Remember something</button>
+      <div class="jv-sub-label">Notebook</div>
+      ${
+        jarvisNotes.length
+          ? jarvisNotes
+              .map(
+                (n) =>
+                  `<button type="button" class="br-row" data-action="brain-note" data-note-id="${escapeAttr(n.id)}"><span>${escapeHtml(n.title)}</span><b>${escapeHtml(noonOf(n.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}${n.by === "jarvis" ? " · Jarvis" : ""}</b>${CHEVRON_RIGHT}</button>`,
+              )
+              .join("")
+          : `<p class="br-empty">Longer notes by topic (your car, the lease, health) that Jarvis reads when it answers. Add one, or tell Jarvis “save that as a note”.</p>`
+      }
+      <button type="button" class="add-row" data-action="brain-note">+ New note</button>
       <div class="jv-sub-label">Settings</div>
       ${row("brain-tone", "How it writes", BRAIN_TONES[s.tone])}
       ${speakSupported() ? row("brain-speak", "Read answers aloud", BRAIN_SPEAK[s.speak]) : ""}
@@ -305,6 +416,7 @@ function brainCardHtml() {
       <div class="jv-sub-label">Check-ins</div>
       ${checkins || `<p class="br-empty">Your own scheduled prompts, like “Every Sunday at 8 PM, plan my week”.</p>`}
       <button type="button" class="add-row" data-action="brain-checkin">+ New check-in</button>
+      ${s.checkins.some((c) => c.name === TOP3_CHECKIN.name) ? "" : '<button type="button" class="add-row" data-action="brain-checkin" data-preset="top3">+ Evening Top 3 recap</button>'}
       <p class="br-foot">Ratings in the last 30 days: ${up} 👍 · ${down} 👎. Jarvis reads your latest ones to do better.</p>`,
   });
 }

@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CONFIG, type SubagentName } from "./config.ts";
-import { Briefing, JarvisOutput } from "./schemas/briefing.ts";
+import { Briefing, JarvisOutput, type Top3 } from "./schemas/briefing.ts";
 import type { WeatherCard } from "./schemas/weather.ts";
 import type { NewsCard } from "./schemas/news.ts";
 import type { CalendarCard } from "./schemas/calendar.ts";
@@ -66,6 +66,11 @@ Write:
   order). Each is a short imperative under 60 characters with a due date (YYYY-MM-DD) when the
   data gives one, else null. Leave it empty when nothing stands out. They're shown as chips the
   owner can tap; nothing is added for them.
+- top3: the three open to-dos that matter most today, most important first, each as {"id","why"}:
+  an id exactly as in jazz.todosToday, jazz.overdue or jazz.anytime, and why in under 60
+  characters, from the data ("before payday", "overdue since Oct 20", "rain later, do it early").
+  Weigh deadlines, money, overdue age, stars and today's plans. Fewer when there are fewer; none
+  when there are no open to-dos.
 Look for connections worth acting on: rain or high humidity on a wash day, a bill due today or
 overdue, to-dos already overdue, weather that affects today's errands, a Shopping need that
 today's weather or plans make timely (a rain jacket on a rainy day), overlapping calendar events,
@@ -318,6 +323,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     summary: out.summary,
     summaryBy,
     suggestions: cleanSuggestions(out.suggestions, context),
+    top3: summaryBy === "jarvis" && out.top3?.length ? cleanTop3(out.top3, context) : codeTop3(context),
     cards: {
       weather: card(results.weather!),
       news: card(results.news!),
@@ -549,6 +555,31 @@ export function cleanSuggestions(list: JarvisOutput["suggestions"], c: JazzConte
     out.push({ text, due: real });
   }
   return out.slice(0, 3);
+}
+
+// Top 3: only open to-dos from the context, by id, no repeats; the text comes from the app's data
+// and the reason is trimmed plain text. Any gap is filled the way code would pick (codeTop3).
+export function cleanTop3(list: JarvisOutput["top3"], c: JazzContext): Top3 {
+  const known = new Map([...c.todosToday, ...c.overdue, ...c.anytime].map((t) => [t.id, t.text]));
+  const out: Top3 = [];
+  for (const x of list ?? []) {
+    const text = known.get(x.id);
+    if (!text || out.some((o) => o.id === x.id)) continue;
+    const why = x.why.replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
+    out.push({ id: x.id, text, why });
+    if (out.length === 3) return out;
+  }
+  for (const t of codeTop3(c)) if (out.length < 3 && !out.some((o) => o.id === t.id)) out.push(t);
+  return out;
+}
+// Without the model (or to fill a gap): overdue oldest first, then today's starred, today's, starred anytime
+export function codeTop3(c: JazzContext): Top3 {
+  const md = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return [
+    ...c.overdue.map((t) => ({ id: t.id, text: t.text, why: `Overdue since ${md(t.due)}` })),
+    ...c.todosToday.map((t) => ({ id: t.id, text: t.text, why: t.starred ? "Starred, due today" : "Due today" })),
+    ...c.anytime.filter((t) => t.starred).map((t) => ({ id: t.id, text: t.text, why: "Starred" })),
+  ].slice(0, 3);
 }
 
 // Used when the Jarvis model fails: plain facts, no judgment.

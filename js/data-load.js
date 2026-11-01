@@ -33,6 +33,7 @@ function loadAllContent() {
   );
   normalizePlan3();
   jarvisMemory = loadContent("jarvis-memory", []);
+  jarvisNotes = loadContent("jarvis-notes", []);
   jarvisFeedback = loadContent("jarvis-feedback", []);
   jarvisSettings = loadContent("jarvis-settings", {});
   normalizeJarvisBrain();

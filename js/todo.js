@@ -32,14 +32,20 @@ function completeTodo(id) {
     return;
   }
   toggleTodo(id);
-  showUndoToast("To-do completed", () => {
-    const t = todoList.find((x) => x.id === id);
-    if (!t || !t.done) return;
-    t.done = false;
-    t.completedAt = null;
-    saveContent("todo-content", todoList);
-    renderHome();
-  });
+  const steps = r && r.subitems ? r.subitems.length : 0;
+  showUndoToast(
+    "To-do completed",
+    () => {
+      const t = todoList.find((x) => x.id === id);
+      if (!t || !t.done) return;
+      t.done = false;
+      t.completedAt = null;
+      saveContent("todo-content", todoList);
+      renderHome();
+    },
+    // a to-do with steps is a small project: offer to keep a note of it (brain.js brainHarvestTodo)
+    steps >= 2 ? { label: "Note it", run: () => brainHarvestTodo(r) } : null,
+  );
 }
 function toggleTodoStar(id) {
   const t = todoList.find((x) => x.id === id);

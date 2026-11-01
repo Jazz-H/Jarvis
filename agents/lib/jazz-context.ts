@@ -5,8 +5,9 @@
 export interface JazzContext {
   available: boolean;
   today: string;
-  todosToday: { text: string; starred: boolean }[];
-  overdue: { text: string; due: string }[];
+  todosToday: { id: string; text: string; starred: boolean }[];
+  overdue: { id: string; text: string; due: string }[];
+  anytime: { id: string; text: string; starred: boolean }[]; // open, no date: starred first (Top 3 candidates)
   billsDueSoon: { name: string; amount: number; due: string; autopay: boolean }[];
   washDay: boolean;
   washTomorrow: boolean;
@@ -19,6 +20,7 @@ export interface JazzContext {
 
 const DEFAULT_WASH = { anchor: "2026-07-16", everyDays: 14 }; // same as js/skin.js
 const MAX_ROWS = 8;
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/; // ids only cross over when they're plain
 const clip = (s: unknown, n = 120) =>
   String(s ?? "")
     .replace(/\s+/g, " ")
@@ -49,6 +51,7 @@ export function emptyContext(today: string): JazzContext {
     today,
     todosToday: [],
     overdue: [],
+    anytime: [],
     billsDueSoon: [],
     washDay: false,
     washTomorrow: false,
@@ -118,18 +121,25 @@ export function buildJazzContext(raw: string | null, today: string): JazzContext
     return emptyContext(today);
   }
   if (!data || typeof data !== "object") return emptyContext(today);
-  const todos = Array.isArray(data["todo-content"]) ? data["todo-content"] : [];
-  const open = todos.filter((t: any) => t && !t.done && isIso(t.due));
+  const todos = (Array.isArray(data["todo-content"]) ? data["todo-content"] : []).filter(
+    (t: any) => t && !t.done && SAFE_ID.test(String(t.id)) && clip(t.text),
+  );
+  const open = todos.filter((t: any) => isIso(t.due));
   const todosToday = open
     .filter((t: any) => t.due === today)
     .sort((a: any, b: any) => Number(!!b.starred) - Number(!!a.starred))
     .slice(0, MAX_ROWS)
-    .map((t: any) => ({ text: clip(t.text), starred: !!t.starred }));
+    .map((t: any) => ({ id: String(t.id), text: clip(t.text), starred: !!t.starred }));
   const overdue = open
     .filter((t: any) => t.due < today)
     .sort((a: any, b: any) => (a.due < b.due ? -1 : 1))
     .slice(0, MAX_ROWS)
-    .map((t: any) => ({ text: clip(t.text), due: t.due }));
+    .map((t: any) => ({ id: String(t.id), text: clip(t.text), due: t.due }));
+  const anytime = todos
+    .filter((t: any) => !t.due && !t.repeat)
+    .sort((a: any, b: any) => Number(!!b.starred) - Number(!!a.starred))
+    .slice(0, MAX_ROWS)
+    .map((t: any) => ({ id: String(t.id), text: clip(t.text), starred: !!t.starred }));
   const bills = Array.isArray(data["bills-content"]) ? data["bills-content"] : [];
   const soon = addDays(today, 3);
   const billsDueSoon = bills
@@ -144,6 +154,7 @@ export function buildJazzContext(raw: string | null, today: string): JazzContext
     today,
     todosToday,
     overdue,
+    anytime,
     billsDueSoon,
     washDay: isWashDate(today, routine),
     washTomorrow: isWashDate(addDays(today, 1), routine),

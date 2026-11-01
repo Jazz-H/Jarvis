@@ -131,6 +131,20 @@ describe("Ask context (figures worked out in code)", () => {
     expect(buildAskContext({ data: null, today: TODAY, briefingRaw: "{", reviewsRaw: null }).briefing).toBeNull();
   });
 
+  it("carries this morning's Top 3 with whether each is done now", () => {
+    const b = JSON.parse(BRIEFING_FILE);
+    b.top3 = [
+      { id: "td-open", text: "Call the bank", why: "Before payday" },
+      { id: "td-gone", text: "Renew passport", why: "Overdue since Oct 20" },
+    ];
+    const data = { ...ASK_DATA, "todo-content": [{ id: "td-open", text: "Call the bank", done: false }] };
+    const c = buildAskContext({ data, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null });
+    expect(c.briefing!.top3).toEqual([
+      { id: "td-open", text: "Call the bank", why: "Before payday", done: false },
+      { id: "td-gone", text: "Renew passport", why: "Overdue since Oct 20", done: true },
+    ]);
+  });
+
   it("leaves out packages and lines dismissed on Home, and only what's left can be dismissed", () => {
     const b = JSON.parse(BRIEFING_FILE);
     b.summary.push({ text: "Your Acme Glow serum arrives today.", source: "deliveries" });

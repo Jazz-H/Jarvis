@@ -7,7 +7,7 @@
 // Plus this morning's validated briefing cards, the calendar list from jazz2-calendar.json (90 days
 // back to 60 ahead, as of the morning run), the latest Weekly Review, and the earlier turns of
 // the same thread. Synced text is untrusted: it's clipped here and only reaches the model as data.
-import { readBrain, brainForPrompt, withoutHidden } from "./brain.ts";
+import { readBrain, brainForPrompt, notesForPrompt, withoutHidden } from "./brain.ts";
 import { readCards, readDebts } from "./money.ts";
 import { addDays, isWashDate } from "./jazz-context.ts";
 import { localTime, weekday } from "./schedule.ts";
@@ -212,6 +212,7 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
     calendar: cal && { summary: cal.summary, events: cal.events, overlaps: cal.overlaps },
     inbox: inbox && { unread: inbox.unread, urgent: inbox.urgent, needsReply: inbox.needsReply, bills: inbox.bills },
     deliveries: del && { packages: withoutHidden(del.packages, hidden.packages) },
+    top3: (b.top3 ?? []).map((t) => ({ id: t.id, text: t.text, why: t.why, done: false })), // done: set from the app data
   };
 }
 
@@ -382,13 +383,19 @@ export interface AskContext {
   sources: AskSource[]; // what the answer may cite
   notes: string[];
   targets: ActionTargets; // what an action may point at (code only; not shown to the model)
-  brain: (ReturnType<typeof brainForPrompt> & { memoryIds: { id: string; text: string }[] }) | null; // jarvis-memory etc.
+  brain:
+    | (ReturnType<typeof brainForPrompt> & {
+        memoryIds: { id: string; text: string }[];
+        notes: ReturnType<typeof notesForPrompt>; // the Notebook (null text: too long to include)
+      })
+    | null; // jarvis-memory etc.
 }
 
 // Everything an action may point at, by id, with its name for the action's label: open to-dos,
 // open goal items, Shopping still to buy, and today's planned workouts
 export interface ActionTargets {
   memory: Map<string, string>; // Jarvis's memory (forget)
+  notes: Map<string, string>; // the Notebook, id → title (note_append)
   todos: Map<string, string>;
   goals: Map<string, string>;
   shopping: Map<string, string>;
@@ -403,6 +410,7 @@ export function actionTargets(
 ): ActionTargets {
   const t: ActionTargets = {
     memory: new Map(),
+    notes: new Map(),
     todos: new Map(),
     goals: new Map(),
     shopping: new Map(),
@@ -413,7 +421,9 @@ export function actionTargets(
   for (const p of briefing?.deliveries?.packages ?? []) t.packages.set(p.item.toLowerCase(), p.item);
   for (const s of briefing?.summary ?? []) t.lines.set(clip(s.text, 200).toLowerCase(), clip(s.text, 200));
   if (!data) return t;
-  for (const m of readBrain(data).memory) t.memory.set(m.id, m.text);
+  const brain = readBrain(data);
+  for (const m of brain.memory) t.memory.set(m.id, m.text);
+  for (const n of brain.notes) t.notes.set(n.id, n.title);
   for (const x of arr(data["todo-content"]))
     if (isObj(x) && !x.done && idOf(x.id) && clip(x.text, 120)) t.todos.set(String(x.id), clip(x.text, 120));
   for (const x of goalItems(data)) if (!x.done && idOf(x.id)) t.goals.set(String(x.id), clip(x.item, 80));
@@ -536,6 +546,11 @@ export function buildAskContext(opts: {
     packages: brain ? brain.hiddenPackages : [],
     lines: brain ? brain.hiddenLines : [],
   });
+  // Top 3 done or not, from the to-dos now (a to-do that's gone counts as done)
+  if (briefing && data) {
+    const open = new Set(arr(data["todo-content"]).filter((t) => isObj(t) && !t.done).map((t) => String(t.id)));
+    for (const t of briefing.top3) t.done = !open.has(t.id);
+  }
   const calendar = calendarPart(opts.calendarRaw ?? null, today);
   const review = reviewPart(opts.reviewsRaw, today);
   if (!data) notes.push("The owner's Jazz data isn't available, so to-dos, bills and money are left out.");
@@ -567,7 +582,7 @@ export function buildAskContext(opts: {
     notes,
     targets: actionTargets(data, today, briefing),
     brain: data
-      ? ((b) => ({ ...brainForPrompt(b), memoryIds: b.memory.map((m) => ({ id: m.id, text: m.text })) }))(readBrain(data))
+      ? ((b) => ({ ...brainForPrompt(b), memoryIds: b.memory.map((m) => ({ id: m.id, text: m.text })), notes: notesForPrompt(b) }))(readBrain(data))
       : null,
   };
 }

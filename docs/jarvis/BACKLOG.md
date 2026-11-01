@@ -18,9 +18,17 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open)
 
 ## Build
-- (nothing open; add ideas here)
+- [ ] **Daily log as markdown**: each day's briefing, answers and what you did as one dated note,
+  browsable in the app and exportable (or synced to Drive) so it opens in Obsidian.
+- [ ] **HUD**: a small glance view for a desktop corner (next event, Top 3, safe to spend, latest alert).
+- [ ] **Run the Ask test set** (you: Actions → Jarvis Eval, about $0.30) to check the per-question
+  models against the Oct 31 baseline (12/12).
 
 ## Done
+- [x] From the Jarvis OS slides (Nov 1): **Top 3 today** in the briefing (and the Evening Top 3
+  recap check-in), **a model per question** for Ask (`askTier`: Haiku / Sonnet / Opus), and the
+  **Notebook** (notes by topic that Ask reads; Jarvis saves or adds to one when asked; Note it after
+  a to-do with steps). Also: dismissing on Home and by Jarvis (× on briefing lines, Got it on packages).
 - [x] Desktop matches the mockups (Nov 1): Ask Jarvis and the briefing read **debts and credit
   cards** (`readDebts` / `readCards` in `agents/lib/money.ts`; Bill Guard flags a card due
   soon that isn't in a paycheck plan), the To-Do **Details pane**, the Console **history column**

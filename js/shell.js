@@ -743,9 +743,13 @@ const SHELL_CLICK = {
   "jv-speak-briefing": () => briefingSpeak(),
   "brain-topics": () => brainEditTopics(),
   "brain-about": () => brainEditAbout(),
+  "brain-note": (el) => {
+    const id = el.getAttribute("data-note-id");
+    brainEditNote(id && SAFE_ID.test(id) ? id : null);
+  },
   "brain-checkin": (el) => {
     const id = el.getAttribute("data-ci-id");
-    brainEditCheckin(id && SAFE_ID.test(id) ? id : null);
+    brainEditCheckin(id && SAFE_ID.test(id) ? id : null, el.getAttribute("data-preset") === "top3" ? TOP3_CHECKIN : null);
   },
   "jv-rate": (el) => {
     const v = el.getAttribute("data-vote");

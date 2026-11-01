@@ -62,7 +62,7 @@ describe("Google Drive (read-only)", () => {
       links: [{ title: "Lease", url: "https://docs.google.com/d/1" }],
       actions: [{ type: "todo_add" as const, id: null, text: "Renew lease", date: null, lbs: null }],
     };
-    const t = { memory: new Map(), todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map(), packages: new Map(), lines: new Map() };
+    const t = { memory: new Map(), todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map(), packages: new Map(), lines: new Map(), notes: new Map() };
     const a = cleanAskOutput(out, TODAY, ["jazz"], t, 0, false, 2);
     expect([a.sources, a.links, a.actions]).toEqual([["drive", "jazz"], [{ title: "Lease", url: "https://docs.google.com/d/1" }], undefined]);
     const b = cleanAskOutput(out, TODAY, ["jazz"], t, 0, false, 0);

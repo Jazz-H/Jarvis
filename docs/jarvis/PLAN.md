@@ -36,6 +36,8 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
   - [x] Step 5: Weekly Review UI (`js/review.js`): `jazz2-reviews.json` pulled by sync and
     normalized, the Console card / Last week row, the review sheet with ‹ › history, tap-to-add
     chips with Undo, links into each section, the `?review=` link and Home's "ready" line.
+- [x] After Phase 4 (Nov 1): Top 3 today in the briefing, a model per Ask question (`askTier`), the
+  Notebook, and dismissing notifications on Home and by Jarvis (see BACKLOG.md Done).
 
 ## My preferences
 - Location: Springfield, IL

@@ -45,6 +45,10 @@ export const CONFIG = {
     inbox: "claude-sonnet-5-5",
     deliveries: "claude-haiku-5-5",
     sorter: "claude-haiku-5-5", // Sort with Jarvis (runs through Ask's pipeline and limits)
+    // Ask picks one per question (ask.ts askTier): quick lookups, most questions, hard ones
+    askQuick: "claude-haiku-5-5",
+    askNormal: "claude-sonnet-5-5",
+    askHard: "claude-opus-5-5",
     prices: "claude-sonnet-5-5", // Price watcher (weekly, with web search)
   },
   // Gmail searches (read-only). Unread mail in the primary inbox only; promotions and social are left out.

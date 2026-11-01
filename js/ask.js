@@ -57,6 +57,8 @@ const ASK_ACTIONS = [
   "forget",
   "package_hide", // dismiss one of this morning's packages (text: its name)
   "notice_dismiss", // dismiss one line of this morning's briefing (text: the line)
+  "note_add", // a new note in the Notebook (text: title, note: body); same title adds to it
+  "note_append", // add to a note (id, note: what to add)
 ];
 const ASK_APPLIED_KEY = "ask-applied"; // this device: answers whose actions were applied here
 let askShowAll = false; // the conversation shows every kept question (Earlier), not just 2 days
@@ -328,6 +330,7 @@ function normalizeAnswer(a) {
         text: askStr(x.text, 200),
         date: isDay(x.date) ? x.date : null,
         lbs: typeof x.lbs === "number" && isFinite(x.lbs) && x.lbs >= 40 && x.lbs <= 800 ? Math.round(x.lbs * 10) / 10 : null,
+        note: typeof x.note === "string" ? x.note.trim().slice(0, 1500) : "",
         label: askStr(x.label, 160),
       })),
     // web pages the answer used: https only (linkHtml checks again when drawing)
@@ -488,6 +491,10 @@ function askDoAction(x) {
   } else if (x.type === "package_hide" || x.type === "notice_dismiss") {
     if (!(x.type === "package_hide" ? dismissPackage(x.text) : dismissLine(x.text))) return false;
     saveContent("jarvis-settings", jarvisSettings, { toast: false });
+  } else if (x.type === "note_add") {
+    if (!brainSaveNote(x.text, x.note, "jarvis")) return false;
+  } else if (x.type === "note_append") {
+    if (!x.id || !brainAppendNote(x.id, x.note, "jarvis")) return false;
   } else if (x.type === "workout_done") {
     const w = fitness.plan.find((y) => y.id === x.id);
     if (!w || !workoutOn(w, today) || workoutDone(today, w.id)) return false;

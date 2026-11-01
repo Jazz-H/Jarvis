@@ -11,24 +11,29 @@ describe("jazz context", () => {
     expect(buildJazzContext('{"data":null}', TODAY).available).toBe(false);
   });
 
-  it("picks today's and overdue open to-dos, starred first", () => {
+  it("picks today's, overdue and undated open to-dos with their ids, starred first", () => {
     const c = buildJazzContext(
       gist({
         "todo-content": [
-          { text: "Plain", due: TODAY },
-          { text: "Star", due: TODAY, starred: true },
-          { text: "Done", due: TODAY, done: true },
-          { text: "Late", due: "2026-10-20" },
-          { text: "Later", due: "2026-11-02" },
-          { text: "Anytime", due: null },
-          { text: "x".repeat(500), due: TODAY },
+          { id: "t1", text: "Plain", due: TODAY },
+          { id: "t2", text: "Star", due: TODAY, starred: true },
+          { id: "t3", text: "Done", due: TODAY, done: true },
+          { id: "t4", text: "Late", due: "2026-10-20" },
+          { id: "t5", text: "Later", due: "2026-11-02" },
+          { id: "t6", text: "Anytime", due: null },
+          { id: "t7", text: "Starred anytime", starred: true },
+          { id: "t8", text: "Weekly thing", repeat: "weekly" }, // repeats aren't undated one-offs
+          { id: "bad id!", text: "Unsafe id", due: TODAY }, // left out
+          { id: "t9", text: "x".repeat(500), due: TODAY },
         ],
       }),
       TODAY,
     );
     expect(c.todosToday.map((t) => t.text.slice(0, 5))).toEqual(["Star", "Plain", "xxxxx"]);
+    expect(c.todosToday[0].id).toBe("t2");
     expect(c.todosToday[2].text).toHaveLength(120);
-    expect(c.overdue).toEqual([{ text: "Late", due: "2026-10-20" }]);
+    expect(c.overdue).toEqual([{ id: "t4", text: "Late", due: "2026-10-20" }]);
+    expect(c.anytime.map((t) => t.id)).toEqual(["t7", "t6"]);
   });
 
   it("lists unpaid bills due within 3 days, with the joint share", () => {
