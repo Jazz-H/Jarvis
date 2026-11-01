@@ -145,6 +145,10 @@ function wantFromEl(el) {
   const id = el.getAttribute("data-want-id");
   return id && SAFE_ID.test(id) ? wantsList.find((w) => w.id === id) : undefined;
 }
+// Edit to-do's chips work on its sheet (tde); inside the desktop details pane they work on tdp
+function tdeTarget(el) {
+  return el.closest("#tdp") ? [tdp, tdpSet] : [tde, tdeSet];
+}
 function homeRowTodo(el) {
   const id = el.getAttribute("data-todo-id");
   return id && SAFE_ID.test(id) ? todoList.find((x) => x.id === id) : undefined;
@@ -204,7 +208,21 @@ const SHELL_CLICK = {
   },
   "home-todo-edit": (el) => {
     const t = homeRowTodo(el);
-    if (t) editTodo(t.id);
+    if (!t) return;
+    if (todoPaneOn() && el.closest("#panel-todo")) selectTodo(t.id); // desktop: the details pane
+    else editTodo(t.id);
+  },
+  // Desktop To-Do details pane (todoDetailsHtml)
+  "tdp-sub-add": () => tdpAddStep(),
+  // Console's history column (consoleHistHtml): a day must be a real date
+  "console-day": (el) => {
+    const iso = el.getAttribute("data-date");
+    if (isIsoDate(iso)) consoleGoDay(iso);
+  },
+  "console-search-clear": () => consoleSearchClear(),
+  "tdp-ask": (el) => {
+    const t = homeRowTodo(el);
+    if (t) consoleHandOff(`Help me with this to-do: ${t.text}`);
   },
   // To-Do tab rows (todoRow) reuse the three home-todo-* actions for check/body (open items only). Star and sub-items expand
   // are To-Do tab only; both stop propagation so the click never reaches the row body editor.
@@ -361,6 +379,32 @@ const SHELL_CLICK = {
     if (Number.isInteger(i) && i >= 0 && i < budget.accounts.length) editAccount(i);
   },
   "account-add": () => editAccount(),
+  // Debts and cards (js/budget-debts.js)
+  "debt-add": () => editDebt(),
+  "debt-edit": (el) => {
+    const id = el.getAttribute("data-debt-id");
+    if (SAFE_ID.test(id || "") && debtById(id)) editDebt(id);
+  },
+  "debt-pay": (el) => {
+    const id = el.getAttribute("data-debt-id"),
+      eid = el.getAttribute("data-entry-id"),
+      d = SAFE_ID.test(id || "") && debtById(id);
+    if (!d) return;
+    if (eid === null) payDebt(id);
+    else if (SAFE_ID.test(eid) && d.log.some((x) => x.id === eid)) payDebt(id, eid);
+  },
+  "card-statement": (el) => {
+    const a = el.getAttribute("data-account");
+    if (a && budget.cardInfo[a] && budget.accounts.includes(a)) editCardStatement(a);
+  },
+  "card-plan": (el) => {
+    const a = el.getAttribute("data-account");
+    if (a && budget.cardInfo[a] && budget.accounts.includes(a)) planCardPayment(a);
+  },
+  "budget-view": (el) => {
+    const v = el.getAttribute("data-view");
+    if (v === "sheet" || v === "phone") setBudgetView(v);
+  },
   "budget-month": (el) => {
     const n = el.getAttribute("data-delta");
     if (n === "1" || n === "-1") shiftBudgetMonth(Number(n));
@@ -415,6 +459,7 @@ const SHELL_CLICK = {
       if (SAFE_ID.test(id || "") && budget.income.some((i) => i.id === id)) editIncome(id);
     } else if (op === "add-income") addIncome();
     else if (op === "new-goal") editGoal();
+    else if (op === "new-debt") editDebt();
     else if (op === "show-spending") {
       closeModal();
       showSpending = true;
@@ -524,26 +569,31 @@ const SHELL_CLICK = {
     field.hidden = false;
     subs.focus();
   },
+  // The same chips in the desktop details pane (#tdp) save straight to the selected to-do.
   "tde-due": (el) => {
-    const d = el.getAttribute("data-date");
-    if (tde && (d === "" || isIsoDate(d))) tdeSet({ due: d || null });
+    const d = el.getAttribute("data-date"),
+      [s, set] = tdeTarget(el);
+    if (s && (d === "" || isIsoDate(d))) set({ due: d || null });
   },
   "tde-end": (el) => {
-    const d = el.getAttribute("data-date");
-    if (tde && (d === "" || isIsoDate(d))) tdeSet({ end: d || null });
+    const d = el.getAttribute("data-date"),
+      [s, set] = tdeTarget(el);
+    if (s && (d === "" || isIsoDate(d))) set({ end: d || null });
   },
   "tde-repeat": (el) => {
-    const r = el.getAttribute("data-repeat");
-    if (tde && (r === "" || TDE_REPEATS.some(([k]) => k === r) || CUSTOM_REPEATS[r] === r))
-      tdeSet({ repeat: r || null });
+    const r = el.getAttribute("data-repeat"),
+      [s, set] = tdeTarget(el);
+    if (s && (r === "" || TDE_REPEATS.some(([k]) => k === r) || CUSTOM_REPEATS[r] === r)) set({ repeat: r || null });
   },
   "tde-every": (el) => {
-    const d = el.getAttribute("data-delta");
-    if (tde && (d === "-1" || d === "1")) tdeSet({ every: tde.every + Number(d) });
+    const d = el.getAttribute("data-delta"),
+      [s, set] = tdeTarget(el);
+    if (s && (d === "-1" || d === "1")) set({ every: s.every + Number(d) });
   },
   "tde-kind": (el) => {
-    const k = el.getAttribute("data-kind");
-    if (tde && (k === "" || k === "none" || KIND_ORDER.includes(k))) tdeSet({ kind: k || null });
+    const k = el.getAttribute("data-kind"),
+      [s, set] = tdeTarget(el);
+    if (s && (k === "" || k === "none" || KIND_ORDER.includes(k))) set({ kind: k || null });
   },
   "tde-show-picker": (el) => {
     try {
@@ -653,7 +703,8 @@ const SHELL_CLICK = {
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
   "console-grip": () => {
-    if (consoleGripDragged) consoleGripDragged = false; // the end of a drag, not a tap
+    if (consoleGripDragged)
+      consoleGripDragged = false; // the end of a drag, not a tap
     else consoleGripTap();
   },
   "console-sort": () => consoleSortWithJarvis(),
@@ -738,8 +789,26 @@ const SHELL_KEYDOWN = {
       dashQuickAdd();
     }
   },
+  "desk-cmd-key": (el, e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      dashQuickAdd("desk-cmd");
+    } else if (e.key === "Escape") el.blur();
+  },
   "subitem-add-key": (el, e) => {
     if (e.key === "Enter") subitemAddFrom(el);
+  },
+  "console-search-key": (el, e) => {
+    if (e.key === "Escape") consoleSearchClear();
+  },
+  "tdp-sub-key": (el, e) => {
+    if (e.key === "Enter" && !e.isComposing) tdpAddStep();
+  },
+  "tdp-text-key": (el, e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      tdpSaveText(el);
+    }
   },
   "console-key": (el, e) => {
     if (e.key === "Enter" && !e.isComposing) {
@@ -754,13 +823,16 @@ const SHELL_INPUT = {
     dashQuickText = el.value; // kept across re-renders while typing
   },
   "console-input": () => consoleTextChanged(),
+  "console-search": (el) => consoleSearchChanged(el),
 };
 const SHELL_CHANGE = {
   "ask-file": (el) => askAttachFile(el), // Console's 📎: a photo or PDF for the next question
   "tde-date": (el) => {
-    const f = el.getAttribute("data-field");
-    if (tde && (f === "due" || f === "end")) tdeSet({ [f]: el.value });
+    const f = el.getAttribute("data-field"),
+      [s, set] = tdeTarget(el);
+    if (s && (f === "due" || f === "end")) set({ [f]: el.value });
   },
+  "tdp-text": (el) => tdpSaveText(el),
   "composer-date": (el) => {
     if (el.value) {
       composer.manual = true;
@@ -793,6 +865,42 @@ delegateShell("click", "data-action", SHELL_CLICK);
 delegateShell("keydown", "data-keydown-action", SHELL_KEYDOWN);
 delegateShell("input", "data-input-action", SHELL_INPUT);
 delegateShell("change", "data-change-action", SHELL_CHANGE);
+// Big screens: "/" jumps to the command bar in the header, from anywhere but a text box
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  const box = document.getElementById("desk-cmd");
+  if (!box || !box.offsetParent || document.querySelector(".modal-backdrop.open, .composer-backdrop.open")) return;
+  e.preventDefault();
+  box.focus();
+});
+// Big screens: one line under the page with sync and briefing status and the shortcut
+function renderDeskFooter() {
+  const el = document.getElementById("desk-foot");
+  if (!el) return;
+  const state = (document.getElementById("sync-btn") || { dataset: {} }).dataset.state || "off";
+  const mins = syncOkAt ? Math.round((Date.now() - syncOkAt) / 60000) : null;
+  const sync =
+    state === "busy"
+      ? "Syncing…"
+      : state === "error"
+        ? "Sync failed · tap the cloud to retry"
+        : state === "ok" && mins != null
+          ? `Synced ${mins < 1 ? "just now" : `${mins} min ago`}`
+          : localStorage.getItem("sync-token")
+            ? "Sync on"
+            : "On this device only";
+  const b = loadBriefing();
+  const brief = !b
+    ? ""
+    : b.date === addDaysIso(0)
+      ? `briefed ${jvTime(b.generatedAt)}`
+      : `last briefed ${noonOf(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  el.innerHTML = `<span class="df-dot ${escapeAttr(state)}" aria-hidden="true"></span><span>${escapeHtml([sync, brief].filter(Boolean).join(" · "))}</span>
+    <span class="df-keys"><kbd>/</kbd> Ask or add</span>`;
+}
+setInterval(() => document.visibilityState === "visible" && renderDeskFooter(), 60000);
 // Rows that act as buttons but hold block content (a to-do's text, a card header) are
 // role="button" tabindex="0"; Enter and Space activate them like a real button.
 document.body.addEventListener("keydown", (e) => {

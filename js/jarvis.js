@@ -496,6 +496,12 @@ function billGuardLines(b, today = addDaysIso(0)) {
       out.push(`Bills due before payday are ${$(g.amount)} more than your paycheck.`);
     else if (g.reason === "differs")
       out.push(`${g.name}: the email says ${$(g.amount)}, Budget says ${$(g.budgetAmount)}.`);
+    else if (g.reason === "card")
+      out.push(
+        g.amount != null
+          ? `${g.name} (${$(g.amount)}) is due ${noonOf(g.due).toLocaleDateString("en-US", { weekday: "short" })} and isn't in a paycheck plan.`
+          : `${g.name} is due ${noonOf(g.due).toLocaleDateString("en-US", { weekday: "short" })}: add the statement in Budget.`,
+      );
     else if (g.reason === "not-in-budget")
       out.push(`${g.name}${g.amount != null ? ` (${$(g.amount)})` : ""} emailed a bill that isn't in Budget.`);
   });

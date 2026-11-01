@@ -255,7 +255,10 @@ function dashShopDetail(d, b) {
         .map((x) => {
           const body = `<b>${escapeHtml(x.name)}</b><span>${moneyShort(x.found)}${x.store ? ` at ${escapeHtml(x.store)}` : ""} · you saved ${moneyShort(x.saved)}</span>`;
           const inner = `${x.drop ? '<i class="jv-drop">Price drop</i>' : ""}${body}`;
-          return linkHtml(x.url, `class="jv-price${x.drop ? " drop" : ""}"`, inner) || `<div class="jv-price${x.drop ? " drop" : ""}">${inner}</div>`;
+          return (
+            linkHtml(x.url, `class="jv-price${x.drop ? " drop" : ""}"`, inner) ||
+            `<div class="jv-price${x.drop ? " drop" : ""}">${inner}</div>`
+          );
         })
         .join("")}</div>`
     : "";
@@ -380,7 +383,9 @@ function dashTilesHtml(b, progress, d) {
     <div class="jv-tiles">${html}</div>`;
 }
 
-function dashboardHtml() {
+// planner: Home's day planner. A phone stacks it under the dashboard; a big screen (home.js
+// homeWide) gets three columns: Jarvis's briefing and news | your day | the systems.
+function dashboardHtml(planner = "", wide = false) {
   const b = loadBriefing();
   if (dashOpenKey === "weather" && !(b && b.weather)) dashOpenKey = null;
   const d = {
@@ -391,6 +396,15 @@ function dashboardHtml() {
     shop: dashShopData(),
   };
   updateAppBadge(dashBadgeCount(d.todo));
+  const tiles = dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d),
+    news = b ? jarvisNewsCard(b.news) : "";
+  if (wide)
+    return `<div class="jv-wrap home-desk">
+      <div class="hd-head">${dashGreetingHtml(b)}</div>
+      <div class="hd-col">${jarvisHeroHtml(b)}${dashTomorrowHtml(b)}${dashWashSwapHtml(b, d)}${pushCardHtml()}${news}</div>
+      <div class="hd-col">${dashTimelineHtml(b, d)}${planner}</div>
+      <div class="hd-col">${tiles}${dashOutfitHtml(b)}</div>
+    </div>`;
   return `<div class="jv-wrap">
       ${dashGreetingHtml(b)}
       ${dashQuickHtml()}
@@ -400,9 +414,9 @@ function dashboardHtml() {
       ${pushCardHtml()}
       ${dashTimelineHtml(b, d)}
       ${dashOutfitHtml(b)}
-      ${dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d)}
-      ${b ? jarvisNewsCard(b.news) : ""}
-    </div>`;
+      ${tiles}
+      ${news}
+    </div>${planner}`;
 }
 
 // ---- quick add: one line on Home, "call mom tomorrow" style (same parsing as the + sheet) ----
@@ -416,11 +430,16 @@ function dashQuickHtml() {
       <button class="jv-quick-add" data-action="jv-quick-add" aria-label="Add to-do">+</button>
     </div>`;
 }
-function dashQuickAdd() {
-  const el = document.getElementById("jv-quick");
-  const raw = String((el && el.value) || dashQuickText)
+// A question typed in the desktop command bar goes to Jarvis; anything else is a to-do
+const DESK_QUESTION =
+  /\?\s*$|^(what|how|why|when|where|who|which|is|are|am|can|could|should|do|does|did|will|would|tell me|plan|help)\b/i;
+// inputId: Home's quick add, or the command bar in the desktop header (jazz2.0.html #desk-cmd)
+function dashQuickAdd(inputId = "jv-quick") {
+  const desk = inputId === "desk-cmd";
+  const el = document.getElementById(inputId);
+  const raw = String((el && el.value) || (desk ? "" : dashQuickText))
     .trim()
-    .slice(0, TODO_MAX_LEN);
+    .slice(0, desk ? CONSOLE_TEXT_MAX : TODO_MAX_LEN);
   if (!raw) {
     if (el) el.focus();
     return;
@@ -428,24 +447,25 @@ function dashQuickAdd() {
   voiceCancel(); // adding ends any listening
   // "Hey Jarvis, to-do …" adds here; "Hey Jarvis, list …" and questions go on to Console
   const cmd = consoleCommand(raw);
-  if (cmd && cmd.mode !== "todo") {
-    dashQuickText = "";
+  if ((cmd && cmd.mode !== "todo") || (desk && !cmd && DESK_QUESTION.test(raw))) {
+    if (!desk) dashQuickText = "";
     if (el) el.value = "";
     consoleHandOff(raw);
     return;
   }
   if (cmd && !cmd.rest) return;
-  const { text, due } = parseQuickAdd(cmd ? cmd.rest : raw);
+  const { text, due } = parseQuickAdd((cmd ? cmd.rest : raw).slice(0, TODO_MAX_LEN));
   const t = { id: genId("todo"), text, done: false, due, starred: false, subitems: [], completedAt: null };
   // new items go to the top of their group, like the + sheet
   const at = todoList.findIndex((x) => !x.done && todoGroup(x) === todoGroup(t));
   if (at >= 0) todoList.splice(at, 0, t);
   else todoList.push(t);
-  dashQuickText = "";
+  if (desk) el.value = "";
+  else dashQuickText = "";
   saveContent("todo-content", todoList, { toast: false });
   renderHome();
   showToast(due ? `Added for ${dueLabel(due)}` : "Added");
-  const again = document.getElementById("jv-quick");
+  const again = document.getElementById(inputId);
   if (again) again.focus(); // ready for the next one
 }
 

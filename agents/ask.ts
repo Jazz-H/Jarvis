@@ -61,7 +61,9 @@ You get JSON inside <untrusted_data>: "question" (what the owner asked), "thread
 questions and answers in the same conversation, oldest first), "now" (today's date, weekday and
 time in America/New_York), "jazz" (the owner's app data with every figure already worked out by
 code: to-dos, bills, the pay period with safe to spend and days to payday, this month's spending
-against limits, savings goals, today's Beauty routine steps, workouts, weight, goal sections and
+against limits, savings goals, debts in the owner's payoff order with their paid-off month
+(YYYY-MM) and which is next, credit cards with the next due date and statement (cards are paid
+in full; a null statement isn't typed in yet), today's Beauty routine steps, workouts, weight, goal sections and
 open Shopping; items you can act on carry an "id"), "briefing" (this
 morning's validated briefing cards: weather, news, calendar, inbox and deliveries, or null),
 "calendar" (the owner's calendar from 90 days back to 60 days ahead as of this morning's run:

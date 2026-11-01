@@ -271,13 +271,7 @@ const TDE_REPEATS = [
 function editTodo(id) {
   const t = todoList.find((x) => x.id === id);
   if (!t) return;
-  tde = {
-    due: t.due || null,
-    end: t.days > 1 ? todoEnd(t) : null,
-    repeat: t.repeat === "months" && todoEvery(t) === 12 ? "yearly" : REPEATS[t.repeat] ? t.repeat : null,
-    every: CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2,
-    kind: TODO_KINDS[t.kind] || t.kind === "none" ? t.kind : null,
-  }; // null = pick automatically
+  tde = tdeFrom(t);
   openModal(
     "Edit to-do",
     [
@@ -294,21 +288,7 @@ function editTodo(id) {
       const text = (v.text || "").replace(/\s*\n\s*/g, " ").trim();
       if (!text) return;
       t.text = text;
-      t.due = tde.due;
-      if (tde.repeat) {
-        t.repeat = tde.repeat;
-        if (!t.due) t.due = addDaysIso(0);
-        t.repeatDay = dayOf(t.due);
-      } // a repeat needs a start date
-      else delete t.repeat;
-      if (CUSTOM_REPEATS[tde.repeat]) t.every = Math.max(1, Math.min(99, tde.every));
-      else delete t.every;
-      if (tde.kind) t.kind = tde.kind;
-      else delete t.kind;
-      // a last day after the due date makes it multi-day (up to 60 days)
-      const days = t.due && tde.end ? Math.round((noonOf(tde.end) - noonOf(t.due)) / 864e5) + 1 : 0;
-      if (days > 1) t.days = Math.min(60, days);
-      else delete t.days;
+      applyTde(t, tde);
       const newSubs = (v.subs || "")
         .split("\n")
         .map((s) => s.trim())
@@ -333,44 +313,149 @@ function editTodo(id) {
   });
   tdeSet({}); // now the text box exists, the Auto chip can show its guess
 }
-function tdeSet(patch) {
-  Object.assign(tde, patch);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(tde.due || "")) tde.due = null;
-  if (!tde.due) {
-    tde.end = null;
-    if ("due" in patch) tde.repeat = null;
+// The editor's working copy from a to-do, and back (Edit to-do and the desktop details pane)
+function tdeFrom(t) {
+  return {
+    due: t.due || null,
+    end: t.days > 1 ? todoEnd(t) : null,
+    repeat: t.repeat === "months" && todoEvery(t) === 12 ? "yearly" : REPEATS[t.repeat] ? t.repeat : null,
+    every: CUSTOM_REPEATS[t.repeat] ? todoEvery(t) : 2,
+    kind: TODO_KINDS[t.kind] || t.kind === "none" ? t.kind : null,
+  }; // kind null = pick automatically
+}
+function applyTde(t, s) {
+  t.due = s.due;
+  if (s.repeat) {
+    t.repeat = s.repeat;
+    if (!t.due) t.due = addDaysIso(0);
+    t.repeatDay = dayOf(t.due);
+  } // a repeat needs a start date
+  else delete t.repeat;
+  if (CUSTOM_REPEATS[s.repeat]) t.every = Math.max(1, Math.min(99, s.every));
+  else delete t.every;
+  if (s.kind) t.kind = s.kind;
+  else delete t.kind;
+  // a last day after the due date makes it multi-day (up to 60 days)
+  const days = t.due && s.end ? Math.round((noonOf(s.end) - noonOf(t.due)) / 864e5) + 1 : 0;
+  if (days > 1) t.days = Math.min(60, days);
+  else delete t.days;
+}
+function tdeClamp(s, patch) {
+  Object.assign(s, patch);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.due || "")) s.due = null;
+  if (!s.due) {
+    s.end = null;
+    if ("due" in patch) s.repeat = null;
   } // Anytime: no span, no repeat
-  if (tde.repeat && !tde.due) tde.due = addDaysIso(0); // picking a repeat on an Anytime to-do starts it today
-  if (tde.end && (!/^\d{4}-\d{2}-\d{2}$/.test(tde.end) || tde.end <= tde.due)) tde.end = null;
-  if (tde.end && Math.round((noonOf(tde.end) - noonOf(tde.due)) / 864e5) > 59)
-    tde.end = isoDate(new Date(noonOf(tde.due).getTime() + 59 * 864e5));
-  tde.every = Math.max(1, Math.min(99, parseInt(tde.every, 10) || 1));
+  if (s.repeat && !s.due) s.due = addDaysIso(0); // picking a repeat on an Anytime to-do starts it today
+  if (s.end && (!/^\d{4}-\d{2}-\d{2}$/.test(s.end) || s.end <= s.due)) s.end = null;
+  if (s.end && Math.round((noonOf(s.end) - noonOf(s.due)) / 864e5) > 59)
+    s.end = isoDate(new Date(noonOf(s.due).getTime() + 59 * 864e5));
+  s.every = Math.max(1, Math.min(99, parseInt(s.every, 10) || 1));
+}
+function tdeSet(patch) {
+  tdeClamp(tde, patch);
   const el = document.getElementById("tde");
   if (el) el.innerHTML = tdeHtml();
+}
+
+// ---------- desktop details pane (≥1200px) ----------
+// Beside the list, the selected to-do: title, When / Repeat / Type (the editor's chips, saved as
+// they're tapped), star, steps, Done, Ask Jarvis and Delete. Tapping a row selects it here instead
+// of opening Edit to-do. The selection lasts this session only.
+const todoWide = window.matchMedia("(min-width: 1200px)");
+if (todoWide.addEventListener) todoWide.addEventListener("change", () => renderTodoPanel());
+let todoSel = null;
+let tdp = null; // the pane's working copy, like tde
+const todoPaneOn = () => todoWide.matches;
+function selectTodo(id) {
+  todoSel = id;
+  renderTodoPanel();
+}
+function selectedTodo() {
+  return todoSel ? todoList.find((x) => x.id === todoSel && !x.done) || null : null;
+}
+function tdpSet(patch) {
+  const t = selectedTodo();
+  if (!t || !tdp) return;
+  tdeClamp(tdp, patch);
+  applyTde(t, tdp);
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function tdpSaveText(el) {
+  const t = selectedTodo();
+  const text = (el.value || "").replace(/\s*\n\s*/g, " ").trim().slice(0, TODO_MAX_LEN);
+  if (!t || !text || text === t.text) return;
+  t.text = text;
+  saveContent("todo-content", todoList);
+  renderHome();
+}
+function tdpAddStep() {
+  const t = selectedTodo(),
+    input = document.getElementById("tdp-sub");
+  const text = input ? input.value.trim().slice(0, TODO_MAX_LEN) : "";
+  if (!t || !text) return;
+  if (!t.subitems) t.subitems = [];
+  t.subitems.push({ id: genId("sub"), text, done: false });
+  saveContent("todo-content", todoList);
+  renderHome();
+  const again = document.getElementById("tdp-sub");
+  if (again) again.focus();
+}
+function todoDetailsHtml() {
+  const t = selectedTodo();
+  if (!t)
+    return `<div class="card" id="todo-details"><div class="tdp-label">Details</div><div class="empty">Select a to-do to see and change it here.</div></div>`;
+  tdp = tdeFrom(t);
+  const steps = (t.subitems || [])
+    .map(
+      (s) => `<div class="subitem-row" data-sub-id="${s.id}">
+        <button class="subitem-check" role="checkbox" aria-checked="${!!s.done}" aria-label="Complete: ${escapeAttr(s.text)}" data-action="subitem-toggle" data-todo-id="${t.id}" data-sub-id="${s.id}"><span class="subitem-box ${s.done ? "checked" : ""}">${BOX_CHECK_SVG}</span></button>
+        <div class="subitem-text ${s.done ? "checked" : ""}">${escapeHtml(s.text)}</div>
+        <button class="subitem-del" data-action="subitem-delete" data-todo-id="${t.id}" data-sub-id="${s.id}" aria-label="Delete step">${X_ICON}</button>
+      </div>`,
+    )
+    .join("");
+  return `<div class="card" id="todo-details" aria-label="To-do details">
+      <div class="tdp-head"><span class="tdp-label">Details</span>
+        <button class="todo-icon-btn ${t.starred ? "starred" : ""}" data-action="todo-star" data-todo-id="${t.id}" aria-label="${t.starred ? "Unstar" : "Star"} to-do">${t.starred ? STAR_FILLED_ICON : STAR_ICON}</button></div>
+      <textarea id="tdp-text" class="tdp-title" rows="1" maxlength="${TODO_MAX_LEN}" aria-label="To-do" data-keydown-action="tdp-text-key" data-change-action="tdp-text">${escapeHtml(t.text)}</textarea>
+      <div class="tde" id="tdp">${tdeHtml(tdp, "tdp", t.text)}</div>
+      <div class="tde-sec">Steps</div>
+      <div class="tdp-steps">${steps}
+        <div class="subitem-add"><input type="text" id="tdp-sub" placeholder="Add a step" autocomplete="off" maxlength="${TODO_MAX_LEN}" data-keydown-action="tdp-sub-key"><button data-action="tdp-sub-add" aria-label="Add step">${SMALL_PLUS_ICON}</button></div>
+      </div>
+      <div class="modal-actions tdp-actions">
+        <button class="modal-btn primary" data-action="home-todo-complete" data-todo-id="${t.id}">Done</button>
+        <button class="modal-btn tdp-ask" data-action="tdp-ask" data-todo-id="${t.id}">Ask Jarvis</button>
+      </div>
+      <button class="tdp-del" data-action="todo-delete" data-todo-id="${t.id}">Delete to-do</button>
+    </div>`;
 }
 function tdeDateChip(id, value, label, field) {
   // a chip with a native date input laid over it, so a tap opens the picker (delegated: tde-date change, tde-show-picker click)
   return `<label class="filter-chip tde-date ${value ? "on" : ""}">${CALENDAR_ICON}<span>${label}</span>
       <input type="date" id="${id}" value="${value || ""}" data-change-action="tde-date" data-field="${field}" data-action="tde-show-picker" aria-label="${label}"></label>`;
 }
-function tdeHtml() {
+function tdeHtml(s = tde, idp = "modal", text) {
   const today = addDaysIso(0),
     tomorrow = addDaysIso(1),
-    d = tde.due;
+    d = s.due;
   const short = (iso) => noonOf(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const chip = (label, on, attrs) =>
     `<button type="button" class="filter-chip ${on ? "on" : ""}" aria-pressed="${on}" ${attrs}>${label}</button>`;
-  const custom = !!CUSTOM_REPEATS[tde.repeat];
+  const custom = !!CUSTOM_REPEATS[s.repeat];
   let html = `<div class="tde-sec">When</div><div class="tde-chips">
       ${chip("Anytime", !d, dataAttrs("tde-due", { date: "" }))}
       ${chip("Today", d === today, dataAttrs("tde-due", { date: today }))}
       ${chip("Tomorrow", d === tomorrow, dataAttrs("tde-due", { date: tomorrow }))}
-      ${tdeDateChip("modal-due", d && d !== today && d !== tomorrow ? d : "", d && d !== today && d !== tomorrow ? short(d) : "Pick date", "due")}
+      ${tdeDateChip(`${idp}-due`, d && d !== today && d !== tomorrow ? d : "", d && d !== today && d !== tomorrow ? short(d) : "Pick date", "due")}
     </div>`;
   if (d)
     html += `<div class="tde-chips tde-span">${
-      tde.end
-        ? `<span class="tde-through">Through</span>${tdeDateChip("modal-end", tde.end, short(tde.end), "end")}<button type="button" class="tde-x" aria-label="Just one day" ${dataAttrs("tde-end", { date: "" })}>✕</button>`
+      s.end
+        ? `<span class="tde-through">Through</span>${tdeDateChip(`${idp}-end`, s.end, short(s.end), "end")}<button type="button" class="tde-x" aria-label="Just one day" ${dataAttrs("tde-end", { date: "" })}>✕</button>`
         : chip(
             `${SMALL_PLUS_ICON} Multi-day`,
             false,
@@ -378,36 +463,36 @@ function tdeHtml() {
           )
     }</div>`;
   html += `<div class="tde-sec">Repeat</div><div class="tde-chips">
-      ${TDE_REPEATS.map(([k, l]) => chip(l, tde.repeat === k, dataAttrs("tde-repeat", { repeat: k || "" }))).join("")}
-      ${chip("Custom", custom, dataAttrs("tde-repeat", { repeat: custom ? tde.repeat : "weeks" }))}
+      ${TDE_REPEATS.map(([k, l]) => chip(l, s.repeat === k, dataAttrs("tde-repeat", { repeat: k || "" }))).join("")}
+      ${chip("Custom", custom, dataAttrs("tde-repeat", { repeat: custom ? s.repeat : "weeks" }))}
     </div>`;
   if (custom)
     html += `<div class="tde-every"><span>Every</span>
       <button type="button" class="tde-step" aria-label="Fewer" ${dataAttrs("tde-every", { delta: -1 })}>−</button>
-      <b id="modal-every">${tde.every}</b>
+      <b id="${idp}-every">${s.every}</b>
       <button type="button" class="tde-step" aria-label="More" ${dataAttrs("tde-every", { delta: 1 })}>+</button>
-      <span class="tde-seg">${["weeks", "months"].map((u) => `<button type="button" class="${tde.repeat === u ? "on" : ""}" aria-pressed="${tde.repeat === u}" ${dataAttrs("tde-repeat", { repeat: u })}>${tde.every === 1 ? u.slice(0, -1) : u}</button>`).join("")}</span>
+      <span class="tde-seg">${["weeks", "months"].map((u) => `<button type="button" class="${s.repeat === u ? "on" : ""}" aria-pressed="${s.repeat === u}" ${dataAttrs("tde-repeat", { repeat: u })}>${s.every === 1 ? u.slice(0, -1) : u}</button>`).join("")}</span>
     </div>`;
   // one line that reads back the choice
   const sum = [];
   if (!d) sum.push("No date · it sits under Anytime");
   else {
     sum.push(
-      tde.end
-        ? `${short(d)} – ${short(tde.end)} (${Math.round((noonOf(tde.end) - noonOf(d)) / 864e5) + 1} days)`
+      s.end
+        ? `${short(d)} – ${short(s.end)} (${Math.round((noonOf(s.end) - noonOf(d)) / 864e5) + 1} days)`
         : short(d),
     );
-    if (tde.repeat) sum.push(repeatLabel({ repeat: tde.repeat, every: tde.every, due: d }));
+    if (s.repeat) sum.push(repeatLabel({ repeat: s.repeat, every: s.every, due: d }));
   }
   // Type: Automatic (shows what it guessed from the text), a type, or None
-  const textEl = document.getElementById("modal-text"),
-    guess = detectKind(textEl ? textEl.value : "");
+  const textEl = text == null ? document.getElementById(`${idp}-text`) : null,
+    guess = detectKind(text != null ? text : textEl ? textEl.value : "");
   const kchip = (k, label, on, icon = "", hue = null) =>
     `<button type="button" class="filter-chip kind-chip ${on ? "on" : ""}" aria-pressed="${on}" ${hue != null ? `style="--k:${hue}"` : ""} ${dataAttrs("tde-kind", { kind: k || "" })}>${icon}${label}</button>`;
   html += `<div class="tde-sec">Type</div><div class="tde-chips tde-kinds">
-      ${kchip(null, `Auto${guess ? ` · ${TODO_KINDS[guess].label}` : ""}`, !tde.kind, guess ? TODO_KINDS[guess].icon : "", guess ? TODO_KINDS[guess].hue : null)}
-      ${KIND_ORDER.map((k) => kchip(k, TODO_KINDS[k].label, tde.kind === k, TODO_KINDS[k].icon, TODO_KINDS[k].hue)).join("")}
-      ${kchip("none", "None", tde.kind === "none")}
+      ${kchip(null, `Auto${guess ? ` · ${TODO_KINDS[guess].label}` : ""}`, !s.kind, guess ? TODO_KINDS[guess].icon : "", guess ? TODO_KINDS[guess].hue : null)}
+      ${KIND_ORDER.map((k) => kchip(k, TODO_KINDS[k].label, s.kind === k, TODO_KINDS[k].icon, TODO_KINDS[k].hue)).join("")}
+      ${kchip("none", "None", s.kind === "none")}
     </div>`;
   return html + `<div class="tde-sum">${escapeHtml(sum.join(" · "))}</div>`;
 }
@@ -495,8 +580,9 @@ function renderTodoPanel() {
     if (t.days > 1) meta.push(escapeHtml(spanRange(t)));
     if (subs.length) meta.push(`${subDone}/${subs.length} sub-items`);
     if (t.repeat) meta.push(`<span class="repeat-meta">${REPEAT_ICON}${escapeHtml(repeatLabel(t))}</span>`);
+    const sel = todoPaneOn() && t.id === todoSel;
     return `<div class="todo-wrap" data-todo-id="${t.id}">
-        <div class="item ${t.done ? "checked" : ""}">
+        <div class="item ${t.done ? "checked" : ""}${sel ? " sel" : ""}"${sel ? ' aria-current="true"' : ""}>
           <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" data-action="home-todo-complete" data-todo-id="${t.id}"><span class="box">${BOX_CHECK_SVG}</span></button>
           <div class="body" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
           <button class="todo-icon-btn ${t.starred ? "starred" : ""}" style="order:3;" data-action="todo-star" data-todo-id="${t.id}" aria-label="${t.starred ? "Unstar" : "Star"} to-do">${t.starred ? STAR_FILLED_ICON : STAR_ICON}</button>
@@ -584,6 +670,7 @@ function renderTodoPanel() {
     }
   }
   html += `</div>`;
+  if (todoPaneOn()) html += todoDetailsHtml();
 
   // Recurring: every repeating to-do in one place, soonest first; tap to edit
   const recurring = todoList.filter((t) => t.repeat && !t.done).sort(byDue);

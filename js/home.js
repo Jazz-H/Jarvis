@@ -301,6 +301,9 @@ function renderHome() {
   renderTodoPanel();
   renderHomePanel();
 }
+// Home goes to three columns on a big screen (dashboard.js dashboardHtml); crossing the width redraws it
+const homeWide = window.matchMedia("(min-width: 1200px)");
+homeWide.addEventListener("change", () => renderHomePanel());
 function renderHomePanel() {
   const el = document.getElementById("panel-home");
   const iso = homeSelected(),
@@ -431,7 +434,10 @@ function renderHomePanel() {
     setTimeout(() => el.classList.remove("jv-first"), 400);
   }
   // Jarvis's dashboard leads the main tab; the day planner follows
-  el.innerHTML = dashboardHtml() + `<div class="jv-label jv-planner-label">Planner</div>` + strip + hero + list;
+  el.innerHTML = dashboardHtml(
+    `<div class="jv-label jv-planner-label">Planner</div>` + strip + hero + list,
+    homeWide.matches,
+  );
   homeWatchPlanner();
 }
 // On Home the + button adds to the day picked in the Planner, so it shows once the Planner is

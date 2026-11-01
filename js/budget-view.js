@@ -449,12 +449,12 @@ function renderBudget() {
     `<${click ? `button ${click}` : "div"} class="budget-kpi ${cls}"><span>${label}</span><b class="${cls.includes("neg") ? "over" : ""}">${value}</b>${sub ? `<i>${sub}</i>` : ""}</${click ? "button" : "div"}>`;
   const g0 = budget.goals[0],
     g0s = g0 && goalStatus(g0);
-  let html = `<div class="budget-month">
+  const monthNav = `<div class="budget-month">
       <button class="cal-nav" data-action="budget-month" data-delta="-1" aria-label="Previous month">‹</button>
       <span>${monthName}</span>
       <button class="cal-nav" data-action="budget-month" data-delta="1" aria-label="Next month">›</button>
-    </div>
-    <div class="budget-kpis four">
+    </div>`;
+  const kpisHtml = `<div class="budget-kpis four">
       ${
         hasIncome && paychecks.length
           ? `${tile("Income", `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`)}
@@ -479,8 +479,10 @@ function renderBudget() {
             : tile("Left to spend", signed(r2(limitTotal - spentTotal)), "")
       }
     </div>`;
+  let html = monthNav + kpisHtml;
 
   // My Bills / Joint Bills: one table each, like the sheet (paid rows struck)
+  const billCards = { personal: "", joint: "" };
   ["personal", "joint"].forEach((g) => {
     const list = rows
       .filter((r) => ((r.bill && r.bill.group) || (r.payment && r.payment.group) || "personal") === g)
@@ -491,13 +493,16 @@ function renderBudget() {
       ? `<div class="btab-head"><span>Due</span><span>Expense</span><span>Amount</span><span>Paid</span></div>${list.map((r) => billTableRowHtml(r, today, monthStart)).join("")}
          <div class="btab-total"><span>Total</span><b>${money(sum(list))}</b></div>`
       : `<div class="empty">No bills this month. Add rent, phone, subscriptions… or import them from your sheet.</div>`;
-    html += collapsibleCard({
+    billCards[g] = collapsibleCard({
       id: g === "joint" ? "bills-joint" : "bills-mine",
       title: g === "joint" ? "Joint Bills" : "My Bills",
       insight: list.length ? `${paidN}/${list.length} paid` : "None",
       body: body + (g === "personal" ? `<button class="add-row" data-action="bill-add">+ Add bill</button>` : ""),
     });
   });
+
+  const accountsCard = byAccountHtml(monthRows);
+  html += billCards.personal + billCards.joint;
 
   // Paycheck Plan: each check, its lines, and what's left of it
   let plan = "";
@@ -537,19 +542,22 @@ function renderBudget() {
         <div class="pp-left ${p.left < 0 ? "over" : ""}"><span>Remaining</span><b>${p.left < 0 ? "−" : ""}${money(Math.abs(p.left))}</b></div>
       </div>`;
   });
+  let planCard;
   if (paychecks.length)
-    html += collapsibleCard({
+    planCard = collapsibleCard({
       id: "pay-plan",
       title: "Paycheck Plan",
       insight: `${paychecks.length} check${paychecks.length === 1 ? "" : "s"}`,
       body: `<div id="pay-periods">${plan}</div>`,
     });
   else
-    html += `<div class="card period-empty">${hasIncome ? `No paydays in ${monthName}.` : `Add your paycheck to plan each check: what it covers and what's left.`}</div>`;
+    planCard = `<div class="card period-empty">${hasIncome ? `No paydays in ${monthName}.` : `Add your paycheck to plan each check: what it covers and what's left.`}</div>`;
+  html += planCard;
 
   // Month at a Glance
+  let glanceCard = "";
   if (hasIncome && paychecks.length)
-    html += collapsibleCard({
+    glanceCard = collapsibleCard({
       id: "glance",
       title: "Month at a Glance",
       body: `<div class="glance">
@@ -560,9 +568,14 @@ function renderBudget() {
     </div>`,
     });
 
-  if (budget.goals.length) html += goalsCardHtml();
+  html += glanceCard;
+  const goalsCard = budget.goals.length ? goalsCardHtml() : "";
+  const debtsCard = budget.debts.length ? debtsCardHtml() : "";
+  const cardsCard = cardsCardHtml(key, rows, paychecks);
+  html += goalsCard + debtsCard + cardsCard + accountsCard;
   const spendingShown = spent.length || showSpending;
-  if (spendingShown) html += spendingCardHtml(spent, spentTotal);
+  const spendCard = spendingShown ? spendingCardHtml(spent, spentTotal) : "";
+  html += spendCard;
 
   // Manage: the set-up-once things, one line each
   const mrow = (label, value, attrs) =>
@@ -583,22 +596,99 @@ function renderBudget() {
     mact("add-income"),
   );
   if (!budget.goals.length) manage += mrow("Goals", "House, ring, emergency fund…", mact("new-goal"));
+  if (!budget.debts.length) manage += mrow("Debts", "Car loan, personal loan…", mact("new-debt"));
   if (!spendingShown) manage += mrow("Spending by category", "Nothing logged", mact("show-spending"));
-  manage += mrow("Cards &amp; banks", `${budget.accounts.length}`, mact("accounts"));
+  const nCards = cardAccounts().length;
+  manage += mrow(
+    "Cards &amp; banks",
+    `${budget.accounts.length}${nCards ? ` · ${nCards} credit card${nCards === 1 ? "" : "s"}` : ""}`,
+    mact("accounts"),
+  );
   manage += mrow("Import bills from a sheet", "", mact("import-bills"));
   if (budget.income.length) manage += mrow("Import paychecks", "Dates and amounts", mact("import-income"));
   if (paychecks.length) manage += mrow("Import paycheck plans", "", mact("import-plans"));
   // Manage stays out of the way: a quiet link at the bottom opens it as a sheet
   budgetManageHtml = manage;
   // the month view folds under the "now" top (a native <details>: its toggle is saved below)
-  html = `${budgetTopHtml(today)}
+  if (budgetSheetOn()) {
+    const g0Card = g0
+      ? sheetBox(
+          `${escapeHtml(g0.name)} · ${escapeHtml(noonOf(monthStart).toLocaleDateString("en-US", { month: "short" }))}`,
+          goalMonthHtml(g0, key),
+        )
+      : "";
+    const order = orderListHtml();
+    el.innerHTML = `<div class="bsheet">
+        <div class="bs-bar">${monthNav}<span class="bs-key">Blue = typed in · white = worked out</span>${budgetViewSwitch()}</div>
+        ${kpisHtml}
+        <div class="bs-grid">
+          <div class="bs-col">${billCards.personal}${billCards.joint}${accountsCard}</div>
+          <div class="bs-col">${planCard}${glanceCard}</div>
+          <div class="bs-col">${g0Card}${order ? sheetBox("Goals · in your order", order) : ""}${debtsCard}${cardsCard}${comingNextHtml(key, today)}${spendCard}${goalsCard}</div>
+        </div>
+        <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards, debts &amp; imports</em></button>
+      </div>`;
+    return;
+  }
+  html = `<div class="bview-bar">${budgetViewSwitch()}</div>${budgetTopHtml(today)}
     <details class="wb-month" id="wb-month"${wbMonthOpen() ? " open" : ""}>
       <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills and paycheck plan</span>${CHEVRON_RIGHT}</summary>
       <div class="wb-month-body">${html}</div>
     </details>
-    <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards &amp; imports</em></button>`;
+    <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards, debts &amp; imports</em></button>`;
   el.innerHTML = html;
 }
+// ---------- the wide sheet view ----------
+// On a big screen the month can be laid out like the spreadsheet: the bills
+// tables, the paycheck plans and the totals side by side. Phone | Sheet is
+// remembered on this device; narrow screens always get the phone layout.
+const BUDGET_VIEW_KEY = "budget-view";
+const budgetWide = window.matchMedia("(min-width: 1100px)");
+function budgetSheetOn() {
+  try {
+    return budgetWide.matches && localStorage.getItem(BUDGET_VIEW_KEY) === "sheet";
+  } catch (e) {
+    return false;
+  }
+}
+function setBudgetView(v) {
+  try {
+    localStorage.setItem(BUDGET_VIEW_KEY, v);
+  } catch (e) {}
+  renderBudget();
+}
+function budgetViewSwitch() {
+  const on = budgetSheetOn();
+  return `<div class="bview-switch" role="group" aria-label="Budget layout">
+      <button type="button" class="bview-seg${on ? "" : " on"}" data-action="budget-view" data-view="phone" aria-pressed="${!on}">Phone</button>
+      <button type="button" class="bview-seg${on ? " on" : ""}" data-action="budget-view" data-view="sheet" aria-pressed="${on}">Sheet</button>
+    </div>`;
+}
+function sheetBox(title, body) {
+  return `<section class="card bs-box"><h3>${title}</h3>${body}</section>`;
+}
+// The next month's bills, so the end of this one shows what's coming
+function comingNextHtml(key, today) {
+  const next = addMonthsIso(key + "-01", 1).slice(0, 7);
+  const list = billsInMonth(next)
+    .filter((r) => r.due >= next + "-01" && !r.payment)
+    .sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+  if (!list.length) return "";
+  const shown = list.slice(0, 8);
+  const more = list.length - shown.length;
+  const month = noonOf(next + "-01").toLocaleDateString("en-US", { month: "long" });
+  return sheetBox(
+    `Coming in ${escapeHtml(month)}`,
+    `<div class="coming">${shown
+      .map(
+        (r) =>
+          `<div class="btab-row"><span class="btab-due">${ordinal(Number(r.due.slice(8)))}</span><span class="btab-text">${escapeHtml(r.name)}</span><b class="btab-amt">${money(r.amount)}</b></div>`,
+      )
+      .join("")}${more > 0 ? `<p class="debt-note">and ${more} more</p>` : ""}</div>`,
+  );
+}
+// crossing the width redraws Budget in the layout that fits
+budgetWide.addEventListener("change", () => renderBudget());
 function pruneBudgetHistory() {
   const cutoff = addDaysIso(-400);
   const p = billPayments.filter((x) => x.date >= cutoff),
@@ -727,6 +817,7 @@ function normalizeBudgetData() {
         .filter((e) => e && iso(e.date) && isFinite(Number(e.amount)))
         .map((e) => ({ id: safeId(e.id, "gl"), date: e.date, amount: Number(e.amount), note: str(e.note, 80) })),
     }));
+  normalizeDebts();
 }
 
 // Budget's calendar: swipe down for the month, up for the week

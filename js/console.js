@@ -239,7 +239,14 @@ function consoleAddedText(todos, shop) {
 // ---- rendering ----
 // consoleReviewHtml() (the Weekly Review card in this slot) lives in review.js
 function consoleShellHtml() {
+  // three columns on a big screen (history | the box and the conversation | review and brain); one on a phone
   return `<div class="cn">
+    <aside class="cn-hist" aria-label="Conversation history">
+      <label class="cn-search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="cn-search" placeholder="Search answers" autocomplete="off" maxlength="80" aria-label="Search questions and answers" data-input-action="console-search" data-keydown-action="console-search-key"></label>
+      <div id="cn-hist-days"></div>
+    </aside>
+    <div class="cn-main">
     <div class="cn-box">
       <label class="cn-sr" for="console-input" id="console-input-label">Ask Jarvis</label>
       <textarea id="console-input" class="cn-input" rows="1" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"
@@ -264,8 +271,11 @@ function consoleShellHtml() {
     <div id="cn-ask-note"></div>
     <div id="cn-preview"></div>
     <div id="cn-feed"></div>
+    </div>
+    <div class="cn-side">
     <div class="cn-review" id="cn-review"></div>
     <div id="cn-brain"></div>
+    </div>
   </div>`;
 }
 let consoleChipsMode = null; // which mode's chips are drawn, so typing doesn't redraw them
@@ -462,7 +472,10 @@ function consoleEntryHtml(e) {
   </li>`;
 }
 // Captures from this week, and questions to Jarvis from today and yesterday (ask.js), newest first
+// (A search from the history column looks through everything kept instead.)
 function consoleFeedHtml() {
+  const q = consoleSearch.trim().toLowerCase();
+  if (q) return consoleSearchHtml(q);
   const all = [
     ...consoleFeed.map((e) => ({ at: e.at, html: () => consoleEntryHtml(e) })),
     ...askFeedEntries().map((q) => ({ at: q.at, html: () => askEntryHtml(q) })),
@@ -488,7 +501,7 @@ function consoleFeedHtml() {
   const body = days
     .map(
       (d) =>
-        `<div class="cn-day">${escapeHtml(consoleDayLabel(d.iso))}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
+        `<div class="cn-day" data-day="${d.iso}">${escapeHtml(consoleDayLabel(d.iso))}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
     )
     .join("");
   // older questions load in place; once they're all showing, Clear history sits at the end
@@ -500,6 +513,71 @@ function consoleFeedHtml() {
       : "";
   return `${head}<div id="cn-feed-body"${open ? "" : " hidden"}>${body}${foot}</div>`;
 }
+// ---- history column (big screens): search, the days with something in them, how much is kept ----
+let consoleSearch = "";
+function consoleAskMatches(e, q) {
+  const a = e.answer;
+  return [e.text, a && a.text, a && a.checkin, ...((a && a.bullets) || [])].some(
+    (s) => typeof s === "string" && s.toLowerCase().includes(q),
+  );
+}
+function consoleSearchHtml(q) {
+  const hits = [
+    ...consoleFeed
+      .filter((e) => e.text.toLowerCase().includes(q))
+      .map((e) => ({ at: e.at, html: () => consoleEntryHtml(e) })),
+    ...loadAskEntries()
+      .filter((e) => consoleAskMatches(e, q))
+      .map((e) => ({ at: e.at, html: () => askEntryHtml(e) })),
+  ].sort((a, b) => b.at - a.at);
+  const head = `<div class="jv-label"><span>Results</span><i></i><button type="button" class="jv-chip-sm" data-action="console-search-clear">Clear · ${hits.length}</button></div>`;
+  return hits.length
+    ? `${head}<ul class="cn-feed">${hits.map((e) => e.html()).join("")}</ul>`
+    : `${head}<p class="cn-empty">Nothing kept here mentions “${escapeHtml(consoleSearch.trim())}”.</p>`;
+}
+function consoleSearchChanged(el) {
+  consoleSearch = String(el.value || "").slice(0, 80);
+  const feed = document.getElementById("cn-feed");
+  if (feed) feed.innerHTML = consoleFeedHtml();
+}
+function consoleSearchClear() {
+  consoleSearch = "";
+  const input = document.getElementById("cn-search");
+  if (input) input.value = "";
+  renderConsole();
+}
+function consoleHistHtml() {
+  const counts = new Map();
+  [...consoleFeed.map((e) => e.at), ...loadAskEntries().map((e) => e.at)].forEach((at) => {
+    const iso = isoDate(new Date(at));
+    counts.set(iso, (counts.get(iso) || 0) + 1);
+  });
+  const days = [...counts.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const shown = days.slice(0, 5),
+    earlier = days.slice(5).reduce((n, d) => n + d[1], 0);
+  const row = (label, n, iso) =>
+    `<button type="button" class="cn-hist-day" data-action="console-day" data-date="${iso}"><span>${escapeHtml(label)}</span><b>${n}</b></button>`;
+  const list = shown.map(([iso, n]) => row(consoleDayLabel(iso), n, iso)).join("");
+  return `<div class="jv-sub-label">Conversation</div>
+    ${list ? list + (earlier ? row("Earlier", earlier, days[5][0]) : "") : `<p class="br-empty">Questions and captures show up here by day.</p>`}
+    <p class="cn-hist-foot">Answers are kept for the last ${ASK_HISTORY_MAX} questions${days.length ? ` · <button type="button" class="cn-link" data-action="ask-clear">Clear history</button>` : ""}</p>`;
+}
+// Jump to a day in the conversation, showing older questions and unfolding it if needed
+function consoleGoDay(iso) {
+  consoleSearch = "";
+  const input = document.getElementById("cn-search");
+  if (input) input.value = "";
+  if (noonOf(iso).getTime() < noonOf(addDaysIso(-1)).getTime()) askShowAll = true;
+  if (!consoleFeedOpen()) {
+    try {
+      localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1");
+    } catch (e) {}
+  }
+  renderConsole();
+  const day = document.querySelector(`#cn-feed .cn-day[data-day="${iso}"]`);
+  if (day) day.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
 // Questions from today/yesterday that have no answer yet
 function consolePendingCount() {
   const answered = new Set(loadAnswers().answers.map((a) => a.id));
@@ -532,6 +610,7 @@ function renderConsole() {
   document.getElementById("cn-review").innerHTML = consoleReviewHtml();
   document.getElementById("cn-brain").innerHTML = brainCardHtml();
   document.getElementById("cn-feed").innerHTML = consoleFeedHtml();
+  document.getElementById("cn-hist-days").innerHTML = consoleHistHtml();
   askPollEnsure(); // waiting for an answer: check the gist while Console is on screen
 }
 

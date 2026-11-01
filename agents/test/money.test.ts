@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buildMoneyCard, payPeriod, addMonthsIso, nextBillIso } from "../lib/money.ts";
 import { runBriefing, pushMessages, cleanSuggestions, type Subagents } from "../jarvis.ts";
 import { Briefing } from "../schemas/briefing.ts";
+import { MoneyCard } from "../schemas/money.ts";
 import { Trace } from "../lib/trace.ts";
 import { buildJazzContext, emptyContext } from "../lib/jazz-context.ts";
 import type { GistClient } from "../tools/gist.ts";
@@ -203,5 +204,59 @@ describe("Bill Guard in the briefing", () => {
       { text: "Past", due: null },
     ]);
     expect(cleanSuggestions(undefined, c)).toEqual([]);
+  });
+});
+
+describe("debts and credit cards (js/budget-debts.js rules)", () => {
+  const withDebts = (budget: object) => ({ ...DATA, "budget-content": { ...DATA["budget-content"], ...budget } });
+
+  it("works out payoff months in the owner's order and marks the first open one next", () => {
+    const d = withDebts({
+      debts: [
+        { name: "Done one", balance: 0, apr: 5, payment: 100 },
+        { name: "Loan A", balance: 1200, apr: 0, payment: 100 }, // 12 months
+        { name: "Loan B", balance: 10000, apr: 6, payment: 193.33 }, // 60 months
+        { name: "Too small", balance: 5000, apr: 24, payment: 50 }, // $100 interest a month
+        { name: "No payment", balance: 300, apr: 0, payment: 0 },
+      ],
+    });
+    const m = buildMoneyCard(raw(d), TODAY, null)!;
+    expect(m.debts.map((x) => [x.name, x.paidOff, x.next, x.coversInterest])).toEqual([
+      ["Done one", null, false, true],
+      ["Loan A", "2027-10", true, true],
+      ["Loan B", "2031-10", false, true],
+      ["Too small", null, false, false],
+      ["No payment", null, false, true],
+    ]);
+  });
+
+  it("finds each card's next due date and statement, and guards one due soon that isn't planned", () => {
+    const d = withDebts({
+      accounts: ["Ally", "Visa", "Store"],
+      cardInfo: {
+        Visa: { due: 31, st: { "2026-10": 412.5 } }, // Oct 31: within 3 days, not in a plan
+        Store: { due: 5, st: { "2026-11": 60 } }, // Oct 5 passed, so Nov 5
+        Gone: { due: 1, st: {} }, // not an account: ignored
+      },
+      plans: {
+        "inc1|2026-10-15": { amount: 2100, received: true, lines: [] },
+        "inc1|2026-11-15": { lines: [{ name: "Store payment", amount: 60 }] },
+      },
+    });
+    const m = buildMoneyCard(raw(d), TODAY, null)!;
+    expect(m.cards).toEqual([
+      { name: "Visa", due: "2026-10-31", statement: 412.5, planned: false },
+      { name: "Store", due: "2026-11-05", statement: 60, planned: true },
+    ]);
+    expect(m.guard.filter((g) => g.reason === "card")).toEqual([
+      { reason: "card", name: "Visa", amount: 412.5, due: "2026-10-31", budgetAmount: null },
+    ]);
+  });
+
+  it("parses an older briefing without debts or cards", () => {
+    expect(MoneyCard.parse({ period: null, guard: [], overspent: [] })).toMatchObject({
+      debts: [],
+      cards: [],
+    });
   });
 });

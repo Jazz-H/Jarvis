@@ -32,6 +32,7 @@ function checkDayChange() {
   renderHome();
   loadConsoleFeed(); // drops entries older than 7 days
   renderConsole();
+  renderDeskFooter();
 }
 function writeQuietly(key, value) {
   try {

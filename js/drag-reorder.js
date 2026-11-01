@@ -550,6 +550,15 @@ sortable(
 );
 sortable(
   document.getElementById("panel-budget"),
+  "#debts-card .debt-row",
+  (box, ids) => {
+    budget.debts = byIds(budget.debts, ids);
+    saveBudgetData();
+  },
+  ".debt-pay, a, input",
+);
+sortable(
+  document.getElementById("panel-budget"),
   "#spending-card .budget-cat",
   (box, ids) => {
     budget.categories = byIds(budget.categories, ids);

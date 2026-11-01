@@ -8,6 +8,7 @@
 // back to 60 ahead, as of the morning run), the latest Weekly Review, and the earlier turns of
 // the same thread. Synced text is untrusted: it's clipped here and only reaches the model as data.
 import { readBrain, brainForPrompt } from "./brain.ts";
+import { readCards, readDebts } from "./money.ts";
 import { addDays, isWashDate } from "./jazz-context.ts";
 import { localTime, weekday } from "./schedule.ts";
 import {
@@ -500,6 +501,10 @@ export function jazzPart(data: Obj, today: string) {
       today: routineToday(data, today),
     },
     savingsGoals: savingsGoals(data),
+    // in the owner's payoff order after the savings goals; paidOff is YYYY-MM, worked out in code
+    debts: readDebts(data, today),
+    // credit cards, paid in full: next due date, that month's statement (null = not typed in yet)
+    cards: readCards(data, today),
     workouts: workouts(data, today),
     weight,
     goals: goals(data),

@@ -28,10 +28,12 @@ const DEFAULT_BUDGET = {
   income: [],
   plans: {},
   goals: [],
+  debts: [],
+  cardInfo: {},
 };
 let bills = [],
   billPayments = [],
-  budget = { categories: [], expenses: [], accounts: [], income: [], plans: {}, goals: [] };
+  budget = { categories: [], expenses: [], accounts: [], income: [], plans: {}, goals: [], debts: [], cardInfo: {} };
 // Bills are split the way a household budget usually is: your own vs. shared
 const BILL_GROUPS = { personal: "Monthly", joint: "Joint" };
 let budgetMonthOffset = 0; // months from the current one shown on the Budget tab

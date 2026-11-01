@@ -3,7 +3,7 @@
 // js/budget-income.js (incomeInMonth, paycheckAt, incomeEstimate) and js/dashboard.js
 // (dashPayPeriod), so Jarvis's numbers match Safe to spend in the app.
 // Synced data is untrusted: names are trimmed and capped, amounts must be finite.
-import { MoneyCard, type GuardItem, type PayPeriod } from "../schemas/money.ts";
+import { MoneyCard, type CardStatus, type DebtStatus, type GuardItem, type PayPeriod } from "../schemas/money.ts";
 import type { InboxCard } from "../schemas/inbox.ts";
 
 const GUARD_DAYS = 3; // a bill not on autopay is flagged this many days ahead
@@ -124,6 +124,70 @@ export function payPeriod(data: any, today: string): PayPeriod | null {
   return { start, end, pay, paid, due, left: r2(pay - paid - due) };
 }
 
+// js/budget-debts.js debtPayoff: month by month (interest, then the payment) until the balance is gone
+export function debtPayoff(balance: number, apr: number, payment: number, today: string) {
+  if (!(balance > 0)) return { done: true, months: 0, paidOff: null, coversInterest: true };
+  if (!(payment > 0)) return { done: false, months: null, paidOff: null, coversInterest: true };
+  const r = apr / 1200;
+  if (r > 0 && payment <= balance * r) return { done: false, months: null, paidOff: null, coversInterest: false };
+  let bal = balance,
+    months = 0;
+  while (bal > 0.005 && months < 600) {
+    bal = bal + bal * r - payment;
+    months++;
+  }
+  return { done: false, months, paidOff: addMonthsIso(today, months).slice(0, 7), coversInterest: true };
+}
+
+// Budget's debts in the owner's payoff order (after the savings goals); the first one not paid off is next
+export function readDebts(data: any, today: string): DebtStatus[] {
+  const list = Array.isArray(data?.["budget-content"]?.debts) ? data["budget-content"].debts : [];
+  let next = false;
+  return list
+    .filter((d: any) => d && clip(d.name, 60))
+    .slice(0, 10)
+    .map((d: any) => {
+      const balance = r2(Math.max(0, num(d.balance)));
+      const apr = Math.min(99, Math.max(0, num(d.apr)));
+      const payment = r2(Math.max(0, num(d.payment)));
+      const p = debtPayoff(balance, apr, payment, today);
+      const isNext = !p.done && !next;
+      if (isNext) next = true;
+      return { name: clip(d.name, 60), balance, apr, payment, paidOff: p.paidOff, coversInterest: p.coversInterest, next: isNext };
+    });
+}
+
+// Credit cards (accounts in budget.cardInfo), paid in full: the next due date on or after today,
+// that month's statement (null until typed in) and whether a paycheck plan that month has its payment
+export function readCards(data: any, today: string): CardStatus[] {
+  const b = data?.["budget-content"];
+  const info = b?.cardInfo && typeof b.cardInfo === "object" ? b.cardInfo : {};
+  const accounts: string[] = Array.isArray(b?.accounts) ? b.accounts.filter((a: unknown) => typeof a === "string") : [];
+  const plans = b?.plans && typeof b.plans === "object" ? b.plans : {};
+  const dueIn = (month: string, day: unknown) => {
+    const last = daysInMonth(+month.slice(0, 4), +month.slice(5, 7) - 1);
+    const d = Number.isInteger(day) && (day as number) >= 1 ? Math.min(day as number, last) : last;
+    return `${month}-${String(d).padStart(2, "0")}`;
+  };
+  return accounts
+    .filter((a) => info[a] && typeof info[a] === "object" && clip(a, 40))
+    .slice(0, 6)
+    .map((a) => {
+      const c = info[a];
+      let month = today.slice(0, 7);
+      if (dueIn(month, c.due) < today) month = addMonthsIso(month + "-01", 1).slice(0, 7);
+      const st = c.st && typeof c.st === "object" && c.st[month] != null && Number.isFinite(Number(c.st[month])) ? r2(num(c.st[month])) : null;
+      const lc = a.toLowerCase();
+      const planned = Object.entries(plans).some(
+        ([k, p]: [string, any]) =>
+          k.slice(k.indexOf("|") + 1, k.indexOf("|") + 8) === month &&
+          Array.isArray(p?.lines) &&
+          p.lines.some((l: any) => typeof l?.name === "string" && l.name.toLowerCase().includes(lc)),
+      );
+      return { name: clip(a, 40), due: dueIn(month, c.due), statement: st, planned };
+    });
+}
+
 // This month's spending against each category's limit (js/budget-view.js wbSpendingHtml)
 function overspent(data: any, today: string): MoneyCard["overspent"] {
   const budget = data?.["budget-content"];
@@ -159,6 +223,10 @@ export function buildMoneyCard(raw: string | null, today: string, inbox: InboxCa
     if (b.due < today && !b.autopay) guard.push({ reason: "overdue", ...base });
     else if (b.due >= today && b.due <= soon && !b.autopay) guard.push({ reason: "manual", ...base });
   }
+  // a card due within the guard window whose payment isn't in a paycheck plan yet
+  const cards = readCards(data, today);
+  for (const c of cards)
+    if (c.due <= soon && !c.planned) guard.push({ reason: "card", name: c.name, amount: c.statement, due: c.due, budgetAmount: null });
   const period = payPeriod(data, today);
   if (period && period.pay > 0 && period.left < 0)
     guard.push({ reason: "short", name: "Bills before payday", amount: r2(-period.left), due: period.end, budgetAmount: null });
@@ -168,5 +236,5 @@ export function buildMoneyCard(raw: string | null, today: string, inbox: InboxCa
     else if (c.status === "not-in-budget")
       guard.push({ reason: "not-in-budget", name: clip(c.payee, 60), amount: c.amount, due: c.due, budgetAmount: null });
   }
-  return MoneyCard.parse({ period, guard: guard.slice(0, 8), overspent: overspent(data, today) });
+  return MoneyCard.parse({ period, guard: guard.slice(0, 8), overspent: overspent(data, today), debts: readDebts(data, today), cards });
 }

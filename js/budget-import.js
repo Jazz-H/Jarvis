@@ -4,10 +4,15 @@
 // ---------- cards / banks ----------
 function editAccount(i) {
   const name = i == null ? "" : budget.accounts[i];
+  const card = name ? budget.cardInfo[name] : null;
   openModal(
     i == null ? "Add card or bank" : "Edit card or bank",
-    [{ key: "name", label: "Name (e.g. Bank A, Citi CC)", type: "text" }],
-    { name },
+    [
+      { key: "name", label: "Name (e.g. Bank A, Citi CC)", type: "text" },
+      { key: "card", label: "Credit card (paid in full each month)", type: "checkbox" },
+      { key: "due", label: "Card payment due day (1–31)", type: "number", step: "1" },
+    ],
+    { name, card: !!card, due: card && card.due ? card.due : "" },
     (v) => {
       const n = (v.name || "").trim().slice(0, 40);
       if (!n || (n !== name && budget.accounts.includes(n))) return;
@@ -18,11 +23,19 @@ function editAccount(i) {
           if (b.account === name) b.account = n;
         });
       }
+      delete budget.cardInfo[name];
+      const due = Number(v.due);
+      if (v.card)
+        budget.cardInfo[n] = {
+          due: Number.isInteger(due) && due >= 1 && due <= 31 ? due : null,
+          st: card ? card.st : {},
+        };
       saveBudgetData();
     },
     i == null
       ? null
       : () => {
+          delete budget.cardInfo[name];
           budget.accounts.splice(i, 1);
           [...bills, ...billPayments].forEach((b) => {
             if (b.account === name) b.account = null;

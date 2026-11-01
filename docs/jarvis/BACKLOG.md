@@ -21,6 +21,14 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - (nothing open; add ideas here)
 
 ## Done
+- [x] Desktop matches the mockups (Nov 1): Ask Jarvis and the briefing read **debts and credit
+  cards** (`readDebts` / `readCards` in `agents/lib/money.ts`; Bill Guard flags a card due
+  soon that isn't in a paycheck plan), the To-Do **Details pane**, the Console **history column**
+  (search, days, Clear history), and Home's duplicate add box gone on big screens.
+- [x] Budget catches up with the sheet (Nov 1): **Debts** by hand in your own order behind the goals
+  (payoff dates, Pay, Next), **credit cards** as accounts (statement → one-tap paycheck line),
+  **By account**, and the wide **Sheet view**; plus the **desktop layouts** (Home three columns,
+  To-Do and Console two, command bar with /, status line). Steps 1–3 of PLAID-SCOPE.md section 9.
 - [x] Read aloud (🔊 on answers and the briefing; spoken questions answered out loud) and the weekly
   Price watcher for Shopping (Oct 31)
 - [x] Jarvis's brain (Oct 31): memory ("remember …"), ratings, tone / news topics / about you, and

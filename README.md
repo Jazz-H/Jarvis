@@ -73,8 +73,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     the detail: the UV peak and its hours with SPF advice, and air quality (both from
     Open-Meteo). Names its agent and time.
   - **Money:** a warning for bills due within 3 days that aren't on autopay, **Bill Guard**'s
-    findings from this morning (bills before payday over the paycheck, bill emails that differ
-    from Budget or aren't in it, categories over their limit), bills due in the
+    findings from this morning (bills before payday over the paycheck, a credit card due soon
+    that isn't in a paycheck plan, bill emails that differ from Budget or aren't in it,
+    categories over their limit), bills due in the
     next 7 days (tick to pay, tap to edit), then the current pay period (payday to payday):
     **Safe to spend** until payday (with the countdown) and a bar of paid vs. due; tap it for
     Budget. The tile names a not-autopay bill when one is due soon.
@@ -227,7 +228,8 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     get a notification". The answer also arrives with the next sync, and the "ask" notification
     opens `?tab=console&ask=<id>`, which scrolls to that answer (showing Earlier if it's older).
   - **What Jarvis sees:** everything in the app, worked out by code: to-dos (with ids), bills,
-    the pay period and safe to spend, spending against limits, savings goals, today's Beauty
+    the pay period and safe to spend, spending against limits, savings goals, debts in your
+    payoff order (paid-off month, which is next), credit cards (next due date and statement), today's Beauty
     steps, workouts, weight (pace and goal date once weigh-ins span a week), Jazz 3.0 goal items
     with notes, Shopping, plus this morning's briefing, the calendar (90 days back, 60 ahead) and
     the latest Weekly Review.
@@ -466,8 +468,26 @@ The month view is laid out like the budget sheet, one calendar month at a time (
   Behind), + Add money, and History. A milestone bar marks 25/50/75/100%, with the next
   milestone and a finish date at the last 3 months' pace. Plan lines pointed at a goal count once their payday
   arrives. The card appears once there's a goal.
+- **Debts** (car loan, personal loan…), in **your order** behind the goals: balance, APR and
+  monthly payment give each one a "paid off <month>" date (worked out month by month; a payment
+  that doesn't cover the interest says so). The first one not paid off is marked **Next**, and
+  the card says where extra money goes ("After House fund, extra money goes to …"). **Pay**
+  logs a payment and takes it off the balance; deleting the entry (in Edit) puts it back.
+  Drag to reorder. The card appears once there's a debt (add the first from Manage).
+- **Cards:** mark an account a **credit card** in Cards & banks (with its payment due day).
+  Cards are paid in full, so each month you type the **statement** (shown in blue, like the
+  sheet's typed-in numbers) and one tap adds it as "<card> payment" to the paycheck before the
+  due date; then the card says "In the Nov 13 plan". Bills paid from a card still count in Bills
+  & spending, as in the sheet.
+- **By account:** the month's bills totalled by the account that pays them.
 - **Spending** by category appears once something's logged (or from Manage).
-- **Manage** (a quiet "⚙ Manage budget" link at the bottom opens it as a sheet): paychecks, add income, Goals and Spending until used,
+- **Sheet view** (screens 1100px wide and up): a **Phone | Sheet** switch lays the month out
+  like the spreadsheet: the four tiles across, then My Bills, Joint Bills and By account |
+  the Paycheck Plan and Month at a Glance | the first goal's start/deposited/end of month,
+  **Goals · in your order** (goals, then debts, with their dates), Debts, Cards and **Coming in
+  <next month>**. Every box is open. The choice is remembered on this device; phones always get
+  the phone layout.
+- **Manage** (a quiet "⚙ Manage budget" link at the bottom opens it as a sheet): paychecks, add income, Goals, Debts and Spending until used,
   Cards & banks, **Import bills from a sheet** (paste rows: card/bank, "6th", expense,
   "$120.00" or "-"), **Import paychecks** (date + amount rows set each payday's amount), and
   **Import paycheck plans** (blocks starting with a "Paycheck" row).
@@ -496,7 +516,7 @@ Beauty has no + because adding routine steps is a rare edit there.
 
 **Reordering.** Press and drag works everywhere a list's order is yours: to-dos and
 sub-items (To-Do and Home), routine steps and key rules (Beauty), and each paycheck's
-plan lines, goals and spending categories (Budget). There are no grip handles. Bills
+plan lines, goals, debts and spending categories (Budget). There are no grip handles. Bills
 (by due date) and Shopping (priority, need, price) sort themselves.
 
 **Editing.** Like Android apps: tap an item to edit it (to-dos, bills, routine steps, rules,
@@ -515,6 +535,24 @@ only turning sync off still asks first.
 **Navigation.**
 - **Tab bar:** at the bottom on phones. At ≥768px it moves under the header, with a centered
   column (760px, or 920px at ≥1440px).
+- **Big screens (≥1200px):** the page widens to 1360px and uses columns. **Home:** the greeting
+  across the top (the command bar replaces Home's own add box), then Jarvis's briefing and News |
+  Your day and the Planner | the system tiles and Outfit. **To-Do:** the list | **Details**,
+  Recurring and Workouts: clicking a to-do selects it (highlighted) and opens it in the Details
+  pane instead of the Edit dialog: the title (saves on Enter or when you click away), the same
+  When / Repeat / Type chips (each tap saves), the star, **Steps** (sub-items: tick, delete, add
+  with Enter), **Done**, **Ask Jarvis** (hands "Help me with this to-do: …" to Console) and
+  Delete. The selection lasts until you reload. **Console:** a **history** column (search
+  everything kept, questions and answers alike, Esc clears; the days with something in them,
+  click one to jump there, older ones load as needed; how much is kept and Clear history) | the box
+  and the conversation | the weekly review, usage and Jarvis's brain (both side columns stay in
+  view while you scroll).
+  The header gets a **command bar** ("Ask Jarvis or add a to-do…", **/** jumps to it from
+  anywhere but a text box): a question (ending in ?, or starting with what/how/should…) or
+  "Hey Jarvis …" goes to Console; anything else is added as a to-do with the same date words
+  as quick add. It's hidden on Console, which has its own box. A **status line** at the bottom
+  shows sync (Synced 2 min ago / Syncing / failed / this device only), when Jarvis last briefed,
+  and the / shortcut. Crossing 1200px redraws Home in the layout that fits.
 - **Tabs:** Home, To-Do, Console (the orb), **Wallet** and **Glow** (`TAB_ORDER`). Wallet and Glow
   are groups (`TAB_GROUPS` in `shell.js`): each holds two views, swapped by a full-width switch
   at the top (Wallet: Budget | Shopping; Glow: Beauty | Jazz 3.0), styled like Console's
@@ -590,7 +628,7 @@ only turning sync off still asks first.
    | `todo.js` | To-do actions, sub-items, kinds, edit sheet, archive, To-Do tab renderer |
    | `skin.js` | Beauty routine, wash-day schedule, rules |
    | `shopping.js` | Shopping tab and wardrobe items |
-   | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; pay-period view, `renderBudget`, data normalizing |
+   | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-debts.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; debts, credit cards and by-account totals; pay-period view, the Sheet view, `renderBudget`, data normalizing |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
    | `brain.js` | Jarvis's brain: memory, ratings, settings and check-ins (`normalizeJarvisBrain`, `brainRemember`, `brainRate`, `brainCardHtml`) |
@@ -642,8 +680,11 @@ Setup: `docs/jarvis/SETUP.md`.
   - **Bill Guard (Money):** no model; `agents/lib/money.ts` reads Budget from the same data
     with the app's own rules (pay period, Safe to spend, bill repeats, joint shares). It flags
     bills overdue or due within 3 days that aren't on autopay, bills due before payday that come
-    to more than the paycheck, bill emails whose amount differs from Budget or that aren't in
-    it (from the Inbox card), and categories over their limit this month. There's no bank link:
+    to more than the paycheck, a credit card due within 3 days whose payment isn't in a paycheck
+    plan yet (with the statement, or a nudge to type it in), bill emails whose amount differs
+    from Budget or that aren't in it (from the Inbox card), and categories over their limit this
+    month. The card also carries Budget's debts (payoff month by the app's own math, which one is
+    next) and credit cards (next due date, statement, planned or not) for Jarvis to use. There's no bank link:
     Budget is the source (decided Oct 31).
 
   The three Google ones run only when their secrets are set (`npm run google-auth` does the
@@ -761,7 +802,7 @@ Everything lives in `localStorage` on the device:
 | `wants-state` | Bought flags, by want id |
 | `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
-| `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}]}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}` |
+| `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}], debts: [{id, name, balance, apr, payment, log: [{id, date, amount, note}]}] (in your order), cardInfo: {"<account>": {due: 1–31 \| null, st: {"YYYY-MM": statement}}} (accounts that are credit cards)}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}`. `normalizeDebts()` caps debts at 30 and their logs at 120, clamps numbers and drops card info for accounts that don't exist |
 | `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped) |
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
@@ -777,6 +818,7 @@ Everything lives in `localStorage` on the device:
 | `ask-clear-before` | When Clear history was last used (ms): older questions and answers stay hidden. This device only |
 | `console-feed` | Console's feed: `[{id, at (ms), kind: "ask" \| "capture", text, todos?, shop?, undone?}]`, newest first, last 7 days, at most 50. This device only: not in `SYNC_KEYS`, never pushed, not in backups; cleaned by `normalizeConsoleFeed()` on every load and sync |
 | `console-moved-seen` | Retired: the old one-time "Jazz 3.0 moved" notice was shown (no longer read) |
+| `budget-view` | Budget's layout on a wide screen: `"sheet"` or `"phone"`. This device only |
 | `tabs-back-seen` | The one-time "Budget and Jazz 3.0 are back: Wallet and Glow" notice was shown (this device only) |
 | `tab-group-last` | The last view used in each tab group: `{wallet: "budget" \| "wants", you: "skin" \| "jazz3"}`. This device only: not synced, not in backups; anything else falls back to the group's first view |
 | `jarvis-briefing`, `jarvis-briefing-seen` | The latest Jarvis briefing as pulled from the gist's `jazz2-briefing.json`, and the id of the last one shown. Read-only, this device only: not in `SYNC_KEYS`, never pushed, not in backups |

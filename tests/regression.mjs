@@ -14058,6 +14058,450 @@ await section("console: the box grows with long text; a folded conversation stil
   await ctx.close();
 });
 
+await section("budget: debts in your order, payoff dates, payments come off the balance", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "budget-month-open": "1" }, query: "?tab=budget" });
+  const r = await page.evaluate(() => {
+    budget.goals.push({
+      id: "goal-h",
+      name: "House fund",
+      target: 10000,
+      saved: 0,
+      date: null,
+      created: addDaysIso(0),
+      log: [],
+    });
+    budget.debts.push(
+      { id: "debt-a", name: "Personal loan", balance: 1200, apr: 0, payment: 100, log: [] },
+      { id: "debt-b", name: "Car <b>loan</b>", balance: 5000, apr: 12, payment: 40, log: [] },
+    );
+    openPinned.add("debts-card");
+    saveBudgetData();
+    const html = document.getElementById("debts-card").innerHTML;
+    return {
+      zero: debtPayoff(budget.debts[0]).months,
+      never: debtPayoff(budget.debts[1]).months,
+      next: debtNext().id,
+      note: document.querySelector("#debts-card .debt-note").textContent,
+      escaped: !document.querySelector("#debts-card b b") && html.includes("Car &lt;b&gt;loan&lt;/b&gt;"),
+      warn: html.includes("doesn't cover interest"),
+    };
+  });
+  check("0% APR: balance ÷ payment months", r.zero === 12, r);
+  check("a payment under the interest never pays it off, and says so", r.never === Infinity && r.warn, r);
+  check(
+    "extra money goes to the first open debt, after the first goal",
+    r.next === "debt-a" && /After House fund, extra money goes to Personal loan/.test(r.note),
+    r.note,
+  );
+  check("debt names are escaped", r.escaped, r);
+  const amort = await page.evaluate(() => debtPayoff({ balance: 10000, apr: 6, payment: 193.33 }).months);
+  check("6% on $10,000 at $193.33/mo pays off in 60 months", amort === 60, amort);
+  // log a payment from the row's Pay button
+  await page.click('#debts-card .debt-pay[data-debt-id="debt-a"]');
+  await page.fill("#modal-amount", "250");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const paid = await page.evaluate(() => ({ bal: debtById("debt-a").balance, log: debtById("debt-a").log.length }));
+  check("Pay takes the amount off the balance and logs it", paid.bal === 950 && paid.log === 1, paid);
+  // deleting the payment puts it back
+  await page.evaluate(() => payDebt("debt-a", debtById("debt-a").log[0].id));
+  await page.click("#modal-delete-btn");
+  const back = await page.evaluate(() => debtById("debt-a").balance);
+  check("deleting a payment adds it back", back === 1200, back);
+  // paid off: the next one takes over
+  await page.evaluate(() => {
+    debtById("debt-a").balance = 0;
+    saveBudgetData();
+  });
+  const done = await page.evaluate(() => ({
+    next: debtNext().id,
+    row: document.querySelector('#debts-card .debt-row[data-sort-id="debt-a"]').className,
+  }));
+  check("a paid-off debt is struck and the next one is Next", done.next === "debt-b" && /done/.test(done.row), done);
+  // normalizer: junk dropped, sizes capped, numbers coerced
+  const n = await page.evaluate(() => {
+    budget.debts = [
+      null,
+      "x",
+      {
+        id: "bad id!",
+        name: "y".repeat(200),
+        balance: "-5",
+        apr: 500,
+        payment: "abc",
+        log: [
+          { date: "nope", amount: 5 },
+          { date: "2026-01-02", amount: 3 },
+        ],
+      },
+    ];
+    normalizeBudgetData();
+    return budget.debts;
+  });
+  check(
+    "debts normalizer keeps only objects, caps the name, clamps numbers and drops bad log rows",
+    n.length === 1 &&
+      n[0].name.length === 60 &&
+      n[0].balance === 0 &&
+      n[0].apr === 99 &&
+      n[0].payment === 0 &&
+      n[0].log.length === 1 &&
+      /^debt/.test(n[0].id),
+    n,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: credit cards (statement → paycheck plan) and money by account", async () => {
+  const { ctx, page, errors } = await openApp({ seed: { "budget-month-open": "1" }, query: "?tab=budget" });
+  await page.evaluate(() => {
+    const k = budgetMonthKey();
+    budget.accounts = ["Bank", "Visa"];
+    budget.income = [{ id: "inc-1", name: "Paycheck", amount: 2000, start: k + "-01", repeat: "monthly" }];
+    bills.push(
+      {
+        id: "bill-a",
+        name: "Phone",
+        amount: 70,
+        due: k + "-02",
+        repeat: "monthly",
+        account: "Bank",
+        group: "personal",
+        day: 2,
+      },
+      {
+        id: "bill-b",
+        name: "Gym",
+        amount: 30,
+        due: k + "-05",
+        repeat: "monthly",
+        account: "Visa",
+        group: "personal",
+        day: 5,
+      },
+    );
+    saveBudgetData();
+  });
+  // mark Visa a card from Cards & banks
+  await page.evaluate(() => editAccount(1));
+  await page.check("#modal-card");
+  await page.fill("#modal-due", "20");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const info = await page.evaluate(() => budget.cardInfo);
+  check("a card is marked with its due day", info.Visa && info.Visa.due === 20 && !info.Bank, info);
+  await page.evaluate(() => {
+    openPinned.add("cards-card");
+    openPinned.add("by-account");
+    renderBudget();
+  });
+  const meta = await page.textContent("#cards-card");
+  check(
+    "the card shows its due day and the bills on it",
+    meta.includes("due 20th") && meta.includes("$30.00 of bills on it"),
+    meta,
+  );
+  await page.click('#cards-card .card-st[data-account="Visa"]');
+  await page.fill("#modal-amount", "412.50");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const btn = await page.textContent('#cards-card .card-plan[data-account="Visa"]');
+  check(
+    "with a statement, one tap offers it to the paycheck before the due date",
+    /\$412\.50 to the .* paycheck/.test(btn),
+    btn,
+  );
+  await page.click('#cards-card .card-plan[data-account="Visa"]');
+  const lines = await page.evaluate(() => incomeInMonth(budgetMonthKey())[0].plan.lines.map((l) => [l.name, l.amount]));
+  check("the statement becomes a plan line", JSON.stringify(lines) === '[["Visa payment",412.5]]', lines);
+  check("then the card says it's planned", (await page.textContent("#cards-card")).includes("In the"), "");
+  const acct = await page.evaluate(() =>
+    [...document.querySelectorAll("#by-account .acct-row")].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+  );
+  check(
+    "By account totals the month's bills per paying account",
+    acct.length === 2 &&
+      acct.some((t) => /Bank 1 bill ?\$70\.00/.test(t)) &&
+      acct.some((t) => /Visa 1 bill ?\$30\.00/.test(t)),
+    acct,
+  );
+  // renaming the card keeps its info; the normalizer drops info for unknown accounts
+  await page.evaluate(() => editAccount(1));
+  await page.fill("#modal-name", "Visa CC");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const renamed = await page.evaluate(() => {
+    budget.cardInfo.Ghost = { due: 3, st: {} };
+    budget.cardInfo["Visa CC"].st["bad"] = 1;
+    normalizeBudgetData();
+    return budget.cardInfo;
+  });
+  check(
+    "renaming keeps the card's info; unknown accounts and bad months are dropped",
+    renamed["Visa CC"] &&
+      renamed["Visa CC"].due === 20 &&
+      !renamed.Visa &&
+      !renamed.Ghost &&
+      !("bad" in renamed["Visa CC"].st),
+    renamed,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("budget: the Sheet view on a big screen (Phone | Sheet, remembered; phones never)", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false, query: "?tab=budget" });
+  check(
+    "a big screen shows Phone | Sheet, on Phone at first",
+    (await page.isVisible(".bview-bar .bview-switch")) && !(await page.$(".bsheet")),
+    "",
+  );
+  await page.click('.bview-seg[data-view="sheet"]');
+  const s = await page.evaluate(() => ({
+    sheet: !!document.querySelector(".bsheet .bs-grid"),
+    cols: document.querySelectorAll(".bs-grid > .bs-col").length,
+    kept: localStorage.getItem("budget-view"),
+    pressed: document.querySelector('.bview-seg[data-view="sheet"]').getAttribute("aria-pressed"),
+    nav: !!document.querySelector(".bsheet .budget-month .cal-nav"),
+  }));
+  check(
+    "Sheet lays the month out in three columns and is remembered",
+    s.sheet && s.cols === 3 && s.kept === "sheet" && s.pressed === "true" && s.nav,
+    s,
+  );
+  const open = await page.evaluate(() => {
+    const b = document.querySelector(".bsheet #bills-mine .coll-body");
+    return b && b.getBoundingClientRect().height > 20;
+  });
+  check("every box is open on the sheet", open, open);
+  await page.setViewportSize({ width: 900, height: 800 });
+  await page.waitForTimeout(200);
+  check("narrow again: back to the phone layout", !(await page.$(".bsheet")) && !!(await page.$(".wb-top")), "");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+  const phone = await openApp({ seed: { "budget-view": "sheet" }, query: "?tab=budget" });
+  check(
+    "a phone ignores a saved Sheet choice",
+    !(await phone.page.$(".bsheet")) && !(await phone.page.isVisible(".bview-switch")),
+    "",
+  );
+  await phone.ctx.close();
+});
+
+await section("desktop: Home in three columns, To-Do and Console in two, command bar and status line", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false, query: "?tab=home" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(200);
+  const home = await page.evaluate(() => {
+    const cols = [...document.querySelectorAll(".home-desk > .hd-col")].map((c) =>
+      Math.round(c.getBoundingClientRect().left),
+    );
+    return {
+      cols,
+      planner: !!document.querySelector(".home-desk .hd-col .jv-planner-label"),
+      pageW: document.documentElement.scrollWidth,
+    };
+  });
+  check(
+    "Home: three columns side by side, the Planner in the middle, no sideways scroll",
+    home.cols.length === 3 &&
+      home.cols[0] < home.cols[1] &&
+      home.cols[1] < home.cols[2] &&
+      home.planner &&
+      home.pageW <= 1440,
+    home,
+  );
+  const foot = await page.evaluate(() => {
+    const f = document.getElementById("desk-foot");
+    return { shown: f.offsetHeight > 0, text: f.textContent };
+  });
+  check(
+    "a status line sits under the page",
+    foot.shown && /On this device only/.test(foot.text) && foot.text.includes("Ask or add"),
+    foot,
+  );
+  // "/" jumps to the command bar; a to-do is added, a question goes to Console
+  await page.keyboard.press("/");
+  check("/ focuses the command bar", await page.evaluate(() => document.activeElement.id === "desk-cmd"), "");
+  await page.keyboard.type("buy stamps tomorrow");
+  await page.keyboard.press("Enter");
+  const added = await page.evaluate(() => ({
+    t: todoList.find((t) => /buy stamps/i.test(t.text)),
+    box: document.getElementById("desk-cmd").value,
+  }));
+  check(
+    "the command bar adds a to-do with its date and clears",
+    added.t && added.t.due === (await page.evaluate(() => addDaysIso(1))) && added.box === "",
+    added,
+  );
+  await page.evaluate(() => {
+    window.__handed = null;
+    window.consoleHandOff = (t) => (window.__handed = t);
+  });
+  await page.fill("#desk-cmd", "What's due before payday?");
+  await page.press("#desk-cmd", "Enter");
+  check("a question goes to Jarvis", (await page.evaluate(() => window.__handed)) === "What's due before payday?", "");
+  check("Home: no second add box under the command bar", !(await page.$("#panel-home #jv-quick")), "");
+  await page.evaluate(() => activateTab("todo"));
+  const todo = await page.evaluate(() => {
+    const a = document.getElementById("todo-card").getBoundingClientRect();
+    const d = document.getElementById("todo-details").getBoundingClientRect();
+    const b = document.getElementById("todo-recurring").getBoundingClientRect();
+    return { side: d.left > a.right && b.left > a.right, top: Math.abs(a.top - d.top) < 2, under: b.top > d.bottom };
+  });
+  check("To-Do: the list on the left, Details then Recurring beside it", todo.side && todo.top && todo.under, todo);
+  await page.evaluate(() => activateTab("console"));
+  const cn = await page.evaluate(() => {
+    const h = document.querySelector(".cn-hist").getBoundingClientRect();
+    const m = document.querySelector(".cn-main").getBoundingClientRect();
+    const s = document.querySelector(".cn-side").getBoundingClientRect();
+    return {
+      cols: h.right < m.left && s.left > m.right,
+      cmd: getComputedStyle(document.querySelector(".desk-cmd")).visibility,
+    };
+  });
+  check(
+    "Console: history | the box and conversation | the brain; no second box up top",
+    cn.cols && cn.cmd === "hidden",
+    cn,
+  );
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => activateTab("home"));
+  const narrow = await page.evaluate(() => ({
+    desk: !!document.querySelector(".home-desk"),
+    cmd: document.querySelector(".desk-cmd").offsetHeight,
+    foot: document.getElementById("desk-foot").offsetHeight,
+  }));
+  check("under 1200px: one column, no command bar or status line", !narrow.desk && !narrow.cmd && !narrow.foot, narrow);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("desktop: the To-Do details pane", async () => {
+  const today = new Date();
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const { ctx, page, errors } = await openApp({
+    phone: false,
+    query: "?tab=todo",
+    seed: {
+      "todo-content": [
+        { id: "t1", text: "Email landlord", done: false, due: iso(today) },
+        { id: "t2", text: '<img src=x onerror="window.__x=1">', done: false },
+      ],
+    },
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(200);
+  check(
+    "nothing picked: the pane says how to use it",
+    /Select a to-do/.test(await page.textContent("#todo-details")),
+    "",
+  );
+  await page.click('#todo-list .todo-wrap[data-todo-id="t1"] .body');
+  const picked = await page.evaluate(() => ({
+    modal: !!document.querySelector("#modal-backdrop.open"),
+    title: document.getElementById("tdp-text") && document.getElementById("tdp-text").value,
+    sel: !!document.querySelector('#todo-list .todo-wrap[data-todo-id="t1"] .item.sel'),
+  }));
+  check("a row opens in the pane, not the dialog, and is marked", !picked.modal && picked.title === "Email landlord" && picked.sel, picked);
+  await page.click('#tdp [data-action="tde-due"]:has-text("Tomorrow")');
+  await page.click('#tdp [data-action="tde-repeat"]:has-text("Weekly")');
+  const dated = await page.evaluate(() => todoList.find((t) => t.id === "t1"));
+  check(
+    "When and Repeat chips save straight away",
+    dated.due === iso(new Date(today.getTime() + 864e5)) && dated.repeat === "weekly",
+    dated,
+  );
+  await page.fill("#tdp-text", "Email the landlord about the lease");
+  await page.press("#tdp-text", "Enter");
+  check(
+    "the title saves on Enter",
+    (await page.evaluate(() => todoList.find((t) => t.id === "t1").text)) === "Email the landlord about the lease",
+    "",
+  );
+  await page.fill("#tdp-sub", "Ask about renewal");
+  await page.press("#tdp-sub", "Enter");
+  const step = await page.evaluate(() => ({
+    subs: todoList.find((t) => t.id === "t1").subitems,
+    focus: document.activeElement.id,
+  }));
+  check("a step is added and the box stays ready", step.subs && step.subs[0].text === "Ask about renewal" && step.focus === "tdp-sub", step);
+  await page.click('#todo-details [data-action="todo-star"]');
+  check("the star works from the pane", await page.evaluate(() => todoList.find((t) => t.id === "t1").starred === true), "");
+  await page.click('#todo-list .todo-wrap[data-todo-id="t2"] .body');
+  check(
+    "synced text in the pane stays text",
+    (await page.evaluate(() => document.getElementById("tdp-text").value)) === '<img src=x onerror="window.__x=1">' &&
+      !(await page.evaluate(() => window.__x)),
+    "",
+  );
+  await page.click('#todo-list .todo-wrap[data-todo-id="t1"] .body');
+  await page.click('#tdp [data-action="tde-repeat"]:has-text("Never")');
+  await page.click('#todo-details [data-action="home-todo-complete"]');
+  await page.waitForTimeout(100);
+  check(
+    "Done completes it and the pane empties",
+    (await page.evaluate(() => todoList.find((t) => t.id === "t1").done)) &&
+      /Select a to-do/.test(await page.textContent("#todo-details")),
+    "",
+  );
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.waitForTimeout(200);
+  check("under 1200px: no pane", !(await page.$("#todo-details")), "");
+  await page.click('#todo-list .todo-wrap[data-todo-id="t2"] .body');
+  check("under 1200px: a row opens the dialog as before", await page.isVisible("#modal-backdrop.open"), "");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("desktop: Console history column", async () => {
+  const now = Date.now();
+  const { ctx, page, errors } = await openApp({
+    phone: false,
+    query: "?tab=console",
+    seed: {
+      "console-feed": [
+        { id: "c1", at: now - 60e3, kind: "capture", text: "milk, call the dentist", todos: 1, shop: 1 },
+        { id: "c2", at: now - 3 * 864e5, kind: "capture", text: "renew <b>passport</b>", todos: 1 },
+      ],
+    },
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(200);
+  const days = await page.evaluate(() =>
+    [...document.querySelectorAll(".cn-hist-day")].map((b) => b.textContent.replace(/\s+/g, " ").trim()),
+  );
+  check("the days with something in them, newest first", days.length === 2 && /^Today ?1$/.test(days[0]), days);
+  check("how much is kept, with Clear history", /kept for the last 50 questions/.test(await page.textContent(".cn-hist")), "");
+  await page.fill("#cn-search", "passport");
+  const found = await page.evaluate(() => ({
+    rows: document.querySelectorAll("#cn-feed .cn-entry").length,
+    text: document.getElementById("cn-feed").textContent,
+    tag: !!document.querySelector("#cn-feed b"),
+  }));
+  check("search finds older entries and keeps their text as text", found.rows === 1 && found.text.includes("renew <b>passport</b>") && !found.tag, found);
+  await page.press("#cn-search", "Escape");
+  check(
+    "Escape clears the search",
+    (await page.inputValue("#cn-search")) === "" && (await page.evaluate(() => document.querySelectorAll("#cn-feed .cn-entry").length)) === 2,
+    "",
+  );
+  await page.click(".cn-hist-day >> nth=1");
+  await page.waitForTimeout(400);
+  check(
+    "a day jumps to it in the conversation",
+    await page.evaluate(() => {
+      const d = document.querySelectorAll("#cn-feed .cn-day")[1];
+      const r = d && d.getBoundingClientRect();
+      return !!r && r.top >= 0 && r.bottom <= innerHeight;
+    }),
+    "",
+  );
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.waitForTimeout(200);
+  check("under 1200px: no history column", !(await page.isVisible(".cn-hist")), "");
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

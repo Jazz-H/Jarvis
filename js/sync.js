@@ -38,9 +38,12 @@ function markDataChanged() {
   localStorage.setItem("data-updated-at", String(Date.now()));
   scheduleSyncPush();
 }
+let syncOkAt = 0; // last good sync this session, for the desktop status bar
 function setSyncStatus(state) {
   const btn = document.getElementById("sync-btn");
   if (btn) btn.dataset.state = state;
+  if (state === "ok") syncOkAt = Date.now();
+  renderDeskFooter();
 }
 async function gistApi(path, opts = {}) {
   const res = await fetch("https://api.github.com" + path, {
