@@ -41,7 +41,8 @@ describe("schedule", () => {
     const lines = [...yml.matchAll(/cron:\s*"([^"]+)"/g)].map((m) => m[1]);
     const briefing = utcCronLines(CONFIG.briefingTime, CONFIG.briefingLeadMinutes, [-4, -5]);
     const review = utcCronLines(CONFIG.reviewTime, CONFIG.reviewLeadMinutes, [-4, -5], CONFIG.reviewDay);
-    expect(lines).toEqual([...briefing, ...review]);
+    // plus one backup briefing line (GitHub skips scheduled runs), still gated by shouldDeliver
+    expect(lines).toEqual([...briefing, "7,27,47 11,12 * * *", ...review]);
     expect(utcCronLines("07:00", 15, [-4, -5])).toEqual(["45 10 * * *", "45 11 * * *"]);
     expect(review).toEqual(["45 21 * * 0", "45 22 * * 0"]);
     // the review lines are routed to the review job and kept away from the briefing job
