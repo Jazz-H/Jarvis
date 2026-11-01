@@ -20,6 +20,8 @@ export interface Brain {
   newsTopics: string[];
   checkins: Checkin[];
   feedback: { kind: "answer" | "briefing"; item: string; vote: 1 | -1; at: number }[];
+  hiddenPackages: string[]; // lowercased item names the owner hid ("Got it" in Home's Deliveries)
+  hiddenLines: string[]; // lowercased briefing lines the owner dismissed (first 200 characters)
 }
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -31,10 +33,10 @@ const clip = (s: unknown, n: number) =>
     .trim()
     .slice(0, n);
 
-export const BRAIN_LIMITS = { memory: 60, feedback: 60, checkins: 8, topics: 6 };
+export const BRAIN_LIMITS = { memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10 };
 
 export function emptyBrain(): Brain {
-  return { memory: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [] };
+  return { memory: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [] };
 }
 
 export function readBrain(data: unknown): Brain {
@@ -70,7 +72,20 @@ export function readBrain(data: unknown): Brain {
       .slice(0, BRAIN_LIMITS.topics),
     checkins,
     feedback: feedback as Brain["feedback"],
+    hiddenPackages: arr(s.hiddenPackages)
+      .filter((h) => isObj(h) && clip(h.item, 80))
+      .slice(0, BRAIN_LIMITS.hiddenPackages)
+      .map((h) => clip(h.item, 80).toLowerCase()),
+    hiddenLines: arr(s.hiddenLines)
+      .filter((h) => isObj(h) && clip(h.text, 200))
+      .slice(0, BRAIN_LIMITS.hiddenLines)
+      .map((h) => clip(h.text, 200).toLowerCase()),
   };
+}
+
+// Packages the owner hid stay out of the briefing, its alerts and Ask (exact name, any case)
+export function withoutHidden<T extends { item: string }>(packages: T[], hidden: string[]): T[] {
+  return hidden.length ? packages.filter((p) => !hidden.includes(p.item.toLowerCase())) : packages;
 }
 
 // What a model sees: the facts, the note, the tone and the latest ratings (newest first)

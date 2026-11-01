@@ -14443,6 +14443,109 @@ await section("Wallet: a card payment due soon shows in Next 14 days until it's 
   await ctx.close();
 });
 
+await section("dismissing on Home and by Jarvis: packages and briefing lines", async () => {
+  const today = isoOffset(0);
+  const b = briefingFixture({
+    summary: [
+      { text: "Your Acme <b>order</b> arrives today.", source: "deliveries" },
+      { text: "Light rain by noon; bring a jacket.", source: "weather" },
+      { text: "Rent is due Saturday.", source: "jazz" },
+    ],
+  });
+  b.cards.deliveries = {
+    status: "ok",
+    agent: "Deliveries",
+    model: "claude-haiku-5-5",
+    updatedAt: b.generatedAt,
+    data: {
+      packages: [
+        { item: "Acme <b>order</b>", status: "out", eta: today, etaText: null, shoppingMatch: null, carrier: "UPS" },
+        { item: "Desk lamp", status: "shipped", eta: null, etaText: null, shoppingMatch: null, carrier: "FedEx" },
+      ],
+    },
+  };
+  b.cards.money = {
+    status: "ok",
+    agent: "Bill Guard",
+    model: "code",
+    updatedAt: b.generatedAt,
+    data: { period: null, guard: [{ reason: "card", name: "Visa", amount: 412.5, due: isoOffset(2), budgetAmount: null }], overspent: [] },
+  };
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "jarvis-briefing": b,
+      // junk and an old entry are dropped by the normalizer
+      "jarvis-settings": { hiddenPackages: [{ item: "Old box", at: "2020-01-01" }, "junk", { item: "", at: today }] },
+    },
+  });
+  check(
+    "the normalizer drops old and junk dismissals",
+    (await page.evaluate(() => jarvisSettings.hiddenPackages.length)) === 0 && (await page.evaluate(() => jarvisSettings.hiddenLines.length)) === 0,
+    "",
+  );
+  check(
+    "Bill Guard's card warning reaches the app",
+    await page.evaluate(() => billGuardLines(loadBriefing()).some((l) => /Visa/.test(typeof l === "string" ? l : l.text || ""))),
+    "",
+  );
+  // Got it on a package: gone from the detail, the timeline, the chip count and its briefing line
+  await page.tap('.jv-day-row[data-go="deliveries"]');
+  check(
+    "each package has Got it; the name stays text",
+    (await page.$$("#jv-detail-deliveries [data-action='pkg-hide']")).length === 2 && !(await page.$("#jv-detail-deliveries .jv-pkg-what b b")),
+    "",
+  );
+  await page.tap('#jv-detail-deliveries [data-action="pkg-hide"][data-item="Acme <b>order</b>"]');
+  const gone = await page.evaluate(() => ({
+    pkgs: [...document.querySelectorAll("#jv-detail-deliveries .jv-pkg-what b")].map((e) => e.textContent),
+    row: [...document.querySelectorAll(".jv-day-row")].some((e) => e.textContent.includes("Acme")),
+    line: document.querySelector(".jv-summary").textContent.includes("Acme"),
+    chip: document.querySelector('.jv-chip-sm[data-go="deliveries"]').textContent,
+    saved: JSON.parse(localStorage.getItem("jarvis-settings")).hiddenPackages,
+  }));
+  check(
+    "Got it hides the package everywhere on Home, with its Deliveries line, and saves it (synced settings)",
+    gone.pkgs.join() === "Desk lamp" && !gone.row && !gone.line && /· 1$/.test(gone.chip) && gone.saved[0].item === "Acme <b>order</b>" && gone.saved[0].at === today,
+    gone,
+  );
+  await page.click("#toast .toast-action");
+  check(
+    "Undo brings it back",
+    (await page.evaluate(() => briefingPackages().length)) === 2 && (await page.textContent(".jv-summary")).includes("Acme"),
+    "",
+  );
+  // × on a briefing line
+  const before = await page.$$eval(".jv-summary .jv-sum-text", (els) => els.map((e) => e.textContent));
+  await page.tap('.jv-summary .jv-sum-li:has-text("Light rain") [data-action="jv-line-hide"]');
+  const after = await page.$$eval(".jv-summary .jv-sum-text", (els) => els.map((e) => e.textContent));
+  check(
+    "× dismisses that line only (and doesn't open its detail)",
+    before.length === 3 && after.length === 2 && !after.some((t) => t.includes("Light rain")) && !(await page.$("#jv-detail-weather")),
+    { before, after },
+  );
+  // Jarvis's actions: only what's on Home now, by name
+  const acts = await page.evaluate(() => [
+    askDoAction({ type: "package_hide", text: "desk LAMP" }),
+    askDoAction({ type: "package_hide", text: "Something else" }),
+    askDoAction({ type: "notice_dismiss", text: "Rent is due Saturday." }),
+    askDoAction({ type: "notice_dismiss", text: "Rent is due Saturday." }), // already gone
+    briefingPackages().map((p) => p.item),
+    loadBriefing().summary.map((s) => s.text),
+  ]);
+  check(
+    "Jarvis can dismiss a package or line that's showing, and nothing else",
+    acts[0] === true && acts[1] === false && acts[2] === true && acts[3] === false && acts[4].join() === "Acme <b>order</b>" && acts[5].length === 1,
+    acts,
+  );
+  // Console sends "remove that notification" to Jarvis instead of making it a to-do
+  const modes = await page.evaluate(() =>
+    ["Acme order was delivered remove that notifications", "dismiss the package alert", "Clean cars", "order pizza", "Delete old photos"].map(consoleGuess),
+  );
+  check("Console routes dismiss requests to Jarvis; to-dos stay to-dos", modes.join() === "ask,ask,capture,capture,capture", modes);
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("desktop: the To-Do details pane", async () => {
   const today = new Date();
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

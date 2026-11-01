@@ -29,7 +29,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   tagged by what they're about instead: Budget (bills, rent), Beauty (wash day, routine),
   Shopping, Fitness (weigh-ins, workouts) or To-do. Each item is its own row, divided by a thin
   rule, with its tag lined up with the first line of text. Every row except Jarvis's own drills
-  into its detail (the › on the right): Budget opens Money, To-do the Planner, and so on.
+  into its detail (the › on the right): Budget opens Money, To-do the Planner, and so on. The
+  **×** at the end of a row dismisses it for the day (Undo in the toast).
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
   older day's briefing is dimmed and labeled "From <date>"; from 8 AM on, it says in amber
   "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed
@@ -51,8 +52,9 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   for today's count, overlaps and what's next; then Today and Tomorrow, each with its date and
   event count, all-day events as chips, and timed events with start/end times, a colored bar
   (amber when they overlap), Now / Next · in 40 min badges, and past events dimmed), deliveries open **Deliveries** (arriving today with
-  **Mark bought** when it's on your Shopping list, then each package's Ordered → Shipped → Out →
-  Delivered progress), to-dos go to the Planner, rain to Weather. Until the calendar is connected
+  **Mark bought** when it's on your Shopping list and **Got it** on every package, then each
+  package's Ordered → Shipped → Out → Delivered progress; Got it hides a package that came but
+  never said so, with its timeline row, count and briefing line, for 14 days, with Undo), to-dos go to the Planner, rain to Weather. Until the calendar is connected
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
@@ -245,7 +247,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   - **Jarvis acts on small things** when you ask it to ("mark call mom done", "log 127.6", "add
     oat milk", "move the dentist to Friday", "I did the gym"): tick, add or move a to-do, tick a
     Jazz 3.0 goal item, add a Shopping item or mark one bought, log your weight, tick today's
-    workout. Nothing else (no bills, money or deleting). The answer lists what was done
+    workout, dismiss one of this morning's packages or briefing lines ("the Acme order came,
+    remove that notification": Console sends a message like that to Jarvis, not to your to-dos).
+    Nothing else (no bills, money or deleting). The answer lists what was done
     ("✓ Ticked "Call mom""), the app applies it through its normal saves on the device that asked
     (once, within a day; other devices get it by sync), and one toast offers **Undo** for all of
     it. Code checks every action against your data first, and an answer that searched the web
@@ -811,7 +815,7 @@ Everything lives in `localStorage` on the device:
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
 | `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
-| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" \| "always" \| "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8}` |
+| `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" \| "always" \| "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8, hiddenPackages: [{item, at}] ≤20 (14 days), hiddenLines: [{text, at}] ≤10 (2 days)}`; the hidden lists are what you dismissed on Home or asked Jarvis to (the Action leaves hidden packages out of briefings, alerts and Ask) |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
 | `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |

@@ -75,6 +75,8 @@ export const ACTION_TYPES = [
   "workout_done",
   "remember", // keep a fact in Jarvis's memory (text)
   "forget", // drop one (id)
+  "package_hide", // dismiss one of this morning's packages on Home (text: its name); hidden, not deleted
+  "notice_dismiss", // dismiss one line of this morning's briefing on Home (text: the line)
 ] as const;
 export const AskAction = z.object({
   type: z.enum(ACTION_TYPES),
@@ -82,7 +84,7 @@ export const AskAction = z.object({
     .string()
     .regex(/^[A-Za-z0-9_-]{1,80}$/)
     .optional(), // the to-do, goal item, Shopping item or workout plan
-  text: z.string().min(1).max(200).optional(), // todo_add, shopping_add, remember
+  text: z.string().min(1).max(200).optional(), // todo_add, shopping_add, remember, package_hide, notice_dismiss
   date: IsoDate.optional(), // todo_add / todo_move: the due date; weight_log / workout_done: the day
   lbs: z.number().min(40).max(800).optional(), // weight_log
   label: z.string().min(1).max(160), // what was done, in plain words (written by code)

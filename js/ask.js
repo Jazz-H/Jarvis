@@ -55,6 +55,8 @@ const ASK_ACTIONS = [
   "workout_done",
   "remember",
   "forget",
+  "package_hide", // dismiss one of this morning's packages (text: its name)
+  "notice_dismiss", // dismiss one line of this morning's briefing (text: the line)
 ];
 const ASK_APPLIED_KEY = "ask-applied"; // this device: answers whose actions were applied here
 let askShowAll = false; // the conversation shows every kept question (Earlier), not just 2 days
@@ -483,6 +485,9 @@ function askDoAction(x) {
     if (!brainRemember(x.text, "jarvis")) return false;
   } else if (x.type === "forget") {
     if (!x.id || !brainForget(x.id)) return false;
+  } else if (x.type === "package_hide" || x.type === "notice_dismiss") {
+    if (!(x.type === "package_hide" ? dismissPackage(x.text) : dismissLine(x.text))) return false;
+    saveContent("jarvis-settings", jarvisSettings, { toast: false });
   } else if (x.type === "workout_done") {
     const w = fitness.plan.find((y) => y.id === x.id);
     if (!w || !workoutOn(w, today) || workoutDone(today, w.id)) return false;

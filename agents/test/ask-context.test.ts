@@ -130,6 +130,32 @@ describe("Ask context (figures worked out in code)", () => {
     expect(old.jazz).toBeNull();
     expect(buildAskContext({ data: null, today: TODAY, briefingRaw: "{", reviewsRaw: null }).briefing).toBeNull();
   });
+
+  it("leaves out packages and lines dismissed on Home, and only what's left can be dismissed", () => {
+    const b = JSON.parse(BRIEFING_FILE);
+    b.summary.push({ text: "Your Acme Glow serum arrives today.", source: "deliveries" });
+    b.cards.deliveries = {
+      status: "ok",
+      agent: "Deliveries",
+      model: "m",
+      updatedAt: b.generatedAt,
+      data: {
+        packages: [
+          { item: "Acme Glow serum", status: "shipped", eta: TODAY, etaText: null, shoppingMatch: null, carrier: "UPS" },
+          { item: "Rain boots", status: "ordered", eta: null, etaText: null, shoppingMatch: null, carrier: null },
+        ],
+      },
+    };
+    const data = {
+      ...ASK_DATA,
+      "jarvis-settings": { hiddenPackages: [{ item: "acme glow SERUM", at: TODAY }], hiddenLines: [{ text: "Rent is due Nov 1.", at: TODAY }] },
+    };
+    const c = buildAskContext({ data, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null });
+    expect(c.briefing!.deliveries!.packages.map((p) => p.item)).toEqual(["Rain boots"]);
+    expect(c.briefing!.summary.map((s) => s.text)).toEqual(["Your Acme Glow serum arrives today."]);
+    expect([...c.targets.packages.values()]).toEqual(["Rain boots"]);
+    expect([...c.targets.lines.values()]).toEqual(["Your Acme Glow serum arrives today."]);
+  });
 });
 
 describe("thread turns", () => {

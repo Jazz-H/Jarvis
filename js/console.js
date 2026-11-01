@@ -47,6 +47,9 @@ let consolePreview = null; // {src, rows: [{src, orig, type, note?}]} while a ca
 // ---- reading what was typed ----
 // Questions: a leading/trailing "?" or a question word first. "do" only counts as "do I/we/you…",
 // so "do laundry sat" stays a to-do.
+// "the Acme order came, remove that notification": asks Jarvis to dismiss something, not a to-do
+const CONSOLE_DISMISS =
+  /\b(?:remove|dismiss|hide|clear|delete|get rid of|take off)\b.*\b(?:notifications?|alerts?|notices?|packages?|deliver(?:y|ies)|orders?|briefing)\b|\b(?:was|got|been|it's|is) delivered\b/i;
 const CONSOLE_QUESTION =
   /^(?:what(?:['’]?s)?|how(?:['’]s)?|when|why|where|who|which|can|could|should|would|will|is|are|am|did|does|do (?:i|we|you)|have (?:i|we)|has)\b/i;
 const CONSOLE_SHOP_VERB = /^(?:buy|get|grab|order|purchase|pick ?up|shop for|need to buy|reorder|restock)\s+/i;
@@ -76,7 +79,7 @@ function consoleLooksLikeQuestion(s) {
   const t = String(s || "")
     .trim()
     .replace(CONSOLE_GREETING, "");
-  return /^\?|\?$/.test(t) || CONSOLE_QUESTION.test(t);
+  return /^\?|\?$/.test(t) || CONSOLE_QUESTION.test(t) || CONSOLE_DISMISS.test(t);
 }
 function consoleCleanPiece(s) {
   return String(s || "")

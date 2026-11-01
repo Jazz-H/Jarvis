@@ -7,7 +7,7 @@
 // Plus this morning's validated briefing cards, the calendar list from jazz2-calendar.json (90 days
 // back to 60 ahead, as of the morning run), the latest Weekly Review, and the earlier turns of
 // the same thread. Synced text is untrusted: it's clipped here and only reaches the model as data.
-import { readBrain, brainForPrompt } from "./brain.ts";
+import { readBrain, brainForPrompt, withoutHidden } from "./brain.ts";
 import { readCards, readDebts } from "./money.ts";
 import { addDays, isWashDate } from "./jazz-context.ts";
 import { localTime, weekday } from "./schedule.ts";
@@ -179,7 +179,7 @@ export function payPeriod(data: Obj, today: string): PayPeriod | null {
 }
 
 // ---- the briefing and the review ----
-function briefingPart(raw: string | null, today: string) {
+function briefingPart(raw: string | null, today: string, hidden: { packages: string[]; lines: string[] } = { packages: [], lines: [] }) {
   if (!raw) return null;
   let parsed;
   try {
@@ -198,7 +198,7 @@ function briefingPart(raw: string | null, today: string) {
   return {
     date: b.date,
     headline: b.headline,
-    summary: b.summary,
+    summary: b.summary.filter((s) => !hidden.lines.includes(clip(s.text, 200).toLowerCase())), // lines dismissed on Home
     weather: w && {
       summary: w.summary,
       conditions: w.conditions,
@@ -211,7 +211,7 @@ function briefingPart(raw: string | null, today: string) {
     news: n && n.stories.map((s) => ({ topic: s.topic, title: s.title, source: s.source })),
     calendar: cal && { summary: cal.summary, events: cal.events, overlaps: cal.overlaps },
     inbox: inbox && { unread: inbox.unread, urgent: inbox.urgent, needsReply: inbox.needsReply, bills: inbox.bills },
-    deliveries: del && { packages: del.packages },
+    deliveries: del && { packages: withoutHidden(del.packages, hidden.packages) },
   };
 }
 
@@ -393,15 +393,25 @@ export interface ActionTargets {
   goals: Map<string, string>;
   shopping: Map<string, string>;
   workoutsToday: Map<string, string>;
+  packages: Map<string, string>; // this morning's packages still shown, lowercased name → name (package_hide)
+  lines: Map<string, string>; // this morning's briefing lines still shown, lowercased → line (notice_dismiss)
 }
-export function actionTargets(data: Obj | null, today: string): ActionTargets {
+export function actionTargets(
+  data: Obj | null,
+  today: string,
+  briefing: { summary: { text: string }[]; deliveries: { packages: { item: string }[] } | null } | null = null,
+): ActionTargets {
   const t: ActionTargets = {
     memory: new Map(),
     todos: new Map(),
     goals: new Map(),
     shopping: new Map(),
     workoutsToday: new Map(),
+    packages: new Map(),
+    lines: new Map(),
   };
+  for (const p of briefing?.deliveries?.packages ?? []) t.packages.set(p.item.toLowerCase(), p.item);
+  for (const s of briefing?.summary ?? []) t.lines.set(clip(s.text, 200).toLowerCase(), clip(s.text, 200));
   if (!data) return t;
   for (const m of readBrain(data).memory) t.memory.set(m.id, m.text);
   for (const x of arr(data["todo-content"]))
@@ -521,7 +531,11 @@ export function buildAskContext(opts: {
 }): AskContext {
   const { data, today } = opts;
   const notes: string[] = [];
-  const briefing = briefingPart(opts.briefingRaw, today);
+  const brain = data ? readBrain(data) : null;
+  const briefing = briefingPart(opts.briefingRaw, today, {
+    packages: brain ? brain.hiddenPackages : [],
+    lines: brain ? brain.hiddenLines : [],
+  });
   const calendar = calendarPart(opts.calendarRaw ?? null, today);
   const review = reviewPart(opts.reviewsRaw, today);
   if (!data) notes.push("The owner's Jazz data isn't available, so to-dos, bills and money are left out.");
@@ -551,7 +565,7 @@ export function buildAskContext(opts: {
     review,
     sources,
     notes,
-    targets: actionTargets(data, today),
+    targets: actionTargets(data, today, briefing),
     brain: data
       ? ((b) => ({ ...brainForPrompt(b), memoryIds: b.memory.map((m) => ({ id: m.id, text: m.text })) }))(readBrain(data))
       : null,

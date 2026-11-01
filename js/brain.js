@@ -8,14 +8,16 @@
 //   jarvis-feedback: [{id, at: ms, kind: "answer" | "briefing", ref, item, vote: 1 | -1}]   newest 60
 //   jarvis-settings: {tone: "brief" | "normal" | "detailed", newsTopics: [..6], about,
 //                     speak: "voice" | "always" | "never",
-//                     checkins: [{id, name, prompt, days: [0-6], time: "HH:MM", on}]   at most 8}
+//                     checkins: [{id, name, prompt, days: [0-6], time: "HH:MM", on}]   at most 8,
+//                     hiddenPackages: [{item, at: "YYYY-MM-DD"}]   newest first, 20, gone after 14 days,
+//                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days}
 // Synced data is untrusted: every field is checked and capped here and on the way back in.
-const BRAIN_MAX = { memory: 60, feedback: 60, checkins: 8, topics: 6 };
+const BRAIN_MAX = { memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenDays: 14, hiddenLines: 10 };
 const BRAIN_TONES = { brief: "Brief", normal: "Normal", detailed: "Detailed" };
 const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Never" }; // read answers aloud
 let jarvisMemory = [];
 let jarvisFeedback = [];
-let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [] };
+let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [] };
 
 function normalizeJarvisBrain() {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -64,7 +66,19 @@ function normalizeJarvisBrain() {
         time: typeof c.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(c.time) ? c.time : "08:00",
         on: c.on !== false,
       })),
+    hiddenPackages: dismissedList(s.hiddenPackages, "item", 80, BRAIN_MAX.hiddenDays, BRAIN_MAX.hiddenPackages),
+    hiddenLines: dismissedList(s.hiddenLines, "text", 200, 2, BRAIN_MAX.hiddenLines),
   };
+}
+// What you dismissed on Home (jarvis.js): [{[field]: name, at}] from the last `days`, no repeats, newest first
+function dismissedList(list, field, max, days, n) {
+  const since = addDaysIso(-days),
+    seen = new Set();
+  return (Array.isArray(list) ? list : [])
+    .filter((h) => h && typeof h === "object" && typeof h.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(h.at) && h.at >= since)
+    .map((h) => ({ [field]: String(h[field] == null ? "" : h[field]).replace(/\s+/g, " ").trim().slice(0, max), at: h.at }))
+    .filter((h) => h[field] && !seen.has(h[field].toLowerCase()) && seen.add(h[field].toLowerCase()))
+    .slice(0, n);
 }
 function saveBrain(key) {
   if (key === "jarvis-memory") saveContent(key, jarvisMemory, { toast: false });

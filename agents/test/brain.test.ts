@@ -75,7 +75,7 @@ describe("Jarvis's brain", () => {
   });
 
   it("remember and forget are actions like the others", () => {
-    const t = { memory: new Map([["m1", "I don't eat pork"]]), todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map() };
+    const t = { memory: new Map([["m1", "I don't eat pork"]]), todos: new Map(), goals: new Map(), shopping: new Map(), workoutsToday: new Map(), packages: new Map(), lines: new Map() };
     const A = (type: string, over: object) => ({ type, id: null, text: null, date: null, lbs: null, ...over }) as any;
     expect(cleanActions([A("remember", { text: "Paid early in December" }), A("forget", { id: "m1" }), A("forget", { id: "nope" })], TODAY, t).map((a) => a.label)).toEqual([
       'Remembered "Paid early in December"',

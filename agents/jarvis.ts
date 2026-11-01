@@ -8,7 +8,7 @@
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
 //   npm run brief -- --now        (deliver now, like a manual run)
-import { readBrain, brainForPrompt, emptyBrain, BRAIN_RULES, type Brain } from "./lib/brain.ts";
+import { readBrain, brainForPrompt, emptyBrain, withoutHidden, BRAIN_RULES, type Brain } from "./lib/brain.ts";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -264,6 +264,11 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     return r && r.ok ? (r.data as T) : null;
   };
   for (const r of settled) if (!r.ok) notes.push(r.error);
+  const del = results.deliveries;
+  if (del && del.ok) {
+    const d = del.data as DeliveryCard;
+    d.packages = withoutHidden(d.packages, brain.hiddenPackages);
+  }
 
   const weather = okData<WeatherCard>("weather");
   const news = okData<NewsCard>("news");

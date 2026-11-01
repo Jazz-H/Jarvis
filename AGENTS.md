@@ -31,7 +31,8 @@ that file before any Jarvis work, and README.md before any app work.
   `jazz2-file-*.json` once Ask has answered it. An answer about a file may only add (to-dos,
   Shopping, memory).
 - Ask Jarvis may return small actions, only the types in `agents/schemas/ask.ts` `ACTION_TYPES`
-  (to-dos, Jazz 3.0 goal items, Shopping, weight, today's workout; never bills, money or deletes).
+  (to-dos, Jazz 3.0 goal items, Shopping, weight, today's workout, dismissing one of this morning's
+  packages or briefing lines on Home; never bills, money or deletes).
   Code checks each against the owner's data; the backend never writes app data: the app applies
   them on the device that asked, once, through its normal saves, with Undo. An answer that used
   web search carries no actions.

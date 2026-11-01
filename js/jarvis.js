@@ -22,6 +22,65 @@ const BRIEFING_SOURCES = {
 };
 openPinned.add("jarvis-news");
 
+// ---------- dismissing ----------
+// On Home (✕ on a briefing line, "Got it" on a package) or by asking Jarvis ("the Acme order came,
+// remove that"). A dismissed package (e.g. one that came but the email never said so) leaves the
+// briefing everywhere in the app for 14 days, with any Deliveries line about it; a dismissed line
+// stays gone for the day. Kept in the synced jarvis-settings (brain.js), so other devices follow and
+// the Jarvis Action leaves hidden packages out of later briefings, phone alerts and Ask.
+const lineKey = (t) => t.toLowerCase().slice(0, 200);
+function hideDismissed(b) {
+  if (!b) return b;
+  const pk = (jarvisSettings.hiddenPackages || []).map((h) => h.item.toLowerCase());
+  const lines = new Set((jarvisSettings.hiddenLines || []).map((h) => lineKey(h.text)));
+  if (!pk.length && !lines.size) return b;
+  const d = b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data : null;
+  if (d) d.packages = d.packages.filter((p) => !pk.includes(p.item.toLowerCase()));
+  b.summary = b.summary.filter(
+    (s) => !lines.has(lineKey(s.text)) && (s.source !== "deliveries" || !pk.some((h) => s.text.toLowerCase().includes(h))),
+  );
+  return b;
+}
+function briefingPackages(b = loadBriefing()) {
+  return b && b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data.packages : [];
+}
+// Each returns false when there's nothing (left) to dismiss; the caller saves and redraws
+function dismissPackage(item) {
+  const p = briefingPackages().find((x) => x.item.toLowerCase() === String(item || "").toLowerCase());
+  if (!p) return false;
+  jarvisSettings.hiddenPackages = [{ item: p.item, at: addDaysIso(0) }, ...jarvisSettings.hiddenPackages];
+  normalizeJarvisBrain();
+  return true;
+}
+function dismissLine(text) {
+  const b = loadBriefing();
+  const s = b && b.summary.find((x) => lineKey(x.text) === lineKey(String(text || "")));
+  if (!s) return false;
+  jarvisSettings.hiddenLines = [{ text: s.text, at: addDaysIso(0) }, ...jarvisSettings.hiddenLines];
+  normalizeJarvisBrain();
+  return true;
+}
+function dismissOnHome(done, what) {
+  const before = JSON.stringify(jarvisSettings);
+  if (!done()) return;
+  saveContent("jarvis-settings", jarvisSettings, { toast: false });
+  renderHome();
+  showUndoToast(`Dismissed ${what}`, () => {
+    jarvisSettings = JSON.parse(before);
+    normalizeJarvisBrain();
+    saveContent("jarvis-settings", jarvisSettings, { toast: false });
+    renderHome();
+  });
+}
+function hidePackage(item) {
+  dismissOnHome(() => dismissPackage(item), item);
+}
+function hideBriefingLine(i) {
+  const b = loadBriefing();
+  const s = b && b.summary[i];
+  if (s) dismissOnHome(() => dismissLine(s.text), "that line");
+}
+
 function normalizeBriefing(b) {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   const arr = (v) => (Array.isArray(v) ? v : []);
@@ -168,7 +227,7 @@ function normalizeBriefing(b) {
         }
       : null;
   // Bill Guard (Phase 3): code over Budget data, so every field is checked again here
-  const GUARD_REASONS = ["overdue", "manual", "short", "differs", "not-in-budget"];
+  const GUARD_REASONS = ["overdue", "manual", "short", "differs", "not-in-budget", "card"];
   const money = (d) =>
     isObj(d)
       ? {
@@ -247,7 +306,7 @@ function normalizeBriefing(b) {
   };
 }
 function loadBriefing() {
-  return normalizeBriefing(loadContent(BRIEFING_KEY, null));
+  return hideDismissed(normalizeBriefing(loadContent(BRIEFING_KEY, null)));
 }
 
 // Called by sync's pull with the gist's briefing file entry (or undefined)
@@ -420,13 +479,15 @@ function jarvisHeroHtml(b) {
   const today = addDaysIso(0);
   const isNew = b.id !== localStorage.getItem(BRIEFING_SEEN_KEY);
   const items = b.summary
-    .map((s) => {
-      // one divided row per item: tag column, text, then the drill cue (or an empty cue column)
+    .map((s, i) => {
+      // one divided row per item: tag column, text, then the drill cue (or an empty cue column),
+      // and × to dismiss it (hideBriefingLine)
       const tag = briefingTag(s);
       const body = `<span class="jv-src jv-src-${tag.cls}">${tag.label}</span><span class="jv-sum-text">${escapeHtml(s.text)}</span>`;
+      const x = `<button type="button" class="jv-sum-x" data-action="jv-line-hide" data-i="${i}" aria-label="Dismiss: ${escapeAttr(s.text)}">×</button>`;
       return tag.go
-        ? `<li><button class="jv-sum-row jv-sum-drill" data-action="jv-drill" data-go="${tag.go}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button></li>`
-        : `<li class="jv-sum-row">${body}</li>`;
+        ? `<li class="jv-sum-li"><button class="jv-sum-row jv-sum-drill" data-action="jv-drill" data-go="${tag.go}">${body}<span class="jv-sum-cue" aria-hidden="true">›</span></button>${x}</li>`
+        : `<li class="jv-sum-li"><div class="jv-sum-row">${body}</div>${x}</li>`;
     })
     .join("");
   const notes = b.notes.length

@@ -102,7 +102,10 @@ Write:
   {"type":"weight_log","lbs","date": a day this past week, or null for today},
   {"type":"workout_done","id"} (one of today's workouts), {"type":"remember","text"} (when the
   owner says to remember something: one short fact in their words), {"type":"forget","id"} (an
-  id from brain.memoryIds). Use ids exactly as in the data; if you
+  id from brain.memoryIds), {"type":"package_hide","text": a package's item exactly as in
+  briefing.deliveries} (when the owner says it came or to remove/dismiss it from Home),
+  {"type":"notice_dismiss","text": one of briefing.summary's lines exactly} (when the owner asks
+  to dismiss or remove that notification). Use ids and names exactly as in the data; if you
   can't find the item, don't act and say so. Anything else (bills, money, deleting) you can't do:
   offer a chip or say how.
 - chips: up to 3 optional suggestions the owner can tap to add, only when the answer clearly
@@ -370,6 +373,13 @@ export function cleanActions(list: AskOutput["actions"], today: string, t: Actio
       const fact = tidy(plainText(a.text, 400), 200);
       if (fact) act = { type: a.type, text: fact, label: `Remembered ${quoted(fact)}` };
     } else if (a.type === "forget" && t.memory.has(id)) act = { type: a.type, id, label: `Forgot ${quoted(t.memory.get(id)!)}` };
+    else if (a.type === "package_hide" && a.text && t.packages.has(a.text.trim().toLowerCase())) {
+      const item = t.packages.get(a.text.trim().toLowerCase())!;
+      act = { type: a.type, text: item.slice(0, 200), label: `Dismissed ${quoted(item)} from Deliveries` };
+    } else if (a.type === "notice_dismiss" && a.text && t.lines.has(a.text.replace(/\s+/g, " ").trim().slice(0, 200).toLowerCase())) {
+      const line = t.lines.get(a.text.replace(/\s+/g, " ").trim().slice(0, 200).toLowerCase())!;
+      act = { type: a.type, text: line, label: `Dismissed ${quoted(line)}` };
+    }
     else if (a.type === "workout_done" && t.workoutsToday.has(id))
       act = { type: a.type, id, date: today, label: `Ticked workout ${quoted(t.workoutsToday.get(id)!)}` };
     if (!act) continue;

@@ -254,4 +254,27 @@ describe("orchestrator with Phase 2 sources", () => {
     expect(q.seen[0].prompt).toContain('"overlaps"');
     expect(q.seen[0].prompt).toContain('"unread": 3');
   });
+
+  it("leaves packages the owner dismissed out of the card and out of what Jarvis sees", async () => {
+    const q = fakeQuery([{ structured_output: jarvisOut }]);
+    const pkg = (item: string) => ({ item, status: "shipped" as const, eta: "2026-10-30", etaText: null, shoppingMatch: null, carrier: "UPS" });
+    const r = await runBriefing({
+      now: NOW,
+      trigger: "manual",
+      gist: {
+        readFile: async () =>
+          JSON.stringify({ data: { "jarvis-settings": { hiddenPackages: [{ item: "ACME GLOW SERUM", at: "2026-10-29" }] } } }),
+        writeFile: async () => {},
+      },
+      fetchImpl: fakeFetch([]).impl,
+      maxRunCostUsd: 0.5,
+      trace: new Trace(),
+      queryFn: q.fn,
+      subagents: { ...base, deliveries: async () => ({ packages: [pkg("Acme Glow serum"), pkg("Rain boots")] }) },
+    });
+    if (r.status !== "delivered") throw new Error("not delivered");
+    const card = r.briefing.cards.deliveries;
+    expect(card && card.status === "ok" ? card.data.packages.map((p) => p.item) : null).toEqual(["Rain boots"]);
+    expect(q.seen[0].prompt).not.toContain("Acme Glow");
+  });
 });

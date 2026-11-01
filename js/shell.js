@@ -681,6 +681,14 @@ const SHELL_CLICK = {
   "want-edit": (el, e) => {
     if (!e.target.closest("a") && wantFromEl(el)) editWant(el.getAttribute("data-want-id"));
   },
+  "pkg-hide": (el) => {
+    const item = el.getAttribute("data-item");
+    if (item) hidePackage(item); // only a package in today's briefing (checked there)
+  },
+  "jv-line-hide": (el) => {
+    const i = Number(el.getAttribute("data-i"));
+    if (Number.isInteger(i) && i >= 0 && i < 5) hideBriefingLine(i);
+  },
   "want-toggle": (el) => {
     if (wantFromEl(el)) toggleWant(el.getAttribute("data-want-id"));
   },

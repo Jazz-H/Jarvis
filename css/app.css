@@ -4334,9 +4334,36 @@ body.todo-dragging {
 .jv-summary > li {
   border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
+.jv-sum-li {
+  display: flex;
+  align-items: center;
+}
+.jv-sum-li > .jv-sum-row {
+  flex: 1;
+  min-width: 0;
+}
+.jv-sum-x {
+  flex-shrink: 0;
+  width: 36px;
+  min-height: 44px;
+  margin-right: -10px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.jv-sum-x:hover,
+.jv-sum-x:focus-visible {
+  opacity: 1;
+  color: var(--text);
+}
 .jv-sum-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   column-gap: 12px;
   align-items: baseline;
   padding: 12px 0;
@@ -4931,7 +4958,7 @@ body.todo-dragging {
 }
 /* briefing lines that drill into Weather or News */
 .jv-sum-drill {
-  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
   width: 100%;
   min-height: 44px;
   background: none;
@@ -6791,6 +6818,11 @@ body.todo-dragging {
   gap: 10px;
   font-size: 14px;
   margin-bottom: 8px;
+}
+.jv-pkg-acts {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
 }
 .jv-pkg-steps {
   display: grid;

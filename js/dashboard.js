@@ -750,11 +750,11 @@ function dashDeliveriesDetail(c) {
           ? `${p.eta === today ? "Today" : noonOf(p.eta).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}${p.etaText ? ` · ${p.etaText}` : ""}`
           : DASH_PKG_LABEL[p.status];
     return `<div class="jv-pkg">
-        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(p.item)}</b><span>${escapeHtml([p.carrier, eta].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span>${
+        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(p.item)}</b><span>${escapeHtml([p.carrier, eta].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span><span class="jv-pkg-acts">${
           w
             ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
             : ""
-        }</div>
+        }<button class="jv-chip-sm" data-action="pkg-hide" data-item="${escapeAttr(p.item)}" aria-label="Got it: hide ${escapeAttr(p.item)}">Got it</button></span></div>
         <div class="jv-pkg-steps" aria-label="${escapeAttr(DASH_PKG_LABEL[p.status])}">${DASH_PKG_STEPS.map(
           (s, i) =>
             `<span class="${i <= at ? "on" : ""}"><i></i>${["Ordered", "Shipped", "Out", "Delivered"][i]}</span>`,
