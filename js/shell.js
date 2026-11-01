@@ -394,12 +394,16 @@ const SHELL_CLICK = {
     else if (SAFE_ID.test(eid) && d.log.some((x) => x.id === eid)) payDebt(id, eid);
   },
   "card-statement": (el) => {
-    const a = el.getAttribute("data-account");
-    if (a && budget.cardInfo[a] && budget.accounts.includes(a)) editCardStatement(a);
+    const a = el.getAttribute("data-account"),
+      m = el.getAttribute("data-month");
+    if (a && budget.cardInfo[a] && budget.accounts.includes(a))
+      editCardStatement(a, /^\d{4}-\d{2}$/.test(m || "") ? m : undefined);
   },
   "card-plan": (el) => {
-    const a = el.getAttribute("data-account");
-    if (a && budget.cardInfo[a] && budget.accounts.includes(a)) planCardPayment(a);
+    const a = el.getAttribute("data-account"),
+      m = el.getAttribute("data-month");
+    if (a && budget.cardInfo[a] && budget.accounts.includes(a))
+      planCardPayment(a, /^\d{4}-\d{2}$/.test(m || "") ? m : undefined);
   },
   "budget-view": (el) => {
     const v = el.getAttribute("data-view");

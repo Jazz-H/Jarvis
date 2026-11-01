@@ -14375,6 +14375,74 @@ await section("desktop: Home in three columns, To-Do and Console in two, command
   await ctx.close();
 });
 
+await section("Wallet: a card payment due soon shows in Next 14 days until it's planned", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const r = await page.evaluate(() => {
+    const today = addDaysIso(0),
+      due = addDaysIso(3),
+      k = due.slice(0, 7);
+    budget.accounts = ["Bank", "Visa <b>x</b>", "Store"];
+    budget.income = [{ id: "inc-1", name: "Paycheck", amount: 2000, start: addDaysIso(-1), repeat: "monthly" }];
+    budget.cardInfo = {
+      "Visa <b>x</b>": { due: Number(due.slice(8)), st: { [k]: 412.5 } },
+      Store: { due: Number(addDaysIso(5).slice(8)), st: {} },
+    };
+    saveBudgetData();
+    const before = document.getElementById("wb-next").textContent;
+    return { today, k, before, tag: !!document.querySelector("#wb-next b b") };
+  });
+  check(
+    "the card shows with its statement, a plan button and the escaped name; the total doesn't change",
+    r.before.includes("Visa <b>x</b> payment") && r.before.includes("$412.50") && /to the .* paycheck/.test(r.before) && !r.tag &&
+      /Next 14 days\s*\$0/.test(r.before),
+    r,
+  );
+  check("a card with no statement asks for one", /Store payment.*add the statement/s.test(r.before) && r.before.includes("+ Statement"), r);
+  await page.click('#wb-next [data-action="card-plan"]');
+  const after = await page.evaluate(() => ({
+    lines: Object.values(budget.plans).flatMap((p) => p.lines.map((l) => `${l.name} ${l.amount}`)),
+    text: document.getElementById("wb-next").textContent,
+  }));
+  check(
+    "one tap plans it and it leaves the list",
+    after.lines.includes("Visa <b>x</b> payment 412.5") && !after.text.includes("Visa <b>x</b> payment") && /Store payment/.test(after.text),
+    after,
+  );
+  // a card due early next month: the row carries that month, and planning lands in next month's paycheck
+  const next = await page.evaluate(() => {
+    const d = noonOf(addDaysIso(0).slice(0, 7) + "-01");
+    d.setMonth(d.getMonth() + 1);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    budget.cardInfo.Store.st[k] = 99;
+    const b = document.createElement("button");
+    b.dataset.action = "card-plan";
+    b.dataset.account = "Store";
+    b.dataset.month = k;
+    document.getElementById("wb-next").appendChild(b);
+    b.click();
+    return {
+      want: cardPaycheck(k, cardDueIso(k, budget.cardInfo.Store.due)).key,
+      keys: Object.entries(budget.plans).filter(([, p]) => p.lines.some((l) => l.name === "Store payment")).map(([key]) => key),
+    };
+  });
+  check("data-month plans next month's statement in the check that covers it", next.keys.length === 1 && next.keys[0] === next.want, next);
+  const pick = await page.evaluate(() => {
+    budget.income = [{ id: "inc-2", name: "Pay", amount: 1000, start: "2030-04-30", repeat: "biweekly" }];
+    return {
+      early: cardPaycheck("2030-05", "2030-05-04").date, // before May's first check: April 30's
+      mid: cardPaycheck("2030-05", "2030-05-20").date,
+      none: (budget.income[0].start = "2030-05-10") && cardPaycheck("2030-05", "2030-05-04").date, // no pay before: May's first
+    };
+  });
+  check(
+    "a card due before the month's first payday is paid from last month's last check",
+    pick.early === "2030-04-30" && pick.mid === "2030-05-14" && pick.none === "2030-05-10",
+    pick,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("desktop: the To-Do details pane", async () => {
   const today = new Date();
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -14471,6 +14539,11 @@ await section("desktop: Console history column", async () => {
   );
   check("the days with something in them, newest first", days.length === 2 && /^Today ?1$/.test(days[0]), days);
   check("how much is kept, with Clear history", /kept for the last 50 questions/.test(await page.textContent(".cn-hist")), "");
+  check(
+    "only one Clear history on screen",
+    (await page.evaluate(() => [...document.querySelectorAll('[data-action="ask-clear"]')].filter((b) => b.offsetParent).length)) === 1,
+    "",
+  );
   await page.fill("#cn-search", "passport");
   const found = await page.evaluate(() => ({
     rows: document.querySelectorAll("#cn-feed .cn-entry").length,

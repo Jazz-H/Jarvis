@@ -157,10 +157,18 @@ function payDebt(id, entryId) {
 function cardAccounts() {
   return budget.accounts.filter((a) => budget.cardInfo[a]);
 }
-// The paycheck that covers a card's due date this month: the last payday on or before it
-function cardPaycheck(paychecks, dueIso) {
-  const before = paychecks.filter((p) => p.date <= dueIso);
-  return before.length ? before[before.length - 1] : paychecks[0] || null;
+// The paycheck that covers a card's due date: the last payday on or before it, this month or at
+// the end of last month (a card due on the 4th is paid from the check on the 31st); the month's
+// first only if there's no pay before it at all
+function cardPaycheck(key, dueIso) {
+  const all = [...incomeInMonth(addMonthsIso(key + "-01", -1).slice(0, 7)), ...incomeInMonth(key)];
+  const before = all.filter((p) => p.date <= dueIso);
+  return before.length ? before[before.length - 1] : all.find((p) => p.date.startsWith(key)) || null;
+}
+// Already in a plan: a line naming the card in the covering check or any of the month's
+function cardInPlan(name, p, paychecks) {
+  const lc = name.toLowerCase();
+  return [p, ...paychecks].find((x) => x && x.plan.lines.some((l) => l.name.toLowerCase().includes(lc))) || null;
 }
 function cardDueIso(key, day) {
   const last = Number(monthEndIso(key).slice(8));
@@ -181,9 +189,8 @@ function cardsCardHtml(key, rows, paychecks) {
             .reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100,
         ) / 100;
       const due = cardDueIso(key, info.due);
-      const p = cardPaycheck(paychecks, due);
-      const lc = name.toLowerCase();
-      const inPlan = p && paychecks.find((x) => x.plan.lines.some((l) => l.name.toLowerCase().includes(lc)));
+      const p = cardPaycheck(key, due);
+      const inPlan = cardInPlan(name, p, paychecks);
       let action = "";
       if (inPlan)
         action = `<span class="card-planned">${BOX_CHECK_SVG}In the ${escapeHtml(shortDate(inPlan.date))} plan</span>`;
@@ -204,6 +211,24 @@ function cardsCardHtml(key, rows, paychecks) {
     title: "Cards",
     insight: `${cards.length} card${cards.length === 1 ? "" : "s"}`,
     body: `${list}<p class="debt-note">Paid in full each month: the statement is the payment. Bills on a card still count in Bills &amp; spending.</p>`,
+  });
+}
+// Card payments due in the next 14 days that no paycheck plan has yet (Wallet's Next 14 days).
+// Not added to that total: the bills on the card are already counted there.
+function cardsDueSoon(today) {
+  return cardAccounts().flatMap((name) => {
+    const info = budget.cardInfo[name];
+    if (!info.due) return [];
+    let key = today.slice(0, 7),
+      due = cardDueIso(key, info.due);
+    if (due < today) {
+      key = addMonthsIso(key + "-01", 1).slice(0, 7);
+      due = cardDueIso(key, info.due);
+    }
+    if (daysFromToday(due) > 14) return [];
+    const p = cardPaycheck(key, due);
+    if (cardInPlan(name, p, incomeInMonth(key))) return [];
+    return [{ name, key, due, st: info.st[key], p }];
   });
 }
 function editCardStatement(name, key = budgetMonthKey()) {
@@ -229,12 +254,11 @@ function editCardStatement(name, key = budgetMonthKey()) {
   );
 }
 // One tap: the statement becomes a line on the paycheck that covers the due date
-function planCardPayment(name) {
-  const key = budgetMonthKey(),
-    info = budget.cardInfo[name];
+function planCardPayment(name, key = budgetMonthKey()) {
+  const info = budget.cardInfo[name];
   const st = info && info.st[key];
   if (st == null) return;
-  const p = cardPaycheck(incomeInMonth(key), cardDueIso(key, info.due));
+  const p = cardPaycheck(key, cardDueIso(key, info.due));
   if (p) quickPlanLine(p.key, `${name} payment`, st);
 }
 

@@ -286,11 +286,30 @@ function wbBillRowHtml(r, today) {
       </div>
     </div>`;
 }
+// A card payment no paycheck plan has yet: the statement (tap to type it) and one tap to plan it
+function wbCardRowHtml(c, today) {
+  const n = daysFromToday(c.due);
+  const m = `data-account="${escapeAttr(c.name)}" data-month="${escapeAttr(c.key)}"`;
+  const plan =
+    c.st != null && c.p
+      ? `<button class="plan-hint card-plan" data-action="card-plan" ${m}>+ ${money(c.st)} to the ${escapeHtml(wbShort(c.p.date))} paycheck</button>`
+      : "";
+  return `<div class="wb-bill wb-card-due">
+      <span class="wb-later" aria-hidden="true"></span>
+      <div class="wb-bill-body">
+        ${billLogoHtml(null, c.name)}
+        <span class="wb-bill-text"><b>${escapeHtml(c.name)} payment</b><span class="wb-bill-meta">${escapeHtml(n === 0 ? "Today" : n === 1 ? "Tomorrow" : wbDay(c.due))} · ${c.st == null ? "add the statement" : "not in a paycheck plan"}</span>${plan}</span>
+        <button class="card-st${c.st == null ? " unset" : ""}" data-action="card-statement" ${m}>${c.st == null ? "+ Statement" : money(c.st)}</button>
+      </div>
+    </div>`;
+}
 function wbBillsHtml(today) {
-  const rows = wbUpcomingRows(today);
+  const rows = wbUpcomingRows(today),
+    cards = cardsDueSoon(today);
   const due = Math.round(rows.filter((r) => !r.payment).reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100;
-  const list = rows.length
-    ? `<div class="wb-card wb-bills">${rows.map((r) => wbBillRowHtml(r, today)).join("")}</div>`
+  const list =
+    rows.length || cards.length
+      ? `<div class="wb-card wb-bills">${rows.map((r) => wbBillRowHtml(r, today)).join("")}${cards.map((c) => wbCardRowHtml(c, today)).join("")}</div>`
     : `<div class="wb-card wb-none">Nothing due in the next 14 days. <button class="wb-link" data-action="bill-add">+ Add bill</button></div>`;
   // folds like the month view below; its label is the summary (NEXT 14 DAYS ─── $862 ⌄), remembered
   const open = wbNextOpen();

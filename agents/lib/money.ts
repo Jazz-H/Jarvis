@@ -178,13 +178,19 @@ export function readCards(data: any, today: string): CardStatus[] {
       if (dueIn(month, c.due) < today) month = addMonthsIso(month + "-01", 1).slice(0, 7);
       const st = c.st && typeof c.st === "object" && c.st[month] != null && Number.isFinite(Number(c.st[month])) ? r2(num(c.st[month])) : null;
       const lc = a.toLowerCase();
-      const planned = Object.entries(plans).some(
-        ([k, p]: [string, any]) =>
-          k.slice(k.indexOf("|") + 1, k.indexOf("|") + 8) === month &&
+      const due = dueIn(month, c.due),
+        prevDue = dueIn(addMonthsIso(month + "-01", -1).slice(0, 7), c.due);
+      // a line naming the card in one of the month's checks, or in a check after last month's due
+      // date (a card due on the 4th is paid from the check on the 31st: js/budget-debts.js cardPaycheck)
+      const planned = Object.entries(plans).some(([k, p]: [string, any]) => {
+        const date = k.slice(k.indexOf("|") + 1);
+        return (
+          (date.slice(0, 7) === month || (date > prevDue && date <= due)) &&
           Array.isArray(p?.lines) &&
-          p.lines.some((l: any) => typeof l?.name === "string" && l.name.toLowerCase().includes(lc)),
-      );
-      return { name: clip(a, 40), due: dueIn(month, c.due), statement: st, planned };
+          p.lines.some((l: any) => typeof l?.name === "string" && l.name.toLowerCase().includes(lc))
+        );
+      });
+      return { name: clip(a, 40), due, statement: st, planned };
     });
 }
 

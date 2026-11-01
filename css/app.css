@@ -7766,6 +7766,13 @@ details[open] > .wb-fold {
 .card-act {
   flex-basis: 100%;
 }
+.wb-card-due .wb-bill-body {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.wb-card-due .plan-hint {
+  padding: 2px 0 0;
+}
 .card-act .plan-hint {
   padding: 2px 0;
 }
@@ -8197,6 +8204,10 @@ details[open] > .wb-fold {
   .cn-hist-foot .cn-link {
     min-height: 0;
     font-size: inherit;
+  }
+  /* the history column has Clear history; not a second one under the conversation */
+  #cn-feed-body .cn-clear {
+    display: none;
   }
   .cn-main,
   .cn-side {

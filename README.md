@@ -428,7 +428,10 @@ right now, with the full month folded under it:
   shows on Oct 30), with the total still due. Overdue unpaid bills come first, in red. Each row:
   a tick box (pays it, with Undo), the logo, name, due day and "autopay", or an amber "not on
   autopay" when it's due within 3 days, and the amount (your share for joint bills). Tap the
-  row to edit the bill.
+  row to edit the bill. A **credit card** due in that window that no paycheck plan has yet shows
+  under the bills as "<card> payment" with its statement (or **+ Statement** to type it) and the
+  one-tap "+ $X to the <date> paycheck"; once planned it leaves the list. It isn't in the total,
+  since the bills on the card already are.
 - **Spending · <Month>:** spent of the categories' limits, a bar per category with a limit
   (amber at 90%, red over); categories without a limit as compact chips. Tap one to see its
   expenses.
@@ -476,8 +479,9 @@ The month view is laid out like the budget sheet, one calendar month at a time (
   Drag to reorder. The card appears once there's a debt (add the first from Manage).
 - **Cards:** mark an account a **credit card** in Cards & banks (with its payment due day).
   Cards are paid in full, so each month you type the **statement** (shown in blue, like the
-  sheet's typed-in numbers) and one tap adds it as "<card> payment" to the paycheck before the
-  due date; then the card says "In the Nov 13 plan". Bills paid from a card still count in Bills
+  sheet's typed-in numbers) and one tap adds it as "<card> payment" to the last paycheck on or before the
+  due date (the end of last month's if none this month comes first: a card due the 4th is paid
+  from the check on the 31st; Bill Guard counts that as planned too); then the card says "In the Nov 13 plan". Bills paid from a card still count in Bills
   & spending, as in the sheet.
 - **By account:** the month's bills totalled by the account that pays them.
 - **Spending** by category appears once something's logged (or from Manage).
@@ -544,7 +548,7 @@ only turning sync off still asks first.
   with Enter), **Done**, **Ask Jarvis** (hands "Help me with this to-do: …" to Console) and
   Delete. The selection lasts until you reload. **Console:** a **history** column (search
   everything kept, questions and answers alike, Esc clears; the days with something in them,
-  click one to jump there, older ones load as needed; how much is kept and Clear history) | the box
+  click one to jump there, older ones load as needed; how much is kept and Clear history, the only one on big screens) | the box
   and the conversation | the weekly review, usage and Jarvis's brain (both side columns stay in
   view while you scroll).
   The header gets a **command bar** ("Ask Jarvis or add a to-do…", **/** jumps to it from

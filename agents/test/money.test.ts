@@ -253,6 +253,26 @@ describe("debts and credit cards (js/budget-debts.js rules)", () => {
     ]);
   });
 
+  it("counts a card as planned in last month's check after its previous due date, not before it", () => {
+    const d = withDebts({
+      accounts: ["Visa", "Amex"],
+      cardInfo: {
+        Visa: { due: 4, st: { "2026-11": 200 } }, // Nov 4, planned in the Oct 15 check (after Oct 4)
+        Amex: { due: 1, st: { "2026-11": 90 } }, // Nov 1; the Oct 1 check is on last due date: October's payment
+      },
+      plans: {
+        "inc1|2026-10-15": { lines: [{ name: "Visa payment", amount: 200 }] },
+        "inc1|2026-10-01": { lines: [{ name: "Amex payment", amount: 80 }] },
+      },
+    });
+    const m = buildMoneyCard(raw(d), TODAY, null)!;
+    expect(m.cards.map((c) => [c.name, c.due, c.planned])).toEqual([
+      ["Visa", "2026-11-04", true],
+      ["Amex", "2026-11-01", false],
+    ]);
+    expect(m.guard.filter((g) => g.reason === "card").map((g) => g.name)).toEqual(["Amex"]);
+  });
+
   it("parses an older briefing without debts or cards", () => {
     expect(MoneyCard.parse({ period: null, guard: [], overspent: [] })).toMatchObject({
       debts: [],
