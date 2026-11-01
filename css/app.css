@@ -5090,10 +5090,11 @@ body.todo-dragging {
   cursor: pointer;
 }
 .cn-box {
+  position: relative;
   display: flex;
   align-items: flex-end; /* the mic and send stay at the bottom as the text grows */
   gap: 8px;
-  padding: 6px 6px 6px 14px;
+  padding: 6px 6px 10px 14px;
   background: var(--surface);
   border: 1px solid var(--olive-dim);
   border-radius: 14px;
@@ -5120,6 +5121,35 @@ body.todo-dragging {
 }
 .cn-input::placeholder {
   color: var(--text-dim);
+  white-space: nowrap; /* one line, never cut in half */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the grip on the box's bottom edge: drag to resize, tap for tall / fit */
+.cn-grip {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.cn-grip i {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--olive-dim);
+}
+.cn-grip[aria-pressed="true"] i {
+  background: var(--olive);
 }
 .cn-send {
   flex: none;
@@ -5452,10 +5482,15 @@ body.todo-dragging {
 /* under the box: where it goes (Jarvis | Quick list, guessed from what you type) and the usage pill */
 .cn-under {
   display: flex;
+  flex-wrap: wrap; /* with big text, the pill drops under the switch instead of squashing */
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: -4px;
+  gap: 8px 10px;
+  margin-top: 4px;
+}
+.cn-under .cn-seg,
+.cn-usage {
+  white-space: nowrap;
 }
 .cn-route {
   display: inline-grid;

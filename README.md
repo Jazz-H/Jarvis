@@ -163,8 +163,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
-- **The box** comes first: one line with the mic and send buttons inside it ("Ask or tell Jarvis…" /
-  "Add to-dos, items, notes…"). Enter sends. Since Jarvis can add and tick
+- **The box** comes first: one line with the mic and send buttons inside it ("Ask Jarvis…" / "To-dos,
+  items…"); drag the grip on its bottom edge to make it taller or shorter, or tap it for a tall box
+  and back (sending sets it back). Enter sends. Since Jarvis can add and tick
   things itself, there's one box: questions and requests go to Jarvis, and a plain list gets the
   free, on-device Quick list preview instead.
 - **📎 in the box:** attach a photo (shrunk to 1600 px on the device) or a PDF (up to 3 MB) to send
@@ -174,10 +175,10 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   check it), a bill is checked against Budget, a list can be added. Text inside a file is
   untrusted, so an answer about a file may only add things (to-dos, Shopping, memory), never
   tick, move or mark bought. The file is deleted from the gist once it's answered.
-- **Under the box:** a small **Jarvis | Quick list** switch, guessed from what you type (a
+- **Under the box:** a small **Jarvis | List** switch, guessed from what you type (a
   question word first or a "?" at the end means Jarvis; several items, or anything else, means
   Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
-  box is cleared. Next to it, the usage pill, "7 left · $0.18 of $20" (questions left today and
+  box is cleared. Next to it (or under it, with big text), the usage pill, "7 left · $0.18/$20" (questions left today and
   this month's Ask spending against the cap, once Jarvis has reported its counts). Tap it for the
   full line and the limits.
 - **Voice input:** the mic (where the browser has the Web Speech API; otherwise it's hidden and

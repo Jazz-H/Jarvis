@@ -9771,7 +9771,7 @@ await section("Console: mode guess, lock until cleared, chips fill the box", asy
       hint: document.getElementById("cn-hint").textContent,
     }));
   let m = await mode();
-  check("empty box starts on Ask", m.ask === "true" && m.cap === "false" && m.ph === "Ask or tell Jarvis…", m);
+  check("empty box starts on Ask", m.ask === "true" && m.cap === "false" && m.ph === "Ask Jarvis…", m);
   await page.fill("#console-input", "dentist fri");
   m = await mode();
   check(
@@ -11644,6 +11644,48 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
   await a.ctx.close();
 });
 
+await section("Console box: the grip resizes it (tap for tall, drag to set); the row under it never squashes", async () => {
+  const a = await openAsk({ seed: askSync() });
+  const h = () => a.page.evaluate(() => Math.round(document.getElementById("console-input").getBoundingClientRect().height));
+  const h0 = await h();
+  await a.page.click("#cn-grip");
+  const tall = await h();
+  const vh = await a.page.evaluate(() => innerHeight);
+  check("tapping the grip makes the box tall (about 40% of the screen)", Math.abs(tall - Math.round(vh * 0.4)) <= 2 && tall > h0, { h0, tall, vh });
+  check("and it says so", (await a.page.getAttribute("#cn-grip", "aria-pressed")) === "true");
+  await a.page.click("#cn-grip");
+  check("tapping again fits the text", (await h()) === h0);
+  // drag down 120px
+  const g = await a.page.locator("#cn-grip").boundingBox();
+  await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await a.page.mouse.down();
+  await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 60, { steps: 4 });
+  await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 120, { steps: 4 });
+  await a.page.mouse.up();
+  const dragged = await h();
+  check("dragging the grip sets the height", dragged >= h0 + 100 && dragged <= h0 + 140, { h0, dragged });
+  check("a drag doesn't also count as a tap", (await a.page.getAttribute("#cn-grip", "aria-pressed")) === "true" && (await h()) === dragged);
+  // narrow screen: Jarvis | List and the pill stay on one line each
+  await a.page.setViewportSize({ width: 320, height: 700 });
+  await a.page.evaluate(() => {
+    localStorage.setItem("jarvis-answers", JSON.stringify({ version: 1, answers: [], usage: { day: addDaysIso(0), dayCount: 0, dayCostUsd: 0, week: "2030-W01", weekCount: 0, month: addDaysIso(0).slice(0, 7), monthCostUsd: 0.18 } }));
+    renderConsole();
+  });
+  const row = await a.page.evaluate(() => ({
+    segs: [...document.querySelectorAll(".cn-route .cn-seg")].map((b) => Math.round(b.getBoundingClientRect().height)),
+    pill: Math.round(document.getElementById("cn-usage").getBoundingClientRect().height),
+    pillText: document.getElementById("cn-usage-text").textContent,
+    pageW: document.scrollingElement.scrollWidth,
+  }));
+  check(
+    "at 320px the switch and the pill keep their text on one line (the pill can drop below)",
+    row.segs.every((x) => x <= 46) && row.pill <= 40 && row.pageW <= 320 && row.pillText === "10 left · $0.18/$20",
+    row,
+  );
+  check("no JS errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+});
+
 await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {
   const gh = askGitHub();
   const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });
@@ -12191,7 +12233,7 @@ await section(
     );
     check(
       "today's questions left and this month's spending come from usage",
-      r.usage[0] === "7 left · $1.20 of $20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
+      r.usage[0] === "7 left · $1.20/$20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
       r.usage,
     );
     // chips: nothing until tapped; then one item with its date, and Undo
@@ -12511,7 +12553,7 @@ await section(
       });
       check(
         `${theme}: the 📎 and the mic sit left of send in Console's box`,
-        r.kids.join() === "cn-input,cn-attach,,vc-mic,cn-send", // the empty one is the hidden file input
+        r.kids.join() === "cn-input,cn-attach,,vc-mic,cn-send,cn-grip", // the empty one is the hidden file input; the grip sits on the edge
         r.kids,
       );
       check(

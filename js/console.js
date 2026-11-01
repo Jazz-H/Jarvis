@@ -16,7 +16,7 @@ const CONSOLE_ASK_STATUS = "Not sent: saved here before Ask Jarvis was switched 
 const CONSOLE_MODES = {
   ask: {
     label: "Jarvis",
-    placeholder: "Ask or tell Jarvis…",
+    placeholder: "Ask Jarvis…",
     send: "Send question",
     get hint() {
       return askHint(); // depends on sync, the Ask Jarvis key and today's limit
@@ -24,8 +24,8 @@ const CONSOLE_MODES = {
     chips: [],
   },
   capture: {
-    label: "Quick list",
-    placeholder: "Add to-dos, items, notes…",
+    label: "List",
+    placeholder: "To-dos, items…",
     send: "Preview items",
     hint: "Separate items with / or ;. You'll see a preview first.",
     chips: ["dentist fri", "buy eggs $5", "call mom tomorrow", "helmet $250", "note: gift ideas for mom"],
@@ -248,12 +248,13 @@ function consoleShellHtml() {
       <input type="file" id="cn-file" accept="image/*,application/pdf" hidden data-change-action="ask-file">
       ${voiceMicHtml("console")}
       <button type="button" class="cn-send" id="cn-send" data-action="console-send" aria-label="Send question">${CONSOLE_SEND_ICON}</button>
+      <button type="button" class="cn-grip" id="cn-grip" data-action="console-grip" aria-label="Make the box taller" aria-pressed="false"><i></i></button>
     </div>
     <div id="cn-attach"></div>
     <div class="cn-under">
       <div class="cn-switch cn-route" role="group" aria-label="Send to">
         <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Jarvis</button>
-        <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false">Quick list</button>
+        <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false" aria-label="Quick list">List</button>
       </div>
       <button type="button" class="cn-usage" id="cn-usage" data-action="ask-usage" aria-expanded="false" aria-controls="cn-usage-pop" aria-label="Ask Jarvis usage and limits"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V3a9 9 0 0 1 9 9z"/></svg><span id="cn-usage-text"></span></button>
     </div>
@@ -269,10 +270,63 @@ function consoleShellHtml() {
 }
 let consoleChipsMode = null; // which mode's chips are drawn, so typing doesn't redraw them
 // The box grows with what's typed (up to 5 lines, then scrolls) so a long question stays readable
+// The box grows with what's typed (up to 5 lines); the grip under it sets its own height: drag it,
+// or tap it for a tall box and back. A height set by hand stays until it's tapped back or a
+// message is sent.
+let consoleBoxHeight = 0; // 0: fit the text
+const CONSOLE_BOX_MIN = 44;
+const consoleBoxMax = () => Math.max(160, Math.round(window.innerHeight * 0.6));
 function consoleFitBox(input) {
-  input.style.height = "auto";
-  input.style.height = Math.min(input.scrollHeight, 5 * 24 + 20) + "px";
+  if (consoleBoxHeight) {
+    input.style.height = Math.min(consoleBoxMax(), Math.max(CONSOLE_BOX_MIN, consoleBoxHeight)) + "px";
+  } else {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 5 * 24 + 20) + "px";
+  }
+  const grip = document.getElementById("cn-grip");
+  if (grip) {
+    grip.setAttribute("aria-pressed", String(!!consoleBoxHeight));
+    grip.setAttribute("aria-label", consoleBoxHeight ? "Make the box fit the text again" : "Make the box taller");
+  }
 }
+function consoleGripTap() {
+  consoleBoxHeight = consoleBoxHeight ? 0 : Math.round(window.innerHeight * 0.4);
+  const input = consoleInput();
+  if (input) {
+    consoleFitBox(input);
+    input.focus({ preventScroll: true });
+  }
+}
+// Dragging the grip (touch or mouse): the box follows the finger; a tap without a drag toggles
+(function () {
+  let drag = null;
+  document.addEventListener("pointerdown", (e) => {
+    const grip = e.target.closest && e.target.closest("#cn-grip");
+    const input = consoleInput();
+    if (!grip || !input) return;
+    drag = { y: e.clientY, h: input.getBoundingClientRect().height, moved: false };
+    try {
+      grip.setPointerCapture(e.pointerId);
+    } catch (err) {}
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dy = e.clientY - drag.y;
+    if (!drag.moved && Math.abs(dy) < 6) return;
+    drag.moved = true;
+    e.preventDefault();
+    consoleBoxHeight = Math.min(consoleBoxMax(), Math.max(CONSOLE_BOX_MIN, Math.round(drag.h + dy)));
+    const input = consoleInput();
+    if (input) consoleFitBox(input);
+  });
+  const end = () => {
+    if (drag && drag.moved) consoleGripDragged = true; // the click that follows a drag isn't a tap
+    drag = null;
+  };
+  document.addEventListener("pointerup", end);
+  document.addEventListener("pointercancel", end);
+})();
+let consoleGripDragged = false;
 function consoleRefreshBox() {
   const input = document.getElementById("console-input");
   if (!input) return;
@@ -522,6 +576,7 @@ function consoleSubmit() {
     }
     input.value = "";
     consoleMode = null;
+    consoleBoxHeight = 0;
     // a new question opens the conversation, so its "thinking" row is in view
     try {
       localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1");

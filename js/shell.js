@@ -652,6 +652,10 @@ const SHELL_CLICK = {
   },
   "console-add": () => consoleAdd(),
   "console-edit": () => consoleEdit(),
+  "console-grip": () => {
+    if (consoleGripDragged) consoleGripDragged = false; // the end of a drag, not a tap
+    else consoleGripTap();
+  },
   "console-sort": () => consoleSortWithJarvis(),
   "console-go": (el) => consoleGo(el.getAttribute("data-go")),
   // Wallet's Budget | Shopping and You's Beauty | Jazz 3.0 switch

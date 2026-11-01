@@ -857,9 +857,7 @@ function askUsageText() {
 function askUsageShort() {
   const left = askUsageLeft(),
     spent = askMonthSpent();
-  const parts = [left == null ? "" : `${left} left`, spent == null ? "" : `$${spent.toFixed(2)} of $${ASK_MONTH_BUDGET}`].filter(
-    Boolean,
-  );
+  const parts = [left == null ? "" : `${left} left`, spent == null ? "" : `$${spent.toFixed(2)}/$${ASK_MONTH_BUDGET}`].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Limits";
 }
 function askUsagePopHtml() {
