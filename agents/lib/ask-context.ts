@@ -7,7 +7,7 @@
 // Plus this morning's validated briefing cards, the calendar list from jazz2-calendar.json (90 days
 // back to 60 ahead, as of the morning run), the latest Weekly Review, and the earlier turns of
 // the same thread. Synced text is untrusted: it's clipped here and only reaches the model as data.
-import { readBrain, brainForPrompt, notesForPrompt, withoutHidden } from "./brain.ts";
+import { readBrain, brainForPrompt, notesForPrompt, withoutHidden, mentionsHidden } from "./brain.ts";
 import { readCards, readDebts } from "./money.ts";
 import { addDays, isWashDate } from "./jazz-context.ts";
 import { localTime, weekday } from "./schedule.ts";
@@ -199,7 +199,8 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
   return {
     date: b.date,
     headline: b.headline,
-    summary: b.summary.filter((s) => !hidden.lines.includes(clip(s.text, 200).toLowerCase())), // lines dismissed on Home
+    // lines dismissed on Home, and lines about packages marked as come
+    summary: b.summary.filter((s) => !hidden.lines.includes(clip(s.text, 200).toLowerCase()) && !mentionsHidden(s.text, hidden.packages, s.source)),
     weather: w && {
       summary: w.summary,
       conditions: w.conditions,

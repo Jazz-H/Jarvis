@@ -380,7 +380,7 @@ function wxSunHtml(w) {
 function jvPlaceHtml(w) {
   const saved = jarvisSettings.location;
   const mine = w.location === "Your location";
-  const sub = saved && !mine ? "Your location is saved: the next briefing uses it" : mine ? "From your phone" : "The default city";
+  const sub = saved && !mine ? "Saved: the next briefing uses it" : mine ? "From your phone" : "The default city";
   return `<div class="wx-tile wx-loc jv-place"><span class="wx-tile-l">Location</span>
     <b class="wx-loc-v">${escapeHtml(w.location || "Not set")}</b><span class="wx-tile-s">${sub}</span>
     <div class="wx-loc-btns"><button type="button" class="jv-place-btn" data-action="wx-locate">${saved ? "Update" : "Use my location"}</button>

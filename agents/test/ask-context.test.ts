@@ -188,7 +188,7 @@ describe("Ask context (figures worked out in code)", () => {
 
   it("leaves out packages and lines dismissed on Home, and only what's left can be dismissed", () => {
     const b = JSON.parse(BRIEFING_FILE);
-    b.summary.push({ text: "Your Acme Glow serum arrives today.", source: "deliveries" });
+    b.summary.push({ text: "Your Acme Glow serum arrives today.", source: "deliveries" }, { text: "Pick up the dry cleaning.", source: "jazz" });
     b.cards.deliveries = {
       status: "ok",
       agent: "Deliveries",
@@ -207,9 +207,9 @@ describe("Ask context (figures worked out in code)", () => {
     };
     const c = buildAskContext({ data, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null });
     expect(c.briefing!.deliveries!.packages.map((p) => p.item)).toEqual(["Rain boots"]);
-    expect(c.briefing!.summary.map((s) => s.text)).toEqual(["Your Acme Glow serum arrives today."]);
+    expect(c.briefing!.summary.map((s) => s.text)).toEqual(["Pick up the dry cleaning."]); // the line about the dismissed package goes too
     expect([...c.targets.packages.values()]).toEqual(["Rain boots"]);
-    expect([...c.targets.lines.values()]).toEqual(["Your Acme Glow serum arrives today."]);
+    expect([...c.targets.lines.values()]).toEqual(["Pick up the dry cleaning."]);
   });
 });
 

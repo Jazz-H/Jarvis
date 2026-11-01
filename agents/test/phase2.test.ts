@@ -277,4 +277,38 @@ describe("orchestrator with Phase 2 sources", () => {
     expect(card && card.status === "ok" ? card.data.packages.map((p) => p.item) : null).toEqual(["Rain boots"]);
     expect(q.seen[0].prompt).not.toContain("Acme Glow");
   });
+
+  it("drops briefing lines and suggested to-dos about a package the owner already got", async () => {
+    const q = fakeQuery([
+      {
+        structured_output: {
+          headline: "h",
+          summary: [
+            { text: "Your Acme Glow order arrives today.", source: "inbox" },
+            { text: "Dentist clashes with lunch.", source: "calendar" },
+          ],
+          suggestions: [
+            { text: "Track the Acme Glow order", due: null },
+            { text: "Confirm the dentist", due: null },
+          ],
+        },
+      },
+    ]);
+    const r = await runBriefing({
+      now: NOW,
+      trigger: "manual",
+      gist: {
+        readFile: async () => JSON.stringify({ data: { "jarvis-settings": { hiddenPackages: [{ item: "Acme Glow C-10 serum", at: "2026-10-29" }] } } }),
+        writeFile: async () => {},
+      },
+      fetchImpl: fakeFetch([]).impl,
+      maxRunCostUsd: 0.5,
+      trace: new Trace(),
+      queryFn: q.fn,
+      subagents: base,
+    });
+    if (r.status !== "delivered") throw new Error("not delivered");
+    expect(r.briefing.summary.map((s) => s.text)).toEqual(["Dentist clashes with lunch."]);
+    expect((r.briefing.suggestions ?? []).map((s) => s.text)).toEqual(["Confirm the dentist"]);
+  });
 });

@@ -36,10 +36,25 @@ function hideDismissed(b) {
   if (!pk.length && !lines.size) return b;
   const d = b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data : null;
   if (d) d.packages = d.packages.filter((p) => !pk.includes(p.item.toLowerCase()));
-  b.summary = b.summary.filter(
-    (s) => !lines.has(lineKey(s.text)) && (s.source !== "deliveries" || !pk.some((h) => s.text.toLowerCase().includes(h))),
-  );
+  b.summary = b.summary.filter((s) => !lines.has(lineKey(s.text)) && !mentionsPackage(s.text, pk, s.source));
+  b.suggestions = b.suggestions.filter((t) => !mentionsPackage(t.text, pk));
   return b;
+}
+// Is this line or suggestion about a package you said came? Its whole name, or two of its words
+// ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or inbox
+// line, so "Belt" doesn't hide "Buy a belt". Same rule as agents/lib/brain.ts mentionsHidden.
+const PKG_SKIP = new Set(["the", "and", "for", "your", "with", "from", "order", "orders", "package", "packages", "delivery", "item", "items", "set", "pack", "new"]);
+const pkgWords = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
+function mentionsPackage(text, items, source = null) {
+  if (!items.length) return false;
+  const t = String(text || "").toLowerCase();
+  const words = new Set(pkgWords(t));
+  return items.some((item) => {
+    const ws = [...new Set(pkgWords(item))];
+    const hits = ws.filter((w) => words.has(w)).length;
+    if (ws.length <= 1) return (source === "deliveries" || source === "inbox") && (hits === 1 || t.includes(item));
+    return t.includes(item) || hits >= 2;
+  });
 }
 function briefingPackages(b = loadBriefing()) {
   return b && b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data.packages : [];

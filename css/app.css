@@ -8763,13 +8763,16 @@ details[open] > .wb-fold {
 }
 .wx-loc-btns {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   margin-top: auto;
   padding-top: 6px;
 }
 .wx-loc .jv-place-btn {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 36px;
-  padding: 0 12px;
-  font-size: 13.5px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
 }

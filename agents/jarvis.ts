@@ -8,7 +8,7 @@
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
 //   npm run brief -- --now        (deliver now, like a manual run)
-import { readBrain, brainForPrompt, emptyBrain, withoutHidden, BRAIN_RULES, type Brain, type DeviceLocation } from "./lib/brain.ts";
+import { readBrain, brainForPrompt, emptyBrain, withoutHidden, mentionsHidden, BRAIN_RULES, type Brain, type DeviceLocation } from "./lib/brain.ts";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -322,9 +322,15 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     generatedAt: updatedAt,
     trigger: deps.trigger,
     headline: out.headline,
-    summary: out.summary,
+    // nothing about a package the owner already marked as come (unless that's every line)
+    summary: out.summary.some((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))
+      ? out.summary.filter((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))
+      : out.summary,
     summaryBy,
-    suggestions: cleanSuggestions(out.suggestions, context),
+    suggestions: cleanSuggestions(
+      out.suggestions?.filter((s) => !mentionsHidden(s.text, brain.hiddenPackages)),
+      context,
+    ),
     top3: summaryBy === "jarvis" && out.top3?.length ? cleanTop3(out.top3, context) : codeTop3(context),
     cards: {
       weather: card(results.weather!),

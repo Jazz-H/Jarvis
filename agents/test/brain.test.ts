@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readBrain, brainForPrompt, notesForPrompt, dueCheckins, checkinAnswerId, emptyBrain } from "../lib/brain.ts";
+import { readBrain, brainForPrompt, notesForPrompt, dueCheckins, checkinAnswerId, emptyBrain, mentionsHidden } from "../lib/brain.ts";
 import { runAsk, askLimits, cleanActions } from "../ask.ts";
 import { jarvisSpec } from "../jarvis.ts";
 import { topicFeeds } from "../subagents/news.ts";
@@ -76,6 +76,16 @@ describe("Jarvis's brain", () => {
     expect(JSON.stringify(brainForPrompt(b))).not.toContain("39.78");
     for (const bad of [{ lat: 91, lon: 0 }, { lat: "x", lon: 1 }, { lat: 10 }, "35,-80", null])
       expect(readBrain({ "jarvis-settings": { location: bad } }).location).toBeNull();
+  });
+
+  it("knows a line is about a package the owner got: its name, or two of its words", () => {
+    const got = ["acme glow c-10 serum", "belt"];
+    expect(mentionsHidden("Track the Acme Glow order", got)).toBe(true);
+    expect(mentionsHidden("Your ACME GLOW C-10 SERUM shipped", got, "jarvis")).toBe(true);
+    expect(mentionsHidden("Acme films this weekend", got)).toBe(false); // one word isn't enough
+    expect(mentionsHidden("Buy a belt", got)).toBe(false); // a one-word name: only on delivery or inbox lines
+    expect(mentionsHidden("Your belt arrives today.", got, "deliveries")).toBe(true);
+    expect(mentionsHidden("Anything", [])).toBe(false);
   });
 
   it("the briefing and Ask write clock times the 12-hour way, in Eastern time", () => {

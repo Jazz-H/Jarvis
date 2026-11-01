@@ -7970,7 +7970,7 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   const a = await read();
   check("Use my location saves it rounded to about 100 m, with today's date", a.saved && a.saved.lat === 39.781 && a.saved.lon === -89.656 && a.saved.at === isoOffset(0), a.saved);
   check("the coordinates are never shown", !a.shown);
-  check("it says the next briefing uses it, and offers Update and Forget", a.place.includes("Your location is saved: the next briefing uses it") && a.place.includes("Update") && a.place.includes("Forget"), a.place);
+  check("it says the next briefing uses it, and offers Update and Forget", a.place.includes("Saved: the next briefing uses it") && a.place.includes("Update") && a.place.includes("Forget"), a.place);
   check("a toast confirms it", a.toast.startsWith("Location saved"), a.toast);
 
   // Opening the app keeps it current, but only a move of 1 km or more is saved
@@ -7995,7 +7995,7 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   });
   if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
   const m = await read();
-  check("a briefing for your location says so", m.place.startsWith("Location Your location") && m.place.includes("From your phone") && !m.place.includes("is saved"), m.place);
+  check("a briefing for your location says so", m.place.startsWith("Location Your location") && m.place.includes("From your phone") && !m.place.includes("Saved:"), m.place);
 
   // Blocked, then Forget it
   await page.evaluate(() => (window.__geo = null));
@@ -14735,6 +14735,19 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
     "Undo brings it back",
     (await page.evaluate(() => briefingPackages().length)) === 2 && (await page.textContent(".jv-summary")).includes("Acme"),
     "",
+  );
+  // A line from another source or a suggested to-do about it goes too ("Acme" alone isn't enough
+  // for a two-word name, but this one-word-plus-tag name matches on its word in an inbox line)
+  check(
+    "lines from any source and suggested to-dos about a package you got are hidden",
+    await page.evaluate(() => {
+      const b = { summary: [{ text: "Your Acme Glow order shipped", source: "inbox" }, { text: "Rent is due", source: "jazz" }], suggestions: [{ text: "Track the Acme Glow order", due: null }, { text: "Pay rent", due: null }] };
+      jarvisSettings.hiddenPackages = [{ item: "Acme Glow C-10 serum", at: addDaysIso(0) }];
+      hideDismissed(b);
+      const out = b.summary.map((s) => s.text).join("|") + " / " + b.suggestions.map((s) => s.text).join("|");
+      jarvisSettings.hiddenPackages = [];
+      return out === "Rent is due / Pay rent" && !mentionsPackage("Acme films", ["acme glow c-10 serum"]) && !mentionsPackage("Buy a belt", ["belt"]);
+    }),
   );
   // × on a briefing line
   const before = await page.$$eval(".jv-summary .jv-sum-text", (els) => els.map((e) => e.textContent));

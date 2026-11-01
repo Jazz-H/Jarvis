@@ -112,6 +112,22 @@ export function readBrain(data: unknown): Brain {
 export function withoutHidden<T extends { item: string }>(packages: T[], hidden: string[]): T[] {
   return hidden.length ? packages.filter((p) => !hidden.includes(p.item.toLowerCase())) : packages;
 }
+// Is this line or suggestion about a package the owner said came? Its whole name, or two of its
+// words ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or
+// inbox line, so "Belt" doesn't hide "Buy a belt". js/jarvis.js mentionsPackage matches this.
+const PKG_SKIP = new Set(["the", "and", "for", "your", "with", "from", "order", "orders", "package", "packages", "delivery", "item", "items", "set", "pack", "new"]);
+const pkgWords = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
+export function mentionsHidden(text: string, hidden: string[], source: string | null = null): boolean {
+  if (!hidden.length) return false;
+  const t = text.toLowerCase();
+  const words = new Set(pkgWords(t));
+  return hidden.some((item) => {
+    const ws = [...new Set(pkgWords(item))];
+    const hits = ws.filter((w) => words.has(w)).length;
+    if (ws.length <= 1) return (source === "deliveries" || source === "inbox") && (hits === 1 || t.includes(item));
+    return t.includes(item) || hits >= 2;
+  });
+}
 
 // The Notebook for Ask: newest first, whole notes until about 12k characters, then titles only
 export function notesForPrompt(b: Brain) {
