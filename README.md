@@ -62,7 +62,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   (amber when they overlap), Now / Next · in 40 min badges, and past events dimmed), deliveries open **Deliveries** (arriving today with
   **Mark bought** when it's on your Shopping list and **Got it** on every package, then each
   package's Ordered → Shipped → Out → Delivered progress; Got it hides a package that came but
-  never said so, with its timeline row, count, any briefing line about it (from any source: its name or two of its words, like "Acme Glow") and suggested to-dos about it, for 14 days, with Undo; the next briefings leave those out too), to-dos go to the Planner, rain to Weather. Until the calendar is connected
+  never said so, with its timeline row, count, any briefing line about it (from any source: its name, two of its words like "Acme Glow", or its order number like "#48151"), a headline about it (the next line takes its place) and suggested to-dos about it, for 14 days, with Undo; the next briefings leave those out too), to-dos go to the Planner, rain to Weather. Until the calendar is connected
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a

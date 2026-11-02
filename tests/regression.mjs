@@ -14754,7 +14754,12 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
       hideDismissed(b);
       const out = b.summary.map((s) => s.text).join("|") + " / " + b.suggestions.map((s) => s.text).join("|");
       jarvisSettings.hiddenPackages = [];
-      return out === "Rent is due / Pay rent" && !mentionsPackage("Acme films", ["acme glow c-10 serum"]) && !mentionsPackage("Buy a belt", ["belt"]);
+      // a headline naming its order number gives way to the first line left
+      const h = { headline: "Check on Order #48151, it's two weeks late", summary: [{ text: "Rent is due", source: "jazz" }], suggestions: [] };
+      jarvisSettings.hiddenPackages = [{ item: "Order #48151", at: addDaysIso(0) }];
+      hideDismissed(h);
+      jarvisSettings.hiddenPackages = [];
+      return out === "Rent is due / Pay rent" && h.headline === "Rent is due" && !mentionsPackage("Acme films", ["acme glow c-10 serum"]) && !mentionsPackage("Buy a belt", ["belt"]);
     }),
   );
   // × on a briefing line

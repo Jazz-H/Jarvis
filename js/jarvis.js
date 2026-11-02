@@ -35,16 +35,21 @@ function hideDismissed(b) {
   const lines = new Set((jarvisSettings.hiddenLines || []).map((h) => lineKey(h.text)));
   if (!pk.length && !lines.size) return b;
   const d = b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data : null;
-  if (d) d.packages = d.packages.filter((p) => !pk.includes(p.item.toLowerCase()));
+  const ids = new Set(pk.flatMap(pkgIds));
+  if (d) d.packages = d.packages.filter((p) => !pk.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)));
   b.summary = b.summary.filter((s) => !lines.has(lineKey(s.text)) && !mentionsPackage(s.text, pk, s.source));
   b.suggestions = b.suggestions.filter((t) => !mentionsPackage(t.text, pk));
+  // a headline about it gives way to the first line left
+  if (mentionsPackage(b.headline, pk)) b.headline = b.summary.length ? b.summary[0].text.slice(0, 100) : "Your morning briefing";
   return b;
 }
 // Is this line or suggestion about a package you said came? Its whole name, or two of its words
 // ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or inbox
-// line, so "Belt" doesn't hide "Buy a belt". Same rule as agents/lib/brain.ts mentionsHidden.
+// line, so "Belt" doesn't hide "Buy a belt". An order number ("#48151": 5+ characters with a
+// digit) counts anywhere. Same rule as agents/lib/brain.ts mentionsHidden.
 const PKG_SKIP = new Set(["the", "and", "for", "your", "with", "from", "order", "orders", "package", "packages", "delivery", "item", "items", "set", "pack", "new"]);
 const pkgWords = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
+const pkgIds = (s) => pkgWords(s).filter((w) => w.length >= 5 && /\d/.test(w));
 function mentionsPackage(text, items, source = null) {
   if (!items.length) return false;
   const t = String(text || "").toLowerCase();
@@ -52,6 +57,7 @@ function mentionsPackage(text, items, source = null) {
   return items.some((item) => {
     const ws = [...new Set(pkgWords(item))];
     const hits = ws.filter((w) => words.has(w)).length;
+    if (pkgIds(item).some((w) => words.has(w))) return true;
     if (ws.length <= 1) return (source === "deliveries" || source === "inbox") && (hits === 1 || t.includes(item));
     return t.includes(item) || hits >= 2;
   });

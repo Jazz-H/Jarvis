@@ -110,13 +110,17 @@ export function readBrain(data: unknown): Brain {
 
 // Packages the owner hid stay out of the briefing, its alerts and Ask (exact name, any case)
 export function withoutHidden<T extends { item: string }>(packages: T[], hidden: string[]): T[] {
-  return hidden.length ? packages.filter((p) => !hidden.includes(p.item.toLowerCase())) : packages;
+  if (!hidden.length) return packages;
+  const ids = new Set(hidden.flatMap(pkgIds));
+  return packages.filter((p) => !hidden.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)));
 }
 // Is this line or suggestion about a package the owner said came? Its whole name, or two of its
 // words ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or
-// inbox line, so "Belt" doesn't hide "Buy a belt". js/jarvis.js mentionsPackage matches this.
+// inbox line, so "Belt" doesn't hide "Buy a belt". An order number ("#48151": 5+ characters
+// with a digit) counts anywhere. js/jarvis.js mentionsPackage matches this.
 const PKG_SKIP = new Set(["the", "and", "for", "your", "with", "from", "order", "orders", "package", "packages", "delivery", "item", "items", "set", "pack", "new"]);
 const pkgWords = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
+const pkgIds = (s: string) => pkgWords(s).filter((w) => w.length >= 5 && /\d/.test(w));
 export function mentionsHidden(text: string, hidden: string[], source: string | null = null): boolean {
   if (!hidden.length) return false;
   const t = text.toLowerCase();
@@ -124,6 +128,7 @@ export function mentionsHidden(text: string, hidden: string[], source: string | 
   return hidden.some((item) => {
     const ws = [...new Set(pkgWords(item))];
     const hits = ws.filter((w) => words.has(w)).length;
+    if (pkgIds(item).some((w) => words.has(w))) return true;
     if (ws.length <= 1) return (source === "deliveries" || source === "inbox") && (hits === 1 || t.includes(item));
     return t.includes(item) || hits >= 2;
   });

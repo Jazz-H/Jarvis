@@ -86,6 +86,10 @@ describe("Jarvis's brain", () => {
     expect(mentionsHidden("Buy a belt", got)).toBe(false); // a one-word name: only on delivery or inbox lines
     expect(mentionsHidden("Your belt arrives today.", got, "deliveries")).toBe(true);
     expect(mentionsHidden("Anything", [])).toBe(false);
+    // an order number counts from any line, the headline included
+    expect(mentionsHidden("Check on Order #48151, it's two weeks late", ["order #48151"])).toBe(true);
+    expect(mentionsHidden("Check on Order #48151", ["nike shoes (order 48151)"])).toBe(true);
+    expect(mentionsHidden("Spend $2026 or less", ["2026 planner"])).toBe(false);
   });
 
   it("the briefing and Ask write clock times the 12-hour way, in Eastern time", () => {

@@ -321,7 +321,10 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     date: today,
     generatedAt: updatedAt,
     trigger: deps.trigger,
-    headline: out.headline,
+    // a headline about a package the owner already has gives way to the first other line
+    headline: mentionsHidden(out.headline, brain.hiddenPackages)
+      ? (out.summary.find((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))?.text ?? "Your morning briefing").slice(0, 100)
+      : out.headline,
     // nothing about a package the owner already marked as come (unless that's every line)
     summary: out.summary.some((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))
       ? out.summary.filter((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))
