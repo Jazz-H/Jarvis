@@ -20,9 +20,10 @@ describe("schedule", () => {
     expect(gate("2026-12-01T11:45:00Z").deliver).toBe(true); // 6:45 EST
   });
 
-  it("tolerates GitHub starting late, but not hours late", () => {
+  it("tolerates GitHub starting hours late, but not past 1pm", () => {
     expect(gate("2026-07-01T11:30:00Z").deliver).toBe(true); // 7:30 EDT
-    expect(gate("2026-07-01T13:30:00Z").deliver).toBe(false); // 9:30 EDT
+    expect(gate("2026-11-01T16:55:00Z").deliver).toBe(true); // 11:55 EST (a real late run)
+    expect(gate("2026-07-01T17:30:00Z").deliver).toBe(false); // 1:30 EDT
   });
 
   it("skips when today's briefing already exists (the second cron line in summer)", () => {
@@ -42,7 +43,7 @@ describe("schedule", () => {
     const briefing = utcCronLines(CONFIG.briefingTime, CONFIG.briefingLeadMinutes, [-4, -5]);
     const review = utcCronLines(CONFIG.reviewTime, CONFIG.reviewLeadMinutes, [-4, -5], CONFIG.reviewDay);
     // plus one backup briefing line (GitHub skips scheduled runs), still gated by shouldDeliver
-    expect(lines).toEqual([...briefing, "7,27,47 11,12 * * *", ...review]);
+    expect(lines).toEqual([...briefing, "5,20,35,50 11-17 * * *", ...review]);
     expect(utcCronLines("07:00", 15, [-4, -5])).toEqual(["45 10 * * *", "45 11 * * *"]);
     expect(review).toEqual(["45 21 * * 0", "45 22 * * 0"]);
     // the review lines are routed to the review job and kept away from the briefing job

@@ -30,8 +30,9 @@ export const toMinutes = (hhmm: string) => {
   return Number(m[1]) * 60 + Number(m[2]);
 };
 
-// A scheduled run delivers if it's from 30 minutes before the briefing time to 2 hours after
-// (GitHub can start cron jobs late), and today's briefing hasn't been written yet.
+// A scheduled run delivers if it's from 30 minutes before the briefing time to 6 hours after
+// (GitHub starts cron jobs hours late or skips them; a late briefing beats none), and today's
+// briefing hasn't been written yet.
 export function shouldDeliver(opts: {
   now: Date;
   timeZone: string;
@@ -42,7 +43,7 @@ export function shouldDeliver(opts: {
   const target = toMinutes(opts.briefingTime);
   if (opts.lastBriefingDate === date) return { deliver: false, reason: "today's briefing already exists", date };
   if (minutes < target - 30) return { deliver: false, reason: "too early (this is the other time zone's run)", date };
-  if (minutes > target + 120) return { deliver: false, reason: "too late for a morning briefing", date };
+  if (minutes > target + 360) return { deliver: false, reason: "too late for a morning briefing", date };
   return { deliver: true, reason: "in the briefing window", date };
 }
 

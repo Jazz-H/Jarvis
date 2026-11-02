@@ -296,7 +296,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     Inbox, Deliveries, Weather, News, Review, Web) like the briefing's. **Chips** ("+ Pay Rent ·
     Mon") add a to-do with its date or a Shopping item only when tapped, with Undo. **Follow up**
     makes your next question part of the same thread (a note under the hint says what it
-    follows; Cancel drops it). Answers that weren't given say so plainly: **Jarvis couldn't answer** (with Ask
+    follows; Cancel drops it). A question and its follow-ups read like a text chain, oldest first, and the chain moves to the top when you add to it. Answers that weren't given say so plainly: **Jarvis couldn't answer** (with Ask
     again), and one quiet line for **Over the limit** and **Jarvis didn't answer this** (**Why**
     opens the reason). The same question asked again in a row with the same non-answer shows once,
     marked ×2. An answer to a
@@ -710,7 +710,8 @@ briefing with Weather and News, plus Calendar, Inbox and Deliveries once Google 
 Setup: `docs/jarvis/SETUP.md`.
 
 - **Where it runs:** `.github/workflows/jarvis.yml`, about 6:45am Eastern daily (two UTC cron
-  lines, one for EDT and one for EST; only the one in the 6:30–9:00am window delivers, once a
+  lines, one for EDT and one for EST, plus a backup try every 15 minutes until about 1pm,
+  since GitHub skips or delays scheduled runs; the first run from 6:30am to 1pm delivers, once a
   day), or on demand with "Run workflow".
 - **How it works:** `agents/jarvis.ts` reads `jazz2-data.json` from the sync gist for today's
   to-dos, bills due in 3 days, wash days, Shopping needs, Jazz 3.0 goal sections and weight-goal

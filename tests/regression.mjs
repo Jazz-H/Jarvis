@@ -12549,6 +12549,14 @@ await section(
     await page.waitForTimeout(500);
     const item2 = gh.read("jazz2-ask.json").items.find((i) => i.text === "And next month?");
     check("a follow-up's follow-up keeps the root id", !!item2 && item2.thread === "a-q-ok-000001", item2);
+    // the chain reads like a text thread: the first question, then each follow-up under it
+    const chain = await page.$$eval("#cn-feed [data-ask-entry]", (els) => els.map((e) => e.dataset.askEntry));
+    const at = (id) => chain.indexOf(id);
+    check(
+      "follow-ups chain under the question, oldest first, and the chain sits at the top",
+      at("a-q-ok-000001") === 0 && at(item.id) === 1 && at(item2.id) === 2,
+      chain,
+    );
     // Cancel drops the thread
     await page.tap('#cn-feed [data-ask-entry="a-q-ok-000001"] [data-action="ask-follow"]');
     await page.tap('[data-action="ask-thread-cancel"]');

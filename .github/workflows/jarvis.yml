@@ -10,9 +10,10 @@ on:
   schedule:
     - cron: "45 10 * * *" # briefing, 6:45am EDT
     - cron: "45 11 * * *" # briefing, 6:45am EST
-    # backup: GitHub often skips a once-a-day line, so six more tries in the window (6:27–8:47am
-    # EST, 7:07–8:47am EDT); the first one in the window delivers, the rest stop in seconds
-    - cron: "7,27,47 11,12 * * *"
+    # backup: GitHub skips once-a-day lines and starts others hours late, so a try every 15
+    # minutes until about 1pm (6:05am–12:50pm EST, 7:05am–1:50pm EDT); the first one in the
+    # window delivers, the rest stop in seconds
+    - cron: "5,20,35,50 11-17 * * *"
     - cron: "45 21 * * 0" # weekly review, Sunday 5:45pm EDT
     - cron: "45 22 * * 0" # weekly review, Sunday 5:45pm EST
   workflow_dispatch:

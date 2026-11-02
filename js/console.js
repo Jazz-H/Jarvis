@@ -477,15 +477,30 @@ function consoleEntryHtml(e) {
     <span class="cn-who cn-j">J</span><div class="cn-reply">${reply}</div>
   </li>`;
 }
+// A question and its follow-ups read like a text chain: oldest first, the whole chain placed by
+// its newest message, so following up brings the chain to the top
+function askChains(entries) {
+  const chains = new Map();
+  entries.forEach((q) => {
+    const root = q.thread || q.id;
+    if (!chains.has(root)) chains.set(root, []);
+    chains.get(root).push(q);
+  });
+  return [...chains.values()].map((list) => {
+    list.sort((a, b) => a.at - b.at);
+    return { at: list[list.length - 1].at, n: list.length, html: () => list.map((q) => askEntryHtml(q)).join("") };
+  });
+}
 // Captures from this week, and questions to Jarvis from today and yesterday (ask.js), newest first
 // (A search from the history column looks through everything kept instead.)
 function consoleFeedHtml() {
   const q = consoleSearch.trim().toLowerCase();
   if (q) return consoleSearchHtml(q);
   const all = [
-    ...consoleFeed.map((e) => ({ at: e.at, html: () => consoleEntryHtml(e) })),
-    ...askFeedEntries().map((q) => ({ at: q.at, html: () => askEntryHtml(q) })),
+    ...consoleFeed.map((e) => ({ at: e.at, n: 1, html: () => consoleEntryHtml(e) })),
+    ...askChains(askFeedEntries()),
   ].sort((a, b) => b.at - a.at);
+  const count = all.reduce((n, e) => n + e.n, 0);
   if (!all.length)
     return `<div class="jv-label"><span>Conversation</span><i></i></div><p class="cn-empty">Nothing here yet this week. Ask a question or capture a few to-dos above.</p>`;
   const days = [];
@@ -503,7 +518,7 @@ function consoleFeedHtml() {
     waiting
       ? `<span class="ak-on ak-thinking cn-fold-wait">Thinking<span class="ak-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`
       : ""
-  }<button type="button" class="jv-chip-sm" data-action="console-feed-toggle" aria-expanded="${open}" aria-controls="cn-feed-body">${open ? "Hide" : "Show"} · ${all.length}</button></div>`;
+  }<button type="button" class="jv-chip-sm" data-action="console-feed-toggle" aria-expanded="${open}" aria-controls="cn-feed-body">${open ? "Hide" : "Show"} · ${count}</button></div>`;
   const body = days
     .map(
       (d) =>
