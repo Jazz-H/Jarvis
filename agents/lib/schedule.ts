@@ -30,9 +30,17 @@ export const toMinutes = (hhmm: string) => {
   return Number(m[1]) * 60 + Number(m[2]);
 };
 
-// A scheduled run delivers if it's from 30 minutes before the briefing time to 6 hours after
-// (GitHub starts cron jobs hours late or skips them; a late briefing beats none), and today's
-// briefing hasn't been written yet.
+// A run goes through the time-window gate unless it was started by hand ("Run workflow" or
+// --now). The alarm clock (docs/jarvis/alarm-clock.gs) starts runs with workflow_dispatch and mode
+// "alarm" / "alarm-review", which jarvis.yml passes on as JARVIS_GATED=true: those are gated too.
+export function startedByHand(argv: string[], env: Record<string, string | undefined>): boolean {
+  if (argv.includes("--now")) return true;
+  return env.GITHUB_EVENT_NAME === "workflow_dispatch" && env.JARVIS_GATED !== "true";
+}
+
+// A scheduled run delivers if it's from 30 minutes before the briefing time to 12 hours after
+// (7pm; GitHub starts cron jobs hours late or skips them, and a late briefing beats none), and
+// today's briefing hasn't been written yet.
 export function shouldDeliver(opts: {
   now: Date;
   timeZone: string;
@@ -43,7 +51,7 @@ export function shouldDeliver(opts: {
   const target = toMinutes(opts.briefingTime);
   if (opts.lastBriefingDate === date) return { deliver: false, reason: "today's briefing already exists", date };
   if (minutes < target - 30) return { deliver: false, reason: "too early (this is the other time zone's run)", date };
-  if (minutes > target + 360) return { deliver: false, reason: "too late for a morning briefing", date };
+  if (minutes > target + 720) return { deliver: false, reason: "too late for a morning briefing", date };
   return { deliver: true, reason: "in the briefing window", date };
 }
 

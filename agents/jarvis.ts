@@ -30,7 +30,7 @@ import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
 import { notifyPhones } from "./lib/notify.ts";
 import { answerPendingQuietly, askLimits, type AskLimits } from "./ask.ts";
 import { buildJazzContext, emptyContext, addDays, type JazzContext } from "./lib/jazz-context.ts";
-import { shouldDeliver, localTime } from "./lib/schedule.ts";
+import { shouldDeliver, localTime, startedByHand } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
 import { buildDayDigest, mergeDigest, readWeekFile } from "./lib/day-digest.ts";
 import { Trace } from "./lib/trace.ts";
@@ -647,7 +647,7 @@ async function main() {
     env.GOOGLE_REFRESH_TOKEN ?? "",
     env.VAPID_PRIVATE_KEY ?? "",
   ]);
-  const manual = process.argv.includes("--now") || process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
+  const manual = startedByHand(process.argv, process.env);
   const outDir = path.join(here, "out");
   mkdirSync(outDir, { recursive: true });
   try {

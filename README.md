@@ -709,10 +709,11 @@ Jarvis is the AI layer, built in phases (`docs/jarvis/PLAN.md`). Phases 1 and 2 
 briefing with Weather and News, plus Calendar, Inbox and Deliveries once Google is connected.
 Setup: `docs/jarvis/SETUP.md`.
 
-- **Where it runs:** `.github/workflows/jarvis.yml`, about 6:45am Eastern daily (two UTC cron
-  lines, one for EDT and one for EST, plus a backup try every 15 minutes until about 1pm,
-  since GitHub skips or delays scheduled runs; the first run from 6:30am to 1pm delivers, once a
-  day), or on demand with "Run workflow".
+- **Where it runs:** `.github/workflows/jarvis.yml`, started about 6:45am Eastern daily by the
+  **alarm clock** (`docs/jarvis/alarm-clock.gs`, a Google Apps Script; SETUP section 9), because
+  GitHub runs this repo's own cron lines only every few hours. Those lines (EDT, EST and a try every
+  15 minutes) stay as a fallback; the first run from 6:30am to 7pm delivers, once a day. Or on
+  demand with "Run workflow".
 - **How it works:** `agents/jarvis.ts` reads `jazz2-data.json` from the sync gist for today's
   to-dos, bills due in 3 days, wash days, Shopping needs, Jazz 3.0 goal sections and weight-goal
   progress. It then runs the sub-agents in parallel:

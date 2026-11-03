@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { localTime, shouldDeliver, shouldDeliverReview, toMinutes, utcCronLines, weekday } from "../lib/schedule.ts";
+import { localTime, shouldDeliver, shouldDeliverReview, startedByHand, toMinutes, utcCronLines, weekday } from "../lib/schedule.ts";
 import { CONFIG } from "../config.ts";
 
 const TZ = "America/New_York";
@@ -20,10 +20,41 @@ describe("schedule", () => {
     expect(gate("2026-12-01T11:45:00Z").deliver).toBe(true); // 6:45 EST
   });
 
-  it("tolerates GitHub starting hours late, but not past 1pm", () => {
+  it("tolerates GitHub starting hours late, but not past 7pm", () => {
     expect(gate("2026-07-01T11:30:00Z").deliver).toBe(true); // 7:30 EDT
     expect(gate("2026-11-01T16:55:00Z").deliver).toBe(true); // 11:55 EST (a real late run)
-    expect(gate("2026-07-01T17:30:00Z").deliver).toBe(false); // 1:30 EDT
+    expect(gate("2026-11-03T18:04:00Z").deliver).toBe(true); // 1:04 EST (a real late run that was skipped)
+    expect(gate("2026-07-01T23:30:00Z").deliver).toBe(false); // 7:30pm EDT
+  });
+
+  it("gates alarm clock starts like scheduled runs; Run workflow and --now deliver right away", () => {
+    const dispatch = { GITHUB_EVENT_NAME: "workflow_dispatch" };
+    expect(startedByHand([], dispatch)).toBe(true);
+    expect(startedByHand([], { ...dispatch, JARVIS_GATED: "false" })).toBe(true);
+    expect(startedByHand([], { ...dispatch, JARVIS_GATED: "true" })).toBe(false);
+    expect(startedByHand([], { GITHUB_EVENT_NAME: "schedule" })).toBe(false);
+    expect(startedByHand(["--now"], {})).toBe(true);
+  });
+
+  it("the alarm clock's times and modes match config.ts and jarvis.yml", () => {
+    const gs = readFileSync(new URL("../../docs/jarvis/alarm-clock.gs", import.meta.url), "utf8");
+    const yml = readFileSync(new URL("../../.github/workflows/jarvis.yml", import.meta.url), "utf8");
+    const hhmm = (t: string, lead: number) => {
+      const m = toMinutes(t) - lead;
+      return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    };
+    expect(gs).toContain(`const BRIEFING = "${hhmm(CONFIG.briefingTime, CONFIG.briefingLeadMinutes)}"`);
+    expect(gs).toContain(`const REVIEW = "${hhmm(CONFIG.reviewTime, CONFIG.reviewLeadMinutes)}"`);
+    expect(gs).toContain(`const TZ = "${CONFIG.timezone}"`);
+    expect(CONFIG.reviewDay).toBe(0); // the script checks for Sunday
+    for (const mode of ["alarm", "alarm-review"]) {
+      expect(gs).toContain(`mode: "${mode}"`);
+      expect(yml).toMatch(new RegExp(`options:[\\s\\S]*- ${mode}\\r?\\n`));
+    }
+    expect(yml.match(/JARVIS_GATED: \$\{\{ inputs\.mode == 'alarm' \|\| inputs\.mode == 'alarm-review' \}\}/g)).toHaveLength(2);
+    // the check-in poke passes jarvis-ask.yml's id check
+    expect("alarm-checkins").toMatch(/^[a-z0-9-]{8,40}$/);
+    expect(gs).not.toMatch(/github_pat_|ghp_/);
   });
 
   it("skips when today's briefing already exists (the second cron line in summer)", () => {

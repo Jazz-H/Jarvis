@@ -26,7 +26,7 @@ import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
 import { computeWeekStats, parseJazzData, reviewWeek, type ReviewWeek } from "./lib/week-stats.ts";
 import { readWeekFile } from "./lib/day-digest.ts";
 import { addDays } from "./lib/jazz-context.ts";
-import { localTime, shouldDeliverReview } from "./lib/schedule.ts";
+import { localTime, shouldDeliverReview, startedByHand } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
 import { Trace } from "./lib/trace.ts";
 import { runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
@@ -349,7 +349,7 @@ async function main() {
   need("ANTHROPIC_API_KEY");
   const calendarUrl = env.GOOGLE_CALENDAR_ICS_URL || null;
   const trace = new Trace([gistToken, env.ANTHROPIC_API_KEY ?? "", calendarUrl ?? "", env.VAPID_PRIVATE_KEY ?? ""]);
-  const manual = process.argv.includes("--now") || env.GITHUB_EVENT_NAME === "workflow_dispatch";
+  const manual = startedByHand(process.argv, env);
   const outDir = path.join(here, "out");
   mkdirSync(outDir, { recursive: true });
   try {

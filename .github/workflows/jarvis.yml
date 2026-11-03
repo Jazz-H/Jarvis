@@ -10,9 +10,9 @@ on:
   schedule:
     - cron: "45 10 * * *" # briefing, 6:45am EDT
     - cron: "45 11 * * *" # briefing, 6:45am EST
-    # backup: GitHub skips once-a-day lines and starts others hours late, so a try every 15
-    # minutes until about 1pm (6:05am–12:50pm EST, 7:05am–1:50pm EDT); the first one in the
-    # window delivers, the rest stop in seconds
+    # backup: GitHub runs this repo's schedules only every few hours, so the on-time start comes
+    # from the alarm clock (docs/jarvis/alarm-clock.gs, mode "alarm"). These lines are a fallback;
+    # the first run in the window (until 7pm) delivers, the rest stop in seconds
     - cron: "5,20,35,50 11-17 * * *"
     - cron: "45 21 * * 0" # weekly review, Sunday 5:45pm EDT
     - cron: "45 22 * * 0" # weekly review, Sunday 5:45pm EST
@@ -24,6 +24,9 @@ on:
         options:
           - briefing
           - review
+          # the alarm clock: like a scheduled run (delivers once, in its window)
+          - alarm
+          - alarm-review
         default: briefing
 
 permissions:
@@ -36,7 +39,7 @@ concurrency:
 jobs:
   brief:
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.mode != 'review') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode != 'review' && inputs.mode != 'alarm-review') ||
       (github.event_name == 'schedule' && github.event.schedule != '45 21 * * 0' && github.event.schedule != '45 22 * * 0')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -53,6 +56,7 @@ jobs:
       - run: npm ci
       - run: npm run brief
         env:
+          JARVIS_GATED: ${{ inputs.mode == 'alarm' || inputs.mode == 'alarm-review' }} # alarm clock runs are gated like scheduled ones
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
           JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}
@@ -79,7 +83,7 @@ jobs:
   # The Weekly Review needs no Gmail access: Inbox comes from the morning runs' day digests.
   review:
     if: >-
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'review') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'review' || inputs.mode == 'alarm-review')) ||
       github.event.schedule == '45 21 * * 0' || github.event.schedule == '45 22 * * 0'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -96,6 +100,7 @@ jobs:
       - run: npm ci
       - run: npm run review
         env:
+          JARVIS_GATED: ${{ inputs.mode == 'alarm' || inputs.mode == 'alarm-review' }} # alarm clock runs are gated like scheduled ones
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
           JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}

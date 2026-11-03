@@ -152,11 +152,37 @@ queued for the next run.
 replace it in Sync. If a phone is lost, delete the token at
 https://github.com/settings/personal-access-tokens; nothing else needs changing.
 
+## 9. The alarm clock (recommended): on-time briefings
+GitHub runs this repo's scheduled workflows only every few hours (in Nov 2026 the hourly check-in
+line ran 3–4 times a day, and the 6:45am briefing lines were missed or started 5–7 hours late).
+The alarm clock is a small Google Apps Script, in your Google account, that asks GitHub to start
+the briefing at about 6:45am (once more about 45 minutes later, in case), the Weekly Review on
+Sundays at about 5:45pm, and check-ins hourly. Its starts are gated like scheduled runs, so it
+never delivers twice.
+
+Its token can **only** start, re-run or cancel this repo's Actions (like the Ask key). It lives
+only in the script's Script Properties: never in the script's code, the app, the gist or the repo.
+1. Make a fine-grained token exactly like section 8 steps 1–5, named `Jarvis alarm clock`
+   (this repo only, **Actions: Read and write**, nothing else). Use a new token, not your Ask key,
+   so either can be deleted on its own.
+2. Open https://script.google.com → **New project**. Name it `Jarvis alarm clock`.
+3. Replace the code in `Code.gs` with `docs/jarvis/alarm-clock.gs` from this repo. Save.
+4. **Project Settings** (gear) → set **Time zone** to *(GMT-05:00) Eastern Time - New York*. Then
+   **Script Properties** → **Add script property**: name `GITHUB_TOKEN`, value = the token. Save.
+5. Back in **Editor**, pick `setup` in the function menu → **Run**. Allow the permissions Google
+   asks for (it says "unverified app" because it's your own script: Advanced → Go to Jarvis alarm
+   clock). This makes the 15-minute trigger and runs it once.
+6. Check: **Triggers** (clock icon) shows one `tick` trigger every 15 minutes; **Executions** shows
+   it running. On GitHub, Actions → Jarvis shows a run started by `workflow_dispatch` after 6:45am.
+
+To stop it, delete the trigger (or the project). If the token expires, the executions log says
+"GitHub said 401": make a new one and replace the property.
+
 ## When it runs
-- Every morning so it's there by about **7:00am Eastern**. GitHub's cron is UTC-only and can start
-  5–15 minutes late (sometimes more), so the workflow fires at 6:45am EDT and 6:45am EST, and only
-  the run that falls in the 6:30–9:00am window delivers. If today's briefing already exists, the
-  other run skips.
+- Every morning so it's there by about **7:00am Eastern**: the alarm clock (section 9) starts it at
+  6:45am. GitHub's own cron lines (6:45am EDT and EST, plus a try every 15 minutes) are a fallback;
+  GitHub often runs them hours late or not at all. Whatever starts first in the 6:30am–7pm window
+  delivers; every later run that day sees today's briefing and stops.
 - Scheduled workflows only run from the default branch (`main`), and GitHub pauses them after 60
   days without repo activity; re-enable from the Actions tab if that happens.
 - To change the time, edit `briefingTime` in `agents/config.ts` and the two cron lines in
