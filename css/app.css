@@ -6474,6 +6474,18 @@ body.todo-dragging {
   font-weight: 500;
   color: var(--text-dim);
 }
+.jv-sug {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.jv-sug .rv-chip {
+  min-width: 0;
+}
+.jv-sug-x {
+  margin-right: 0;
+}
 .rv-chip.added {
   border-style: dashed;
   border-color: var(--line);

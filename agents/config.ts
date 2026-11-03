@@ -58,9 +58,9 @@ export const CONFIG = {
     max: 30,
   },
   deliveries: {
-    // Amazon order mail, every message from the big carriers, and any store's shipping notice
+    // Amazon order mail, every message from the big carriers, and any store's shipping or delivered notice
     query:
-      'newer_than:21d -category:promotions ((from:amazon.com (subject:ordered OR subject:shipped OR subject:delivery OR subject:delivered OR subject:arriving)) OR from:ups.com OR from:fedex.com OR from:usps.com OR from:dhl.com OR subject:"has shipped" OR subject:"out for delivery" OR subject:"tracking number" OR subject:"was delivered")',
+      'newer_than:21d -category:promotions ((from:amazon.com (subject:ordered OR subject:shipped OR subject:delivery OR subject:delivered OR subject:arriving)) OR from:ups.com OR from:fedex.com OR from:usps.com OR from:dhl.com OR subject:"has shipped" OR subject:"out for delivery" OR subject:"tracking number" OR subject:"was delivered" OR subject:"been delivered" OR subject:"on the way" OR subject:"on its way" OR subject:"arrive today" OR subject:"arriving today")',
     max: 30,
   },
   // Rough upper bounds per run, used to decide what fits under MAX_RUN_COST_USD before starting.

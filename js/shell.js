@@ -768,6 +768,10 @@ const SHELL_CLICK = {
     const i = el.getAttribute("data-index");
     if (/^\d$/.test(i || "")) briefingSuggestAdd(Number(i));
   },
+  "jv-suggest-hide": (el) => {
+    const i = el.getAttribute("data-index");
+    if (/^\d$/.test(i || "")) hideBriefingSuggestion(Number(i));
+  },
   "ask-chip": (el) => {
     const i = el.getAttribute("data-index");
     if (/^\d{1,2}$/.test(i || "")) askAddChip(el.getAttribute("data-ask-id"), Number(i));

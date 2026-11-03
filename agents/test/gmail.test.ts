@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { googleAccessToken, gmailClient, senderName, GoogleAuthError } from "../tools/gmail.ts";
+import { googleAccessToken, gmailClient, senderName, visibleText, GoogleAuthError } from "../tools/gmail.ts";
 import { fakeFetch, json } from "./helpers.ts";
 
 const creds = { clientId: "cid", clientSecret: "csecret", refreshToken: "rtoken" };
@@ -90,6 +90,41 @@ describe("gmail tool", () => {
       ],
     ]);
     expect(await gmailClient("at", impl).count("is:unread")).toBe(100);
+  });
+
+  it("searchWithText reads a body's visible text, HTML first, never an attachment", async () => {
+    const b64 = (s: string) => Buffer.from(s).toString("base64url");
+    const { impl } = fakeFetch([
+      [/\/messages\?/, () => json({ messages: [{ id: "a" }] })],
+      [
+        /\/messages\/a\?format=full/,
+        () =>
+          json({
+            snippet: "Shipped͏ ­",
+            internalDate: "1793300000000",
+            labelIds: [],
+            payload: {
+              headers: [
+                { name: "From", value: "Store <s@store.com>" },
+                { name: "Subject", value: "Shipped" },
+              ],
+              parts: [
+                { mimeType: "text/plain", body: { data: b64("plain part") } },
+                { mimeType: "text/html", body: { data: b64("<style>a{}</style><p>Dog&nbsp;treats &amp; toys</p>") } },
+                { mimeType: "text/html", filename: "a.html", body: { data: b64("attachment") } },
+              ],
+            },
+          }),
+      ],
+    ]);
+    const [m] = await gmailClient("at", impl).searchWithText("x", 1);
+    expect(m.text).toBe("Dog treats & toys");
+    expect(m.snippet).toBe("Shipped");
+    expect(visibleText({ mimeType: "text/plain", body: { data: b64("just plain") } })).toBe("just plain");
+    expect(visibleText({})).toBe("");
+    // padding written as entities (a real store's email opens with hundreds) takes up no room
+    const padded = "Almost here! " + "&#8199; &#847; &shy; ".repeat(300) + "<b>Dog treats</b>&#39;s &#x26; toys";
+    expect(visibleText({ mimeType: "text/html", body: { data: b64(padded) } })).toBe("Almost here! Dog treats 's & toys");
   });
 
   it("throws on API errors", async () => {

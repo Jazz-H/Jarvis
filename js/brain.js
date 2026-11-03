@@ -12,15 +12,16 @@
 //                     speak: "voice" | "always" | "never",
 //                     checkins: [{id, name, prompt, days: [0-6], time: "HH:MM", on}]   at most 8,
 //                     hiddenPackages: [{item, at: "YYYY-MM-DD"}]   newest first, 20, gone after 14 days,
-//                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days}
+//                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days
+//                     hiddenSuggestions: [{text, at: "YYYY-MM-DD"}]   suggested to-dos dismissed, 20, gone after 14 days}
 // Synced data is untrusted: every field is checked and capped here and on the way back in.
-const BRAIN_MAX = { notes: 30, noteTitle: 60, noteText: 2000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenDays: 14, hiddenLines: 10 };
+const BRAIN_MAX = { notes: 30, noteTitle: 60, noteText: 2000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenDays: 14, hiddenLines: 10, hiddenSuggestions: 20 };
 const BRAIN_TONES = { brief: "Brief", normal: "Normal", detailed: "Detailed" };
 const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Never" }; // read answers aloud
 let jarvisMemory = [];
 let jarvisNotes = [];
 let jarvisFeedback = [];
-let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [], location: null };
+let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [], hiddenSuggestions: [], location: null };
 
 function normalizeJarvisBrain() {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -87,6 +88,7 @@ function normalizeJarvisBrain() {
       })),
     hiddenPackages: dismissedList(s.hiddenPackages, "item", 80, BRAIN_MAX.hiddenDays, BRAIN_MAX.hiddenPackages),
     hiddenLines: dismissedList(s.hiddenLines, "text", 200, 2, BRAIN_MAX.hiddenLines),
+    hiddenSuggestions: dismissedList(s.hiddenSuggestions, "text", 80, BRAIN_MAX.hiddenDays, BRAIN_MAX.hiddenSuggestions),
     location: savedLocation(s.location),
   };
 }

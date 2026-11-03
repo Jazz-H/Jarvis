@@ -23,6 +23,7 @@ export interface Brain {
   feedback: { kind: "answer" | "briefing"; item: string; vote: 1 | -1; at: number }[];
   hiddenPackages: string[]; // lowercased item names the owner hid ("Got it" in Home's Deliveries)
   hiddenLines: string[]; // lowercased briefing lines the owner dismissed (first 200 characters)
+  hiddenSuggestions: string[]; // lowercased suggested to-dos the owner dismissed
   location: DeviceLocation | null; // where the owner is, from the app ("Use my location"), for the weather
 }
 // Rounded to 3 decimals (about 100 m): finer than any forecast grid. Never logged or put in a prompt.
@@ -40,10 +41,10 @@ const clip = (s: unknown, n: number) =>
     .trim()
     .slice(0, n);
 
-export const BRAIN_LIMITS = { notes: 30, notesPromptChars: 12_000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10 };
+export const BRAIN_LIMITS = { notes: 30, notesPromptChars: 12_000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10, hiddenSuggestions: 20 };
 
 export function emptyBrain(): Brain {
-  return { memory: [], notes: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [], location: null };
+  return { memory: [], notes: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [], hiddenSuggestions: [], location: null };
 }
 function readLocation(v: unknown): DeviceLocation | null {
   if (!isObj(v)) return null;
@@ -104,6 +105,10 @@ export function readBrain(data: unknown): Brain {
       .filter((h) => isObj(h) && clip(h.text, 200))
       .slice(0, BRAIN_LIMITS.hiddenLines)
       .map((h) => clip(h.text, 200).toLowerCase()),
+    hiddenSuggestions: arr(s.hiddenSuggestions)
+      .filter((h) => isObj(h) && clip(h.text, 80))
+      .slice(0, BRAIN_LIMITS.hiddenSuggestions)
+      .map((h) => clip(h.text, 80).toLowerCase()),
     location: readLocation(s.location),
   };
 }

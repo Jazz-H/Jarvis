@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { runCalendar, calendarSpec } from "../subagents/calendar.ts";
 import { runInbox, inboxSpec, checkBills, sameName } from "../subagents/inbox.ts";
-import { runShopper, carrierOf } from "../subagents/shopper.ts";
+import { runShopper, carrierOf, digestPackages, orderExcerpt } from "../subagents/shopper.ts";
 import { runBriefing, defaultSubagents, type Subagents } from "../jarvis.ts";
 import { Trace } from "../lib/trace.ts";
 import type { Gmail, RawMail } from "../tools/gmail.ts";
+import { CONFIG } from "../config.ts";
 import type { SubagentDeps } from "../subagents/types.ts";
 import type { GistClient } from "../tools/gist.ts";
 import { FACTS, CANDIDATE } from "./fixtures.ts";
@@ -41,6 +42,7 @@ function fakeGmail(items: RawMail[], unread = 14): Gmail & { queries: string[] }
   return {
     queries,
     search: async (q) => (queries.push(q), items),
+    searchWithText: async (q) => (queries.push(q), items.map((m) => ({ ...m, text: "" }))),
     count: async () => unread,
   };
 }
@@ -173,6 +175,75 @@ describe("shopper sub-agent", () => {
       expect(gmail.queries[0]).toContain(q);
   });
 
+  // Made-up digest: only the shape matches USPS's real one
+  const DIGEST =
+    "COMING TO YOU SOON You have 1 mailpiece(s). MAIL View Dashboard Expected Today 1 item(s) PACKAGES View Dashboard " +
+    "Expected Today 1 item(s) FROM: ACME TOOLS 9400000000000000001111 9400000000000000001111 " +
+    "Expected 1-2 Days 1 item(s) 9400000000000000002222 9400000000000000002222 " +
+    "Awaiting From Sender 1 item(s) FROM: AMAZON 9400000000000000003333 9400000000000000003333 " +
+    "Outbound 1 item(s) FROM: ME 9400000000000000004444 9400000000000000004444 Informed Delivery at Your Fingertips!";
+  const digestMail = (date: string) => ({
+    from: "USPS Informed Delivery",
+    subject: "Your Daily Digest for Tue, 11/3 is ready to view",
+    snippet: "You have 1 mailpiece(s) and 3 inbound package(s) arriving soon.",
+    date,
+    unread: true,
+    text: DIGEST,
+  });
+
+  it("reads USPS's digest in code: sender, when, and only the tracking number's last 4; a model never sees it", async () => {
+    const gmail: Gmail = {
+      search: async () => [],
+      count: async () => 0,
+      searchWithText: async () => [digestMail("2026-11-03T12:35:00Z")],
+    };
+    const d = deps({ packages: [] });
+    const card = await runShopper(d, gmail, "2026-11-03", []);
+    expect(d.specs).toHaveLength(0); // nothing else to read, so no model call
+    expect(card.packages.map((p) => [p.item, p.status, p.eta, p.etaText, p.carrier])).toEqual([
+      ["Acme Tools package (…1111)", "shipped", "2026-11-03", null, "USPS"],
+      ["USPS package (…2222)", "shipped", null, "in 1-2 days", "USPS"],
+      ["Amazon package (…3333)", "ordered", null, "USPS is waiting on the sender", "USPS"],
+    ]);
+    expect(JSON.stringify(card)).not.toContain("9400000000");
+  });
+
+  it("uses yesterday's digest in the morning, except what it expected yesterday; older ones not at all", () => {
+    const y = digestPackages({ text: DIGEST, date: "2026-11-03T12:35:00Z" }, "2026-11-04");
+    expect(y.map((p) => p.item)).toEqual(["USPS package (…2222)", "Amazon package (…3333)"]);
+    expect(digestPackages({ text: DIGEST, date: "2026-11-01T12:35:00Z" }, "2026-11-04")).toEqual([]);
+    expect(digestPackages(undefined, "2026-11-04")).toEqual([]);
+  });
+
+  it("gives the model a trimmed excerpt of each order email and lets a store's package replace USPS's row", async () => {
+    const gmail: Gmail = {
+      search: async () => [],
+      count: async () => 0,
+      searchWithText: async () => [
+        digestMail("2026-11-03T12:35:00Z"),
+        { ...mail("Amazon.com", "Shipped: a lamp"), text: "Your lamp shipped. https://track.example/abc Desk lamp, brass Shipping address Sam Doe 1 Main St" },
+      ],
+    };
+    const d = deps({ packages: [{ ids: ["m1"], item: "Desk lamp", status: "shipped", eta: null, etaText: null }] });
+    const card = await runShopper(d, gmail, "2026-11-03", []);
+    const prompt = d.specs[0].prompt;
+    expect(prompt).toContain("Your lamp shipped. Desk lamp, brass");
+    expect(prompt).not.toMatch(/Sam Doe|Main St|track\.example|Informed Delivery|940000/);
+    expect(card.packages.map((p) => p.item)).toEqual(["Acme Tools package (…1111)", "Desk lamp", "USPS package (…2222)"]);
+  });
+
+  it("trims an email to what comes before any address or payment label, 800 characters at most", () => {
+    expect(orderExcerpt("Dog treats Qty: 1 Billing Sam Doe")).toBe("Dog treats Qty: 1");
+    expect(orderExcerpt("Dog treats Deliver to: Sam Doe")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats Payment Visa 1234")).toBe("Dog treats");
+    expect(orderExcerpt("x".repeat(2000))).toHaveLength(800);
+    expect(orderExcerpt("")).toBe("");
+  });
+
+  it("searches for the delivered and on-the-way wording stores use", () => {
+    for (const s of ["been delivered", "was delivered", "on the way", "arrive today"]) expect(CONFIG.deliveries.query).toContain(`subject:"${s}"`);
+  });
+
   it("names the carrier from the senders, never the model (a carrier beats the store)", () => {
     expect(carrierOf(["Nike", "UPS"])).toBe("UPS");
     expect(carrierOf(["FedEx Delivery Manager"])).toBe("FedEx");
@@ -276,6 +347,36 @@ describe("orchestrator with Phase 2 sources", () => {
     const card = r.briefing.cards.deliveries;
     expect(card && card.status === "ok" ? card.data.packages.map((p) => p.item) : null).toEqual(["Rain boots"]);
     expect(q.seen[0].prompt).not.toContain("Acme Glow");
+  });
+
+  it("leaves out a suggested to-do the owner dismissed, even reworded", async () => {
+    const q = fakeQuery([
+      {
+        structured_output: {
+          headline: "h",
+          summary: [{ text: "Dentist clashes with lunch.", source: "calendar" }],
+          suggestions: [
+            { text: "Reply to Sam Lee on LinkedIn", due: null },
+            { text: "Confirm the dentist", due: null },
+          ],
+        },
+      },
+    ]);
+    const r = await runBriefing({
+      now: NOW,
+      trigger: "manual",
+      gist: {
+        readFile: async () => JSON.stringify({ data: { "jarvis-settings": { hiddenSuggestions: [{ text: "Answer Sam Lee", at: "2026-10-29" }] } } }),
+        writeFile: async () => {},
+      },
+      fetchImpl: fakeFetch([]).impl,
+      maxRunCostUsd: 0.5,
+      trace: new Trace(),
+      queryFn: q.fn,
+      subagents: base,
+    });
+    if (r.status !== "delivered") throw new Error("not delivered");
+    expect((r.briefing.suggestions ?? []).map((s) => s.text)).toEqual(["Confirm the dentist"]);
   });
 
   it("drops briefing lines and suggested to-dos about a package the owner already got", async () => {

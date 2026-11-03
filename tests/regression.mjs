@@ -3131,6 +3131,44 @@ await section("Briefing: suggested to-dos and Bill Guard", async () => {
     "Undo removes it again",
     await page.evaluate((n) => todoList.length === n && !todoList.some((t) => t.text === "Pay Rent"), n0),
   );
+  // × dismisses a suggestion, with Undo; it sits beside its chip and stays gone after a reload of the data
+  const chipTexts = () => page.$$eval(".jv-suggest .rv-chip", (els) => els.map((c) => c.textContent.replace(/\s+/g, " ").trim()));
+  const side = await page.evaluate(() => {
+    const chip = document.querySelector('.jv-suggest .rv-chip[data-index="0"]').getBoundingClientRect();
+    const x = document.querySelector('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]').getBoundingClientRect();
+    return { beside: x.left >= chip.right - 1 && x.top < chip.bottom && x.bottom > chip.top, inPage: x.right <= document.documentElement.clientWidth, h: x.height };
+  });
+  check("each suggestion has a × beside it, with room to tap", side.beside && side.inPage && side.h >= 44, side);
+  const before3 = await chipTexts();
+  await page.tap('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]');
+  const after = await chipTexts();
+  check("× dismisses that suggestion and keeps the others", after.length === 2 && after[0] === before3[1] && !after.some((t) => t.includes("Pay Rent")), after);
+  check(
+    "the dismissal is saved in Jarvis's settings",
+    await page.evaluate(() => jarvisSettings.hiddenSuggestions.length === 1 && jarvisSettings.hiddenSuggestions[0].text === "Pay Rent" && jarvisSettings.hiddenSuggestions[0].at === addDaysIso(0)),
+  );
+  await page.evaluate(() => document.getElementById("toast").querySelector("button")?.click());
+  check("Undo brings the suggestion back", (await chipTexts()).length === 3);
+  // a chip added after another was dismissed keeps its own Added state
+  await page.tap('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]');
+  await page.click('.jv-suggest .rv-chip[data-index="0"]');
+  await page.tap('.jv-suggest [data-action="jv-suggest-hide"][data-index="1"]');
+  check(
+    "a chip stays Added after another one is dismissed, and an added chip has no ×",
+    await page.evaluate(() => document.querySelector('.jv-suggest .rv-chip[data-index="0"]').classList.contains("added") && !document.querySelector('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]')),
+  );
+  check(
+    "the normalizer drops junk and old dismissed suggestions",
+    await page.evaluate(() => {
+      const keep = jarvisSettings;
+      jarvisSettings = { ...keep, hiddenSuggestions: ["junk", { text: "", at: addDaysIso(0) }, { text: "Old", at: "2020-01-01" }, { text: "<b>Keep</b>", at: addDaysIso(0) }] };
+      normalizeJarvisBrain();
+      const ok = jarvisSettings.hiddenSuggestions.length === 1 && jarvisSettings.hiddenSuggestions[0].text === "<b>Keep</b>";
+      jarvisSettings = keep;
+      normalizeJarvisBrain();
+      return ok;
+    }),
+  );
   await page.tap('.jv-tile[data-go="money"]');
   const guard = await page.evaluate(() =>
     [...document.querySelectorAll("#jv-detail-money .jv-guard li")].map((li) => li.textContent),

@@ -331,7 +331,8 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
       : out.summary,
     summaryBy,
     suggestions: cleanSuggestions(
-      out.suggestions?.filter((s) => !mentionsHidden(s.text, brain.hiddenPackages)),
+      // nor one the owner dismissed, even reworded (the same two words count, as for packages)
+      out.suggestions?.filter((s) => !mentionsHidden(s.text, brain.hiddenPackages) && !mentionsHidden(s.text, brain.hiddenSuggestions)),
       context,
     ),
     top3: summaryBy === "jarvis" && out.top3?.length ? cleanTop3(out.top3, context) : codeTop3(context),

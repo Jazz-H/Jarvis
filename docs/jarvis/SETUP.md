@@ -58,7 +58,12 @@ The address only lets someone *read* that calendar. Never share it; if it ever l
 **Reset** there and update the secret.
 
 ### Gmail: Inbox and Deliveries (about 15 minutes, once, on a computer)
-Jarvis reads only headers and Gmail's short preview snippet: never full emails or attachments.
+For the Inbox, Jarvis reads only headers and Gmail's short preview snippet. For Deliveries, code
+also reads the body of order and shipping emails, because the product name is often only there. It
+strips links and cuts everything from the first address or payment label on ("Shipping address",
+"Billing" and the like), and a model sees at most 800 characters of each. A store that puts your
+address above those labels could still slip through. USPS's Daily Digest is read by code only. None
+of this text is stored or logged, and attachments are never opened.
 
 1. **Project:** go to console.cloud.google.com and create a project named "Jarvis".
 2. **Gmail API:** APIs & Services → Library → **Gmail API** → **Enable**.

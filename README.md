@@ -43,7 +43,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   yours) and picks them itself when the model doesn't (overdue oldest first, then today's
   starred, today's, starred undated ones). Ask sees them with whether each is done, so the
   **Evening Top 3 recap** check-in (one tap in Jarvis's brain) can tell you how the day went.
-- **Suggested to-dos:** up to 3 chips under the summary ("+ Pay Rent · Monday"), picked by
+- **Suggested to-dos:** × beside a chip dismisses it for 14 days, with Undo, and later briefings
+  leave it out even reworded. Up to 3 chips under the summary ("+ Pay Rent · Monday"), picked by
   Jarvis from the morning's data. Tap one to add it with its due date (Undo in the toast); it
   then reads Added. Nothing is added by itself.
 - **Wash-day swap:** on a wash day with 50%+ rain or 70%+ humidity, when tomorrow looks drier,
@@ -732,9 +733,13 @@ Setup: `docs/jarvis/SETUP.md`.
   - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
   - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
   - **Deliveries (Package Tracker):** `claude-haiku-5-5`, from order and shipping emails in
-    Gmail: Amazon, UPS, FedEx, USPS, DHL and any store's "has shipped" / "out for delivery" mail
-    (promotions left out). The model groups emails into packages; code names the carrier from
-    the senders (shown on each package in Home's Deliveries detail) and matches Shopping items.
+    Gmail: Amazon, UPS, FedEx, USPS, DHL and any store's shipped, on-the-way, out-for-delivery and
+    delivered mail (promotions left out). Code trims each email's body (no links, nothing from the
+    first address or payment label on, 800 characters at most) so the model can name what's in the
+    package; the model groups emails into packages; code names the carrier from the senders (shown
+    on each package in Home's Deliveries detail) and matches Shopping items. USPS's Daily Digest is
+    read by code only (`tools/usps-digest.ts`): who each package is from, when it's expected, and a
+    tracking number's last 4 digits. A store's own emails replace its digest row.
   - **Price watcher:** `claude-sonnet-5-5` with web search, once a week (when the last check is 7
     days old). Code picks up to 8 open Shopping items with a saved price (high priority and needs
     first); the model looks up the lowest current price for the same product, new, at a reputable

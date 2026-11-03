@@ -33,12 +33,13 @@ function hideDismissed(b) {
   if (!b) return b;
   const pk = (jarvisSettings.hiddenPackages || []).map((h) => h.item.toLowerCase());
   const lines = new Set((jarvisSettings.hiddenLines || []).map((h) => lineKey(h.text)));
-  if (!pk.length && !lines.size) return b;
+  const sugg = new Set((jarvisSettings.hiddenSuggestions || []).map((h) => lineKey(h.text)));
+  if (!pk.length && !lines.size && !sugg.size) return b;
   const d = b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data : null;
   const ids = new Set(pk.flatMap(pkgIds));
   if (d) d.packages = d.packages.filter((p) => !pk.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)));
   b.summary = b.summary.filter((s) => !lines.has(lineKey(s.text)) && !mentionsPackage(s.text, pk, s.source));
-  b.suggestions = b.suggestions.filter((t) => !mentionsPackage(t.text, pk));
+  b.suggestions = b.suggestions.filter((t) => !sugg.has(lineKey(t.text)) && !mentionsPackage(t.text, pk));
   // a headline about it gives way to the first line left
   if (mentionsPackage(b.headline, pk)) b.headline = b.summary.length ? b.summary[0].text.slice(0, 100) : "Your morning briefing";
   return b;
@@ -95,6 +96,16 @@ function dismissOnHome(done, what) {
 }
 function hidePackage(item) {
   dismissOnHome(() => dismissPackage(item), item);
+}
+function hideBriefingSuggestion(i) {
+  const b = loadBriefing();
+  const c = b && b.suggestions[i];
+  if (!c) return;
+  dismissOnHome(() => {
+    jarvisSettings.hiddenSuggestions = [{ text: c.text, at: addDaysIso(0) }, ...jarvisSettings.hiddenSuggestions];
+    normalizeJarvisBrain();
+    return true;
+  }, "that suggestion");
 }
 function hideBriefingLine(i) {
   const b = loadBriefing();
@@ -579,9 +590,14 @@ function briefingTop3Html(b) {
 function briefingSuggestHtml(b) {
   if (!b.suggestions.length) return "";
   const chips = b.suggestions
-    .map((c, i) =>
-      jarvisChipHtml(c, briefingTapped.has(`${b.id}|${i}`), `data-action="jv-suggest" data-index="${i}"`),
-    )
+    .map((c, i) => {
+      const tapped = briefingTapped.has(`${b.id}|${c.text}`);
+      const x =
+        tapped || reviewChipOnList(c)
+          ? ""
+          : `<button type="button" class="jv-sum-x jv-sug-x" data-action="jv-suggest-hide" data-index="${i}" aria-label="${escapeAttr(`Dismiss suggestion: ${c.text}`)}">×</button>`;
+      return `<span class="jv-sug">${jarvisChipHtml(c, tapped, `data-action="jv-suggest" data-index="${i}"`)}${x}</span>`;
+    })
     .join("");
   return `<div class="jv-suggest"><div class="jv-mini">Suggested to-dos</div><div class="rv-chips">${chips}</div></div>`;
 }
@@ -589,7 +605,7 @@ function briefingSuggestAdd(i) {
   const b = loadBriefing();
   const c = b && b.suggestions[i];
   if (!c) return;
-  const key = `${b.id}|${i}`;
+  const key = `${b.id}|${c.text}`; // by text: dismissing another suggestion shifts the indexes
   if (briefingTapped.has(key) || reviewChipOnList(c)) {
     showToast("Already on your list");
     return;
