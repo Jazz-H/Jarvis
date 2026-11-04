@@ -470,7 +470,8 @@ function askDoAction(x) {
   if (x.type === "todo_done") {
     const t = todoList.find((y) => y.id === x.id);
     if (!t || t.done) return false;
-    toggleTodo(t.id);
+    if (t.repeat) completeRepeating(t);
+    else toggleTodo(t.id);
   } else if (x.type === "todo_move") {
     const t = todoList.find((y) => y.id === x.id);
     if (!t || t.done || !x.date) return false;

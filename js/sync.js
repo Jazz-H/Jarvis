@@ -40,10 +40,11 @@ function markDataChanged() {
   scheduleSyncPush();
 }
 let syncOkAt = 0; // last good sync this session, for the desktop status bar
-function setSyncStatus(state) {
+// notNew: putting the button back without saying a sync just worked
+function setSyncStatus(state, notNew = false) {
   const btn = document.getElementById("sync-btn");
   if (btn) btn.dataset.state = state;
-  if (state === "ok") syncOkAt = Date.now();
+  if (state === "ok" && !notNew) syncOkAt = Date.now();
   renderDeskFooter();
 }
 async function gistApi(path, opts = {}) {
@@ -114,10 +115,12 @@ async function lookUpGist() {
   const token = localStorage.getItem("sync-token");
   const gists = await gistApi("/gists?per_page=100");
   const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
-  // Guessing, or making one while a full page may be hiding the real one, could leave the backend's gist
-  if (hits.length > 1 || (!hits.length && gists.length >= 100)) throw gistLostError();
+  // The gist this device last synced with settles it (turning sync off and on again). Otherwise guessing,
+  // or making one while a full page may be hiding the real one, could leave the backend's gist.
+  const known = hits.find((g) => g.id === localStorage.getItem(SYNC_BASE_GIST_KEY));
+  if (!known && (hits.length > 1 || (!hits.length && gists.length >= 100))) throw gistLostError();
   if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
-  let id = hits[0] && hits[0].id;
+  let id = (known || hits[0] || {}).id;
   if (!id) {
     const created = await gistApi("/gists", {
       method: "POST",
@@ -133,16 +136,63 @@ async function lookUpGist() {
   localStorage.setItem("sync-gist-id", id);
   return id;
 }
+// The base describes one gist, and sync-base-gist says which. A base from before that was recorded
+// describes the gist saved now, so it's labelled before that id goes away.
+function labelBase() {
+  const id = localStorage.getItem("sync-gist-id");
+  if (id && localStorage.getItem(SYNC_BASE_KEY) != null && localStorage.getItem(SYNC_BASE_GIST_KEY) == null)
+    localStorage.setItem(SYNC_BASE_GIST_KEY, id);
+}
 // Reconnecting or turning sync off: this device no longer has a gist, and a lookup still running
-// for the old token mustn't be joined or save its answer
+// for the old token mustn't be joined or save its answer; a sync still running stops at its next step.
+// The base stays: if this device comes back to the same gist it's still right (see syncNow).
+let syncEpoch = 0;
 function forgetGist() {
+  syncEpoch++;
   gistLookup = null;
   gistRecovery = null;
+  labelBase();
   localStorage.removeItem("sync-gist-id");
-  localStorage.removeItem(SYNC_BASE_KEY);
 }
-// What to tell the owner when a sync fails; only they can fix these two
+// A token pasted in the Sync dialog. It's checked before anything changes, so a typo costs nothing,
+// and the gist already in use stays in use if the token can see it (rotating a token changes nothing
+// about the data). Moving only happens to a gist that's clearly the one, and never away from a
+// working connection on a guess. A token that sees no data gist at all (the Ask key pasted here,
+// another account) changes nothing either; starting a new gist on purpose means turning sync off
+// first. Resolves true if a sync finished, false if one is still to come, null if this was overtaken
+// (sync turned off, or another token saved), whichever way it ended: then it has nothing to report.
+let syncConnecting = 0;
+async function connectSync(token) {
+  const mine = ++syncConnecting;
+  let epoch = syncEpoch;
+  const overtaken = () => mine !== syncConnecting || epoch !== syncEpoch;
+  try {
+    const gists = await gistApi("/gists?per_page=100", { headers: { Authorization: "Bearer " + token } });
+    if (overtaken()) return null;
+    const saved = localStorage.getItem("sync-gist-id");
+    const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
+    if (!saved || !hits.some((g) => g.id === saved)) {
+      if (saved && !hits.length) {
+        const err = new Error("This token can't see the sync gist");
+        err.gistHidden = true;
+        throw err;
+      }
+      if (saved && (hits.length > 1 || gists.length >= 100)) throw gistLostError();
+      forgetGist();
+      epoch = syncEpoch;
+    }
+    localStorage.setItem("sync-token", token);
+    const finished = await syncNow();
+    return overtaken() ? null : finished;
+  } catch (e) {
+    if (overtaken()) return null;
+    throw e;
+  }
+}
+// What to tell the owner when a sync fails; only they can fix these
 function syncErrorText(e, fallback) {
+  if (e && e.gistHidden)
+    return "This token can't see your sync gist, so nothing changed. To start a new gist, turn sync off first";
   if (e && e.gistLost) return "Sync can't tell which gist to use — check your gists on GitHub";
   if (e && e.badData) return "Sync stopped: the gist's data file can't be read. Nothing was changed";
   return fallback;
@@ -150,17 +200,6 @@ function syncErrorText(e, fallback) {
 // The saved gist answered 404. If it was replaced (a rotation, to clear its old versions), exactly
 // one other gist holds the data file: move there. This never makes a gist: that would move the device
 // off the one the backend uses, with no error. No clear answer keeps the saved id and fails.
-// The base described the old gist, so an empty one takes its place: the next sync then merges each
-// list item by item, and both sides' items survive (one deleted on either side may come back).
-function emptyBase() {
-  const out = {};
-  Object.entries(localSnapshot()).forEach(([k, v]) => {
-    const list = JSON.parse(v);
-    if (Array.isArray(list)) out[k] = "[]";
-    else if (list && typeof list === "object") out[k] = "{}";
-  });
-  return out;
-}
 let gistRecovery = null;
 function recoverGist(staleId) {
   if (gistRecovery) return gistRecovery;
@@ -179,8 +218,8 @@ async function findReplacedGist(staleId) {
   // A full page may be hiding another match
   if (gists.length >= 100 || hits.length !== 1 || hits[0].id === staleId) throw gistLostError();
   if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
+  labelBase();
   localStorage.setItem("sync-gist-id", hits[0].id);
-  localStorage.setItem(SYNC_BASE_KEY, JSON.stringify(emptyBase()));
   return hits[0].id;
 }
 // Runs work(gistId) on this device's gist, moving to the replacement once if the gist is gone
@@ -203,45 +242,67 @@ function scheduleSyncPush() {
 // since then is sent up; a list only the other device changed is taken from
 // the gist. If both changed the same list, it's merged item by item (mergeLists),
 // so a to-do added on the phone and another ticked on the laptop both survive;
-// only when both changed the very same item does this device's copy of it win.
+// only when both changed the very same field does this device's copy of it win.
 // The gist is always re-read right before writing.
 const SYNC_BASE_KEY = "sync-base";
-// base/local/remote are one list's parsed values. Lists of {id} items merge per item (adds and
-// deletes from both sides, the other side's edits to items this side left alone); plain objects
-// (flag maps, settings) merge per field the same way. Anything else: this device wins.
+const SYNC_BASE_GIST_KEY = "sync-base-gist"; // the gist that base describes
+// base/local/remote are one list's parsed values, and this goes all the way down: budget-content is
+// one object holding lists of expenses, and debts holding logs of payments. A list merges per item
+// (adds and deletes from both sides, the other side's edits to items this side left alone), matching
+// by id, or by the whole item in a list without ids. An object merges per field the same way. A value
+// with nothing left to merge, changed on both sides, goes to this device. A missing base is an empty one.
+const MERGE_WHOLE = new Set(["location"]); // fields that only mean something together: lat and lon are one place
 function mergeLists(base, local, remote) {
   const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
-  const byId = (x) => Array.isArray(x) && x.every((i) => i && typeof i === "object" && "id" in i);
+  if (same(local, remote)) return local;
   const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
-  if (byId(base) && byId(local) && byId(remote)) {
-    const b = new Map(base.map((i) => [i.id, i])),
-      r = new Map(remote.map((i) => [i.id, i]));
+  if (Array.isArray(local) && Array.isArray(remote)) {
+    const was = Array.isArray(base) ? base : [];
+    const byId = [was, local, remote].every((l) => l.every((i) => i && typeof i === "object" && "id" in i));
+    const key = byId ? (i) => i.id : (i) => JSON.stringify(i);
+    const b = new Map(was.map((i) => [key(i), i])),
+      r = new Map(remote.map((i) => [key(i), i]));
     const out = [];
     local.forEach((item) => {
-      const was = b.get(item.id),
-        theirs = r.get(item.id);
-      if (was && !theirs) {
-        if (same(item, was)) return; // deleted there, untouched here
-        out.push(item); // deleted there but edited here: keep the edit
-      } else if (was && theirs && same(item, was))
-        out.push(theirs); // only they changed it
-      else out.push(item);
+      const k = key(item);
+      const untouched = b.has(k) && same(item, b.get(k));
+      if (!r.has(k)) {
+        if (!untouched) out.push(item); // added here, or deleted there but edited here: keep the edit
+      } else if (untouched)
+        out.push(r.get(k)); // only they changed it
+      else out.push(mergeLists(b.get(k), item, r.get(k)));
     });
     // added on the other device: insert after the item it followed there
+    const kept = new Set(out.map(key));
     remote.forEach((item, idx) => {
-      if (b.has(item.id) || out.some((x) => x.id === item.id)) return;
-      const prev = idx > 0 ? out.findIndex((x) => x.id === remote[idx - 1].id) : -1;
+      const k = key(item);
+      if (b.has(k) || kept.has(k)) return;
+      const prev = idx > 0 ? out.findIndex((x) => key(x) === key(remote[idx - 1])) : -1;
       out.splice(prev + 1, 0, item);
+      kept.add(k);
     });
     return out;
   }
-  if (isObj(base) && isObj(local) && isObj(remote)) {
+  if (isObj(local) && isObj(remote)) {
+    const was = isObj(base) ? base : {};
     const out = { ...local };
-    new Set([...Object.keys(base), ...Object.keys(remote)]).forEach((f) => {
-      if (!same(local[f], base[f]) || same(remote[f], base[f])) return; // changed here, or not there
-      if (f in remote) out[f] = remote[f];
-      else delete out[f];
+    new Set([...Object.keys(was), ...Object.keys(remote)]).forEach((f) => {
+      const l = local[f],
+        r = remote[f],
+        b = was[f];
+      if (same(r, b)) return; // not changed there
+      if (same(l, b)) {
+        if (f in remote) out[f] = r;
+        else delete out[f];
+      } else if (f in local && f in remote && !MERGE_WHOLE.has(f)) out[f] = mergeLists(b, l, r);
     });
+    // A debt's balance follows its log, so if both sides moved it, whatever merging added to this
+    // device's log comes off too. Going by the log gets it right even when the base is out of date.
+    const moved = (n) => typeof n === "number" && !same(n, was.balance);
+    if (moved(local.balance) && moved(remote.balance) && Array.isArray(local.log) && Array.isArray(out.log)) {
+      const paid = (log) => log.reduce((sum, e) => sum + (Number(e && e.amount) || 0), 0);
+      out.balance = Math.max(0, Math.round((local.balance + paid(local.log) - paid(out.log)) * 100) / 100);
+    }
     return out;
   }
   return local;
@@ -307,12 +368,15 @@ async function syncNow() {
   // never swap data out from under an open edit form; try again shortly
   if (syncBusy || isEditing()) {
     scheduleSyncPush();
-    return;
+    return false;
   }
   syncBusy = true;
+  const epoch = syncEpoch;
+  const wasState = (document.getElementById("sync-btn") || { dataset: {} }).dataset.state;
   setSyncStatus("busy");
   try {
     const { gistId, remote } = await withGist(async (id) => ({ gistId: id, remote: await fetchRemote(id) }));
+    if (epoch !== syncEpoch) return false; // turned off or reconnected meanwhile: this sync is over
     const local = localSnapshot();
     const remoteStr = {};
     if (remote)
@@ -326,6 +390,15 @@ async function syncNow() {
     } catch (e) {
       base = null;
     }
+    // A base from another gist says nothing about this one, so it's an empty one: each list merges item
+    // by item and both sides' items survive (one deleted on either side may come back). With nothing to
+    // tell whose change is whose, what both sides have goes to whichever copy was saved last, not to
+    // whichever device syncs now.
+    const baseGist = localStorage.getItem(SYNC_BASE_GIST_KEY);
+    const otherGist = !!base && !!baseGist && baseGist !== gistId;
+    if (otherGist) base = {};
+    const localUpdated = Number(localStorage.getItem("data-updated-at")) || 0;
+    const remoteUpdated = (remote && remote.updatedAt) || 0;
     let merged = {},
       takeRemote = [],
       sendUp = false;
@@ -333,8 +406,6 @@ async function syncNow() {
       // First sync on this device (or the first since this kind of sync existed):
       // fall back to "newest copy wins", which is what earlier versions did.
       // A gist with no data file gets everything here, not just what changed since the base.
-      const localUpdated = Number(localStorage.getItem("data-updated-at")) || 0;
-      const remoteUpdated = (remote && remote.updatedAt) || 0;
       if (remote && remoteUpdated > localUpdated) {
         merged = { ...remoteStr };
         takeRemote = Object.keys(remoteStr);
@@ -347,9 +418,13 @@ async function syncNow() {
         const l = local[k],
           r = remoteStr[k],
           b = base[k];
-        if (l !== b && r !== undefined && b !== undefined && l !== undefined && r !== b && l !== r) {
-          // changed on both devices: merge item by item
-          const m = JSON.stringify(mergeLists(JSON.parse(b), JSON.parse(l), JSON.parse(r)));
+        if (l !== b && r !== undefined && l !== undefined && r !== b && l !== r) {
+          // changed on both devices (or new on both): merge item by item
+          const was = b === undefined ? null : JSON.parse(b);
+          const theirsWins = otherGist && remoteUpdated > localUpdated;
+          const m = JSON.stringify(
+            theirsWins ? mergeLists(was, JSON.parse(r), JSON.parse(l)) : mergeLists(was, JSON.parse(l), JSON.parse(r)),
+          );
           merged[k] = m;
           if (m !== r) sendUp = true;
           if (m !== l) takeRemote.push(k);
@@ -362,6 +437,12 @@ async function syncNow() {
           if (r !== l) takeRemote.push(k);
         } // unchanged here
       });
+    }
+    // A form opened while the gist was being read: nothing has changed yet, so try again once it's closed
+    if (takeRemote.length && isEditing()) {
+      scheduleSyncPush();
+      setSyncStatus(wasState || "off", true);
+      return false;
     }
     if (takeRemote.length) {
       const data = {};
@@ -386,8 +467,12 @@ async function syncNow() {
       localStorage.setItem("data-updated-at", String(updatedAt));
     }
     localStorage.setItem(SYNC_BASE_KEY, JSON.stringify(merged));
+    localStorage.setItem(SYNC_BASE_GIST_KEY, gistId);
+    if (epoch !== syncEpoch) return false;
     setSyncStatus("ok");
+    return true;
   } catch (e) {
+    if (epoch !== syncEpoch) return false;
     console.error("sync failed", e);
     setSyncStatus("error");
     throw e;

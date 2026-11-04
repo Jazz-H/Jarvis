@@ -10,6 +10,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TYPES = {
@@ -15341,7 +15342,7 @@ await section("the Notebook: notes by hand and by Jarvis, Note it after a to-do 
         { id: "note-car", title: "Car <b>x</b>", text: "Oil at 52k.", at: "2026-10-30", by: "you" },
         { id: "bad id", title: "Fixed id", text: "x" }, // kept with a new, safe id
         { id: "n-junk", title: "", text: "no title: dropped" },
-        { id: "note-2", title: "car <B>X</B>", text: "same title: a repeat, dropped" },
+        { id: "note-2", title: "car <B>X</B>", text: "Oil at 52k." }, // same title and text: a repeat, dropped
       ],
       "todo-content": [
         {
@@ -16018,6 +16019,857 @@ await section("sync: every use of the gist recovers from a replaced one, and onl
   });
   check("two first-time callers make one gist", made.length === 1, made.length);
   await fresh.ctx.close();
+});
+
+await section(
+  "sync: saving a token merges item by item; it doesn't let the newest copy overwrite the other",
+  async () => {
+    const today = Date.now();
+    const newer = { "the gist is newer": today + 1e7, "this device is newer": 1000 };
+    for (const [name, updatedAt] of Object.entries(newer)) {
+      const shared = [{ id: "shared", text: "On both", done: false }];
+      const files = {
+        g1: { "jazz2-data.json": { content: JSON.stringify({ updatedAt: 1, data: { "todo-content": shared } }) } },
+      };
+      const s = await openSynced({
+        seed: { "todo-content": shared },
+        files,
+        inStep: true,
+        hasGist: () => true,
+        gists: [{ id: "g1", files: { "jazz2-data.json": {} } }],
+      });
+      // while this device's change waits to sync, the other device adds one too
+      files.g1["jazz2-data.json"] = {
+        content: JSON.stringify({
+          updatedAt,
+          data: { "todo-content": [...shared, { id: "phone", text: "From the phone", done: false }] },
+        }),
+      };
+      await s.page.evaluate(() => {
+        todoList.push({ id: "laptop", text: "From the laptop", done: false });
+        saveContent("todo-content", todoList, { toast: false });
+        openSyncModal();
+      });
+      await s.page.fill("#modal-token", "rotated-token");
+      await s.page.click('#modal-backdrop [data-action="modal-save"]');
+      await s.page.waitForFunction(
+        () =>
+          localStorage.getItem("sync-token") === "rotated-token" &&
+          !syncBusy &&
+          document.getElementById("sync-btn").dataset.state === "ok",
+      );
+      await s.page.waitForTimeout(2500); // the retry that waits for the dialog to close
+      const r = await s.page.evaluate(() => todoList.map((t) => t.id).sort());
+      const inGist = JSON.parse(files.g1["jazz2-data.json"].content)
+        .data["todo-content"].map((t) => t.id)
+        .sort();
+      check(`${name}: this device keeps both sides' to-dos`, r.join() === "laptop,phone,shared", r);
+      check(`${name}: so does the gist`, inGist.join() === "laptop,phone,shared", inGist);
+      await s.ctx.close();
+    }
+
+    const same = await openSynced({
+      seed: { "todo-content": JSON.stringify(syncItems) },
+      files: {
+        g1: { "jazz2-data.json": { content: JSON.stringify({ updatedAt: 1, data: { "todo-content": syncItems } }) } },
+      },
+      inStep: true,
+      hasGist: () => true,
+    });
+    const before = await same.page.evaluate(() => {
+      openSyncModal();
+      return localStorage.getItem("sync-base");
+    });
+    await same.page.fill("#modal-token", "test");
+    await same.page.click('#modal-backdrop [data-action="modal-save"]');
+    const after = await same.page.evaluate(() => ({
+      base: localStorage.getItem("sync-base"),
+      id: localStorage.getItem("sync-gist-id"),
+    }));
+    check("saving the same token again changes nothing", after.base === before && after.id === "g1", after);
+    await same.ctx.close();
+
+    const never = await openApp({ seed: { "todo-content": syncItems } });
+    const unsynced = await never.page.evaluate(() => {
+      forgetGist();
+      return localStorage.getItem("sync-base");
+    });
+    check(
+      "a device that never synced still has no base (its first sync: newest copy wins)",
+      unsynced === null,
+      unsynced,
+    );
+    await never.ctx.close();
+  },
+);
+
+await section(
+  "sync: a new token is checked first; the same gist keeps its base; a different one lets the newer side win",
+  async () => {
+    const dataFile = { "jazz2-data.json": {} };
+    const remoteFile = (updatedAt, list) => ({
+      "jazz2-data.json": { content: JSON.stringify({ updatedAt, data: { "todo-content": list } }) },
+    });
+    const openAt = async ({ authFails = false, gists, local, files = {} }) => {
+      const seen = [];
+      const a = await openApp({
+        seed: { "sync-gist-id": "g1", "data-updated-at": "5000", "todo-content": local },
+        route: async (r) => {
+          const u = new URL(r.request().url());
+          const method = r.request().method();
+          const auth = r.request().headers().authorization;
+          seen.push(`${method} ${u.pathname} ${auth}`);
+          const json = (b, s = 200) =>
+            r.fulfill({ status: s, contentType: "application/json", body: JSON.stringify(b) });
+          if (authFails && auth === "Bearer rotated") return json({ message: "Bad credentials" }, 401);
+          if (u.pathname === "/gists") return json(gists);
+          const id = u.pathname.split("/").pop();
+          if (method === "PATCH") files[id] = { ...files[id], ...JSON.parse(r.request().postData()).files };
+          return json({ id, files: files[id] || {} });
+        },
+      });
+      // the last sync, on g1, saw exactly what's on the device
+      await a.page.evaluate(() => {
+        localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+        localStorage.setItem("sync-base-gist", "g1");
+        localStorage.setItem("sync-token", "oldtoken");
+      });
+      return { ...a, seen, files };
+    };
+    const saveToken = async (page, token) => {
+      await page.evaluate(() => openSyncModal());
+      await page.fill("#modal-token", token);
+      await page.click('#modal-backdrop [data-action="modal-save"]');
+    };
+    const settled = (page) =>
+      page.waitForFunction(() => !syncBusy && document.getElementById("sync-btn").dataset.state !== "busy");
+
+    // a typo: nothing about the working connection changes, and no false "Sync is on"
+    const open = [{ id: "shared", text: "Item", done: false }];
+    const typo = await openAt({ authFails: true, gists: [{ id: "g1", files: dataFile }], local: open });
+    const before = await typo.page.evaluate(() => localStorage.getItem("sync-base"));
+    await saveToken(typo.page, "rotated");
+    await typo.page.waitForFunction(() => /check the token/.test(document.getElementById("toast").textContent));
+    const afterTypo = await typo.page.evaluate(() => ({
+      token: localStorage.getItem("sync-token"),
+      id: localStorage.getItem("sync-gist-id"),
+      base: localStorage.getItem("sync-base"),
+    }));
+    check(
+      "a token GitHub refuses leaves the old token, the gist and the base alone",
+      afterTypo.token === "oldtoken" && afterTypo.id === "g1" && afterTypo.base === before,
+      { token: afterTypo.token === "oldtoken", id: afterTypo.id },
+    );
+    await typo.ctx.close();
+
+    // a stale device, a rotated token, the same gist: what it never touched takes the newer edit
+    const stale = await openAt({
+      gists: [{ id: "g1", files: dataFile }],
+      local: open,
+      files: { g1: remoteFile(1000, [{ id: "shared", text: "Item", done: true }]) },
+    });
+    await stale.page.evaluate(() => {
+      localStorage.setItem("data-updated-at", "9000"); // even with this device's copy stamped newer
+    });
+    await saveToken(stale.page, "rotated");
+    await stale.page.waitForFunction(() => /Sync is on/.test(document.getElementById("toast").textContent));
+    const staleEnd = await stale.page.evaluate(() => ({
+      done: todoList.find((t) => t.id === "shared").done,
+      token: localStorage.getItem("sync-token"),
+      baseGist: localStorage.getItem("sync-base-gist"),
+    }));
+    check("the same gist after a new token: the tick isn't undone", staleEnd.done === true, staleEnd.done);
+    check(
+      "the new token and the gist are saved",
+      staleEnd.token === "rotated" && staleEnd.baseGist === "g1",
+      staleEnd.baseGist,
+    );
+    await stale.ctx.close();
+
+    // turning sync off and on again against the same gist: also a real three-way merge
+    const back = await openAt({
+      gists: [{ id: "g1", files: dataFile }],
+      local: open,
+      files: { g1: remoteFile(1000, [{ id: "shared", text: "Item", done: true }]) },
+    });
+    await back.page.evaluate(() => {
+      localStorage.removeItem("sync-token");
+      forgetGist();
+      localStorage.setItem("data-updated-at", "9000");
+    });
+    await saveToken(back.page, "oldtoken2");
+    await back.page.waitForFunction(() => /Sync is on/.test(document.getElementById("toast").textContent));
+    check(
+      "off and on again with the same gist: the tick isn't undone",
+      (await back.page.evaluate(() => todoList.find((t) => t.id === "shared").done)) === true,
+    );
+    await back.ctx.close();
+
+    // two data gists: a device that has a working one among them stays on it
+    const twoGists = await openAt({
+      gists: [
+        { id: "g1", files: dataFile },
+        { id: "g9", files: dataFile },
+      ],
+      local: open,
+      files: { g1: remoteFile(1000, open) },
+    });
+    await saveToken(twoGists.page, "rotated");
+    await twoGists.page.waitForFunction(() => /Sync is on/.test(document.getElementById("toast").textContent));
+    check(
+      "two gists, the saved one among them: it stays connected",
+      (await twoGists.page.evaluate(() => localStorage.getItem("sync-gist-id"))) === "g1",
+    );
+    await twoGists.ctx.close();
+
+    // off and on again with two data gists: the one this device last synced with settles it
+    const offOn = await openAt({
+      gists: [
+        { id: "g9", files: dataFile },
+        { id: "g1", files: dataFile },
+      ],
+      local: open,
+      files: { g1: remoteFile(1000, open) },
+    });
+    await offOn.page.evaluate(() => {
+      localStorage.removeItem("sync-token");
+      forgetGist();
+    });
+    await saveToken(offOn.page, "oldtoken2");
+    await offOn.page.waitForFunction(() => /Sync is on/.test(document.getElementById("toast").textContent));
+    check(
+      "off and on again with two gists: back on the same one",
+      (await offOn.page.evaluate(() => localStorage.getItem("sync-gist-id"))) === "g1",
+    );
+    await offOn.ctx.close();
+
+    // ...and one that doesn't is left as it was
+    const lost = await openAt({
+      gists: [
+        { id: "g8", files: dataFile },
+        { id: "g9", files: dataFile },
+      ],
+      local: open,
+    });
+    await saveToken(lost.page, "rotated");
+    await lost.page.waitForFunction(() => /check your gists/.test(document.getElementById("toast").textContent));
+    const lostEnd = await lost.page.evaluate(() => [
+      localStorage.getItem("sync-token"),
+      localStorage.getItem("sync-gist-id"),
+    ]);
+    check("two other gists: the working token and id stay", lostEnd.join() === "oldtoken,g1", lostEnd[1]);
+    await lost.ctx.close();
+
+    // a token that works but sees no data gist (the Ask key, another account): nothing moves, nothing's made
+    const blind = await openAt({ gists: [], local: open });
+    await saveToken(blind.page, "rotated");
+    await blind.page.waitForFunction(() => /can't see/.test(document.getElementById("toast").textContent));
+    const blindEnd = await blind.page.evaluate(() => [
+      localStorage.getItem("sync-token"),
+      localStorage.getItem("sync-gist-id"),
+    ]);
+    check(
+      "a token that can't see the gist: the working token and id stay",
+      blindEnd.join() === "oldtoken,g1",
+      blindEnd[1],
+    );
+    check(
+      "and no new gist is made",
+      !blind.seen.some((s) => s.startsWith("POST")),
+      blind.seen.map((s) => s.split(" ").slice(0, 2).join(" ")),
+    );
+    await blind.ctx.close();
+
+    // saving the same token again retries, so fixing something on GitHub has a way to take effect
+    const again = await openAt({
+      gists: [{ id: "g1", files: dataFile }],
+      local: open,
+      files: { g1: remoteFile(1000, open) },
+    });
+    await saveToken(again.page, "oldtoken");
+    await again.page.waitForFunction(() => /Sync is on/.test(document.getElementById("toast").textContent));
+    check(
+      "the same token runs a sync and says how it went",
+      again.seen.some((s) => s.startsWith("GET /gists/g1")),
+    );
+    await again.ctx.close();
+
+    // an attempt that was overtaken has nothing to say, whichever way it ended
+    let releaseSync;
+    const syncHeld = new Promise((done) => (releaseSync = done));
+    const off = await openApp({
+      seed: { "sync-gist-id": "g1", "todo-content": open },
+      route: async (r) => {
+        const u = new URL(r.request().url());
+        const json = (b) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(b) });
+        if (u.pathname === "/gists") return json([{ id: "g1", files: dataFile }]);
+        await syncHeld;
+        return json({ id: "g1", files: remoteFile(1000, open) });
+      },
+    });
+    await off.page.evaluate(() => {
+      localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+      window.__c = connectSync("rotated");
+    });
+    await off.page.waitForFunction(() => syncBusy);
+    await off.page.evaluate(() => {
+      localStorage.removeItem("sync-token");
+      forgetGist();
+      setSyncStatus("off");
+    });
+    releaseSync();
+    check("Turn off during the sync: connecting reports nothing", (await off.page.evaluate(() => window.__c)) === null);
+    await off.ctx.close();
+
+    let releaseA;
+    const aHeld = new Promise((done) => (releaseA = done));
+    const swap = await openApp({
+      seed: { "sync-gist-id": "g1", "todo-content": open },
+      route: async (r) => {
+        const auth = r.request().headers().authorization;
+        const u = new URL(r.request().url());
+        if (auth === "Bearer tokenA") {
+          await aHeld;
+          return r.fulfill({ status: 401, contentType: "application/json", body: "{}" });
+        }
+        const body =
+          u.pathname === "/gists" ? [{ id: "g1", files: dataFile }] : { id: "g1", files: remoteFile(1000, open) };
+        return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+      },
+    });
+    const swapped = swap.page.evaluate(async () => {
+      localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+      const a = connectSync("tokenA");
+      await connectSync("tokenB");
+      return { a: await a.catch((e) => "threw " + e.status), token: localStorage.getItem("sync-token") };
+    });
+    await swap.page.waitForFunction(() => localStorage.getItem("sync-token") === "tokenB");
+    releaseA();
+    const swapEnd = await swapped;
+    check("the first token failing after a second was saved says nothing", swapEnd.a === null, swapEnd.a);
+    check("and the second token stays", swapEnd.token === "tokenB", swapEnd.token);
+    await swap.ctx.close();
+
+    // a truly different gist: both sides' items survive, and the newer copy wins an item both have
+    for (const [name, remoteAt, doneAfter] of [
+      ["the other gist is newer", 9000, true],
+      ["this device is newer", 1000, false],
+    ]) {
+      const moved = await openAt({
+        gists: [{ id: "g2", files: dataFile }],
+        local: [...open, { id: "mine", text: "Mine", done: false }],
+        files: {
+          g2: remoteFile(remoteAt, [
+            { id: "shared", text: "Item", done: true },
+            { id: "theirs", text: "Theirs", done: false },
+          ]),
+        },
+      });
+      await saveToken(moved.page, "rotated");
+      await moved.page.waitForFunction(() => /Sync is on/.test(document.getElementById("toast").textContent));
+      await settled(moved.page);
+      const end = await moved.page.evaluate(() => ({
+        ids: todoList.map((t) => t.id).sort(),
+        done: todoList.find((t) => t.id === "shared").done,
+        gist: localStorage.getItem("sync-gist-id"),
+      }));
+      check(
+        `${name}: it moves, and both sides' items survive`,
+        end.gist === "g2" && end.ids.join() === "mine,shared,theirs",
+        end,
+      );
+      check(`${name}: the newer copy wins the item both have`, end.done === doneAfter, end.done);
+      await moved.ctx.close();
+    }
+  },
+);
+
+await section(
+  "sync: a sync still running can't undo Turn off, a new connection or the time of the last good sync",
+  async () => {
+    const local = [{ id: "mine", text: "Mine", done: false }];
+    const remote = {
+      updatedAt: Date.now() + 1e7,
+      data: { "todo-content": [...local, { id: "theirs", text: "Theirs", done: false }] },
+    };
+    let release;
+    const held = new Promise((done) => (release = done));
+    const a = await openApp({
+      seed: { "sync-gist-id": "g1", "todo-content": local },
+      route: async (r) => {
+        await held;
+        const files = { "jazz2-data.json": { content: JSON.stringify(remote) } };
+        return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "g1", files }) });
+      },
+    });
+    await a.page.evaluate(() => {
+      localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+      localStorage.setItem("sync-token", "test");
+      window.__sync = syncNow();
+    });
+    await a.page.waitForTimeout(100);
+    await a.page.evaluate(() => {
+      localStorage.removeItem("sync-token");
+      forgetGist();
+      setSyncStatus("off");
+    });
+    release();
+    const end = await a.page.evaluate(async () => {
+      await window.__sync;
+      return {
+        state: document.getElementById("sync-btn").dataset.state,
+        ids: todoList.map((t) => t.id),
+        busy: syncBusy,
+      };
+    });
+    check("Turn off during a sync stays off", end.state === "off", end.state);
+    check("and the old sync brings nothing in", end.ids.join() === "mine", end.ids);
+    check("and it lets go of the busy flag", end.busy === false);
+    await a.ctx.close();
+
+    // waiting on an open form says nothing new about when the last good sync was
+    let free;
+    const gate = new Promise((done) => (free = done));
+    const b = await openApp({
+      seed: { "sync-gist-id": "g1", "todo-content": local },
+      route: async (r) => {
+        await gate;
+        const files = { "jazz2-data.json": { content: JSON.stringify(remote) } };
+        return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "g1", files }) });
+      },
+    });
+    await b.page.evaluate(() => {
+      localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+      localStorage.setItem("sync-token", "test");
+      syncOkAt = 12345;
+      window.__sync = syncNow();
+    });
+    await b.page.waitForTimeout(100);
+    await b.page.evaluate(() => openModal("Edit", [{ key: "x", label: "X", type: "text" }], {}, () => {}));
+    free();
+    const waited = await b.page.evaluate(async () => ({ ran: await window.__sync, okAt: syncOkAt }));
+    check("a sync that waits for a form doesn't count as a good sync", waited.okAt === 12345, waited.okAt);
+    check("and it says it didn't finish", waited.ran === false, waited.ran);
+    await b.page.evaluate(() => closeModal());
+    await b.ctx.close();
+  },
+);
+
+await section("sync: lists inside budget and fitness merge, not just the top level", async () => {
+  const a = await openApp({ seed: {} });
+  const m = await a.page.evaluate(() => {
+    const exp = (id) => ({ id, name: id, amount: 1, cat: null, date: "2026-11-01" });
+    const line = (id) => ({ id, name: id, amount: 1 });
+    const base = {
+      expenses: [exp("a")],
+      accounts: ["Checking"],
+      plans: { "i|d": { lines: [line("l1")] } },
+      debts: [{ id: "d", balance: 1000, log: [] }],
+      cardInfo: { Visa: { due: 1, st: {} } },
+    };
+    const budget = mergeLists(
+      base,
+      {
+        expenses: [exp("a"), exp("mine")],
+        accounts: ["Checking", "Savings"],
+        plans: { "i|d": { lines: [line("l1"), line("l2")] } },
+        debts: [{ id: "d", balance: 900, log: [{ id: "p1", amount: 100 }] }],
+        cardInfo: { Visa: { due: 1, st: { "2026-10": 50 } } },
+      },
+      {
+        expenses: [exp("a"), exp("theirs")],
+        accounts: ["Checking", "Joint"],
+        plans: { "i|d": { lines: [line("l1"), line("l3")] } },
+        debts: [{ id: "d", balance: 950, log: [{ id: "p2", amount: 50 }] }],
+        cardInfo: { Visa: { due: 1, st: { "2026-11": 60 } } },
+      },
+    );
+    const fitness = mergeLists(
+      { weights: [], plan: [], checks: {} },
+      { weights: [{ id: "w1", date: "2026-11-01", lbs: 150 }], plan: [], checks: { "2026-11-01|p": true } },
+      { weights: [{ id: "w2", date: "2026-11-02", lbs: 149 }], plan: [], checks: { "2026-11-02|p": true } },
+    );
+    return {
+      budget,
+      fitness,
+      // no base for the field at all (a different gist, or a list both sides just started)
+      noBase: mergeLists({}, { expenses: [exp("mine")] }, { expenses: [exp("theirs")] }),
+      // the same item, different fields
+      fields: mergeLists(
+        [{ id: "a", text: "x", done: false }],
+        [{ id: "a", text: "y", done: false }],
+        [{ id: "a", text: "x", done: true }],
+      ),
+      // a list with no ids: both sides' entries, and one removed there
+      noIds: mergeLists(
+        [
+          { item: "old", at: 1 },
+          { item: "kept", at: 1 },
+        ],
+        [
+          { item: "old", at: 1 },
+          { item: "kept", at: 1 },
+          { item: "mine", at: 2 },
+        ],
+        [
+          { item: "kept", at: 1 },
+          { item: "theirs", at: 3 },
+        ],
+      ),
+      // a plain edit of the same field still goes to this device
+      sameField: mergeLists({ start: 150 }, { start: 151 }, { start: 152 }),
+      deleted: mergeLists({ expenses: [exp("a"), exp("b")] }, { expenses: [exp("b")] }, { expenses: [exp("a")] }),
+      // A's push landed but its reply was lost, so its base is old; B has since paid too. The log says what happened
+      staleBase: mergeLists(
+        [{ id: "d", balance: 5000, log: [] }],
+        [{ id: "d", balance: 4900, log: [{ id: "p1", amount: 100 }] }],
+        [
+          {
+            id: "d",
+            balance: 4850,
+            log: [
+              { id: "p1", amount: 100 },
+              { id: "p2", amount: 50 },
+            ],
+          },
+        ],
+      ),
+      // both typed the same new balance, and something else differs
+      sameTyped: mergeLists(
+        [{ id: "d", balance: 5000, log: [], apr: 1, payment: 1 }],
+        [{ id: "d", balance: 4321, log: [], apr: 2, payment: 1 }],
+        [{ id: "d", balance: 4321, log: [], apr: 1, payment: 2 }],
+      ),
+      // the same-sized payment on each device: the balances match, but there were two
+      twoEqual: mergeLists(
+        [{ id: "d", balance: 1000, log: [] }],
+        [{ id: "d", balance: 950, log: [{ id: "p1", amount: 50 }] }],
+        [{ id: "d", balance: 950, log: [{ id: "p2", amount: 50 }] }],
+      ),
+      // only they typed a new balance
+      theirEdit: mergeLists(
+        [{ id: "d", balance: 1000, log: [], apr: 1 }],
+        [{ id: "d", balance: 1000, log: [], apr: 2 }],
+        [{ id: "d", balance: 800, log: [], apr: 1 }],
+      ),
+      // a place is one value, not two numbers to mix
+      location: mergeLists(
+        { location: { lat: 40, lon: -75 } },
+        { location: { lat: 40, lon: -76 } },
+        { location: { lat: 41, lon: -75 } },
+      ),
+    };
+  });
+  const ids = (l) =>
+    l
+      .map((x) => x.id)
+      .sort()
+      .join();
+  check("both devices' expenses survive", ids(m.budget.expenses) === "a,mine,theirs", m.budget.expenses);
+  check(
+    "both new accounts survive",
+    [...m.budget.accounts].sort().join() === "Checking,Joint,Savings",
+    m.budget.accounts,
+  );
+  check("lines inside a plan merge", ids(m.budget.plans["i|d"].lines) === "l1,l2,l3", m.budget.plans);
+  check("a debt keeps both payments", ids(m.budget.debts[0].log) === "p1,p2", m.budget.debts);
+  check("and its balance counts both", m.budget.debts[0].balance === 850, m.budget.debts[0].balance);
+  check(
+    "statements inside a card merge",
+    JSON.stringify(m.budget.cardInfo.Visa.st) === '{"2026-10":50,"2026-11":60}',
+    m.budget.cardInfo,
+  );
+  check("both devices' weigh-ins survive", ids(m.fitness.weights) === "w1,w2", m.fitness.weights);
+  check("both devices' workout ticks survive", Object.keys(m.fitness.checks).length === 2, m.fitness.checks);
+  check("with no base, both sides' items survive", ids(m.noBase.expenses) === "mine,theirs", m.noBase);
+  check(
+    "one item, different fields: both edits survive",
+    m.fields[0].text === "y" && m.fields[0].done === true,
+    m.fields,
+  );
+  check(
+    "a list with no ids merges too",
+    m.noIds
+      .map((x) => x.item)
+      .sort()
+      .join() === "kept,mine,theirs",
+    m.noIds,
+  );
+  check("the same field changed on both: this device wins", m.sameField.start === 151, m.sameField);
+  check("a delete on either side still deletes", m.deleted.expenses.length === 0, m.deleted);
+  check("a debt with an out-of-date base keeps the true balance", m.staleBase[0].balance === 4850, m.staleBase);
+  check("the same balance typed on both stays as typed", m.sameTyped[0].balance === 4321, m.sameTyped);
+  check("two equal payments both come off", m.twoEqual[0].balance === 900, m.twoEqual);
+  check("a balance only they typed is taken", m.theirEdit[0].balance === 800, m.theirEdit);
+  check(
+    "a location goes whole to one side",
+    JSON.stringify(m.location.location) === '{"lat":40,"lon":-76}',
+    m.location,
+  );
+  // what merging may leave: two weigh-ins on one day. Every device keeps the same one.
+  const oneADay = await a.page.evaluate(() => {
+    const twoEntries = [
+      { id: "wt-1", date: "2026-11-01", lbs: 150 },
+      { id: "wt-2", date: "2026-11-01", lbs: 151 },
+      { id: "wt-3", date: "2026-11-02", lbs: 149 },
+    ];
+    const run = (weights) => {
+      fitness = { weights, plan: [], checks: {} };
+      normalizeFitness();
+      return JSON.stringify(fitness.weights.map((w) => w.lbs));
+    };
+    return [run(twoEntries), run([...twoEntries].reverse())];
+  });
+  check("one weigh-in a day survives a merge", oneADay[0] === "[151,149]", oneADay);
+  check("whichever order they arrive in", oneADay[0] === oneADay[1], oneADay);
+  // editing a weigh-in onto a day that has one: what was typed is what stays
+  await a.page.evaluate(() => {
+    fitness = {
+      weights: [
+        { id: "wt-1", date: "2026-11-01", lbs: 180 },
+        { id: "wt-2", date: "2026-11-02", lbs: 179 },
+      ],
+      plan: [],
+      checks: {},
+    };
+    logWeight("wt-1");
+  });
+  await a.page.fill("#modal-lbs", "181");
+  await a.page.fill("#modal-date", "2026-11-02");
+  await a.page.click('#modal-backdrop [data-action="modal-save"]');
+  const edited = await a.page.evaluate(() => {
+    normalizeFitness();
+    return fitness.weights.map((w) => [w.date, w.lbs]);
+  });
+  check("an edit onto a taken day keeps the edit", JSON.stringify(edited) === '[["2026-11-02",181]]', edited);
+  await a.ctx.close();
+
+  // end to end: an expense added on each device between syncs
+  const exp = (id) => ({ id, name: id, amount: 5, cat: null, date: "2026-11-01" });
+  const budgetOf = (expenses) => ({ categories: [], expenses, accounts: ["Checking"] });
+  const gist = {
+    "jazz2-data.json": {
+      content: JSON.stringify({
+        updatedAt: 1000,
+        data: {
+          "budget-content": budgetOf([exp("a"), exp("theirs")]),
+          "jarvis-notes": [{ id: "n-theirs", title: "T", text: "T", at: 1 }],
+        },
+      }),
+    },
+  };
+  const b = await openApp({
+    seed: { "sync-gist-id": "g1", "budget-content": budgetOf([exp("a"), exp("mine")]) },
+    route: async (r) => {
+      if (r.request().method() === "PATCH") Object.assign(gist, JSON.parse(r.request().postData()).files);
+      return r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: "g1", files: gist }),
+      });
+    },
+  });
+  const end = await b.page.evaluate(async () => {
+    budget.expenses = budget.expenses.filter((e) => ["a", "mine"].includes(e.id));
+    localStorage.setItem("budget-content", JSON.stringify(budget));
+    const snap = localSnapshot();
+    const was = JSON.parse(snap["budget-content"]);
+    was.expenses = was.expenses.filter((e) => e.id === "a");
+    // a base from before either device added anything, with no entry at all for the Notebook
+    delete snap["jarvis-notes"];
+    localStorage.setItem("sync-base", JSON.stringify({ ...snap, "budget-content": JSON.stringify(was) }));
+    localStorage.setItem("sync-base-gist", "g1");
+    localStorage.setItem("jarvis-notes", JSON.stringify([{ id: "n-mine", title: "M", text: "M", at: 2 }]));
+    localStorage.setItem("sync-token", "test");
+    await syncNow();
+    return { here: budget.expenses, notes: JSON.parse(localStorage.getItem("jarvis-notes")) };
+  });
+  const sent = JSON.parse(gist["jazz2-data.json"].content).data;
+  check("the device ends with both expenses", ids(end.here) === "a,mine,theirs", end.here);
+  check("and so does the gist", ids(sent["budget-content"].expenses) === "a,mine,theirs", sent["budget-content"]);
+  check(
+    "a list the base has never seen merges instead of one side replacing the other",
+    ids(sent["jarvis-notes"]) === "n-mine,n-theirs",
+    sent["jarvis-notes"],
+  );
+  await b.ctx.close();
+});
+
+await section("sync: an edit form opened while a sync is on its way isn't swapped out from under it", async () => {
+  const local = [{ id: "mine", text: "Mine", done: false }];
+  const remote = {
+    updatedAt: Date.now() + 1e7,
+    data: { "todo-content": [...local, { id: "theirs", text: "Theirs", done: false }] },
+  };
+  let release;
+  const held = new Promise((done) => (release = done));
+  const a = await openApp({
+    seed: { "sync-gist-id": "g1", "todo-content": local },
+    route: async (r) => {
+      await held;
+      const files = { "jazz2-data.json": { content: JSON.stringify(remote) } };
+      return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "g1", files }) });
+    },
+  });
+  const baseBefore = await a.page.evaluate(() => {
+    localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+    localStorage.setItem("sync-token", "test");
+    window.__sync = syncNow();
+    return localStorage.getItem("sync-base");
+  });
+  await a.page.waitForTimeout(100);
+  await a.page.evaluate(() => openModal("Edit", [{ key: "x", label: "X", type: "text" }], {}, () => {}));
+  release();
+  const during = await a.page.evaluate(async () => {
+    await window.__sync;
+    return {
+      ids: todoList.map((t) => t.id),
+      base: localStorage.getItem("sync-base"),
+      open: document.getElementById("modal-backdrop").classList.contains("open"),
+      state: document.getElementById("sync-btn").dataset.state,
+    };
+  });
+  check("the data isn't replaced while the form is open", during.ids.join() === "mine" && during.open, during);
+  check("nothing is marked as synced", during.base === baseBefore, during);
+  check("the sync button doesn't stay busy", during.state !== "busy", during.state);
+  await a.page.evaluate(() => closeModal());
+  await a.page.waitForFunction(() => todoList.some((t) => t.id === "theirs"), null, { timeout: 5000 });
+  check("once it's closed the sync finishes", true);
+  await a.ctx.close();
+});
+
+await section("Ask: ticking a repeating to-do moves the series on instead of ending it", async () => {
+  const today = new Date().toLocaleDateString("en-CA");
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "todo-content": [
+        { id: "t-gym", text: "Gym", done: false, due: today, repeat: "weekly" },
+        { id: "t-once", text: "Call mom", done: false, due: today },
+      ],
+    },
+  });
+  const r = await page.evaluate(() => {
+    const did = [askDoAction({ type: "todo_done", id: "t-gym" }), askDoAction({ type: "todo_done", id: "t-once" })];
+    const gym = todoList.find((t) => t.id === "t-gym");
+    return {
+      did,
+      gym: { done: gym.done, later: gym.due > addDaysIso(0) },
+      copy: todoList.filter((t) => t.seriesId === "t-gym").map((t) => t.done),
+      once: todoList.find((t) => t.id === "t-once").done,
+    };
+  });
+  check("both report done", r.did.join() === "true,true", r);
+  check("the series stays open, due next time", !r.gym.done && r.gym.later, r);
+  check("this time's done copy is kept", r.copy.join() === "true", r);
+  check("a plain to-do is just ticked", r.once === true, r);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Notebook: two notes with one title both keep their text", async () => {
+  const { ctx, page } = await openApp({
+    seed: {
+      "jarvis-notes": [
+        { id: "note-a", title: "Car", text: "Oil at 52k.", at: "2026-10-30", by: "you" },
+        { id: "note-b", title: "car", text: "Tires at 60k.", at: "2026-10-31", by: "you" },
+        { id: "note-c", title: "CAR", text: "Oil at 52k.", at: "2026-11-01", by: "you" },
+        { id: "note-d", title: "Car (2)", text: "Already named this.", at: "2026-11-02", by: "you" },
+        { id: "note-e", title: "T".repeat(60), text: "One.", at: "2026-11-02", by: "you" },
+        { id: "note-f", title: "t".repeat(60), text: "Two.", at: "2026-11-02", by: "you" },
+      ],
+    },
+  });
+  const r = await page.evaluate(() => {
+    const first = jarvisNotes.map((n) => [n.id, n.title]);
+    const texts = jarvisNotes.map((n) => n.text);
+    normalizeJarvisBrain();
+    return { first, texts, again: jarvisNotes.map((n) => [n.id, n.title]), max: BRAIN_MAX.noteTitle };
+  });
+  check(
+    "different text under one title survives, under its own name",
+    r.texts.includes("Tires at 60k.") && r.first.some(([id, t]) => id === "note-b" && t === "car (3)"),
+    r.first,
+  );
+  check("the same text under one title is a repeat", !r.first.some(([id]) => id === "note-c"), r.first);
+  check(
+    "an existing name is left alone",
+    r.first.some(([id, t]) => id === "note-d" && t === "Car (2)"),
+    r.first,
+  );
+  const long = r.first.find(([id]) => id === "note-f");
+  check("a long title still fits", long && long[1].length <= r.max && long[1].endsWith(" (2)"), long);
+  check("cleaning again changes nothing", JSON.stringify(r.again) === JSON.stringify(r.first), r.again);
+  await ctx.close();
+});
+
+await section("Budget: + Bills due adds the line to the paycheck", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
+  const shown = await page.evaluate(() => {
+    const key = budgetMonthKey();
+    budget.income.push({ id: "inc-1", name: "Paycheck", amount: 2000, start: key + "-01", repeat: "biweekly" });
+    bills.push({ id: "b-1", name: "Electric", amount: 80.25, due: key + "-03", repeat: "monthly" });
+    saveBudgetData();
+    renderBudget();
+    return document.querySelector('#pay-periods [data-action="plan-hint"]')?.textContent;
+  });
+  await page.evaluate(() => document.querySelector('#pay-periods [data-action="plan-hint"]').click());
+  const r = await page.evaluate(() =>
+    Object.values(budget.plans).flatMap((p) => p.lines.map((l) => [l.name, l.amount])),
+  );
+  check("the button is offered", /Bills due/.test(shown || ""), shown);
+  check(
+    "it adds the line, named as the button said",
+    r.length === 1 && shown.includes(r[0][0]) && r[0][1] === 80.25,
+    r,
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("service worker: a page or file fetched fresh also lands in the cache", async () => {
+  const source = await readFile(path.join(ROOT, "sw.js"), "utf8");
+  const listeners = {};
+  const put = [];
+  const logged = [];
+  const sandbox = {
+    self: {
+      location: { origin: "https://jazz.example" },
+      addEventListener: (type, fn) => (listeners[type] = fn),
+      clients: {},
+      registration: {},
+    },
+    fetch: async () => new Response("fresh copy"),
+    caches: {
+      open: () =>
+        new Promise((done) =>
+          setTimeout(() => done({ put: async (req, res) => put.push([req.url, await res.text()]) }), 5),
+        ),
+      match: async () => undefined,
+    },
+    console: { error: (...a) => logged.push(a.map(String).join(" ")), log() {}, warn() {} },
+    URL,
+    Response,
+  };
+  vm.runInNewContext(source, sandbox);
+  for (const [name, request] of [
+    [
+      "the app page",
+      { url: "https://jazz.example/jazz2.0.html", method: "GET", mode: "navigate", destination: "document" },
+    ],
+    ["a script", { url: "https://jazz.example/js/ask.js", method: "GET", mode: "cors", destination: "script" }],
+  ]) {
+    put.length = logged.length = 0;
+    const waits = [];
+    let page;
+    listeners.fetch({
+      request,
+      waitUntil: (p) => waits.push(p),
+      respondWith: (p) => (page = p.then((r) => r.text())), // the browser reads the body as soon as it has it
+    });
+    check(`${name} reaches the page`, (await page) === "fresh copy");
+    await Promise.all(waits);
+    check(`${name} is cached`, put.length === 1 && put[0][1] === "fresh copy", { put, logged });
+  }
 });
 
 await browser.close();

@@ -64,22 +64,21 @@ function normalizeJarvisBrain() {
     }))
     .filter((m) => !seen.has(m.text.toLowerCase()) && seen.add(m.text.toLowerCase()))
     .slice(0, BRAIN_MAX.memory);
-  const noteSeen = new Set();
-  jarvisNotes = (Array.isArray(jarvisNotes) ? jarvisNotes : [])
-    .filter((n) => isObj(n) && str(n.title, BRAIN_MAX.noteTitle))
-    .map((n) => ({
-      id: safeId(n.id, "note"),
-      title: str(n.title, BRAIN_MAX.noteTitle),
-      text: String(n.text == null ? "" : n.text)
-        .replace(/\r\n?/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim()
-        .slice(0, BRAIN_MAX.noteText),
-      at: day(n.at),
-      by: n.by === "jarvis" ? "jarvis" : "you",
-    }))
-    .filter((n) => !noteSeen.has(n.title.toLowerCase()) && noteSeen.add(n.title.toLowerCase()))
-    .slice(0, BRAIN_MAX.notes);
+  jarvisNotes = brainUniqueTitles(
+    (Array.isArray(jarvisNotes) ? jarvisNotes : [])
+      .filter((n) => isObj(n) && str(n.title, BRAIN_MAX.noteTitle))
+      .map((n) => ({
+        id: safeId(n.id, "note"),
+        title: str(n.title, BRAIN_MAX.noteTitle),
+        text: String(n.text == null ? "" : n.text)
+          .replace(/\r\n?/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim()
+          .slice(0, BRAIN_MAX.noteText),
+        at: day(n.at),
+        by: n.by === "jarvis" ? "jarvis" : "you",
+      })),
+  ).slice(0, BRAIN_MAX.notes);
   jarvisFeedback = (Array.isArray(jarvisFeedback) ? jarvisFeedback : [])
     .filter((f) => isObj(f) && (f.kind === "answer" || f.kind === "briefing") && (f.vote === 1 || f.vote === -1))
     .map((f) => ({
@@ -252,6 +251,32 @@ function brainAddMemory() {
 // ---- the Notebook ----
 // A note with the same title (any case) is the same note: saving again adds to it. Jarvis writes
 // here only through an Ask action ("save that as a note", "add this to my car note"), with Undo.
+// Titles are unique, but two devices can each save a note under the same one and sync then holds both.
+// Only a true repeat (same title, same text) goes; the other keeps its text under "Title (2)".
+function brainUniqueTitles(notes) {
+  const taken = new Set(notes.map((n) => n.title.toLowerCase()));
+  const textsByTitle = new Map();
+  const out = [];
+  notes.forEach((n) => {
+    const key = n.title.toLowerCase();
+    const texts = textsByTitle.get(key);
+    if (!texts) {
+      textsByTitle.set(key, new Set([n.text]));
+      out.push(n);
+      return;
+    }
+    if (texts.has(n.text)) return;
+    texts.add(n.text);
+    let title;
+    for (let i = 2; !title || taken.has(title.toLowerCase()); i++) {
+      const tag = ` (${i})`;
+      title = n.title.slice(0, BRAIN_MAX.noteTitle - tag.length).trimEnd() + tag;
+    }
+    taken.add(title.toLowerCase());
+    out.push({ ...n, title });
+  });
+  return out;
+}
 function brainSaveNote(title, text, by = "you") {
   const t = String(title || "")
     .replace(/\s+/g, " ")

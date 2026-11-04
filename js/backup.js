@@ -139,12 +139,24 @@ function openSyncModal() {
     (v) => {
       askKeySave(v.askToken); // the Ask Jarvis key (ask.js); never shown or synced
       if (!v.token) return; // closing without a token (e.g. after a backup) is fine
-      if (v.askToken && v.token === localStorage.getItem("sync-token")) return; // only the Ask key was touched
-      forgetGist(); // re-resolve under the (possibly new) account
-      localStorage.setItem("sync-token", v.token);
+      // The same token has nothing to reconnect, but saving it after fixing something on GitHub should
+      // try again. It waits a turn: this runs before the dialog closes, and a sync waits for open forms.
+      if (v.token === localStorage.getItem("sync-token")) {
+        setTimeout(() => {
+          pullSync()
+            .then((finished) => {
+              showToast(finished ? "Sync is on" : "Syncing in a moment");
+            })
+            .catch((e) => showToast(syncErrorText(e, "Couldn't connect — check the token"), true));
+        });
+        return;
+      }
       showToast("Connecting…");
-      pullSync()
-        .then(() => showToast("Sync is on"))
+      connectSync(v.token)
+        .then((finished) => {
+          if (finished) showToast("Sync is on");
+          else if (finished === false) showToast("Token saved. Syncing in a moment");
+        })
         .catch((e) => showToast(syncErrorText(e, "Couldn't connect — check the token"), true));
     },
     connected

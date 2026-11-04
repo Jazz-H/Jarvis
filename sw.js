@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v183`;
+const CACHE_NAME = `${CACHE_PREFIX}v184`;
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -109,7 +109,8 @@ self.addEventListener("fetch", (event) => {
         .then(
           (response) => {
             if (!response || !response.ok) return;
-            return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+            const copy = response.clone(); // now: the page reads the response as soon as it has it
+            return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           },
           () => {},
         )
@@ -130,7 +131,8 @@ self.addEventListener("fetch", (event) => {
       .then(
         (response) => {
           if (!response || !response.ok) return;
-          return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+          const copy = response.clone(); // now: the page reads the response as soon as it has it
+          return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         },
         () => {},
       )

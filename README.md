@@ -210,7 +210,12 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   Market · Budget** chip that opens Budget's add sheet filled in (nothing is saved until you
   check it), a bill is checked against Budget, a list can be added. Text inside a file is
   untrusted, so an answer about a file may only add things (to-dos, Shopping, memory), never
-  tick, move or mark bought. The file is deleted from the gist once it's answered.
+  tick, move or mark bought, and never save a note. The file is deleted from the gist once its
+  question is no longer open (answered, refused over budget or cleared). If GitHub fails while Ask is
+  fetching the file, nothing is paid for and the question waits for the next run with its file kept.
+  A question Ask isn't reading
+  (past the newest 20, or of a kind it doesn't know) keeps its file. Any run that gets as far as Ask (a new question, the morning briefing) checks for
+  any left behind, so a failed delete or a cleared question's file goes then, at the latest the next morning.
 - **Under the box:** a small **Jarvis | List** switch, guessed from what you type (a
   question word first or a "?" at the end means Jarvis; several items, or anything else, means
   Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
@@ -301,6 +306,13 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     opens the reason). The same question asked again in a row with the same non-answer shows once,
     marked ×2. An answer to a
     question asked on another device shows as "Asked on another device".
+  - **If `jazz2-answers.json` can't be read,** Ask stops and the workflow fails, because that file
+    holds the month's spending and what's been answered: nothing is charged or re-asked until it's
+    repaired, or deleted (which also resets the month's count). An attempt that times out or crashes
+    has no cost report, so it counts as that agent's usual cost (`costEstimateUsd`).
+  - **Two runs at once** (the morning's and a question's): the first answer saved stays, and what the
+    second spent still counts. A question whose photo is gone because another run finished it isn't
+    answered again without the photo.
   - **Limits** are enforced by the workflow: 1,000 characters a question and $20 a month, however
     many questions that is. Over the month's budget, the answer is "Over the limit" at no model
     cost. A run answers up to 5 questions and $0.40; the rest wait for the next run. The app adds a 10-second wait between questions and
@@ -736,7 +748,9 @@ Setup: `docs/jarvis/SETUP.md`.
     delivered mail (promotions left out). Code trims each email's body (no links, a store's own "Sold
     by" address removed, nothing from the first address or payment label, or anything shaped like a
     street, PO box or "City, ST 12345", on, 800 characters at most) so the model can name what's in the
-    package; the model groups emails into packages; code names the carrier from the senders (shown
+    package. The subject and Gmail's snippet get the same address cuts, but keep their status wording:
+    "delivered to your front door" stays "delivered", and "Payment received" stays, but "payment" followed
+    by anything else, "billing", a card name and "sent to" or the like are cut. The model groups emails into packages; code names the carrier from the senders (shown
     on each package in Home's Deliveries detail) and matches Shopping items. USPS's Daily Digest is
     read by code only (`tools/usps-digest.ts`), and only from a usps.com From address: who each
     package is from, when it's expected, and a tracking number's last 4 digits. A store's own emails
@@ -876,14 +890,14 @@ Everything lives in `localStorage` on the device:
 | `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
 | `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}], debts: [{id, name, balance, apr, payment, log: [{id, date, amount, note}]}] (in your order), cardInfo: {"<account>": {due: 1–31 \| null, st: {"YYYY-MM": statement}}} (accounts that are credit cards)}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}`. `normalizeDebts()` caps debts at 30 and their logs at 120, clamps numbers and drops card info for accounts that don't exist |
-| `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped) |
+| `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped; one weigh-in a day, and if a merge leaves two, every device keeps the same one) |
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
 | `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
 | `jarvis-settings` | `{tone: "brief" \| "normal" \| "detailed", newsTopics: [≤6], about ≤600, speak: "voice" \| "always" \| "never", checkins: [{id, name, prompt ≤300, days: [0–6], time: "HH:MM", on}] ≤8, hiddenPackages: [{item, at}] ≤20 (14 days), hiddenLines: [{text, at}] ≤10 (2 days), location: {lat, lon, at} \| null}`; location is "Use my location" (3 decimals) for the weather; the hidden lists are what you dismissed on Home or asked Jarvis to (the Action leaves hidden packages out of briefings, alerts and Ask) |
 | `data-updated-at` | Last real edit, used for sync |
 | `style-state` | Legacy wardrobe toggles, kept for the wardrobe → wants migration |
-| `sync-token`, `sync-gist-id`, `sync-base` | Sync settings for this device, and each list as of the last sync (never synced) |
+| `sync-token`, `sync-gist-id`, `sync-base`, `sync-base-gist` | Sync settings for this device, each list as of the last sync, and the gist that sync was with (never synced) |
 | `ask-token` | The Ask Jarvis key (a fine-grained GitHub token, `github_pat_…`, Actions read/write on this repo only). This device only: never synced, never in backups, never logged, never put back on the page; only sent as the Authorization header of the workflow dispatch |
 | `ask-token-bad`, `ask-token-expires` | GitHub refused the key on the last send; when GitHub says the key expires (ms). This device only |
 | `ask-questions` | Questions asked on this device (or seen in the gist): `[{id, text, at (ms), thread?, state: "sent" \| "queued" \| "failed" \| "seen", sentAt?}]`, newest first, at most 50. This device only; cleaned by `normalizeAskLocal()` on every read |
@@ -912,8 +926,8 @@ phone's push address) and `jazz2-ask.json` (questions waiting for Jarvis: `{vers
 [{id, kind: "ask" | "sort", text ≤1000, at, thread?, file?}], clearBefore?}`, at most 20), plus
 `jazz2-file-<id>.json` for a question sent with a photo or PDF (`{version: 1, name, mime, data}`,
 base64; written with the question in one PATCH, and the only app file the Ask run deletes, once
-it's answered). Each is re-read right
-before every write and PATCHed on its own, so other files are never touched. On each write, answered questions (any status) are
+the question is no longer open). Each is re-read right
+before every write and PATCHed on its own, so other files are never touched. Ask tries three times to save its answers, since they're already paid for; a saved error gives way to a good answer from another run, and any other saved answer stays. On each write, answered questions (any status) are
 pruned, except those in a thread asked in the last 24 hours (Jarvis reads them for follow-ups);
 at the cap of 20, that thread context goes before pending questions.
 
@@ -935,18 +949,26 @@ Lists still on their built-in defaults have no key until first edited.
 - **Conflicts:** merged per list. Each device remembers every list as of its last sync
   (`sync-base`). Lists this device changed are sent up; lists only the other device changed
   are taken from the gist; if both changed the same list, it's merged item by item (each side's
-  adds and deletes, and the other side's edits to items this side left alone); only when both
-  changed the very same item does the device syncing now win for that item. A failed sync
+  adds and deletes, and the other side's edits to items this side left alone). This goes all the way
+  down, so an expense, weigh-in, payment or plan line added on each device all survive, as do two edits
+  to different fields of one item. A list with no ids (accounts, rules) matches by the whole entry, so
+  an edit there counts as replacing the entry: the same one edited on both devices keeps both versions,
+  and the order may shift. Only
+  when both changed the very same field does the device syncing now win for it. A location goes whole
+  to one side rather than mixing two places; a debt's balance follows its log, so a payment on each
+  device takes both off. A failed sync
   retries when the connection comes back or the app is reopened. The gist is re-read right before every write, and sync waits while an
-  edit form is open (or while you're typing or speaking into a box). A device's very first sync falls back to "newest copy wins".
+  edit form is open (or while you're typing or speaking into a box), including one opened while the gist was being read. A device's very first sync falls back to "newest copy wins".
+- **A new token:** a token pasted in the Sync dialog is checked with GitHub first, so one it refuses changes nothing and the old token keeps working. If the token can see the gist already in use, the device stays on it and merges as usual; the same goes for turning sync off and back on. If it's another gist, the device moves to it when that's clearly the one (two others, or a full page of gists that may hide one, keep the working connection and show an error). A token that sees no data gist at all (the Ask key pasted in the wrong field, another account) changes nothing either; to start a new gist on purpose, turn sync off first. Saving the same token again runs a sync and says how it went, so it's a way to retry after fixing something on GitHub.
+- **A different gist:** each device remembers which gist its base describes (`sync-base-gist`). On a different one there's nothing to tell whose change is whose, so each list merges item by item, both sides' items survive (something deleted on one side may come back), and what both sides have goes to whichever copy was saved last.
 - **When the gist can't be read:** if the data file exists but can't be fetched or isn't valid, the
   sync stops with an error and writes nothing. Only a gist with no data file at all gets filled in.
 - **A replaced gist:** if the saved gist answers 404 (it was rotated, to clear its old versions),
   sync, Ask and push all move to the one other gist holding `jazz2-data.json`, and the next sync
-  merges each list item by item, so both sides' items survive (something deleted on one side may
-  come back). No match, or more than one, keeps the saved id and shows an error; this never makes a
-  new gist, which would leave the device on a different gist from the backend. Connecting in the
-  Sync dialog also refuses to pick between two gists: delete the extra one on GitHub first.
+  merges as for any different gist (above). No match, or more than one, keeps the saved id and shows
+  an error; this never makes a new gist, which would leave the device on a different gist from the
+  backend. A device connecting for the first time also refuses to pick between two gists: delete the
+  extra one on GitHub first.
 - **Ask Jarvis key (optional):** the same dialog has an **Ask Jarvis key** field. It's a
   fine-grained GitHub token for this one repo with only Actions: read and write, so this device
   can start Jarvis right away (answers in about a minute). How to make one is in

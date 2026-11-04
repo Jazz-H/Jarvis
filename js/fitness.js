@@ -25,7 +25,9 @@ function normalizeFitness() {
     weights: (Array.isArray(f.weights) ? f.weights : [])
       .filter((w) => w && iso(w.date) && lbs(w.lbs) != null)
       .map((w) => ({ id: safeId(w.id, "wt"), date: w.date, lbs: lbs(w.lbs) }))
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+      // One weigh-in a day. Each device logging one before they sync leaves two: every device keeps the same one.
+      .filter((w, i, all) => !all[i + 1] || all[i + 1].date !== w.date),
     plan: (Array.isArray(f.plan) ? f.plan : [])
       .filter((w) => w && typeof w === "object")
       .map((w) => ({
@@ -224,6 +226,8 @@ function logWeight(id, date) {
       t.lbs = n;
       t.date = date;
       if (!fitness.weights.includes(t)) fitness.weights.push(t);
+      // an edit moved onto a day that already has one replaces it: what was just typed is what's kept
+      fitness.weights = fitness.weights.filter((w) => w === t || w.date !== date);
       fitness.weights.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
       saveFitness();
       const s = weightStatus();

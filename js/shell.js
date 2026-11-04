@@ -452,8 +452,10 @@ const SHELL_CLICK = {
       plan = budget.plans[k];
     if (plan && plan.lines.some((l) => /bill/i.test(l.name))) return;
     const next = nextPayday(date) || isoDate(new Date(noonOf(monthEndIso(date.slice(0, 7))).getTime() + 864e5));
-    const end = isoDate(new Date(noonOf(next).getTime() - 864e5)),
-      due = r2(sum(billRowsBetween(date, next)));
+    const end = isoDate(new Date(noonOf(next).getTime() - 864e5));
+    const total = billRowsBetween(date, next).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const due = Math.round(total * 100) / 100;
+    const shortDate = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     if (due > 0) quickPlanLine(k, `Bills due ${shortDate(date)}–${shortDate(end)}`, due);
   },
   "plans-copy-prev": () => copyPrevPlans(),

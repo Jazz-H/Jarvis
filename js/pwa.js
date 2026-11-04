@@ -7,8 +7,7 @@ async function refreshData() {
   checkDayChange();
   if (localStorage.getItem("sync-token")) {
     try {
-      await pullSync();
-      showToast("Up to date");
+      showToast((await pullSync()) ? "Up to date" : "Syncing in a moment");
     } catch (e) {
       showToast(syncErrorText(e, "Sync failed — check your connection"), true);
     }
