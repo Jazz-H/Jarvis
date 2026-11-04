@@ -504,9 +504,7 @@ await section("shopping: page name and Moto category", async () => {
   await page.evaluate(() => editWant("pouch"));
   await page.selectOption("#modal-cat", "Moto");
   await page.tap("#modal-backdrop .modal-btn.primary");
-  const h = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("wants-content")).find((w) => w.id === "pouch"),
-  );
+  const h = await page.evaluate(() => JSON.parse(localStorage.getItem("wants-content")).find((w) => w.id === "pouch"));
   check("Moto category saved", h.moto === true && !h.wardrobeCat, h);
   check(
     "Moto tag shown",
