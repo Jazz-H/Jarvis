@@ -12268,7 +12268,7 @@ await section(
     }));
     check(
       "at 320px the switch and the pill keep their text on one line (the pill can drop below)",
-      row.segs.every((x) => x <= 46) && row.pill <= 40 && row.pageW <= 320 && row.pillText === "10 left · $0.18/$20",
+      row.segs.every((x) => x <= 46) && row.pill <= 40 && row.pageW <= 320 && row.pillText === "$0.18/$20",
       row,
     );
     check("no JS errors", a.errors.length === 0, a.errors);
@@ -12828,7 +12828,7 @@ await section(
     check("and its chips", r.chips === 2, r.chips);
     check(
       "over_limit is clearly an over-the-limit answer",
-      r.limitCls && /Over the limit/.test(r.limit) && /over the daily question limit/.test(r.limit),
+      r.limitCls && /Over the limit/.test(r.limit) && /over the month's Ask budget/.test(r.limit),
       r.limit,
     );
     check("error says so, with Ask again", /Jarvis couldn't answer/.test(r.error) && r.again, r.error);
@@ -12843,9 +12843,10 @@ await section(
       r.other,
     );
     check(
-      "today's questions left and this month's spending come from usage",
-      r.usage[0] === "7 left · $1.20/$20" &&
-        r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
+      "this month's spending comes from usage, with no question count",
+      r.usage[0] === "$1.20/$20" &&
+        r.usage[1].startsWith("$1.20 of $20 used this month.") &&
+        !/questions left|a day|a week/.test(r.usage[1]),
       r.usage,
     );
     // chips: nothing until tapped; then one item with its date, and Undo

@@ -136,11 +136,11 @@ describe("Ask fallback in the Sunday review", () => {
           week: "2026-W44",
           weekCount: 10,
           month: "2026-11",
-          monthCostUsd: 0.5,
+          monthCostUsd: 20,
         },
       }),
     });
-    // a day already at its 10 questions: same limits apply in the fallback
+    // a month already at its budget: same limit applies in the fallback
     const fq = fakeQuery([{ structured_output: REVIEW_OUT }, { structured_output: ASK_OUT }]);
     const r = await runReview({
       now: NOW,
@@ -156,7 +156,10 @@ describe("Ask fallback in the Sunday review", () => {
     expect(fq.seen).toHaveLength(1);
     expect(answers(g.files).answers[0]).toMatchObject({ id: "ask-0001", status: "over_limit" });
 
-    // a new day: answered, effort medium, with the review it just wrote
+    // with budget left: answered, effort medium, with the review it just wrote
+    const kept = JSON.parse(g.files["jazz2-answers.json"]);
+    kept.usage.monthCostUsd = 0;
+    g.files["jazz2-answers.json"] = JSON.stringify(kept);
     g.files["jazz2-ask.json"] = askFile([q("ask-0002", "How did my week go?", "2026-11-02T20:00:00.000Z")]);
     const fq2 = fakeQuery([{ structured_output: REVIEW_OUT }, { structured_output: ASK_OUT }]);
     const monday = new Date("2026-11-02T21:00:00Z");

@@ -1,4 +1,4 @@
-// Google News RSS (no key). Plain code: fetch, parse, drop old/blocked/duplicate stories.
+// Google News RSS (no key). Plain code: fetch, parse, drop old/blocked/paywalled/duplicate stories.
 // Headline text is untrusted data: it is only ever passed to a model inside a data block.
 import { XMLParser } from "fast-xml-parser";
 import { NewsCandidate } from "../schemas/news.ts";
@@ -15,7 +15,23 @@ export function splitTitle(raw: string, source: string): string {
   return source && t.endsWith(suffix) ? t.slice(0, -suffix.length).trim() : t;
 }
 
-export function parseFeed(xml: string, topic: string): Omit<NewsCandidate, "id">[] {
+// Is this source on the paywalled list? By the feed's site address, else by the name it gives:
+// the whole name, without a leading "The", so "Wired" doesn't match "Hardwired Daily".
+export function isPaywalled(source: string, sourceUrl: string, paywalled: string[][]): boolean {
+  let host = "";
+  try {
+    host = new URL(sourceUrl).hostname.toLowerCase();
+  } catch {
+    // no usable address: the name decides
+  }
+  const name = source
+    .toLowerCase()
+    .trim()
+    .replace(/^the\s+/, "");
+  return paywalled.some(([site, ...names]) => host === site || host.endsWith("." + site) || names.includes(name));
+}
+
+export function parseFeed(xml: string, topic: string, paywalled: string[][] = []): Omit<NewsCandidate, "id">[] {
   const doc = parser.parse(xml);
   let items = doc?.rss?.channel?.item ?? [];
   if (!Array.isArray(items)) items = [items];
@@ -24,6 +40,7 @@ export function parseFeed(xml: string, topic: string): Omit<NewsCandidate, "id">
     const source = text(it?.source).trim() || "Google News";
     const title = splitTitle(text(it?.title), source);
     const link = text(it?.link).trim();
+    if (isPaywalled(source, String(it?.source?.["@_url"] ?? ""), paywalled)) continue;
     const published = new Date(text(it?.pubDate));
     if (!title || !/^https?:\/\//.test(link) || Number.isNaN(published.getTime())) continue;
     out.push({
@@ -48,6 +65,7 @@ export const titleKey = (t: string) =>
 export interface NewsQuery {
   topics: Record<string, string>; // topic -> RSS URL
   blockedKeywords: string[];
+  paywalled?: string[][];
   perTopic: number;
   maxAgeHours: number;
   now?: Date;
@@ -67,7 +85,7 @@ export async function fetchNews(q: NewsQuery, fetchImpl: typeof fetch = fetch): 
       try {
         const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return { topic, items: parseFeed(await res.text(), topic) };
+        return { topic, items: parseFeed(await res.text(), topic, q.paywalled) };
       } catch {
         return { topic, items: null };
       }

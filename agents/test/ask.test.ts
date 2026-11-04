@@ -298,48 +298,23 @@ describe("Ask limits", () => {
     return { g, fq, sent, run };
   };
 
-  it("10 a day: the 11th is over_limit with a clear message, no model call, and a notification", async () => {
-    const { g, fq, sent, run } = withUsage({ dayCount: 9, weekCount: 9 }, 3);
+  it("question counts and daily spending never stop a question", async () => {
+    const { fq, run } = withUsage({ dayCount: 50, dayCostUsd: 6, weekCount: 300, monthCostUsd: 3 });
     const r = await done(run);
     expect(fq.seen).toHaveLength(1);
-    expect(r.answered.map((a) => a.status)).toEqual(["ok", "over_limit", "over_limit"]);
-    expect(r.answered[1]).toMatchObject({
-      text: "You've reached today's 10 questions. Ask again tomorrow.",
-      by: "fallback",
-      bullets: [],
-      sources: [],
-      chips: [],
-    });
-    expect(stored(g).usage).toMatchObject({ dayCount: 10, weekCount: 10 });
-    expect(JSON.parse(sent[0])).toMatchObject({ title: "Jarvis answered 3 questions", tag: "ask" });
+    expect(r.answered[0].status).toBe("ok");
+  });
 
-    // a run with only over-limit answers still notifies, with the limit message
-    const only = withUsage({ dayCount: 10, weekCount: 10 });
-    const r2 = await done(only.run);
+  it("a run with only over-limit answers still notifies, with the limit message, at no cost", async () => {
+    const only = withUsage({ monthCostUsd: 20 });
+    const r = await done(only.run);
     expect(only.fq.seen).toHaveLength(0);
-    expect(r2.answered[0].status).toBe("over_limit");
+    expect(r.answered[0]).toMatchObject({ status: "over_limit", by: "fallback", bullets: [], sources: [], chips: [] });
     expect(JSON.parse(only.sent[0])).toMatchObject({
       title: "Jarvis answered",
-      body: "You've reached today's 10 questions. Ask again tomorrow.",
+      body: r.answered[0].text,
     });
-    expect(stored(only.g).usage).toMatchObject({ dayCount: 10, dayCostUsd: 0 }); // costs nothing
-  });
-
-  it("$1.00 a day", async () => {
-    const { fq, run } = withUsage({ dayCount: 3, dayCostUsd: 0.95, monthCostUsd: 3 });
-    const r = await done(run);
-    expect(fq.seen).toHaveLength(0);
-    expect(r.answered[0]).toMatchObject({
-      status: "over_limit",
-      text: "You've reached today's Ask budget. Ask again tomorrow.",
-    });
-  });
-
-  it("40 a week", async () => {
-    const { fq, run } = withUsage({ dayCount: 2, weekCount: 40 });
-    const r = await done(run);
-    expect(fq.seen).toHaveLength(0);
-    expect(r.answered[0].text).toBe("You've reached this week's 40 questions. Ask again on Monday.");
+    expect(stored(only.g).usage).toMatchObject({ dayCostUsd: 0, monthCostUsd: 20 }); // costs nothing
   });
 
   it("$20.00 a month", async () => {
@@ -349,8 +324,8 @@ describe("Ask limits", () => {
     expect(r.answered[0].text).toBe("You've reached this month's Ask budget. Ask again on November 1.");
   });
 
-  it("the run's model budget never passes what's left of the day or month", async () => {
-    const { fq, run } = withUsage({ dayCostUsd: 0.85 });
+  it("the run's model budget never passes what's left of the month", async () => {
+    const { fq, run } = withUsage({ monthCostUsd: 19.85 });
     await run;
     expect(fq.seen[0].options!.maxBudgetUsd).toBeCloseTo(0.15, 6);
   });
@@ -390,24 +365,23 @@ describe("Ask limits", () => {
       week: "2026-W44",
       weekCount: 40,
       month: "2026-10",
-      monthCostUsd: 7.99,
+      monthCostUsd: 20,
     };
-    // still Oct 31 in New York (UTC is already Nov 1): every limit is still reached
+    // still Oct 31 in New York (UTC is already Nov 1): October's budget is still used up
     const before = withUsage(full, 1, new Date("2026-11-01T03:30:00Z"));
     expect((await done(before.run)).answered[0].status).toBe("over_limit");
     expect(before.fq.seen).toHaveLength(0);
-    // Sunday Nov 1 (EST): new day and month, same ISO week, so the weekly count still applies
+    // Sunday Nov 1 (EST): a new month has its whole budget back; the week's count carries on but stops nothing
     const sunday = withUsage(full, 1, new Date("2026-11-02T04:30:00Z"));
-    expect((await done(sunday.run)).answered[0].text).toBe(
-      "You've reached this week's 40 questions. Ask again on Monday.",
-    );
+    expect((await done(sunday.run)).answered[0].status).toBe("ok");
     expect(stored(sunday.g).usage).toEqual({
       ...full,
       day: "2026-11-01",
-      dayCount: 0,
-      dayCostUsd: 0,
+      dayCount: 1,
+      dayCostUsd: 0.001,
+      weekCount: 41,
       month: "2026-11",
-      monthCostUsd: 0,
+      monthCostUsd: 0.001,
     });
     // Monday Nov 2: everything has reset
     const monday = withUsage(full, 1, new Date("2026-11-02T05:30:00Z"));
@@ -423,9 +397,9 @@ describe("Ask limits", () => {
     });
   });
 
-  it("overLimit picks the longest wait first; rollUsage and env overrides", () => {
+  it("overLimit only looks at the month's budget; rollUsage and env overrides", () => {
     expect(overLimit(usage({ dayCount: 10, weekCount: 40, monthCostUsd: 20 }), LIMITS)).toMatch(/this month's/);
-    expect(overLimit(usage({ dayCount: 10, weekCount: 40 }), LIMITS)).toMatch(/this week's/);
+    expect(overLimit(usage({ dayCount: 99, dayCostUsd: 9, weekCount: 999 }), LIMITS)).toBeNull();
     expect(overLimit(usage({ month: "2026-12", monthCostUsd: 20 }), LIMITS)).toMatch(/January 1/);
     expect(overLimit(usage({ dayCount: 9, dayCostUsd: 0.9 }), LIMITS)).toBeNull();
     expect(rollUsage(null, usagePeriods(NOW))).toEqual(usage());
@@ -434,14 +408,11 @@ describe("Ask limits", () => {
       maxPerRun: 5,
       maxRunCostUsd: 0.4,
       maxQuestionCostUsd: 0.2,
-      perDay: 10,
-      dailyBudgetUsd: 1,
-      perWeek: 40,
       monthlyBudgetUsd: 20,
       estimateUsd: 0.1,
     });
-    const env = askLimits({ MAX_ASK_COST_USD: "0.25", ASK_DAILY_BUDGET_USD: "abc", ASK_MONTHLY_BUDGET_USD: "500" });
-    expect(env).toMatchObject({ maxRunCostUsd: 0.25, dailyBudgetUsd: 1, monthlyBudgetUsd: 40 }); // capped at the ceiling
+    const env = askLimits({ MAX_ASK_COST_USD: "0.25", ASK_MONTHLY_BUDGET_USD: "500" });
+    expect(env).toMatchObject({ maxRunCostUsd: 0.25, monthlyBudgetUsd: 40 }); // capped at the ceiling
     expect(askLimits({ MAX_ASK_COST_USD: "-1" }).maxRunCostUsd).toBe(0.4);
   });
 });

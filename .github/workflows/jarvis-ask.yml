@@ -112,7 +112,6 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
-          ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
           ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}
       # Timings, outcomes, ids and cost only (agents/out/ask-trace.json, ask-cost.json)
       - uses: actions/upload-artifact@v4

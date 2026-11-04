@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { fetchNews, parseFeed, splitTitle, titleKey } from "../tools/google-news.ts";
+import { isPaywalled, fetchNews, parseFeed, splitTitle, titleKey } from "../tools/google-news.ts";
+import { CONFIG } from "../config.ts";
 import { fakeFetch, text } from "./helpers.ts";
 
 const NOW = new Date("2026-10-29T11:00:00Z");
@@ -35,6 +36,45 @@ const TRENDING = feed(
 );
 
 describe("google news tool", () => {
+  it("knows a paywalled site by its address or its whole name, and leaves others alone", () => {
+    const list = [
+      ["washingtonpost.com", "washington post"],
+      ["wired.com", "wired"],
+    ];
+    expect(isPaywalled("Anything", "https://www.washingtonpost.com", list)).toBe(true);
+    expect(isPaywalled("The Washington Post", "", list)).toBe(true);
+    expect(isPaywalled("WIRED", "not a url", list)).toBe(true);
+    expect(isPaywalled("Hardwired Daily", "https://hardwired.example", list)).toBe(false);
+    expect(isPaywalled("Fake", "https://notwired.com", list)).toBe(false);
+    expect(isPaywalled("The Verge", "https://www.theverge.com", [])).toBe(false);
+  });
+
+  it("drops paywalled sites before counting, so other outlets fill the topic's spots", async () => {
+    const pub = "Thu, 29 Oct 2026 09:00:00 GMT";
+    const xml =
+      "<rss><channel>" +
+      "<item><title>Walled story</title><link>https://news.google.com/1</link><pubDate>" +
+      pub +
+      '</pubDate><source url="https://www.washingtonpost.com">The Washington Post</source></item>' +
+      "<item><title>Open story</title><link>https://news.google.com/2</link><pubDate>" +
+      pub +
+      '</pubDate><source url="https://apnews.com">AP News</source></item>' +
+      "</channel></rss>";
+    const impl = (async () => new Response(xml)) as unknown as typeof fetch;
+    const r = await fetchNews(
+      {
+        topics: { ai: "https://x.example/rss" },
+        blockedKeywords: [],
+        paywalled: CONFIG.news.paywalled,
+        perTopic: 1,
+        maxAgeHours: 36,
+        now: new Date("2026-10-29T10:00:00Z"),
+      },
+      impl,
+    );
+    expect(r.candidates.map((c) => c.source)).toEqual(["AP News"]);
+  });
+
   it("strips the source suffix from titles", () => {
     expect(splitTitle("Big news - The Verge", "The Verge")).toBe("Big news");
     expect(splitTitle("Big - news", "CNN")).toBe("Big - news");

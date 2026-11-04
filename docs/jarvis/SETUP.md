@@ -146,11 +146,11 @@ your gist, or your code, and it can't push anything. A run with no question wait
    each device you ask from. Don't paste it anywhere else (not in chat, not in a note).
 
 **Limits** (enforced by the Action, so they hold whatever the app does): 1,000 characters a
-question, 5 questions and $0.40 per run, 10 questions and $1 a day, 40 a week, and $20 a month.
-Over a limit, Jarvis answers "over the limit" at no cost. Typical use is about $1 a week. To change
-a dollar cap, add a repository **variable** (Settings → Secrets and variables → Actions →
-Variables): `ASK_MONTHLY_BUDGET_USD` (default 8, max 40), `ASK_DAILY_BUDGET_USD` (default 1, max 5)
-or `MAX_ASK_COST_USD` per run (default 0.40, max 2). A question that doesn't fit a run's cap stays
+question and $20 a month, however many questions that is. Over the month's budget, Jarvis answers
+"over the limit" at no cost. Each run answers up to 5 questions and $0.40; the rest wait for the next
+run. Typical use is about $1 a week. To change a dollar cap, add a repository **variable** (Settings →
+Secrets and variables → Actions → Variables): `ASK_MONTHLY_BUDGET_USD` (default 20, max 40) or
+`MAX_ASK_COST_USD` per run (default 0.40, max 2). A question that doesn't fit a run's cap stays
 queued for the next run.
 
 **If Ask says the key isn't working:** it expired or was deleted. Make a new one (steps 1–5) and

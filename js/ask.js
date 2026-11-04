@@ -11,7 +11,7 @@
 // run. The Action writes jazz2-answers.json (read-only here, untrusted: normalizeAnswers() caps
 // everything and it's all rendered escaped) and sends a push (tag "ask") that opens
 // ./jazz2.0.html?tab=console&ask=<id>. Limits are enforced by the workflow; the app only adds a
-// cooldown, one send at a time, and shows what's left today.
+// cooldown, one send at a time, and shows this month's spending.
 const ASK_FILE = "jazz2-ask.json";
 const ANSWERS_FILE = "jazz2-answers.json";
 const ASK_TOKEN_KEY = "ask-token"; // this device only: never synced, backed up, logged or shown
@@ -27,7 +27,6 @@ const ASK_TOKEN_SHAPE = /^github_pat_[A-Za-z0-9_]{20,250}$/;
 const ASK_TEXT_MAX = 1000;
 const ASK_FILE_MAX = 20;
 const ASK_HISTORY_MAX = 50;
-const ASK_DAY_LIMIT = 10;
 const ASK_MONTH_BUDGET = 20; // ASK_MONTHLY_BUDGET_USD's default (dollars)
 const ASK_EXPIRY_WARN_MS = 14 * 864e5;
 // Timings (tests shorten these)
@@ -866,12 +865,6 @@ function loadAskEntries() {
   });
   return out.sort((a, b) => b.at - a.at).slice(0, ASK_HISTORY_MAX);
 }
-function askUsageLeft() {
-  const u = loadAnswers().usage;
-  if (!u || !u.day) return null;
-  if (u.day !== isoDate(new Date())) return u.day < isoDate(new Date()) ? ASK_DAY_LIMIT : null;
-  return Math.max(0, ASK_DAY_LIMIT - u.dayCount);
-}
 // This month's Ask spending, from the backend's usage counts (0 once a new month starts)
 function askMonthSpent() {
   const u = loadAnswers().usage;
@@ -883,28 +876,17 @@ function askMonthSpent() {
       : null;
 }
 function askUsageText() {
-  const left = askUsageLeft(),
-    spent = askMonthSpent();
-  return [
-    left == null ? "" : `${left} of ${ASK_DAY_LIMIT} questions left today`,
-    spent == null ? "" : `$${spent.toFixed(2)} of $${ASK_MONTH_BUDGET} used this month`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const spent = askMonthSpent();
+  return spent == null ? "" : `$${spent.toFixed(2)} of $${ASK_MONTH_BUDGET} used this month`;
 }
-// The usage chip at the top of Console ("10 left · $0.18") and the limits it opens
+// The usage chip at the top of Console ("$0.18/$20") and the limit it opens
 function askUsageShort() {
-  const left = askUsageLeft(),
-    spent = askMonthSpent();
-  const parts = [
-    left == null ? "" : `${left} left`,
-    spent == null ? "" : `$${spent.toFixed(2)}/$${ASK_MONTH_BUDGET}`,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : "Limits";
+  const spent = askMonthSpent();
+  return spent == null ? "Limits" : `$${spent.toFixed(2)}/$${ASK_MONTH_BUDGET}`;
 }
 function askUsagePopHtml() {
   const t = askUsageText();
-  return `${t ? `<p>${escapeHtml(t)}.</p>` : ""}<p>Limits: ${ASK_DAY_LIMIT} questions a day, 40 a week, $${ASK_MONTH_BUDGET} a month. A sort counts as a question; web answers cost a little more.</p>`;
+  return `${t ? `<p>${escapeHtml(t)}.</p>` : ""}<p>Limit: $${ASK_MONTH_BUDGET} a month, however many questions that is. Web answers cost a little more.</p>`;
 }
 function askNextRunText(now = new Date()) {
   return `Queued — Jarvis will answer on the next run (${now.getHours() < 7 ? "today" : "tomorrow"} ~7am)`;
@@ -926,7 +908,7 @@ function askStatusHtml(q) {
   return `<span class="cn-status"><span class="cn-dot" aria-hidden="true"></span>${escapeHtml(askNextRunText())}</span>`;
 }
 const ASK_FLAGS = {
-  over_limit: ["Over the limit", "This was over the daily question limit, so Jarvis didn't answer it."],
+  over_limit: ["Over the limit", "This was over the month's Ask budget, so Jarvis didn't answer it."],
   error: ["Jarvis couldn't answer", "Something went wrong on Jarvis's side. Try asking again."],
   declined: ["Jarvis didn't answer this", "This one is outside what Jarvis can answer from your data."],
 };
@@ -941,7 +923,7 @@ function askAnswerHtml(q) {
     return `<details class="ak-flag-line ak-${a.status}">
         <summary><span class="cn-dot" aria-hidden="true"></span><span class="ak-flag-what">${title}</span><span class="ak-why">Why</span>${isFinite(answered) ? `<time class="ak-meta">${escapeHtml(askTime(answered))}</time>` : ""}</summary>
         <p class="ak-text">${escapeHtml(a.text || plain)}</p>
-        ${a.status === "over_limit" ? '<p class="ak-meta">Limits: 10 questions a day, 40 a week.</p>' : ""}
+        ${a.status === "over_limit" ? `<p class="ak-meta">Limit: $${ASK_MONTH_BUDGET} a month.</p>` : ""}
       </details>`;
   }
   if (a.status !== "ok") {
@@ -953,7 +935,7 @@ function askAnswerHtml(q) {
     return `<div class="ak-ans ak-flagged ak-${a.status}">
         <b class="ak-flag">${title}</b>
         <p class="ak-text">${escapeHtml(a.text || plain)}</p>
-        ${a.status === "over_limit" ? '<p class="ak-meta">Limits: 10 questions a day, 40 a week.</p>' : ""}
+        ${a.status === "over_limit" ? `<p class="ak-meta">Limit: $${ASK_MONTH_BUDGET} a month.</p>` : ""}
         ${again || when ? `<div class="ak-foot">${again}${when ? `<span class="ak-meta">${escapeHtml(when)}</span>` : ""}</div>` : ""}
       </div>`;
   }
@@ -1047,7 +1029,6 @@ function askHint() {
   if (askGet(ASK_TOKEN_BAD_KEY) && askToken()) return ASK_KEY_BROKEN + ". Questions wait for the next run.";
   if (!askToken())
     return "Questions wait for Jarvis's next run (~7am). Add an Ask Jarvis key in Sync for answers in about a minute.";
-  if (askUsageLeft() === 0) return "You've used today's 10 questions. Ask again tomorrow.";
   return "";
 }
 function askNoteHtml(mode) {

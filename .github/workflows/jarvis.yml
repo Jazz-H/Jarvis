@@ -70,7 +70,6 @@ jobs:
           MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}
           # Ask fallback: queued questions are answered after the main work, under the Ask limits
           MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
-          ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
           ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}
       - uses: actions/upload-artifact@v4
         if: always()
@@ -110,7 +109,6 @@ jobs:
           MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}
           # Ask fallback: queued questions are answered after the main work, under the Ask limits
           MAX_ASK_COST_USD: ${{ vars.MAX_ASK_COST_USD }}
-          ASK_DAILY_BUDGET_USD: ${{ vars.ASK_DAILY_BUDGET_USD }}
           ASK_MONTHLY_BUDGET_USD: ${{ vars.ASK_MONTHLY_BUDGET_USD }}
       - uses: actions/upload-artifact@v4
         if: always()

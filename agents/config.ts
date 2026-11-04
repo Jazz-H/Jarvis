@@ -34,6 +34,29 @@ export const CONFIG = {
       trending: "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",
     } as Record<string, string>,
     blockedKeywords: [] as string[],
+    // Sites that usually stop at a subscribe wall: left out before stories are picked, so another
+    // outlet's story takes the place. Each is the site's domain, then the names Google News gives it.
+    paywalled: [
+      ["washingtonpost.com", "washington post"],
+      ["nytimes.com", "new york times", "nyt"],
+      ["wsj.com", "wall street journal", "wsj"],
+      ["bloomberg.com", "bloomberg"],
+      ["ft.com", "financial times"],
+      ["economist.com", "economist"],
+      ["barrons.com", "barron's"],
+      ["theinformation.com", "information"],
+      ["theatlantic.com", "atlantic"],
+      ["newyorker.com", "new yorker"],
+      ["wired.com", "wired"],
+      ["businessinsider.com", "business insider"],
+      ["fortune.com", "fortune"],
+      ["technologyreview.com", "mit technology review"],
+      ["latimes.com", "los angeles times", "la times"],
+      ["bostonglobe.com", "boston globe"],
+      ["newsobserver.com", "news & observer"],
+      ["seekingalpha.com", "seeking alpha"],
+      ["theathletic.com", "athletic"],
+    ] as string[][],
     perTopic: 12, // candidates kept per feed before the model ranks them
     maxAgeHours: 36,
   },
@@ -78,20 +101,17 @@ export const CONFIG = {
   },
   defaultMaxRunCostUsd: 0.5,
   // Ask Jarvis (ask.ts). Every limit is enforced here in the backend, not just in the app.
-  // Days, ISO weeks and months are America/New_York. Anything over a limit is answered
-  // "over_limit" at no model cost. The three dollar limits can be lowered or raised with the
-  // MAX_ASK_COST_USD, ASK_DAILY_BUDGET_USD and ASK_MONTHLY_BUDGET_USD variables, but never above
-  // the hard ceilings below.
+  // Months are America/New_York. The monthly budget is the only thing that stops a question: over
+  // it, the answer is "over_limit" at no model cost. A run's caps only pace the work (what doesn't
+  // fit waits for the next run). The dollar limits can be lowered or raised with the
+  // MAX_ASK_COST_USD and ASK_MONTHLY_BUDGET_USD variables, but never above the hard ceilings below.
   ask: {
     maxQuestionChars: 1000, // longer questions are cut
     maxPerRun: 5, // questions answered by the model in one run; the rest wait for the next run
     maxRunCostUsd: 0.4, // MAX_ASK_COST_USD
     maxQuestionCostUsd: 0.2, // one question (including its one retry) can't spend more than this
-    perDay: 10,
-    dailyBudgetUsd: 1.0, // ASK_DAILY_BUDGET_USD
-    perWeek: 40,
     monthlyBudgetUsd: 20.0, // ASK_MONTHLY_BUDGET_USD (raised from $8, Oct 31)
-    ceilings: { runUsd: 2, dayUsd: 5, monthUsd: 40 }, // overrides are clamped to these
+    ceilings: { runUsd: 2, monthUsd: 40 }, // overrides are clamped to these
     pendingKept: 20, // items read from jazz2-ask.json
     answersKept: 50,
     sortMaxItems: 12, // chips from one Sort with Jarvis

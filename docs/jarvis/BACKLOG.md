@@ -15,16 +15,15 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Top up Claude API credit** (you) when it runs low: briefing, review and Ask stop without it.
 
 ## Build
-- [ ] **Ask: drop the question limits** (Nov 3): remove the 10-a-day and 40-a-week question caps
-  and only track credits spent, up to the $20 monthly limit.
-- [ ] **Free-to-read news** (Nov 3): articles the app pulls in should open without a paywall (a
-  Washington Post link hit a subscribe wall). Likely a skip list of paywalled sites in the News
-  tool, in code, picking another outlet's copy of the story when there is one.
 - [ ] **HUD**: a small glance view for a desktop corner (next event, Top 3, safe to spend, latest alert).
 - [ ] **Run the Ask test set** (you: Actions → Jarvis Eval, about $0.30) to check the per-question
   models against the Oct 31 baseline (12/12).
 
 ## Done
+- [x] **Ask: credits only** (Nov 3): no question counts or daily budget; the $20 a month is the only
+  limit that stops a question, and the Console pill shows spending only.
+- [x] **Free-to-read news** (Nov 3): a list of usually paywalled sites (`config.ts` `news.paywalled`) is
+  left out before stories are picked, so other outlets fill the spots.
 - [x] **Weather like a phone weather app** (Nov 1): hero with a sky glow, hourly strip with a temperature line, day and night icons, tiles, sunrise/sunset and NWS alerts (live on the phone with a saved location).
 - [x] **Weather for 90 days at your location** (Nov 1): 16-day forecast plus ECMWF's long-range
   outlook on Home and for Ask; "Use my location" from the phone; 12-hour Eastern times in answers.

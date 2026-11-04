@@ -1,4 +1,4 @@
-// News sub-agent: code fetches Google News and removes old, blocked and duplicate stories;
+// News sub-agent: code fetches Google News and removes old, blocked, paywalled and duplicate stories;
 // the model picks and ranks 5–8 and writes a short summary of each. Links always come from code.
 import { CONFIG } from "../config.ts";
 import { NewsCard, NewsPicks, type NewsCandidate } from "../schemas/news.ts";

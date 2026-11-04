@@ -9,11 +9,9 @@
 //   per run       5 questions answered by the model, MAX_ASK_COST_USD ($0.40) through the
 //                 CostLedger. A question that doesn't fit stays pending for the next run (the
 //                 next dispatch, or the morning/Sunday run), so nothing has to be asked again.
-//   per day       10 questions and ASK_DAILY_BUDGET_USD ($1.00)
-//   per ISO week  40 questions
-//   per month     ASK_MONTHLY_BUDGET_USD ($20.00)
-//   (America/New_York days, weeks and months.) Over any of these, the question is answered
-//   "over_limit" with a short message and costs nothing.
+//   per month     ASK_MONTHLY_BUDGET_USD ($20.00, America/New_York months): the only limit that
+//                 stops a question. Over it, the answer is "over_limit" with a short message and
+//                 costs nothing. Questions aren't limited by count.
 //
 // The repo and its Actions logs are public: the trace and stdout hold ids, counts, timings,
 // outcomes and cost only, never question or answer text.
@@ -147,9 +145,6 @@ export interface AskLimits {
   maxPerRun: number;
   maxRunCostUsd: number;
   maxQuestionCostUsd: number;
-  perDay: number;
-  dailyBudgetUsd: number;
-  perWeek: number;
   monthlyBudgetUsd: number;
   estimateUsd: number; // reserved per question before it runs
 }
@@ -166,9 +161,6 @@ export function askLimits(env: NodeJS.ProcessEnv = process.env): AskLimits {
     maxPerRun: a.maxPerRun,
     maxRunCostUsd: usd(env.MAX_ASK_COST_USD, a.maxRunCostUsd, a.ceilings.runUsd),
     maxQuestionCostUsd: a.maxQuestionCostUsd,
-    perDay: a.perDay,
-    dailyBudgetUsd: usd(env.ASK_DAILY_BUDGET_USD, a.dailyBudgetUsd, a.ceilings.dayUsd),
-    perWeek: a.perWeek,
     monthlyBudgetUsd: usd(env.ASK_MONTHLY_BUDGET_USD, a.monthlyBudgetUsd, a.ceilings.monthUsd),
     estimateUsd: CONFIG.costEstimateUsd.ask,
   };
@@ -299,17 +291,10 @@ const MONTHS = [
   "December",
 ];
 
-// The message for the first limit reached (the one with the longest wait first), or null
+// The message when this month's budget can't cover another question, or null
 export function overLimit(u: AskUsage, l: AskLimits): string | null {
-  if (u.monthCostUsd + l.estimateUsd > l.monthlyBudgetUsd + 1e-9) {
-    const next = MONTHS[Number(u.month.slice(5, 7)) % 12];
-    return `You've reached this month's Ask budget. Ask again on ${next} 1.`;
-  }
-  if (u.weekCount >= l.perWeek) return `You've reached this week's ${l.perWeek} questions. Ask again on Monday.`;
-  if (u.dayCount >= l.perDay) return `You've reached today's ${l.perDay} questions. Ask again tomorrow.`;
-  if (u.dayCostUsd + l.estimateUsd > l.dailyBudgetUsd + 1e-9)
-    return "You've reached today's Ask budget. Ask again tomorrow.";
-  return null;
+  if (u.monthCostUsd + l.estimateUsd <= l.monthlyBudgetUsd + 1e-9) return null;
+  return `You've reached this month's Ask budget. Ask again on ${MONTHS[Number(u.month.slice(5, 7)) % 12]} 1.`;
 }
 
 // ---- the model call ----
@@ -679,11 +664,7 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
 
   const start = stored.usage;
   const usage: AskUsage = { ...start };
-  const runCap = Math.min(
-    limits.maxRunCostUsd,
-    limits.dailyBudgetUsd - usage.dayCostUsd,
-    limits.monthlyBudgetUsd - usage.monthCostUsd,
-  );
+  const runCap = Math.min(limits.maxRunCostUsd, limits.monthlyBudgetUsd - usage.monthCostUsd);
   const ledger = runCap > 0 ? new CostLedger(runCap) : null;
   const byId = new Map(stored.answers.map((a) => [a.id, a]));
   const answered: Answer[] = [];

@@ -214,9 +214,8 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 - **Under the box:** a small **Jarvis | List** switch, guessed from what you type (a
   question word first or a "?" at the end means Jarvis; several items, or anything else, means
   Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
-  box is cleared. Next to it (or under it, with big text), the usage pill, "7 left · $0.18/$20" (questions left today and
-  this month's Ask spending against the cap, once Jarvis has reported its counts). Tap it for the
-  full line and the limits.
+  box is cleared. Next to it (or under it, with big text), the usage pill, "$0.18/$20" (this month's Ask spending against
+  the cap, once Jarvis has reported it). Tap it for the full line and the limit.
 - **Voice input:** the mic (where the browser has the Web Speech API; otherwise it's hidden and
   the keyboard's own dictation still works). Tap it and speak: the words stream into the box,
   listening stops on a pause or a second tap, and the Ask / Capture guess runs on what you said.
@@ -302,9 +301,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     opens the reason). The same question asked again in a row with the same non-answer shows once,
     marked ×2. An answer to a
     question asked on another device shows as "Asked on another device".
-  - **Limits** are enforced by the workflow: 1,000 characters a question; 10 questions and $1 a
-    day; 40 a week; $20 a month; 5 questions and $0.40 a run. Over a limit, the answer is
-    "Over the limit" at no model cost. The app adds a 10-second wait between questions and
+  - **Limits** are enforced by the workflow: 1,000 characters a question and $20 a month, however
+    many questions that is. Over the month's budget, the answer is "Over the limit" at no model
+    cost. A run answers up to 5 questions and $0.40; the rest wait for the next run. The app adds a 10-second wait between questions and
     sends one at a time.
   - **One conversation:** there's no separate History. The conversation shows today and
     yesterday; **Earlier · N more ›** at the end loads the rest of the last 50 in place, and
