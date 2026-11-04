@@ -215,8 +215,17 @@ async function syncNow() {
   syncBusy = true;
   setSyncStatus("busy");
   try {
-    const gistId = localStorage.getItem("sync-gist-id") || (await findOrCreateGist());
-    const remote = await fetchRemote(gistId);
+    let gistId = localStorage.getItem("sync-gist-id") || (await findOrCreateGist());
+    let remote;
+    try {
+      remote = await fetchRemote(gistId);
+    } catch (e) {
+      // the gist was replaced (a rotation, to clear its old versions): find the new one by its files
+      if (!String(e.message).startsWith("GitHub API 404 ")) throw e;
+      localStorage.removeItem("sync-gist-id");
+      gistId = await findOrCreateGist();
+      remote = await fetchRemote(gistId);
+    }
     const local = localSnapshot();
     const remoteStr = {};
     if (remote)

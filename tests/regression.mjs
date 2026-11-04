@@ -15673,6 +15673,42 @@ await section("security: the Content Security Policy holds, and the Sync dialog 
   await s.ctx.close();
 });
 
+await section("sync: a replaced gist is found again; other errors keep the saved id", async () => {
+  const data = JSON.stringify({ updatedAt: 1, data: {} });
+  const open = async (status) => {
+    const calls = [];
+    const a = await openApp({
+      seed: { "sync-token": "test", "sync-gist-id": "oldgist" },
+      route: (r) => {
+        const u = new URL(r.request().url());
+        calls.push(r.request().method() + " " + u.pathname);
+        const json = (b, s = 200) => r.fulfill({ status: s, contentType: "application/json", body: JSON.stringify(b) });
+        if (u.pathname === "/gists/oldgist") return json({ message: "x" }, status);
+        if (u.pathname === "/gists") return json([{ id: "newgist", files: { "jazz2-data.json": {} } }]);
+        return json({ id: "newgist", files: { "jazz2-data.json": { content: data } } });
+      },
+    });
+    await a.page.evaluate(() => syncNow().catch(() => {})); // a server error is rethrown, on purpose
+    await a.page.waitForTimeout(150);
+    return { ...a, calls, id: await a.page.evaluate(() => localStorage.getItem("sync-gist-id")) };
+  };
+  const gone = await open(404);
+  check(
+    "a 404 moves this device to the new gist",
+    gone.id === "newgist" && gone.calls.includes("GET /gists/newgist"),
+    gone.calls,
+  );
+  check("it never makes a new gist when the replacement exists", !gone.calls.includes("POST /gists"), gone.calls);
+  await gone.ctx.close();
+  const down = await open(500);
+  check(
+    "a server error keeps the saved gist id",
+    down.id === "oldgist" && !down.calls.includes("GET /gists"),
+    down.calls,
+  );
+  await down.ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);
