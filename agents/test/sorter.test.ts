@@ -83,7 +83,11 @@ describe("Sort with Jarvis", () => {
     expect(fq.seen[0].options?.model).toBe("claude-haiku-5-5");
     const f = AnswersFile.parse(JSON.parse(files["jazz2-answers.json"]));
     expect(f.answers[0]).toMatchObject({ id: "sort-0001", status: "ok", by: "jarvis", sources: [] });
-    expect(f.answers[0].chips.map((c) => c.text)).toEqual(["Renew car registration", "Coffee", "Look at a speaking club"]);
+    expect(f.answers[0].chips.map((c) => c.text)).toEqual([
+      "Renew car registration",
+      "Coffee",
+      "Look at a speaking club",
+    ]);
     expect(f.usage.dayCount).toBe(1);
   });
 });
