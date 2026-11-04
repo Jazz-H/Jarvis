@@ -122,6 +122,7 @@ function openSyncModal() {
         key: "token",
         label: connected ? "GitHub token (connected; paste a new one to replace it)" : "GitHub token",
         type: "password",
+        autocomplete: "new-password", // a browser filling in an old token would replace the working one on Save
       },
       { type: "html", key: "askToken", label: askKeyFieldHtml() },
       {
@@ -139,19 +140,17 @@ function openSyncModal() {
       askKeySave(v.askToken); // the Ask Jarvis key (ask.js); never shown or synced
       if (!v.token) return; // closing without a token (e.g. after a backup) is fine
       if (v.askToken && v.token === localStorage.getItem("sync-token")) return; // only the Ask key was touched
+      forgetGist(); // re-resolve under the (possibly new) account
       localStorage.setItem("sync-token", v.token);
-      localStorage.removeItem("sync-gist-id"); // re-resolve under the (possibly new) account
-      localStorage.removeItem(SYNC_BASE_KEY);
       showToast("Connecting…");
       pullSync()
         .then(() => showToast("Sync is on"))
-        .catch(() => showToast("Couldn't connect — check the token", true));
+        .catch((e) => showToast(syncErrorText(e, "Couldn't connect — check the token"), true));
     },
     connected
       ? () => {
           localStorage.removeItem("sync-token");
-          localStorage.removeItem("sync-gist-id");
-          localStorage.removeItem(SYNC_BASE_KEY);
+          forgetGist();
           setSyncStatus("off");
           showToast("Sync turned off");
         }

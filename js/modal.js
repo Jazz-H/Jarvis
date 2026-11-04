@@ -49,7 +49,7 @@ function openModal(title, fields, values, onSave, onDelete, deleteOpts) {
       if (f.type === "checkbox") {
         return `<label class="modal-field modal-checkbox"><input id="modal-${f.key}" type="checkbox" ${val ? "checked" : ""}><span>${f.label}</span></label>`;
       }
-      return `<label class="modal-field"><span>${f.label}</span><input id="modal-${f.key}" type="${f.type || "text"}" value="${escapeAttr(val)}"${f.step ? ` step="${f.step}"` : ""}></label>`;
+      return `<label class="modal-field"><span>${f.label}</span><input id="modal-${f.key}" type="${f.type || "text"}" value="${escapeAttr(val)}"${f.step ? ` step="${f.step}"` : ""}${f.autocomplete ? ` autocomplete="${f.autocomplete}"` : ""}></label>`;
     })
     .join("");
   document.getElementById("modal-delete-btn").style.display = modalOnDelete ? "block" : "none";

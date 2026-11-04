@@ -405,18 +405,10 @@ function loadAnswers() {
 function askAnswerTime(a) {
   return Date.parse(a.askedAt) || Date.parse(a.answeredAt) || 0;
 }
-// A gist file's text (a truncated one is fetched from gist.githubusercontent.com only)
-async function askFileText(file) {
-  if (!askIsObj(file)) return null;
-  if (!file.truncated) return typeof file.content === "string" ? file.content : null;
-  const raw = safeUrl(file.raw_url);
-  if (!raw || new URL(raw).hostname !== "gist.githubusercontent.com") return null;
-  return (await fetch(raw)).text();
-}
 // Called by sync's pull (and the Console poll) with the gist's answers file entry (or undefined)
 async function ingestAnswersFile(file) {
   try {
-    const text = await askFileText(file);
+    const text = await readGistFile(file);
     if (text == null) return;
     const parsed = JSON.parse(text);
     if (!askIsObj(parsed) || parsed.version !== 1) return;
@@ -584,12 +576,14 @@ function askWriteFile(update, extra = null) {
   askWriteChain = run.catch(() => {});
   return run;
 }
-async function askWriteNow(update, extra = null) {
-  const id = askGet("sync-gist-id") || (await findOrCreateGist());
+function askWriteNow(update, extra = null) {
+  return withGist((id) => askWriteTo(id, update, extra));
+}
+async function askWriteTo(id, update, extra) {
   const g = await gistApi("/gists/" + id); // always re-read right before writing
   const files = (g && g.files) || {};
   let cur = normalizeAskFile(null);
-  const text = await askFileText(files[ASK_FILE]);
+  const text = await readGistFile(files[ASK_FILE]);
   if (text != null) {
     try {
       cur = normalizeAskFile(JSON.parse(text));
@@ -598,7 +592,7 @@ async function askWriteNow(update, extra = null) {
   // questions that have an answer (any status) are done: drop them
   let answered = new Set(loadAnswers().answers.map((a) => a.id));
   try {
-    const at = await askFileText(files[ANSWERS_FILE]);
+    const at = await readGistFile(files[ANSWERS_FILE]);
     if (at != null) normalizeAnswers(JSON.parse(at)).answers.forEach((a) => answered.add(a.id));
   } catch (e) {}
   const clearBefore = Math.max(cur.clearBefore, askClearBefore());
@@ -636,7 +630,7 @@ async function askWriteNow(update, extra = null) {
 // too, and a Clear history done there (clearBefore) clears this device as well
 async function ingestAskFile(file) {
   try {
-    const text = await askFileText(file);
+    const text = await readGistFile(file);
     if (text == null) return;
     const f = normalizeAskFile(JSON.parse(text));
     const localClear = askClearBefore();
@@ -835,9 +829,8 @@ async function askPollTick() {
     return;
   }
   try {
-    const id = askGet("sync-gist-id");
-    if (id) {
-      const g = await gistApi("/gists/" + id);
+    if (askGet("sync-gist-id")) {
+      const g = await withGist((id) => gistApi("/gists/" + id));
       await ingestAnswersFile(g && g.files && g.files[ANSWERS_FILE]);
     }
   } catch (e) {}

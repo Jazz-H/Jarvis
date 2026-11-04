@@ -733,12 +733,14 @@ Setup: `docs/jarvis/SETUP.md`.
   - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
   - **Deliveries (Package Tracker):** `claude-haiku-5-5`, from order and shipping emails in
     Gmail: Amazon, UPS, FedEx, USPS, DHL and any store's shipped, on-the-way, out-for-delivery and
-    delivered mail (promotions left out). Code trims each email's body (no links, nothing from the
-    first address or payment label on, 800 characters at most) so the model can name what's in the
+    delivered mail (promotions left out). Code trims each email's body (no links, a store's own "Sold
+    by" address removed, nothing from the first address or payment label, or anything shaped like a
+    street, PO box or "City, ST 12345", on, 800 characters at most) so the model can name what's in the
     package; the model groups emails into packages; code names the carrier from the senders (shown
     on each package in Home's Deliveries detail) and matches Shopping items. USPS's Daily Digest is
-    read by code only (`tools/usps-digest.ts`): who each package is from, when it's expected, and a
-    tracking number's last 4 digits. A store's own emails replace its digest row.
+    read by code only (`tools/usps-digest.ts`), and only from a usps.com From address: who each
+    package is from, when it's expected, and a tracking number's last 4 digits. A store's own emails
+    replace its digest row.
   - **Price watcher:** `claude-sonnet-5-5` with web search, once a week (when the last check is 7
     days old). Code picks up to 8 open Shopping items with a saved price (high priority and needs
     first); the model looks up the lowest current price for the same product, new, at a reputable
@@ -937,6 +939,14 @@ Lists still on their built-in defaults have no key until first edited.
   changed the very same item does the device syncing now win for that item. A failed sync
   retries when the connection comes back or the app is reopened. The gist is re-read right before every write, and sync waits while an
   edit form is open (or while you're typing or speaking into a box). A device's very first sync falls back to "newest copy wins".
+- **When the gist can't be read:** if the data file exists but can't be fetched or isn't valid, the
+  sync stops with an error and writes nothing. Only a gist with no data file at all gets filled in.
+- **A replaced gist:** if the saved gist answers 404 (it was rotated, to clear its old versions),
+  sync, Ask and push all move to the one other gist holding `jazz2-data.json`, and the next sync
+  merges each list item by item, so both sides' items survive (something deleted on one side may
+  come back). No match, or more than one, keeps the saved id and shows an error; this never makes a
+  new gist, which would leave the device on a different gist from the backend. Connecting in the
+  Sync dialog also refuses to pick between two gists: delete the extra one on GitHub first.
 - **Ask Jarvis key (optional):** the same dialog has an **Ask Jarvis key** field. It's a
   fine-grained GitHub token for this one repo with only Actions: read and write, so this device
   can start Jarvis right away (answers in about a minute). How to make one is in
@@ -1009,6 +1019,8 @@ devices so iOS doesn't zoom.
   back to the full label.
 - **Sync push replaces the gist file.** A device on an outdated app version can drop keys
   it doesn't know about until it updates.
+- **Content Security Policy.** `jazz2.0.html` only lets the app load from itself and call GitHub, the
+  gist file host and the weather service. A feature that calls a new host must add it there first.
 - **Ask Jarvis answers in about a minute, not instantly.** A GitHub runner has to start each
   time; answers use this morning's briefing (no live calendar or inbox). The key-expiry warning
   depends on GitHub exposing its expiration header to the browser; if it doesn't, there's no

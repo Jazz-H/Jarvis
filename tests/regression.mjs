@@ -15654,6 +15654,7 @@ await section("security: the Content Security Policy holds, and the Sync dialog 
     const f = document.getElementById("modal-token");
     return {
       value: f.value,
+      autocomplete: f.autocomplete,
       inPage: document.documentElement.outerHTML.includes("ghp_notARealToken"),
       label: f.closest("label").textContent,
     };
@@ -15663,6 +15664,7 @@ await section("security: the Content Security Policy holds, and the Sync dialog 
     dlg.value === "" && !dlg.inPage && /connected/.test(dlg.label),
     dlg,
   );
+  check("a browser's password manager isn't invited to fill it", dlg.autocomplete === "new-password", dlg);
   await s.page.click("#modal-backdrop .modal-btn.primary");
   check(
     "saving with the field blank keeps the token",
@@ -15705,6 +15707,317 @@ await section("sync: a replaced gist is found again; other errors keep the saved
     down.calls,
   );
   await down.ctx.close();
+});
+
+// A device with the owner's to-dos, synced before, and a gist answering however the test says
+const syncItems = [
+  { id: "a", title: "Keep A" },
+  { id: "b", title: "Keep B" },
+];
+const openSynced = async ({ seed = {}, files = {}, raw = null, gists = [], hasGist = () => false, inStep = false }) => {
+  const calls = [];
+  const a = await openApp({
+    // inStep: the last sync saw exactly what's on the device after it loads (no token yet, so no sync on load)
+    seed: { ...(inStep ? {} : { "sync-token": "test" }), "sync-gist-id": "g1", "data-updated-at": "5000", ...seed },
+    setup: async (ctx) => {
+      for (const host of ["https://gist.githubusercontent.com/**", "https://evil.example/**"]) {
+        await ctx.route(host, (r) => {
+          calls.push("RAW " + new URL(r.request().url()).hostname);
+          return r.fulfill({ status: raw ? raw.status : 200, body: raw ? raw.body : "" });
+        });
+      }
+    },
+    route: async (r) => {
+      const u = new URL(r.request().url());
+      const method = r.request().method();
+      calls.push(method + " " + u.pathname);
+      const json = (b, s = 200) => r.fulfill({ status: s, contentType: "application/json", body: JSON.stringify(b) });
+      if (u.pathname === "/gists" && method === "GET") {
+        await new Promise((done) => setTimeout(done, 40)); // long enough for two callers to overlap
+        return json(gists);
+      }
+      if (u.pathname === "/gists") return json({ id: "created", files: {} });
+      const id = u.pathname.split("/").pop();
+      if (method === "GET" && id !== "created" && !hasGist(id)) return json({ message: "Not Found" }, 404);
+      if (method === "PATCH") files[id] = { ...files[id], ...JSON.parse(r.request().postData()).files }; // the gist keeps writes
+      return json({ id, files: files[id] || {} });
+    },
+  });
+  await a.page.evaluate((step) => {
+    if (step) {
+      localStorage.setItem("sync-base", JSON.stringify(localSnapshot()));
+      localStorage.setItem("sync-token", "test");
+    }
+    return syncNow().catch(() => {});
+  }, inStep);
+  await a.page.waitForTimeout(100);
+  const state = await a.page.evaluate(() => ({
+    id: localStorage.getItem("sync-gist-id"),
+    base: localStorage.getItem("sync-base"),
+    status: document.getElementById("sync-btn").dataset.state,
+  }));
+  return { ...a, calls, ...state };
+};
+
+await section("sync: a data file it can't read stops the sync; the gist is never overwritten", async () => {
+  const seed = {
+    "todo-content": JSON.stringify(syncItems),
+    "sync-base": JSON.stringify({ "todo-content": JSON.stringify(syncItems) }),
+  };
+  const good = JSON.stringify({ updatedAt: 1, data: { "todo-content": syncItems } });
+  const dataFile = (f) => ({ g1: { "jazz2-data.json": f } });
+  const rawUrl = "https://gist.githubusercontent.com/u/g1/raw/jazz2-data.json";
+  const cases = [
+    ["the raw fetch fails", { truncated: true, raw_url: rawUrl }, { status: 500, body: "<html>oops</html>" }],
+    ["the raw fetch is rate limited", { truncated: true, raw_url: rawUrl }, { status: 429, body: good }],
+    ["the raw link is on another host", { truncated: true, raw_url: "https://evil.example/x" }, null],
+    ["the file isn't valid JSON", { content: "not json" }, null],
+    ["the file isn't sync data", { content: "[1,2]" }, null],
+  ];
+  for (const [name, file, raw] of cases) {
+    const s = await openSynced({ seed, files: dataFile(file), raw, hasGist: () => true });
+    check(`${name}: no write to the gist`, !s.calls.some((c) => c.startsWith("PATCH")), s.calls);
+    check(`${name}: sync shows an error`, s.status === "error", s.status);
+    check(`${name}: the base is kept`, s.base === seed["sync-base"], s.base);
+    check(`${name}: nothing goes to another host`, !s.calls.includes("RAW evil.example"), s.calls);
+    await s.ctx.close();
+  }
+  const big = await openSynced({
+    seed,
+    files: dataFile({ truncated: true, raw_url: rawUrl }),
+    raw: { status: 200, body: good },
+    hasGist: () => true,
+  });
+  check("a large file that reads fine still syncs", big.status === "ok", big.status);
+  await big.ctx.close();
+  const empty = await openSynced({ seed, hasGist: () => true });
+  check(
+    "a gist with no data file at all is still filled in",
+    empty.status === "ok" && empty.calls.includes("PATCH /gists/g1"),
+    empty.calls,
+  );
+  await empty.ctx.close();
+  // ... with everything on the device, even when nothing changed since the last sync
+  const filled = {};
+  const blank = await openSynced({
+    inStep: true,
+    seed: { "todo-content": JSON.stringify(syncItems) },
+    files: filled,
+    hasGist: () => true,
+  });
+  const written = JSON.parse(filled.g1?.["jazz2-data.json"]?.content || "{}");
+  check(
+    "filling in an empty gist sends every list, not just the changed ones",
+    (written.data?.["todo-content"] || []).some((t) => t.id === "b"),
+    written,
+  );
+  await blank.ctx.close();
+
+  const toast = await openSynced({ seed, files: dataFile({ content: "not json" }), hasGist: () => true });
+  const failure = await toast.page.evaluate(() =>
+    fetchRemote("g1").then(
+      () => null,
+      (e) => syncErrorText(e, "fallback"),
+    ),
+  );
+  check("an unreadable file gets its own message", failure && failure !== "fallback", failure);
+  await toast.ctx.close();
+});
+
+await section("sync: a failed read of the question or push file stops that write too", async () => {
+  const pending = JSON.stringify({ version: 1, items: [] });
+  const rawUrl = "https://gist.githubusercontent.com/u/g1/raw/f.json";
+  const big = { truncated: true, raw_url: rawUrl };
+  const raw = { status: 500, body: "<html>oops</html>" };
+  const files = { g1: { "jazz2-ask.json": big, "jazz2-push.json": big, "jazz2-data.json": { content: pending } } };
+  const s = await openSynced({ files, raw, hasGist: () => true });
+  const before = s.calls.length;
+  const asked = await s.page.evaluate(() =>
+    askWriteFile((items) => [...items, { id: "q1", text: "Hi", at: new Date().toISOString() }]).then(
+      () => "wrote",
+      () => "stopped",
+    ),
+  );
+  check("a question isn't written over a file it couldn't read", asked === "stopped", asked);
+  const pushed = await s.page.evaluate(() =>
+    savePushSubs((subs) => subs).then(
+      () => "wrote",
+      () => "stopped",
+    ),
+  );
+  check("push addresses aren't written over a file it couldn't read", pushed === "stopped", pushed);
+  check("neither wrote to the gist", !s.calls.slice(before).some((c) => c.startsWith("PATCH")), s.calls.slice(before));
+  await s.ctx.close();
+});
+
+await section("sync: moving to a replaced gist never creates one or merges against the old gist", async () => {
+  const dataFile = { "jazz2-data.json": {} };
+  const none = await openSynced({ gists: [] });
+  check("no replacement: no new gist is made", !none.calls.includes("POST /gists"), none.calls);
+  check("no replacement: the saved id stays", none.id === "g1", none.id);
+  check("no replacement: sync shows an error", none.status === "error", none.status);
+  await none.ctx.close();
+  const two = await openSynced({
+    gists: [
+      { id: "g2", files: dataFile },
+      { id: "g3", files: dataFile },
+    ],
+    hasGist: (id) => id !== "g1",
+  });
+  check("two candidates: it doesn't guess", two.id === "g1" && two.status === "error", [two.id, two.status]);
+  await two.ctx.close();
+  const blip = await openSynced({ gists: [{ id: "g1", files: dataFile }] });
+  check("a 404 on a gist still listed keeps the id", blip.id === "g1" && blip.status === "error", [
+    blip.id,
+    blip.status,
+  ]);
+  await blip.ctx.close();
+  const full = await openSynced({
+    gists: Array.from({ length: 100 }, (_, i) => ({ id: "other" + i, files: i ? {} : dataFile })),
+    hasGist: (id) => id !== "g1",
+  });
+  check("a full page of gists isn't a clear answer", full.id === "g1" && full.status === "error", [
+    full.id,
+    full.status,
+  ]);
+  await full.ctx.close();
+  // The replacement is an older copy: Keep B, unchanged here since the last sync, isn't in it. It
+  // also has Keep C, added on another device. Both sides' items survive the move.
+  const stale = [syncItems[0], { id: "c", title: "Keep C" }];
+  const moved = await openSynced({
+    inStep: true,
+    seed: { "todo-content": JSON.stringify(syncItems) },
+    gists: [{ id: "g2", files: dataFile }],
+    hasGist: (id) => id === "g2",
+    files: {
+      g2: { "jazz2-data.json": { content: JSON.stringify({ updatedAt: 1, data: { "todo-content": stale } }) } },
+    },
+  });
+  check("the device moves to the replacement", moved.id === "g2" && moved.status === "ok", [moved.id, moved.status]);
+  const kept = await moved.page.evaluate(() =>
+    (JSON.parse(localStorage.getItem("todo-content")) || []).map((t) => t.id),
+  );
+  check("an older replacement doesn't remove what this device has", kept.includes("b"), kept);
+  check("what only the replacement has comes in too", kept.includes("c"), kept);
+  await moved.ctx.close();
+});
+
+await section("sync: connecting doesn't guess between gists, or finish for an old token", async () => {
+  const dataFile = { "jazz2-data.json": {} };
+  const two = await openSynced({
+    seed: { "sync-gist-id": "" },
+    gists: [
+      { id: "g2", files: dataFile },
+      { id: "g3", files: dataFile },
+    ],
+    hasGist: () => true,
+  });
+  check("two gists with the data file: no id is picked", !two.id && two.status === "error", [two.id, two.status]);
+  const hidden = await openSynced({
+    seed: { "sync-gist-id": "" },
+    gists: Array.from({ length: 100 }, (_, i) => ({ id: "other" + i, files: {} })),
+  });
+  check("a full page with no match makes no gist", !hidden.calls.includes("POST /gists"), hidden.calls);
+  await hidden.ctx.close();
+  const says = await two.page.evaluate(() => syncErrorText({ gistLost: true }, "fallback"));
+  check("the message for a lost gist isn't the fallback", says !== "fallback" && /gist/i.test(says), says);
+  await two.ctx.close();
+
+  let release;
+  const held = new Promise((done) => (release = done));
+  const old = await openApp({
+    route: async (r) => {
+      const u = new URL(r.request().url());
+      const json = (b) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(b) });
+      if (u.pathname === "/gists") {
+        if (r.request().headers().authorization === "Bearer oldtoken") await held;
+        const id = r.request().headers().authorization === "Bearer oldtoken" ? "oldaccount" : "newaccount";
+        return json([{ id, files: dataFile }]);
+      }
+      return json({ id: u.pathname.split("/").pop(), files: {} });
+    },
+  });
+  await old.page.evaluate(async () => {
+    localStorage.setItem("sync-token", "oldtoken");
+    window.__first = findOrCreateGist().catch(() => {});
+    await new Promise((done) => setTimeout(done, 100));
+    forgetGist();
+    localStorage.setItem("sync-token", "newtoken");
+    window.__second = findOrCreateGist(); // still running when the old lookup ends
+  });
+  release();
+  const final = await old.page.evaluate(async () => {
+    await window.__first; // the old lookup finishes first and must not clear the new one
+    const sameLookup = findOrCreateGist() === window.__second;
+    await window.__second;
+    return { id: localStorage.getItem("sync-gist-id"), sameLookup };
+  });
+  check("the new token's gist is the one saved", final.id === "newaccount", final);
+  await old.ctx.close();
+});
+
+await section("sync: every use of the gist recovers from a replaced one, and only one gist is made", async () => {
+  const dataFile = { "jazz2-data.json": {} };
+  // No token yet, so opening the app doesn't sync: each caller meets the old id on its own
+  const open = async () => {
+    const calls = [];
+    const a = await openApp({
+      seed: { "sync-gist-id": "g1" },
+      route: async (r) => {
+        const u = new URL(r.request().url());
+        const method = r.request().method();
+        calls.push(method + " " + u.pathname);
+        const json = (b, s = 200) => r.fulfill({ status: s, contentType: "application/json", body: JSON.stringify(b) });
+        if (u.pathname === "/gists") {
+          await new Promise((done) => setTimeout(done, 40));
+          return json([{ id: "g2", files: dataFile }]);
+        }
+        if (u.pathname === "/gists/g1") return json({ message: "Not Found" }, 404);
+        return json({ id: "g2", files: {} });
+      },
+    });
+    await a.page.evaluate(() => localStorage.setItem("sync-token", "test"));
+    return { ...a, calls };
+  };
+  const push = await open();
+  await push.page.evaluate(() => savePushSubs((subs) => subs));
+  check("saving a push address reaches the new gist", push.calls.includes("PATCH /gists/g2"), push.calls);
+  await push.ctx.close();
+  const ask = await open();
+  await ask.page.evaluate(() =>
+    askWriteFile((items) => [...items, { id: "q1", text: "Hi", at: new Date().toISOString() }]),
+  );
+  check("sending a question reaches the new gist", ask.calls.includes("PATCH /gists/g2"), ask.calls);
+  await ask.ctx.close();
+  const both = await open();
+  await both.page.evaluate(() => Promise.all([syncNow(), savePushSubs((subs) => subs)]));
+  check(
+    "two callers recovering at once look it up once",
+    both.calls.filter((c) => c === "GET /gists").length === 1,
+    both.calls,
+  );
+  await both.ctx.close();
+
+  const made = [];
+  const fresh = await openApp({
+    route: async (r) => {
+      const u = new URL(r.request().url());
+      const method = r.request().method();
+      if (u.pathname === "/gists" && method === "POST") made.push(1);
+      const json = (b) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(b) });
+      if (u.pathname === "/gists" && method === "GET") {
+        await new Promise((done) => setTimeout(done, 40));
+        return json([]);
+      }
+      return json({ id: "new", files: {} });
+    },
+  });
+  await fresh.page.evaluate(() => {
+    localStorage.setItem("sync-token", "test");
+    return Promise.all([findOrCreateGist(), findOrCreateGist()]);
+  });
+  check("two first-time callers make one gist", made.length === 1, made.length);
+  await fresh.ctx.close();
 });
 
 await browser.close();

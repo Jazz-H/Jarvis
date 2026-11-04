@@ -10,7 +10,7 @@ async function refreshData() {
       await pullSync();
       showToast("Up to date");
     } catch (e) {
-      showToast("Sync failed — check your connection", true);
+      showToast(syncErrorText(e, "Sync failed — check your connection"), true);
     }
   } else showToast("Refreshed");
   renderHome();

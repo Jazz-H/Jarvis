@@ -55,7 +55,11 @@ async function gistApi(path, opts = {}) {
       ...(opts.headers || {}),
     },
   });
-  if (!res.ok) throw new Error("GitHub API " + res.status + " on " + path);
+  if (!res.ok) {
+    const err = new Error("GitHub API " + res.status + " on " + path);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 function collectLocal() {
@@ -91,10 +95,29 @@ function applyRemote(payload) {
   renderFitness();
   renderHome();
 }
-async function findOrCreateGist() {
+// Callers overlap (a sync, a question, a push address), and each would otherwise make its own gist
+let gistLookup = null;
+function findOrCreateGist() {
+  if (gistLookup) return gistLookup;
+  const lookup = lookUpGist().finally(() => {
+    if (gistLookup === lookup) gistLookup = null; // forgetGist may have started over
+  });
+  gistLookup = lookup;
+  return lookup;
+}
+function gistLostError() {
+  const err = new Error("The sync gist can't be found");
+  err.gistLost = true;
+  return err;
+}
+async function lookUpGist() {
+  const token = localStorage.getItem("sync-token");
   const gists = await gistApi("/gists?per_page=100");
-  const hit = gists.find((g) => g.files && g.files[GIST_FILENAME]);
-  let id = hit && hit.id;
+  const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
+  // Guessing, or making one while a full page may be hiding the real one, could leave the backend's gist
+  if (hits.length > 1 || (!hits.length && gists.length >= 100)) throw gistLostError();
+  if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
+  let id = hits[0] && hits[0].id;
   if (!id) {
     const created = await gistApi("/gists", {
       method: "POST",
@@ -106,8 +129,69 @@ async function findOrCreateGist() {
     });
     id = created.id;
   }
+  if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
   localStorage.setItem("sync-gist-id", id);
   return id;
+}
+// Reconnecting or turning sync off: this device no longer has a gist, and a lookup still running
+// for the old token mustn't be joined or save its answer
+function forgetGist() {
+  gistLookup = null;
+  gistRecovery = null;
+  localStorage.removeItem("sync-gist-id");
+  localStorage.removeItem(SYNC_BASE_KEY);
+}
+// What to tell the owner when a sync fails; only they can fix these two
+function syncErrorText(e, fallback) {
+  if (e && e.gistLost) return "Sync can't tell which gist to use — check your gists on GitHub";
+  if (e && e.badData) return "Sync stopped: the gist's data file can't be read. Nothing was changed";
+  return fallback;
+}
+// The saved gist answered 404. If it was replaced (a rotation, to clear its old versions), exactly
+// one other gist holds the data file: move there. This never makes a gist: that would move the device
+// off the one the backend uses, with no error. No clear answer keeps the saved id and fails.
+// The base described the old gist, so an empty one takes its place: the next sync then merges each
+// list item by item, and both sides' items survive (one deleted on either side may come back).
+function emptyBase() {
+  const out = {};
+  Object.entries(localSnapshot()).forEach(([k, v]) => {
+    const list = JSON.parse(v);
+    if (Array.isArray(list)) out[k] = "[]";
+    else if (list && typeof list === "object") out[k] = "{}";
+  });
+  return out;
+}
+let gistRecovery = null;
+function recoverGist(staleId) {
+  if (gistRecovery) return gistRecovery;
+  const recovery = findReplacedGist(staleId).finally(() => {
+    if (gistRecovery === recovery) gistRecovery = null;
+  });
+  gistRecovery = recovery;
+  return recovery;
+}
+async function findReplacedGist(staleId) {
+  const saved = localStorage.getItem("sync-gist-id");
+  if (saved && saved !== staleId) return saved; // another caller just moved this device
+  const token = localStorage.getItem("sync-token");
+  const gists = await gistApi("/gists?per_page=100");
+  const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
+  // A full page may be hiding another match
+  if (gists.length >= 100 || hits.length !== 1 || hits[0].id === staleId) throw gistLostError();
+  if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
+  localStorage.setItem("sync-gist-id", hits[0].id);
+  localStorage.setItem(SYNC_BASE_KEY, JSON.stringify(emptyBase()));
+  return hits[0].id;
+}
+// Runs work(gistId) on this device's gist, moving to the replacement once if the gist is gone
+async function withGist(work) {
+  const id = localStorage.getItem("sync-gist-id") || (await findOrCreateGist());
+  try {
+    return await work(id);
+  } catch (e) {
+    if (e.status !== 404) throw e;
+    return work(await recoverGist(id));
+  }
 }
 function scheduleSyncPush() {
   if (!localStorage.getItem("sync-token")) return;
@@ -183,6 +267,18 @@ function localSnapshot() {
   });
   return out;
 }
+// A gist file's text, or null if there's no such file. A truncated file is fetched from
+// gist.githubusercontent.com only, and a failed fetch throws: callers that write back must not treat
+// a file they couldn't read as an empty one.
+async function readGistFile(file) {
+  if (!file || typeof file !== "object") return null;
+  if (!file.truncated) return typeof file.content === "string" ? file.content : null;
+  const raw = safeUrl(file.raw_url);
+  if (!raw || new URL(raw).hostname !== "gist.githubusercontent.com") throw new Error("Unexpected gist file link");
+  const res = await fetch(raw);
+  if (!res.ok) throw new Error("Couldn't read the gist file: " + res.status);
+  return res.text();
+}
 async function fetchRemote(gistId) {
   const g = await gistApi("/gists/" + gistId);
   ingestBriefingFile(g.files && g.files[BRIEFING_FILENAME]); // Jarvis's read-only briefing rides along
@@ -191,19 +287,20 @@ async function fetchRemote(gistId) {
   ingestAskFile(g.files && g.files[ASK_FILE]); // Ask Jarvis: questions from other devices, Clear history
   ingestAnswersFile(g.files && g.files[ANSWERS_FILE]); // and Jarvis's answers (read-only)
   const file = g.files && g.files[GIST_FILENAME];
-  if (!file) return null;
-  let text = file.content;
-  if (file.truncated) {
-    const raw = safeUrl(file.raw_url);
-    if (!raw || new URL(raw).hostname !== "gist.githubusercontent.com") return null;
-    text = await (await fetch(raw)).text();
-  }
+  if (!file) return null; // nothing there yet: the only case where syncNow may fill it in
+  // From here the file exists, so failing to read it must stop the sync: returning null would have
+  // syncNow write this device's copy over the owner's data
+  const text = await readGistFile(file);
+  let p = null;
   try {
-    const p = JSON.parse(text);
-    return p && typeof p === "object" && p.data && typeof p.data === "object" ? p : null;
-  } catch (e) {
-    return null;
+    p = JSON.parse(text);
+  } catch (e) {}
+  if (!p || typeof p !== "object" || !p.data || typeof p.data !== "object" || Array.isArray(p.data)) {
+    const err = new Error("The gist file isn't sync data");
+    err.badData = true;
+    throw err;
   }
+  return p;
 }
 async function syncNow() {
   if (!localStorage.getItem("sync-token")) return;
@@ -215,17 +312,7 @@ async function syncNow() {
   syncBusy = true;
   setSyncStatus("busy");
   try {
-    let gistId = localStorage.getItem("sync-gist-id") || (await findOrCreateGist());
-    let remote;
-    try {
-      remote = await fetchRemote(gistId);
-    } catch (e) {
-      // the gist was replaced (a rotation, to clear its old versions): find the new one by its files
-      if (!String(e.message).startsWith("GitHub API 404 ")) throw e;
-      localStorage.removeItem("sync-gist-id");
-      gistId = await findOrCreateGist();
-      remote = await fetchRemote(gistId);
-    }
+    const { gistId, remote } = await withGist(async (id) => ({ gistId: id, remote: await fetchRemote(id) }));
     const local = localSnapshot();
     const remoteStr = {};
     if (remote)
@@ -242,9 +329,10 @@ async function syncNow() {
     let merged = {},
       takeRemote = [],
       sendUp = false;
-    if (!base) {
+    if (!base || !remote) {
       // First sync on this device (or the first since this kind of sync existed):
-      // fall back to "newest copy wins", which is what earlier versions did
+      // fall back to "newest copy wins", which is what earlier versions did.
+      // A gist with no data file gets everything here, not just what changed since the base.
       const localUpdated = Number(localStorage.getItem("data-updated-at")) || 0;
       const remoteUpdated = (remote && remote.updatedAt) || 0;
       if (remote && remoteUpdated > localUpdated) {
@@ -274,7 +362,6 @@ async function syncNow() {
           if (r !== l) takeRemote.push(k);
         } // unchanged here
       });
-      if (!remote) sendUp = true;
     }
     if (takeRemote.length) {
       const data = {};
@@ -312,7 +399,7 @@ async function pushSync() {
   try {
     await syncNow();
   } catch (e) {
-    showToast("Sync failed — will retry when you're back online", true);
+    showToast(syncErrorText(e, "Sync failed — will retry when you're back online"), true);
     throw e;
   }
 }

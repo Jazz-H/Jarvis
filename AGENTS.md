@@ -14,6 +14,8 @@ that file before any Jarvis work, and README.md before any app work.
   with `linkHtml()`. New stored shapes need a normalizer that also runs via `applyRemote()`.
 - User edits save with `saveContent()`; housekeeping saves with `writeQuietly()`.
 - Use the existing theme tokens in `css/app.css` and `collapsibleCard()` for cards.
+- `jazz2.0.html` has a Content Security Policy: a new external host must be added to it, or the
+  browser blocks the request.
 
 ## Jarvis backend (`agents/`, `.github/workflows/jarvis.yml`)
 - TypeScript on the Claude Agent SDK, with its own `agents/package.json` and `tsconfig.json`

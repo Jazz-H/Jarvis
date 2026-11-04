@@ -26,13 +26,15 @@ function pushKeyBytes(b64url) {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 // Read, change and write the push file in the sync gist (sync must be on)
-async function savePushSubs(update) {
-  const id = localStorage.getItem("sync-gist-id") || (await findOrCreateGist());
+function savePushSubs(update) {
+  return withGist((id) => writePushSubs(id, update));
+}
+async function writePushSubs(id, update) {
   const g = await gistApi("/gists/" + id);
   let subs = [];
+  const text = await readGistFile(g.files && g.files[PUSH_FILE]); // a failed read stops the write
   try {
-    const f = g.files && g.files[PUSH_FILE];
-    const parsed = f && JSON.parse(f.content);
+    const parsed = text && JSON.parse(text);
     if (parsed && Array.isArray(parsed.subs)) subs = parsed.subs.filter((x) => x && typeof x.endpoint === "string");
   } catch (e) {}
   await gistApi("/gists/" + id, {
