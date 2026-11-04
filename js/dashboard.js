@@ -80,7 +80,7 @@ function dashGreetingHtml(b) {
     ? ""
     : b.date === addDaysIso(0)
       ? `Briefed ${jvTime(b.generatedAt)}`
-      : `Last briefed ${noonOf(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+      : `Last briefed ${shortDate(b.date)}`;
   return `<div class="jv-greet">
       <div class="jv-status"><span class="jv-status-name"><span class="jv-dot"></span>${state}</span><span>${escapeHtml(when)}</span></div>
       <h2 class="jv-hello">${hello}, ${JARVIS_OWNER}.</h2>
@@ -147,12 +147,11 @@ function dashMoneyDetail(d) {
     ? `<div class="jv-rows">${d.dueSoon.map((b) => homeBillHtml(b)).join("")}</div>`
     : `<div class="empty">No bills due in the next 7 days.</div>`;
   const p = d.period;
-  const short = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const scale = p ? Math.max(p.pay, p.paid + p.due) : 0;
   const period = p
     ? `<button class="jv-period" data-action="jv-go" data-go="money">
         ${p.pay ? `<span class="jv-safe"><span class="jv-mini">Safe to spend</span><b class="${p.left < 0 ? "neg" : ""}">${p.left < 0 ? "−" : ""}${moneyShort(Math.abs(p.left))}</b><span>until payday ${dashPaydayIn(p.end)}</span></span>` : ""}
-        <span class="jv-period-head"><b>Pay period</b><span>${short(p.start)} – ${short(isoDate(new Date(noonOf(p.end).getTime() - 864e5)))} · day ${p.dayN} of ${p.days}</span></span>
+        <span class="jv-period-head"><b>Pay period</b><span>${shortDate(p.start)} – ${shortDate(isoDate(new Date(noonOf(p.end).getTime() - 864e5)))} · day ${p.dayN} of ${p.days}</span></span>
         <span class="jv-period-bar" aria-hidden="true"><span class="paid" style="width:${dashPct(p.paid, scale)}%"></span><span class="due" style="width:${dashPct(p.due, scale)}%"></span></span>
         <span class="jv-period-keys"><span><i class="paid"></i>Paid ${moneyShort(p.paid)}</span><span><i class="due"></i>Due ${moneyShort(p.due)}</span>${p.pay ? `<span>Paycheck ${moneyShort(p.pay)}</span>` : ""}</span>
       </button>`
@@ -251,7 +250,7 @@ function dashShopDetail(d, b) {
   const pc = b && b.prices && b.prices.status === "ok" ? b.prices.data : null;
   const priced = pc ? pc.items.filter((x) => x.found != null).sort((x, y) => Number(y.drop) - Number(x.drop)) : [];
   const prices = priced.length
-    ? `<div class="jv-sub-label">Price check · ${escapeHtml(noonOf(pc.checkedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</div><div class="jv-prices">${priced
+    ? `<div class="jv-sub-label">Price check · ${escapeHtml(shortDate(pc.checkedAt))}</div><div class="jv-prices">${priced
         .map((x) => {
           const body = `<b>${escapeHtml(x.name)}</b><span>${moneyShort(x.found)}${x.store ? ` at ${escapeHtml(x.store)}` : ""} · you saved ${moneyShort(x.saved)}</span>`;
           const inner = `${x.drop ? '<i class="jv-drop">Price drop</i>' : ""}${body}`;
@@ -815,7 +814,7 @@ function dashInboxDetail(c) {
   };
   const bill = (y) => {
     const amt = y.amount != null ? moneyShort(y.amount) : "amount not shown";
-    const due = y.due ? ` · due ${noonOf(y.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "";
+    const due = y.due ? ` · due ${shortDate(y.due)}` : "";
     const flag =
       y.status === "differs"
         ? `<button class="jv-chip-sm warn" data-action="jv-go" data-go="money">Budget ${moneyShort(y.budgetAmount)}</button>`

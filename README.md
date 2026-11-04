@@ -313,6 +313,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   - **Two runs at once** (the morning's and a question's): the first answer saved stays, and what the
     second spent still counts. A question whose photo is gone because another run finished it isn't
     answered again without the photo.
+  - **A photo question the model fails on** stays open with its photo, so it doesn't have to be sent
+    again: the next run tries again, and what the failed try spent counts toward the money limits but
+    not the question limits. A day on, or at once if the API refuses the file, it gets an error answer.
   - **Limits** are enforced by the workflow: 1,000 characters a question and $20 a month, however
     many questions that is. Over the month's budget, the answer is "Over the limit" at no model
     cost. A run answers up to 5 questions and $0.40; the rest wait for the next run. The app adds a 10-second wait between questions and
@@ -890,7 +893,7 @@ Everything lives in `localStorage` on the device:
 | `bills-content` | Bills: `{id, name, amount, due, repeat, autopay, link, group: "personal" \| "joint", account, share?, varies?, done?}` (`done` = a paid one-time bill) |
 | `bill-payments` | Payments: `{id, billId, name, amount, due, date}` (`due` = the due date it covered) |
 | `budget-content` | `{categories, expenses, accounts: [names], income: [{id, name, amount, start, repeat}], plans: {"incomeId\|date": {amount?, lines: [{id, name, amount, goal?, done?}]}}, goals: [{id, name, target, saved, date, created, log: [{id, date, amount, note}]}], debts: [{id, name, balance, apr, payment, log: [{id, date, amount, note}]}] (in your order), cardInfo: {"<account>": {due: 1–31 \| null, st: {"YYYY-MM": statement}}} (accounts that are credit cards)}`; categories are `{id, name, limit}`, expenses `{id, name, amount, cat, date}`. `normalizeDebts()` caps debts at 30 and their logs at 120, clamps numbers and drops card info for accounts that don't exist |
-| `fitness-content` | `{start, goal, weights: [{id, date, lbs}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped; one weigh-in a day, and if a merge leaves two, every device keeps the same one) |
+| `fitness-content` | `{start, goal, weights: [{id, date, lbs, at?}], plan: [{id, name, days: [0–6], every, anchor, time, kind}], checks: {"date\|planId": true}}` (checks older than ~400 days are dropped; one weigh-in a day, and if a merge leaves two, every device keeps the one typed last) |
 | `plan3-content` | Jazz 3.0 goal sections: `[{id, cat, item, note, done?}]` (sections are the distinct `cat`s, in order) |
 | `jarvis-memory` | Jarvis's memory: `[{id, text ≤200, at: "YYYY-MM-DD", by: "you" \| "jarvis"}]`, at most 60 |
 | `jarvis-feedback` | Ratings: `[{id, at (ms), kind: "answer" \| "briefing", ref, item ≤200, vote: 1 \| -1}]`, newest 60, one per answer or briefing |
@@ -959,7 +962,7 @@ Lists still on their built-in defaults have no key until first edited.
   device takes both off. A failed sync
   retries when the connection comes back or the app is reopened. The gist is re-read right before every write, and sync waits while an
   edit form is open (or while you're typing or speaking into a box), including one opened while the gist was being read. A device's very first sync falls back to "newest copy wins".
-- **A new token:** a token pasted in the Sync dialog is checked with GitHub first, so one it refuses changes nothing and the old token keeps working. If the token can see the gist already in use, the device stays on it and merges as usual; the same goes for turning sync off and back on. If it's another gist, the device moves to it when that's clearly the one (two others, or a full page of gists that may hide one, keep the working connection and show an error). A token that sees no data gist at all (the Ask key pasted in the wrong field, another account) changes nothing either; to start a new gist on purpose, turn sync off first. Saving the same token again runs a sync and says how it went, so it's a way to retry after fixing something on GitHub.
+- **A new token:** a token pasted in the Sync dialog is checked with GitHub first, so one it refuses changes nothing and the old token keeps working. If the token can see the gist already in use, the device stays on it and merges as usual; the same goes for turning sync off and back on. If it's another gist, the device moves to it when that's clearly the one (two others, or more than the 1,000 gists it can list, keep the working connection and show an error). A token that sees no data gist at all (the Ask key pasted in the wrong field, another account) changes nothing either; to start a new gist on purpose, turn sync off first. Saving the same token again runs a sync and says how it went, so it's a way to retry after fixing something on GitHub.
 - **A different gist:** each device remembers which gist its base describes (`sync-base-gist`). On a different one there's nothing to tell whose change is whose, so each list merges item by item, both sides' items survive (something deleted on one side may come back), and what both sides have goes to whichever copy was saved last.
 - **When the gist can't be read:** if the data file exists but can't be fetched or isn't valid, the
   sync stops with an error and writes nothing. Only a gist with no data file at all gets filled in.

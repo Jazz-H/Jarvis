@@ -18,6 +18,9 @@ function noonOf(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d, 12);
 }
+function shortDate(iso) {
+  return noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 function addDaysIso(n) {
   const d = new Date();
   d.setHours(12, 0, 0, 0);
@@ -133,8 +136,7 @@ function spanMeta(t, iso) {
   return [`Day ${Math.round((noonOf(iso) - noonOf(t.due)) / 864e5) + 1} of ${t.days}`];
 }
 function spanRange(t) {
-  const f = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return t.days > 1 ? `${f(t.due)} – ${f(todoEnd(t))}` : "";
+  return t.days > 1 ? `${shortDate(t.due)} – ${shortDate(todoEnd(t))}` : "";
 }
 // `day` is the series' own day of month, so a repeat on the 31st lands on the
 // 30th in a 30-day month and goes back to the 31st after (no drift to the 28th)

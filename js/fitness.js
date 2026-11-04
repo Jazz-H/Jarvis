@@ -24,9 +24,15 @@ function normalizeFitness() {
     ...(Number.isInteger(f.weighDay) && f.weighDay >= -1 && f.weighDay <= 6 ? { weighDay: f.weighDay } : {}),
     weights: (Array.isArray(f.weights) ? f.weights : [])
       .filter((w) => w && iso(w.date) && lbs(w.lbs) != null)
-      .map((w) => ({ id: safeId(w.id, "wt"), date: w.date, lbs: lbs(w.lbs) }))
-      .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
-      // One weigh-in a day. Each device logging one before they sync leaves two: every device keeps the same one.
+      .map((w) => ({
+        id: safeId(w.id, "wt"),
+        date: w.date,
+        lbs: lbs(w.lbs),
+        ...(Number(w.at) > 0 ? { at: Number(w.at) } : {}),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.at || 0) - (b.at || 0) || a.id.localeCompare(b.id))
+      // One weigh-in a day. Each device logging one before they sync leaves two: the last one typed stays,
+      // and every device keeps the same one.
       .filter((w, i, all) => !all[i + 1] || all[i + 1].date !== w.date),
     plan: (Array.isArray(f.plan) ? f.plan : [])
       .filter((w) => w && typeof w === "object")
@@ -225,6 +231,7 @@ function logWeight(id, date) {
       const t = e || fitness.weights.find((w) => w.date === date) || { id: genId("wt") }; // one weigh-in a day
       t.lbs = n;
       t.date = date;
+      t.at = Date.now();
       if (!fitness.weights.includes(t)) fitness.weights.push(t);
       // an edit moved onto a day that already has one replaces it: what was just typed is what's kept
       fitness.weights = fitness.weights.filter((w) => w === t || w.date !== date);
@@ -266,11 +273,7 @@ function weighRowHtml(iso) {
     w = weighedOn(iso),
     last = fitness.weights.filter((x) => x.date < iso).pop();
   const open = `data-weight-id="${w ? escapeAttr(w.id) : ""}" data-date="${iso}"`;
-  const meta = w
-    ? `${w.lbs} lb`
-    : last
-      ? `Last ${last.lbs} lb · ${noonOf(last.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-      : "Log your weight";
+  const meta = w ? `${w.lbs} lb` : last ? `Last ${last.lbs} lb · ${shortDate(last.date)}` : "Log your weight";
   const lead =
     iso > today
       ? `<span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>`

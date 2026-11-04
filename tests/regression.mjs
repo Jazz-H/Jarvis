@@ -66,11 +66,18 @@ const isoOffset = (n) => {
 const isoInMonth = (n) => (isoOffset(n).slice(0, 7) === isoOffset(0).slice(0, 7) ? isoOffset(n) : isoOffset(-n));
 const isoInWeek = (n) => (new Date().getDay() + n <= 6 ? isoOffset(n) : isoOffset(-n));
 
-// A fresh browser profile seeded with localStorage, plus a JS-error collector.
-async function openApp({ seed = {}, phone = true, query = "", route, setup } = {}) {
+// A fresh browser profile seeded with localStorage, plus a JS-error collector. Home changes with the
+// hour (from 5 PM it adds tomorrow's card, with its own summary list), so a test reading Home's summary
+// passes the hour it means. That freezes the page's clock at that time today, so only use it where needed.
+async function openApp({ seed = {}, phone = true, query = "", route, setup, hour } = {}) {
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
+  if (hour != null) {
+    const at = new Date();
+    at.setHours(hour, 30, 0, 0);
+    await ctx.clock.setFixedTime(at);
+  }
   if (route) await ctx.route("https://api.github.com/**", route);
   if (setup) await setup(ctx); // e.g. routes that must be in place before the page loads
   // NWS alerts (the Weather detail checks them for a saved location): none, unless a test routes its own
@@ -7934,7 +7941,7 @@ await section("jarvis: main tab is Jarvis; empty state when not set up; ?tab=jar
 });
 
 await section("jarvis: stored briefing renders escaped, with agent cards and safe links only", async () => {
-  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": briefingFixture() } });
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": briefingFixture() }, hour: 9 });
   const first = await page.evaluate(() => ({
     newPill: !!document.querySelector(".jv-pill"),
     seen: localStorage.getItem("jarvis-briefing-seen"),
@@ -15117,6 +15124,7 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
     },
   };
   const { ctx, page, errors } = await openApp({
+    hour: 9,
     seed: {
       "jarvis-briefing": b,
       // junk and an old entry are dropped by the normalizer
@@ -15735,7 +15743,9 @@ const openSynced = async ({ seed = {}, files = {}, raw = null, gists = [], hasGi
       const json = (b, s = 200) => r.fulfill({ status: s, contentType: "application/json", body: JSON.stringify(b) });
       if (u.pathname === "/gists" && method === "GET") {
         await new Promise((done) => setTimeout(done, 40)); // long enough for two callers to overlap
-        return json(gists);
+        const size = Number(u.searchParams.get("per_page")) || 30;
+        const from = ((Number(u.searchParams.get("page")) || 1) - 1) * size;
+        return json(gists.slice(from, from + size));
       }
       if (u.pathname === "/gists") return json({ id: "created", files: {} });
       const id = u.pathname.split("/").pop();
@@ -15874,10 +15884,10 @@ await section("sync: moving to a replaced gist never creates one or merges again
   ]);
   await blip.ctx.close();
   const full = await openSynced({
-    gists: Array.from({ length: 100 }, (_, i) => ({ id: "other" + i, files: i ? {} : dataFile })),
+    gists: Array.from({ length: 180 }, (_, i) => ({ id: "other" + i, files: i === 150 ? dataFile : {} })),
     hasGist: (id) => id !== "g1",
   });
-  check("a full page of gists isn't a clear answer", full.id === "g1" && full.status === "error", [
+  check("a replacement past the first page of gists is found", full.id === "other150" && full.status !== "error", [
     full.id,
     full.status,
   ]);
@@ -15916,10 +15926,41 @@ await section("sync: connecting doesn't guess between gists, or finish for an ol
   check("two gists with the data file: no id is picked", !two.id && two.status === "error", [two.id, two.status]);
   const hidden = await openSynced({
     seed: { "sync-gist-id": "" },
+    gists: Array.from({ length: 1000 }, (_, i) => ({ id: "other" + i, files: {} })),
+  });
+  check("more gists than it can list makes no gist", !hidden.calls.includes("POST /gists"), hidden.calls);
+  const listedBefore = hidden.calls.filter((c) => c === "GET /gists").length;
+  const tooMany = await hidden.page.evaluate(() =>
+    listGists().then(
+      () => false,
+      (e) => !!e.gistLost,
+    ),
+  );
+  check(
+    "and it stops listing at its limit",
+    tooMany && hidden.calls.filter((c) => c === "GET /gists").length === listedBefore + 10,
+    hidden.calls.length,
+  );
+  await hidden.ctx.close();
+  const farTwo = await openSynced({
+    seed: { "sync-gist-id": "" },
+    gists: Array.from({ length: 180 }, (_, i) => ({ id: "other" + i, files: i === 3 || i === 170 ? dataFile : {} })),
+  });
+  check("a second data gist on a later page still counts", !farTwo.id && farTwo.status === "error", [
+    farTwo.id,
+    farTwo.status,
+  ]);
+  await farTwo.ctx.close();
+  const oneShort = await openSynced({
+    seed: { "sync-gist-id": "" },
     gists: Array.from({ length: 100 }, (_, i) => ({ id: "other" + i, files: {} })),
   });
-  check("a full page with no match makes no gist", !hidden.calls.includes("POST /gists"), hidden.calls);
-  await hidden.ctx.close();
+  check(
+    "an exact page asks once more, and stops at the empty one",
+    oneShort.calls.filter((c) => c === "GET /gists").length === 2,
+    oneShort.calls,
+  );
+  await oneShort.ctx.close();
   const says = await two.page.evaluate(() => syncErrorText({ gistLost: true }, "fallback"));
   check("the message for a lost gist isn't the fallback", says !== "fallback" && /gist/i.test(says), says);
   await two.ctx.close();
@@ -16799,6 +16840,92 @@ await section("Notebook: two notes with one title both keep their text", async (
   const long = r.first.find(([id]) => id === "note-f");
   check("a long title still fits", long && long[1].length <= r.max && long[1].endsWith(" (2)"), long);
   check("cleaning again changes nothing", JSON.stringify(r.again) === JSON.stringify(r.first), r.again);
+  await ctx.close();
+});
+
+await section("Notebook: a new note can't rename the old one with its title", async () => {
+  const notes = [
+    { id: "note-new", title: "car", text: "New on the phone.", at: "2026-11-03", by: "you" },
+    { id: "note-old", title: "Car", text: "Untouched for months.", at: "2026-06-01", by: "you" },
+  ];
+  const seedAndRead = async (list) => {
+    const { ctx, page } = await openApp({ seed: { "jarvis-notes": list } });
+    const r = await page.evaluate(() => jarvisNotes.map((n) => [n.id, n.title]));
+    await ctx.close();
+    return r;
+  };
+  const newFirst = await seedAndRead(notes);
+  const oldFirst = await seedAndRead([...notes].reverse());
+  const titleOf = (r, id) => r.find(([x]) => x === id)[1];
+  check("the older note keeps its title", titleOf(newFirst, "note-old") === "Car", newFirst);
+  check("the new one takes the (2)", titleOf(newFirst, "note-new") === "car (2)", newFirst);
+  check("the order on the device doesn't change who keeps it", titleOf(oldFirst, "note-old") === "Car", oldFirst);
+  check("the list stays in its order", newFirst[0][0] === "note-new", newFirst);
+});
+
+await section("Ask: moving a repeating to-do moves the series", async () => {
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "todo-content": [
+        { id: "rt", text: "Rent", done: false, due: "2026-11-15", repeat: "monthly", repeatDay: 15, subitems: [] },
+        { id: "pl", text: "Plain", done: false, due: "2026-11-15", subitems: [] },
+      ],
+    },
+  });
+  const r = await page.evaluate(() => {
+    const ok = askDoAction({ type: "todo_move", id: "rt", date: "2026-11-20" });
+    askDoAction({ type: "todo_move", id: "pl", date: "2026-11-20" });
+    const t = todoList.find((x) => x.id === "rt");
+    return {
+      ok,
+      due: t.due,
+      day: t.repeatDay,
+      next: nextRepeatIso(t.due, t.repeat, t.repeatDay),
+      plain: "repeatDay" in todoList.find((x) => x.id === "pl"),
+    };
+  });
+  check("the to-do moved", r.ok && r.due === "2026-11-20", r);
+  check("later repeats land on the new day", r.day === 20 && r.next === "2026-12-20", r);
+  check("a to-do that doesn't repeat gets no repeat day", r.plain === false, r);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Fitness: of two weigh-ins on one day, the last one typed stays", async () => {
+  const { ctx, page, errors } = await openApp({
+    seed: {
+      "fitness-content": {
+        weights: [
+          { id: "wt-z", date: "2026-11-01", lbs: 180, at: 1000 },
+          { id: "wt-a", date: "2026-11-01", lbs: 175, at: 2000 },
+          { id: "wt-q", date: "2026-11-02", lbs: 170 },
+          { id: "wt-r", date: "2026-11-02", lbs: 171 },
+          { id: "wt-s", date: "2026-11-03", lbs: 169, at: "junk" },
+        ],
+        plan: [],
+        checks: {},
+      },
+    },
+  });
+  const r = await page.evaluate(() => {
+    const before = fitness.weights.map((w) => [w.date, w.lbs]);
+    const junkAt = "at" in fitness.weights[2];
+    askDoAction({ type: "weight_log", lbs: 168, date: "2026-11-03" });
+    const logged = fitness.weights.find((w) => w.date === "2026-11-03");
+    return { before, junkAt, stamped: logged.at > 0, lbs: logged.lbs };
+  });
+  check("the later one wins, whatever its id", r.before[0][1] === 175, r.before);
+  check("older entries with no time still pick the same one", r.before[1][1] === 171, r.before);
+  check("a bad time is dropped", r.junkAt === false, r);
+  check("a new weigh-in records when", r.stamped && r.lbs === 168, r);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Dates: the shared short date", async () => {
+  const { ctx, page } = await openApp({});
+  const r = await page.evaluate(() => shortDate("2026-03-05"));
+  check("reads like Mar 5", r === "Mar 5", r);
   await ctx.close();
 });
 

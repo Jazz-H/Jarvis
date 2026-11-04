@@ -248,14 +248,11 @@ async function ingestReviewFile(file) {
 }
 
 // ---- small formatters ----
-function reviewShort(iso) {
-  return noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 function reviewRange(a, b) {
   if (!a || !b) return "";
   return a.slice(0, 7) === b.slice(0, 7)
-    ? `${reviewShort(a)} – ${Number(b.slice(8))}`
-    : `${reviewShort(a)} – ${reviewShort(b)}`;
+    ? `${shortDate(a)} – ${Number(b.slice(8))}`
+    : `${shortDate(a)} – ${shortDate(b)}`;
 }
 function reviewWeekday(iso) {
   return noonOf(iso).toLocaleDateString("en-US", { weekday: "short" });
@@ -306,7 +303,7 @@ function consoleReviewHtml() {
       <button type="button" class="rv-open" data-action="review-open" data-review-id="${escapeAttr(r.id)}" aria-label="Open the review of ${escapeAttr(reviewRange(r.weekStart, r.weekEnd))}">Open review <span aria-hidden="true">›</span></button>
     </section>`;
   }
-  const label = since <= 7 ? "Last week" : `Week of ${reviewShort(r.weekStart)}`;
+  const label = since <= 7 ? "Last week" : `Week of ${shortDate(r.weekStart)}`;
   const short = reviewNumbers(r, 2);
   return `<button type="button" class="rv-row" data-action="review-open" data-review-id="${escapeAttr(r.id)}" aria-label="${escapeAttr(`Open ${label.toLowerCase()}'s review${short ? `: ${short}` : ""}`)}">
       <span class="rv-row-k">${escapeHtml(label)}${isNew ? ' <span class="jv-pill">New</span>' : ""}</span><span class="rv-row-t">${escapeHtml(short || r.headline)}</span><span class="rv-cue" aria-hidden="true">›</span>
@@ -428,7 +425,7 @@ function reviewNumbersHtml(r) {
         ch,
         w.current != null ? `now ${Math.round(w.current * 10) / 10} lb` : "",
         w.pct != null ? `${w.pct}% to goal` : "",
-        w.eta ? `on pace for ${reviewShort(w.eta)}` : "",
+        w.eta ? `on pace for ${shortDate(w.eta)}` : "",
       ]
         .filter(Boolean)
         .join(" · ") || (w.weighIns ? reviewPlural(w.weighIns, "weigh-in") : "No weigh-ins this week");

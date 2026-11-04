@@ -109,7 +109,7 @@ function debtLogHtml(d) {
       (
         e,
       ) => `<button type="button" class="goal-entry" data-action="debt-pay" data-debt-id="${escapeAttr(d.id)}" data-entry-id="${escapeAttr(e.id)}">
-        <span>${escapeHtml(wbShort(e.date))}</span><span class="goal-note">${escapeHtml(e.note || "Payment")}</span><b>−${money(e.amount)}</b>
+        <span>${escapeHtml(shortDate(e.date))}</span><span class="goal-note">${escapeHtml(e.note || "Payment")}</span><b>−${money(e.amount)}</b>
       </button>`,
     )
     .join("");
@@ -177,7 +177,6 @@ function cardDueIso(key, day) {
 function cardsCardHtml(key, rows, paychecks) {
   const cards = cardAccounts();
   if (!cards.length) return "";
-  const shortDate = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const list = cards
     .map((name) => {
       const info = budget.cardInfo[name],

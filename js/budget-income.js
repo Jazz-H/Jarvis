@@ -129,7 +129,7 @@ function editPaycheck(srcId, date, markReceived = false) {
   const p = paycheckAt(src, date),
     base = src.varies ? incomeEstimate(src) : src.amount;
   openModal(
-    `${src.name} · ${noonOf(date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    `${src.name} · ${shortDate(date)}`,
     [
       {
         key: "amount",

@@ -17,7 +17,7 @@ function spendingCardHtml(spent, spentTotal) {
       .sort((a, b) => (a.date < b.date ? 1 : -1))
       .map(
         (e) => `<button class="expense-row" data-action="expense-edit" data-expense-id="${escapeAttr(e.id)}">
-        <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(noonOf(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</span><b>${money(e.amount)}</b>
+        <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(shortDate(e.date))}</span><b>${money(e.amount)}</b>
       </button>`,
       )
       .join("");
@@ -99,10 +99,7 @@ function billTableRowHtml(r, today, monthStart) {
   const b = r.bill,
     paid = !!r.payment,
     overdue = !paid && r.due < today;
-  const due =
-    r.due < monthStart
-      ? noonOf(r.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      : ordinal(Number(r.due.slice(8)));
+  const due = r.due < monthStart ? shortDate(r.due) : ordinal(Number(r.due.slice(8)));
   const acct = (b && b.account) || (r.payment && r.payment.account);
   const sub = [
     acct ? `<span class="acct-tag"><i style="--acct:${accountColor(acct)}"></i>${escapeHtml(acct)}</span>` : "",
@@ -212,7 +209,6 @@ function wbMonthOpen() {
     return false;
   }
 }
-const wbShort = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const wbDay = (iso) => noonOf(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 const wbLabel = (text, count = "") =>
   `<div class="jv-label wb-label"><span>${text}</span><i></i>${count ? `<span class="jv-label-count">${count}</span>` : ""}</div>`;
@@ -265,7 +261,7 @@ function wbBillRowHtml(r, today) {
   const n = daysFromToday(r.due);
   const meta = [];
   if (paid) meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
-  else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(wbShort(r.due))}</span>`);
+  else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(shortDate(r.due))}</span>`);
   else meta.push(escapeHtml(n === 0 ? "Today" : n === 1 ? "Tomorrow" : wbDay(r.due)));
   if (!paid && b && b.autopay) meta.push("autopay");
   else if (!paid && b && r.current && dashManualSoon([b]).length)
@@ -292,7 +288,7 @@ function wbCardRowHtml(c, today) {
   const m = `data-account="${escapeAttr(c.name)}" data-month="${escapeAttr(c.key)}"`;
   const plan =
     c.st != null && c.p
-      ? `<button class="plan-hint card-plan" data-action="card-plan" ${m}>+ ${money(c.st)} to the ${escapeHtml(wbShort(c.p.date))} paycheck</button>`
+      ? `<button class="plan-hint card-plan" data-action="card-plan" ${m}>+ ${money(c.st)} to the ${escapeHtml(shortDate(c.p.date))} paycheck</button>`
       : "";
   return `<div class="wb-bill wb-card-due">
       <span class="wb-later" aria-hidden="true"></span>
@@ -322,7 +318,7 @@ function wbCatItemsHtml(c, list) {
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .map(
       (e) => `<button class="expense-row" data-action="expense-edit" data-expense-id="${escapeAttr(e.id)}">
-        <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(wbShort(e.date))}</span><b>${money(e.amount)}</b>
+        <span class="expense-name">${escapeHtml(e.name)}</span><span class="expense-date">${escapeHtml(shortDate(e.date))}</span><b>${money(e.amount)}</b>
       </button>`,
     )
     .join("");
@@ -411,7 +407,6 @@ function renderBudget() {
     "en-US",
     key.slice(0, 4) === today.slice(0, 4) ? { month: "long" } : { month: "long", year: "numeric" },
   );
-  const shortDate = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const sum = (list) => list.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const rows = billsInMonth(key);
   const unpaid = rows.filter((r) => !r.payment);

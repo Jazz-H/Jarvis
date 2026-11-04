@@ -111,14 +111,27 @@ function gistLostError() {
   err.gistLost = true;
   return err;
 }
+// Every gist the token can see. Past the last page GitHub would be hiding gists, and any answer about
+// which one is the data gist could be wrong, so a list that long is an error, not a partial list.
+const GIST_PAGE_SIZE = 100;
+const GIST_MAX_PAGES = 10;
+async function listGists(options) {
+  const all = [];
+  for (let page = 1; page <= GIST_MAX_PAGES; page++) {
+    const batch = await gistApi(`/gists?per_page=${GIST_PAGE_SIZE}${page > 1 ? `&page=${page}` : ""}`, options);
+    all.push(...batch);
+    if (batch.length < GIST_PAGE_SIZE) return all;
+  }
+  throw gistLostError();
+}
 async function lookUpGist() {
   const token = localStorage.getItem("sync-token");
-  const gists = await gistApi("/gists?per_page=100");
+  const gists = await listGists();
   const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
-  // The gist this device last synced with settles it (turning sync off and on again). Otherwise guessing,
-  // or making one while a full page may be hiding the real one, could leave the backend's gist.
+  // The gist this device last synced with settles it (turning sync off and on again). Otherwise guessing
+  // could leave the backend's gist.
   const known = hits.find((g) => g.id === localStorage.getItem(SYNC_BASE_GIST_KEY));
-  if (!known && (hits.length > 1 || (!hits.length && gists.length >= 100))) throw gistLostError();
+  if (!known && hits.length > 1) throw gistLostError();
   if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
   let id = (known || hits[0] || {}).id;
   if (!id) {
@@ -167,7 +180,7 @@ async function connectSync(token) {
   let epoch = syncEpoch;
   const overtaken = () => mine !== syncConnecting || epoch !== syncEpoch;
   try {
-    const gists = await gistApi("/gists?per_page=100", { headers: { Authorization: "Bearer " + token } });
+    const gists = await listGists({ headers: { Authorization: "Bearer " + token } });
     if (overtaken()) return null;
     const saved = localStorage.getItem("sync-gist-id");
     const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
@@ -177,7 +190,7 @@ async function connectSync(token) {
         err.gistHidden = true;
         throw err;
       }
-      if (saved && (hits.length > 1 || gists.length >= 100)) throw gistLostError();
+      if (saved && hits.length > 1) throw gistLostError();
       forgetGist();
       epoch = syncEpoch;
     }
@@ -213,10 +226,9 @@ async function findReplacedGist(staleId) {
   const saved = localStorage.getItem("sync-gist-id");
   if (saved && saved !== staleId) return saved; // another caller just moved this device
   const token = localStorage.getItem("sync-token");
-  const gists = await gistApi("/gists?per_page=100");
+  const gists = await listGists();
   const hits = gists.filter((g) => g.files && g.files[GIST_FILENAME]);
-  // A full page may be hiding another match
-  if (gists.length >= 100 || hits.length !== 1 || hits[0].id === staleId) throw gistLostError();
+  if (hits.length !== 1 || hits[0].id === staleId) throw gistLostError();
   if (localStorage.getItem("sync-token") !== token) throw new Error("The sync token changed");
   labelBase();
   localStorage.setItem("sync-gist-id", hits[0].id);

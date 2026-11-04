@@ -376,9 +376,7 @@ function shiftBudgetMonth(n) {
 // default, so only other repeats are named; shares and "varies" say so briefly.
 function billWhen(iso) {
   const n = daysFromToday(iso);
-  return n >= -1 && n <= 6
-    ? dueLabel(iso)
-    : noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return n >= -1 && n <= 6 ? dueLabel(iso) : shortDate(iso);
 }
 // ---------- bill logos ----------
 // A bill shows its company's logo (the site's icon, via DuckDuckGo's icon

@@ -252,30 +252,34 @@ function brainAddMemory() {
 // A note with the same title (any case) is the same note: saving again adds to it. Jarvis writes
 // here only through an Ask action ("save that as a note", "add this to my car note"), with Undo.
 // Titles are unique, but two devices can each save a note under the same one and sync then holds both.
-// Only a true repeat (same title, same text) goes; the other keeps its text under "Title (2)".
+// Only a true repeat (same title, same text) goes; the other keeps its text under "Title (2)". The
+// oldest keeps the plain title, whatever order the list is in, so a new note can't rename one left
+// alone, and every device picks the same one.
 function brainUniqueTitles(notes) {
   const taken = new Set(notes.map((n) => n.title.toLowerCase()));
   const textsByTitle = new Map();
-  const out = [];
-  notes.forEach((n) => {
-    const key = n.title.toLowerCase();
-    const texts = textsByTitle.get(key);
-    if (!texts) {
-      textsByTitle.set(key, new Set([n.text]));
-      out.push(n);
-      return;
-    }
-    if (texts.has(n.text)) return;
-    texts.add(n.text);
-    let title;
-    for (let i = 2; !title || taken.has(title.toLowerCase()); i++) {
-      const tag = ` (${i})`;
-      title = n.title.slice(0, BRAIN_MAX.noteTitle - tag.length).trimEnd() + tag;
-    }
-    taken.add(title.toLowerCase());
-    out.push({ ...n, title });
-  });
-  return out;
+  const cleaned = new Map(); // each note as it ends up; a repeat isn't in here
+  [...notes]
+    .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+    .forEach((n) => {
+      const key = n.title.toLowerCase();
+      const texts = textsByTitle.get(key);
+      if (!texts) {
+        textsByTitle.set(key, new Set([n.text]));
+        cleaned.set(n, n);
+        return;
+      }
+      if (texts.has(n.text)) return;
+      texts.add(n.text);
+      let title;
+      for (let i = 2; !title || taken.has(title.toLowerCase()); i++) {
+        const tag = ` (${i})`;
+        title = n.title.slice(0, BRAIN_MAX.noteTitle - tag.length).trimEnd() + tag;
+      }
+      taken.add(title.toLowerCase());
+      cleaned.set(n, { ...n, title });
+    });
+  return notes.filter((n) => cleaned.has(n)).map((n) => cleaned.get(n));
 }
 function brainSaveNote(title, text, by = "you") {
   const t = String(title || "")
@@ -569,7 +573,7 @@ function brainCardHtml() {
           ? jarvisNotes
               .map(
                 (n) =>
-                  `<button type="button" class="br-row" data-action="brain-note" data-note-id="${escapeAttr(n.id)}"><span>${escapeHtml(n.title)}</span><b>${escapeHtml(noonOf(n.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}${n.by === "jarvis" ? " · Jarvis" : ""}</b>${CHEVRON_RIGHT}</button>`,
+                  `<button type="button" class="br-row" data-action="brain-note" data-note-id="${escapeAttr(n.id)}"><span>${escapeHtml(n.title)}</span><b>${escapeHtml(shortDate(n.at))}${n.by === "jarvis" ? " · Jarvis" : ""}</b>${CHEVRON_RIGHT}</button>`,
               )
               .join("")
           : `<p class="br-empty">Longer notes by topic (your car, the lease, health) that Jarvis reads when it answers. Add one, or tell Jarvis “save that as a note”.</p>`

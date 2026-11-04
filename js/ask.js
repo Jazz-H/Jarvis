@@ -475,6 +475,7 @@ function askDoAction(x) {
   } else if (x.type === "todo_move") {
     const t = todoList.find((y) => y.id === x.id);
     if (!t || t.done || !x.date) return false;
+    if (t.repeat) t.repeatDay = dayOf(x.date); // the series moves too, as when it's dragged
     t.due = x.date;
     saveContent("todo-content", todoList, { toast: false });
   } else if (x.type === "todo_add" || x.type === "shopping_add") {
@@ -494,6 +495,7 @@ function askDoAction(x) {
     const w = fitness.weights.find((y) => y.date === date) || { id: genId("wt") }; // one weigh-in a day
     w.lbs = x.lbs;
     w.date = date;
+    w.at = Date.now();
     if (!fitness.weights.includes(w)) fitness.weights.push(w);
     fitness.weights.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     saveFitness();

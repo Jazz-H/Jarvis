@@ -455,7 +455,6 @@ const SHELL_CLICK = {
     const end = isoDate(new Date(noonOf(next).getTime() - 864e5));
     const total = billRowsBetween(date, next).reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const due = Math.round(total * 100) / 100;
-    const shortDate = (iso) => noonOf(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     if (due > 0) quickPlanLine(k, `Bills due ${shortDate(date)}–${shortDate(end)}`, due);
   },
   "plans-copy-prev": () => copyPrevPlans(),
@@ -924,7 +923,7 @@ function renderDeskFooter() {
     ? ""
     : b.date === addDaysIso(0)
       ? `briefed ${jvTime(b.generatedAt)}`
-      : `last briefed ${noonOf(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+      : `last briefed ${shortDate(b.date)}`;
   el.innerHTML = `<span class="df-dot ${escapeAttr(state)}" aria-hidden="true"></span><span>${escapeHtml([sync, brief].filter(Boolean).join(" · "))}</span>
     <span class="df-keys"><kbd>/</kbd> Ask or add</span>`;
 }
