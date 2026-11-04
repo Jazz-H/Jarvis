@@ -92,7 +92,13 @@ export const WeatherFacts = z.object({
     .optional(),
   // today's and tomorrow's sunrise and sunset, local "HH:MM"
   sun: z
-    .array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), rise: z.string().regex(/^\d{2}:\d{2}$/), set: z.string().regex(/^\d{2}:\d{2}$/) }))
+    .array(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        rise: z.string().regex(/^\d{2}:\d{2}$/),
+        set: z.string().regex(/^\d{2}:\d{2}$/),
+      }),
+    )
     .max(2)
     .nullable()
     .optional(),

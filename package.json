@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "node scripts/check.mjs",
-    "format": "prettier --write \"js/**/*.js\" \"css/**/*.css\" \"scripts/**/*.mjs\" \"tests/**/*.mjs\" sw.js jazz2.0.html",
+    "format": "prettier --write \"js/**/*.js\" \"css/**/*.css\" \"scripts/**/*.mjs\" \"tests/**/*.mjs\" \"agents/**/*.ts\" sw.js jazz2.0.html",
     "test": "node tests/regression.mjs",
     "icons": "node scripts/render-icons.mjs"
   },

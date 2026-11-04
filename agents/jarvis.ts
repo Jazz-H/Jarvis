@@ -8,7 +8,16 @@
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
 //   npm run brief -- --now        (deliver now, like a manual run)
-import { readBrain, brainForPrompt, emptyBrain, withoutHidden, mentionsHidden, BRAIN_RULES, type Brain, type DeviceLocation } from "./lib/brain.ts";
+import {
+  readBrain,
+  brainForPrompt,
+  emptyBrain,
+  withoutHidden,
+  mentionsHidden,
+  BRAIN_RULES,
+  type Brain,
+  type DeviceLocation,
+} from "./lib/brain.ts";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -224,7 +233,8 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   } catch {
     lastPrices = null;
   }
-  const pricesDue = watch.length > 0 && (!lastPrices || lastPrices.checkedAt <= addDays(today, -CONFIG.prices.everyDays));
+  const pricesDue =
+    watch.length > 0 && (!lastPrices || lastPrices.checkedAt <= addDays(today, -CONFIG.prices.everyDays));
   if (impl.prices && pricesDue) tasks.prices = () => impl.prices!(sub, watch, today);
   const names = Object.keys(tasks) as SubagentName[];
   const settled = await Promise.all(
@@ -293,7 +303,8 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
       trace.log("prices", "not saved", { error: trace.publicError(e) });
     }
   const onList = new Set(watch.map((w) => w.id));
-  const prices = freshPrices ?? (lastPrices ? { ...lastPrices, items: lastPrices.items.filter((i) => onList.has(i.id)) } : null);
+  const prices =
+    freshPrices ?? (lastPrices ? { ...lastPrices, items: lastPrices.items.filter((i) => onList.has(i.id)) } : null);
   // Bill Guard: code over Budget (and the Inbox card's bill checks). Never fails the briefing.
   let money: MoneyCard | null = null;
   try {
@@ -323,7 +334,10 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     trigger: deps.trigger,
     // a headline about a package the owner already has gives way to the first other line
     headline: mentionsHidden(out.headline, brain.hiddenPackages)
-      ? (out.summary.find((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))?.text ?? "Your morning briefing").slice(0, 100)
+      ? (
+          out.summary.find((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))?.text ??
+          "Your morning briefing"
+        ).slice(0, 100)
       : out.headline,
     // nothing about a package the owner already marked as come (unless that's every line)
     summary: out.summary.some((s) => !mentionsHidden(s.text, brain.hiddenPackages, s.source))
@@ -332,7 +346,9 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     summaryBy,
     suggestions: cleanSuggestions(
       // nor one the owner dismissed, even reworded (the same two words count, as for packages)
-      out.suggestions?.filter((s) => !mentionsHidden(s.text, brain.hiddenPackages) && !mentionsHidden(s.text, brain.hiddenSuggestions)),
+      out.suggestions?.filter(
+        (s) => !mentionsHidden(s.text, brain.hiddenPackages) && !mentionsHidden(s.text, brain.hiddenSuggestions),
+      ),
       context,
     ),
     top3: summaryBy === "jarvis" && out.top3?.length ? cleanTop3(out.top3, context) : codeTop3(context),
@@ -342,9 +358,19 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
       ...(results.calendar ? { calendar: card(results.calendar) } : {}),
       ...(results.inbox ? { inbox: card(results.inbox) } : {}),
       ...(results.deliveries ? { deliveries: card(results.deliveries) } : {}),
-      ...(money ? { money: { status: "ok" as const, data: money, agent: "Bill Guard", model: "code", updatedAt } } : {}),
+      ...(money
+        ? { money: { status: "ok" as const, data: money, agent: "Bill Guard", model: "code", updatedAt } }
+        : {}),
       ...(prices
-        ? { prices: { status: "ok" as const, data: prices, agent: "Price watcher", model: CONFIG.models.prices, updatedAt: freshPrices ? updatedAt : prices.checkedAt + "T12:00:00.000Z" } }
+        ? {
+            prices: {
+              status: "ok" as const,
+              data: prices,
+              agent: "Price watcher",
+              model: CONFIG.models.prices,
+              updatedAt: freshPrices ? updatedAt : prices.checkedAt + "T12:00:00.000Z",
+            },
+          }
         : results.prices
           ? { prices: card(results.prices) }
           : {}),
@@ -353,7 +379,8 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   });
   await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
-  if (deps.push) await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries, money, freshPrices), trace);
+  if (deps.push)
+    await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries, money, freshPrices), trace);
   await appendDayDigest(gist, briefing, trace);
   if (ics) await writeCalendarHistory(gist, ics, deps.now, trace);
   if (deps.ask)
@@ -451,7 +478,9 @@ export function jarvisSpec(
       washDayNote: weather.washDayNote,
       alerts: (weather.alerts ?? []).map(({ event, severity, ends }) => ({ event, severity, ends })),
       // the coming week, for a plan worth moving ("rain Thursday")
-      next7Days: (weather.outlook ?? []).slice(1, 8).map(({ date, highF, lowF, rainChance, conditions }) => ({ date, highF, lowF, rainChance, conditions })),
+      next7Days: (weather.outlook ?? [])
+        .slice(1, 8)
+        .map(({ date, highF, lowF, rainChance, conditions }) => ({ date, highF, lowF, rainChance, conditions })),
     },
     news: news && news.stories.map((s) => ({ topic: s.topic, title: s.title, source: s.source })),
     calendar: extra.calendar && {
@@ -463,7 +492,9 @@ export function jarvisSpec(
     deliveries: extra.deliveries,
     money: extra.money,
     brain: extra.brain ? brainForPrompt(extra.brain) : null,
-    priceDrops: (extra.prices?.items ?? []).filter((i) => i.drop).map((i) => ({ item: i.name, now: i.found, saved: i.saved, store: i.store })),
+    priceDrops: (extra.prices?.items ?? [])
+      .filter((i) => i.drop)
+      .map((i) => ({ item: i.name, now: i.found, saved: i.saved, store: i.store })),
     problems: notes,
   };
   return {
@@ -502,7 +533,9 @@ export function pushMessages(
   // Bill Guard: bills not on autopay, 3 days ahead (without it, the context's list through tomorrow)
   const guard = money
     ? money.guard
-        .filter((g) => (g.reason === "manual" || g.reason === "overdue" || g.reason === "card") && g.due && g.amount != null)
+        .filter(
+          (g) => (g.reason === "manual" || g.reason === "overdue" || g.reason === "card") && g.due && g.amount != null,
+        )
         .map((g) => ({ name: g.name, amount: g.amount!, due: g.due!, autopay: false }))
     : c.billsDueSoon.filter((x) => x.due <= tomorrow);
   const manual = guard.filter((x) => !x.autopay && !said.includes(x.name.toLowerCase()));
@@ -515,14 +548,7 @@ export function pushMessages(
   if (manual.length)
     out.push({
       title: manual.length > 1 ? "Bills to pay (not on autopay)" : "Bill to pay (not on autopay)",
-      body: lines(
-        manual
-          .slice(0, 3)
-          .map(
-            (x) =>
-              `${x.name} $${x.amount.toFixed(2)}, ${when(x.due)}`,
-          ),
-      ),
+      body: lines(manual.slice(0, 3).map((x) => `${x.name} $${x.amount.toFixed(2)}, ${when(x.due)}`)),
       url,
       tag: "bill",
     });
@@ -538,7 +564,14 @@ export function pushMessages(
   if (drops.length)
     out.push({
       title: drops.length > 1 ? "Price drops on your list" : "Price drop on your list",
-      body: lines(drops.slice(0, 3).map((i) => `${i.name}: $${i.found!.toFixed(2)}${i.store ? ` at ${i.store}` : ""} (you saved $${i.saved.toFixed(2)})`)),
+      body: lines(
+        drops
+          .slice(0, 3)
+          .map(
+            (i) =>
+              `${i.name}: $${i.found!.toFixed(2)}${i.store ? ` at ${i.store}` : ""} (you saved $${i.saved.toFixed(2)})`,
+          ),
+      ),
       url,
       tag: "price",
     });
@@ -589,7 +622,8 @@ export function cleanTop3(list: JarvisOutput["top3"], c: JazzContext): Top3 {
 }
 // Without the model (or to fill a gap): overdue oldest first, then today's starred, today's, starred anytime
 export function codeTop3(c: JazzContext): Top3 {
-  const md = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const md = (iso: string) =>
+    new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   return [
     ...c.overdue.map((t) => ({ id: t.id, text: t.text, why: `Overdue since ${md(t.due)}` })),
     ...c.todosToday.map((t) => ({ id: t.id, text: t.text, why: t.starred ? "Starred, due today" : "Due today" })),

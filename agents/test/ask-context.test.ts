@@ -56,7 +56,11 @@ describe("Ask context (figures worked out in code)", () => {
       { id: null, text: "E", due: "2026-10-20", starred: false }, // no id in the fixture: can't be acted on
       { id: null, text: "D", due: "2026-10-28", starred: false },
     ]);
-    expect(j.todos.next14Days.map((t) => `${t.text} ${t.due}`)).toEqual(["G 2026-10-31", "F 2026-11-03", "G 2026-11-07"]);
+    expect(j.todos.next14Days.map((t) => `${t.text} ${t.due}`)).toEqual([
+      "G 2026-10-31",
+      "F 2026-11-03",
+      "G 2026-11-07",
+    ]);
   });
 
   it("bills: overdue and the next 30 days, your share, after autopay", () => {
@@ -85,9 +89,21 @@ describe("Ask context (figures worked out in code)", () => {
       ],
       overLimit: [],
     });
-    expect(j.routine).toMatchObject({ streak: 1, amDoneToday: true, pmDoneToday: true, washToday: false, washTomorrow: false });
+    expect(j.routine).toMatchObject({
+      streak: 1,
+      amDoneToday: true,
+      pmDoneToday: true,
+      washToday: false,
+      washTomorrow: false,
+    });
     expect(j.workouts).toEqual({
-      thisWeek: { start: "2026-10-25", doneBeforeToday: 1, plannedBeforeToday: 2, missedDays: ["2026-10-28"], plannedRestOfWeek: 0 },
+      thisWeek: {
+        start: "2026-10-25",
+        doneBeforeToday: 1,
+        plannedBeforeToday: 2,
+        missedDays: ["2026-10-28"],
+        plannedRestOfWeek: 0,
+      },
       today: [{ id: expect.any(String), name: "Lift", done: true }],
       next: { date: "2026-11-01", workouts: ["Long run"] },
     });
@@ -132,7 +148,14 @@ describe("Ask context (figures worked out in code)", () => {
   });
 
   it("weather ahead: the forecast day by day, then the outlook by week, from today on", () => {
-    const day = (date: string, kind: "forecast" | "outlook", highF: number, rainChance = 10) => ({ date, highF, lowF: highF - 20, rainChance, conditions: kind === "forecast" ? "Clear" : null, kind });
+    const day = (date: string, kind: "forecast" | "outlook", highF: number, rainChance = 10) => ({
+      date,
+      highF,
+      lowF: highF - 20,
+      rainChance,
+      conditions: kind === "forecast" ? "Clear" : null,
+      kind,
+    });
     const days = [
       day("2026-10-29", "forecast", 70), // yesterday's briefing day: dropped
       day("2026-10-30", "forecast", 68, 60),
@@ -163,10 +186,31 @@ describe("Ask context (figures worked out in code)", () => {
     b.cards.weather.data.alerts = [{ event: "Wind Advisory", severity: "Moderate", headline: "h", ends: null }];
     b.cards.weather.data.sun = [{ date: TODAY, rise: "07:33", set: "18:38" }];
     b.cards.weather.data.hours = [
-      { time: "2026-10-29T23:00", tempF: 50, feelsF: 48, chance: 0, code: 0, isDay: false, humidityPct: 80, windMph: 3, windDir: "N" },
-      { time: TODAY + "T18:00", tempF: 59, feelsF: 58, chance: 15, code: 3, isDay: false, humidityPct: 70, windMph: 5, windDir: "SW" },
+      {
+        time: "2026-10-29T23:00",
+        tempF: 50,
+        feelsF: 48,
+        chance: 0,
+        code: 0,
+        isDay: false,
+        humidityPct: 80,
+        windMph: 3,
+        windDir: "N",
+      },
+      {
+        time: TODAY + "T18:00",
+        tempF: 59,
+        feelsF: 58,
+        chance: 15,
+        code: 3,
+        isDay: false,
+        humidityPct: 70,
+        windMph: 5,
+        windDir: "SW",
+      },
     ];
-    const w = buildAskContext({ data: ASK_DATA, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null }).briefing!.weather!;
+    const w = buildAskContext({ data: ASK_DATA, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null })
+      .briefing!.weather!;
     expect(w.alerts).toEqual([{ event: "Wind Advisory", severity: "Moderate", headline: "h", ends: null }]);
     expect(w.sun).toEqual([{ date: TODAY, rise: "07:33", set: "18:38" }]);
     expect(w.hourly).toEqual({ [TODAY]: ["18:00 59° 15% Overcast"] });
@@ -188,7 +232,10 @@ describe("Ask context (figures worked out in code)", () => {
 
   it("leaves out packages and lines dismissed on Home, and only what's left can be dismissed", () => {
     const b = JSON.parse(BRIEFING_FILE);
-    b.summary.push({ text: "Your Acme Glow serum arrives today.", source: "deliveries" }, { text: "Pick up the dry cleaning.", source: "jazz" });
+    b.summary.push(
+      { text: "Your Acme Glow serum arrives today.", source: "deliveries" },
+      { text: "Pick up the dry cleaning.", source: "jazz" },
+    );
     b.cards.deliveries = {
       status: "ok",
       agent: "Deliveries",
@@ -196,14 +243,24 @@ describe("Ask context (figures worked out in code)", () => {
       updatedAt: b.generatedAt,
       data: {
         packages: [
-          { item: "Acme Glow serum", status: "shipped", eta: TODAY, etaText: null, shoppingMatch: null, carrier: "UPS" },
+          {
+            item: "Acme Glow serum",
+            status: "shipped",
+            eta: TODAY,
+            etaText: null,
+            shoppingMatch: null,
+            carrier: "UPS",
+          },
           { item: "Rain boots", status: "ordered", eta: null, etaText: null, shoppingMatch: null, carrier: null },
         ],
       },
     };
     const data = {
       ...ASK_DATA,
-      "jarvis-settings": { hiddenPackages: [{ item: "acme glow SERUM", at: TODAY }], hiddenLines: [{ text: "Rent is due Nov 1.", at: TODAY }] },
+      "jarvis-settings": {
+        hiddenPackages: [{ item: "acme glow SERUM", at: TODAY }],
+        hiddenLines: [{ text: "Rent is due Nov 1.", at: TODAY }],
+      },
     };
     const c = buildAskContext({ data, today: TODAY, briefingRaw: JSON.stringify(b), reviewsRaw: null });
     expect(c.briefing!.deliveries!.packages.map((p) => p.item)).toEqual(["Rain boots"]);
@@ -214,7 +271,13 @@ describe("Ask context (figures worked out in code)", () => {
 });
 
 describe("thread turns", () => {
-  const item = (id: string, at: string, thread?: string, text = `q ${id}`): AskItem => ({ id, kind: "ask", text, at, ...(thread ? { thread } : {}) });
+  const item = (id: string, at: string, thread?: string, text = `q ${id}`): AskItem => ({
+    id,
+    kind: "ask",
+    text,
+    at,
+    ...(thread ? { thread } : {}),
+  });
   const ans = (id: string, askedAt: string, text = `a ${id}`): Answer => ({
     id,
     askedAt,
@@ -237,7 +300,14 @@ describe("thread turns", () => {
     }
     items.push(item("other001", at(20), "otherrr1"), item("current1", at(30), "root0001"));
     const turns = threadTurns(items.at(-1)!, items, answers, 6);
-    expect(turns.map((t) => t.question)).toEqual(["q follow02", "q follow03", "q follow04", "q follow05", "q follow06", "q follow07"]);
+    expect(turns.map((t) => t.question)).toEqual([
+      "q follow02",
+      "q follow03",
+      "q follow04",
+      "q follow05",
+      "q follow06",
+      "q follow07",
+    ]);
     expect(turns[0].answer).toBe("a follow02\n- b");
     expect(threadTurns(item("solo0001", at(40)), items, answers, 6)).toEqual([]);
   });

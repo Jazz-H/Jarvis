@@ -155,7 +155,10 @@ export function payPeriod(data: Obj, today: string): PayPeriod | null {
     .filter((d) => d > today)
     .sort()[0];
   if (!checks.length || !next) return null;
-  const start = checks.map((p) => p.date).sort().at(-1)!;
+  const start = checks
+    .map((p) => p.date)
+    .sort()
+    .at(-1)!;
   const onStart = checks.filter((p) => p.date === start).map((p) => paycheck(p.src, start, plans));
   const pay = sum(onStart.map((p) => p.amount));
   const bills = readBills(data);
@@ -180,7 +183,11 @@ export function payPeriod(data: Obj, today: string): PayPeriod | null {
 }
 
 // ---- the briefing and the review ----
-function briefingPart(raw: string | null, today: string, hidden: { packages: string[]; lines: string[] } = { packages: [], lines: [] }) {
+function briefingPart(
+  raw: string | null,
+  today: string,
+  hidden: { packages: string[]; lines: string[] } = { packages: [], lines: [] },
+) {
   if (!raw) return null;
   let parsed;
   try {
@@ -190,7 +197,8 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
   }
   if (!parsed.success || parsed.data.date < addDays(today, -1)) return null;
   const b = parsed.data;
-  const ok = <T>(c: { status: "ok"; data: T } | { status: "error" } | undefined) => (c && c.status === "ok" ? c.data : null);
+  const ok = <T>(c: { status: "ok"; data: T } | { status: "error" } | undefined) =>
+    c && c.status === "ok" ? c.data : null;
   const w = ok(b.cards.weather);
   const n = ok(b.cards.news);
   const cal = ok(b.cards.calendar);
@@ -200,7 +208,10 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
     date: b.date,
     headline: b.headline,
     // lines dismissed on Home, and lines about packages marked as come
-    summary: b.summary.filter((s) => !hidden.lines.includes(clip(s.text, 200).toLowerCase()) && !mentionsHidden(s.text, hidden.packages, s.source)),
+    summary: b.summary.filter(
+      (s) =>
+        !hidden.lines.includes(clip(s.text, 200).toLowerCase()) && !mentionsHidden(s.text, hidden.packages, s.source),
+    ),
     weather: w && {
       summary: w.summary,
       conditions: w.conditions,
@@ -226,12 +237,26 @@ function briefingPart(raw: string | null, today: string, hidden: { packages: str
 // The days ahead from this morning's 90: the 16-day forecast day by day, then the long-range
 // outlook by week (Monday start), with each week's figures worked out here
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-type OutlookDay = { date: string; highF: number; lowF: number; rainChance: number; conditions: string | null; kind: "forecast" | "outlook" };
+type OutlookDay = {
+  date: string;
+  highF: number;
+  lowF: number;
+  rainChance: number;
+  conditions: string | null;
+  kind: "forecast" | "outlook";
+};
 export function weatherDays(days: OutlookDay[], today: string) {
   const ahead = days.filter((d) => d.date >= today);
   const forecast = ahead
     .filter((d) => d.kind === "forecast")
-    .map((d) => ({ date: d.date, day: DOW[weekday(d.date)], highF: d.highF, lowF: d.lowF, rainChance: d.rainChance, conditions: d.conditions }));
+    .map((d) => ({
+      date: d.date,
+      day: DOW[weekday(d.date)],
+      highF: d.highF,
+      lowF: d.lowF,
+      rainChance: d.rainChance,
+      conditions: d.conditions,
+    }));
   const weeks = new Map<string, OutlookDay[]>();
   for (const d of ahead.filter((x) => x.kind === "outlook")) {
     const k = mondayOf(d.date);
@@ -255,7 +280,9 @@ function hourlyLines(hours: { time: string; tempF: number; chance: number; code:
   for (const h of hours) {
     const date = h.time.slice(0, 10);
     if (date < today) continue;
-    (out[date] ??= []).push(`${h.time.slice(11)} ${h.tempF}° ${h.chance}%${h.code != null ? " " + describeWeatherCode(h.code) : ""}`);
+    (out[date] ??= []).push(
+      `${h.time.slice(11)} ${h.tempF}° ${h.chance}%${h.code != null ? " " + describeWeatherCode(h.code) : ""}`,
+    );
   }
   return out;
 }
@@ -288,7 +315,11 @@ export function calendarLine(e: CalendarHistoryEvent): string {
   return [when, e.title, e.location].filter(Boolean).join(" | ");
 }
 
-export function calendarPart(raw: string | null, today: string, maxChars = CONFIG.ask.calendarMaxChars): CalendarPart | null {
+export function calendarPart(
+  raw: string | null,
+  today: string,
+  maxChars = CONFIG.ask.calendarMaxChars,
+): CalendarPart | null {
   if (!raw) return null;
   let j: any;
   try {
@@ -349,7 +380,9 @@ export function calendarPart(raw: string | null, today: string, maxChars = CONFI
     to,
     eventCount: events.length,
     days,
-    otherWeeks: [...counted.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([weekStart, n]) => ({ weekStart, events: n })),
+    otherWeeks: [...counted.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([weekStart, n]) => ({ weekStart, events: n })),
   };
 }
 
@@ -384,8 +417,12 @@ function workouts(data: Obj, today: string) {
 }
 
 function goals(data: Obj) {
-  const out: { section: string; done: number; total: number; open: { id: string | null; item: string; note: string }[] }[] =
-    [];
+  const out: {
+    section: string;
+    done: number;
+    total: number;
+    open: { id: string | null; item: string; note: string }[];
+  }[] = [];
   for (const x of goalItems(data)) {
     const section = goalSection(x);
     let g = out.find((o) => o.section === section);
@@ -482,7 +519,8 @@ function routineToday(data: Obj, today: string) {
   const r = isObj(data["skin-routine-content"]) ? data["skin-routine-content"] : null;
   if (!r) return null;
   const dow = weekday(today);
-  const checks = isObj(data["routine-checks"]) && isObj(data["routine-checks"][today]) ? data["routine-checks"][today] : {};
+  const checks =
+    isObj(data["routine-checks"]) && isObj(data["routine-checks"][today]) ? data["routine-checks"][today] : {};
   const steps = (list: unknown, band: "am" | "pm") =>
     arr(list)
       .filter((s) => isObj(s) && (!Array.isArray(s.days) || s.days.includes(dow)))
@@ -501,7 +539,12 @@ function savingsGoals(data: Obj) {
   return arr(b.goals)
     .filter(isObj)
     .slice(0, 8)
-    .map((g) => ({ name: clip(g.name, 60), target: amt(g.target), saved: amt(g.saved), by: isIso(g.date) ? g.date : null }))
+    .map((g) => ({
+      name: clip(g.name, 60),
+      target: amt(g.target),
+      saved: amt(g.saved),
+      by: isIso(g.date) ? g.date : null,
+    }))
     .filter((g) => g.name);
 }
 
@@ -592,13 +635,18 @@ export function buildAskContext(opts: {
   });
   // Top 3 done or not, from the to-dos now (a to-do that's gone counts as done)
   if (briefing && data) {
-    const open = new Set(arr(data["todo-content"]).filter((t) => isObj(t) && !t.done).map((t) => String(t.id)));
+    const open = new Set(
+      arr(data["todo-content"])
+        .filter((t) => isObj(t) && !t.done)
+        .map((t) => String(t.id)),
+    );
     for (const t of briefing.top3) t.done = !open.has(t.id);
   }
   const calendar = calendarPart(opts.calendarRaw ?? null, today);
   const review = reviewPart(opts.reviewsRaw, today);
   if (!data) notes.push("The owner's Jazz data isn't available, so to-dos, bills and money are left out.");
-  if (!briefing) notes.push("There's no briefing from this morning, so weather, news, calendar, inbox and deliveries are left out.");
+  if (!briefing)
+    notes.push("There's no briefing from this morning, so weather, news, calendar, inbox and deliveries are left out.");
   else if (briefing.date !== today) notes.push(`The latest briefing is from ${briefing.date}, not today.`);
   if (!briefing?.calendar && briefing && !calendar) notes.push("The calendar isn't in this morning's briefing.");
   if (calendar && calendar.asOf !== today) notes.push(`The calendar list is from ${calendar.asOf}, not this morning.`);
@@ -626,7 +674,11 @@ export function buildAskContext(opts: {
     notes,
     targets: actionTargets(data, today, briefing),
     brain: data
-      ? ((b) => ({ ...brainForPrompt(b), memoryIds: b.memory.map((m) => ({ id: m.id, text: m.text })), notes: notesForPrompt(b) }))(readBrain(data))
+      ? ((b) => ({
+          ...brainForPrompt(b),
+          memoryIds: b.memory.map((m) => ({ id: m.id, text: m.text })),
+          notes: notesForPrompt(b),
+        }))(readBrain(data))
       : null,
   };
 }

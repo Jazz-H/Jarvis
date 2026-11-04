@@ -26,7 +26,13 @@ beforeEach(() => {
 describe("Ask fallback in the morning briefing", () => {
   const NOW = new Date("2026-10-30T10:50:00Z"); // 6:50am EDT
   const subagents: Subagents = {
-    weather: async () => ({ ...FACTS, date: "2026-10-30", summary: "Light rain by noon.", wear: "Jacket.", washDayNote: null }),
+    weather: async () => ({
+      ...FACTS,
+      date: "2026-10-30",
+      summary: "Light rain by noon.",
+      wear: "Jacket.",
+      washDayNote: null,
+    }),
     news: async () => ({ stories: [{ ...CANDIDATE, summary: "A model did well." }] }),
   };
   const BRIEF_OUT = { headline: "Rain by noon", summary: [{ text: "Rent is due Nov 1.", source: "jazz" }] };
@@ -60,7 +66,10 @@ describe("Ask fallback in the morning briefing", () => {
   });
 
   it("the briefing is still delivered when answering fails, and Ask is off without limits", async () => {
-    const { files: f } = memoryGist({ "jazz2-data.json": JAZZ_FILE, "jazz2-ask.json": askFile([q("ask-0001", "Hi?", "2026-10-30T02:00:00.000Z")]) });
+    const { files: f } = memoryGist({
+      "jazz2-data.json": JAZZ_FILE,
+      "jazz2-ask.json": askFile([q("ask-0001", "Hi?", "2026-10-30T02:00:00.000Z")]),
+    });
     const writes: string[] = [];
     const flaky: GistClient = {
       readFile: async (n) => {
@@ -74,14 +83,29 @@ describe("Ask fallback in the morning briefing", () => {
     };
     const trace = new Trace();
     const base = { now: NOW, trigger: "schedule" as const, fetchImpl: noNet, maxRunCostUsd: 0.5, subagents };
-    const r = await runBriefing({ ...base, gist: flaky, trace, queryFn: fakeQuery([{ structured_output: BRIEF_OUT }]).fn, ask: askLimits({}) });
+    const r = await runBriefing({
+      ...base,
+      gist: flaky,
+      trace,
+      queryFn: fakeQuery([{ structured_output: BRIEF_OUT }]).fn,
+      ask: askLimits({}),
+    });
     expect(r.status).toBe("delivered");
     expect(writes).not.toContain("jazz2-answers.json");
     expect(trace.events.map((e) => e.event)).toContain("pending questions not answered");
 
-    const g = memoryGist({ "jazz2-data.json": JAZZ_FILE, "jazz2-ask.json": askFile([q("ask-0001", "Hi?", "2026-10-30T02:00:00.000Z")]) });
+    const g = memoryGist({
+      "jazz2-data.json": JAZZ_FILE,
+      "jazz2-ask.json": askFile([q("ask-0001", "Hi?", "2026-10-30T02:00:00.000Z")]),
+    });
     const fq = fakeQuery([{ structured_output: BRIEF_OUT }]);
-    await runBriefing({ ...base, now: new Date("2026-10-30T10:51:00Z"), gist: g.gist, trace: new Trace(), queryFn: fq.fn });
+    await runBriefing({
+      ...base,
+      now: new Date("2026-10-30T10:51:00Z"),
+      gist: g.gist,
+      trace: new Trace(),
+      queryFn: fq.fn,
+    });
     expect(fq.seen).toHaveLength(1);
     expect(g.files["jazz2-answers.json"]).toBeUndefined();
   });
@@ -105,12 +129,29 @@ describe("Ask fallback in the Sunday review", () => {
       "jazz2-answers.json": JSON.stringify({
         version: 1,
         answers: [],
-        usage: { day: "2026-11-01", dayCount: 10, dayCostUsd: 0.5, week: "2026-W44", weekCount: 10, month: "2026-11", monthCostUsd: 0.5 },
+        usage: {
+          day: "2026-11-01",
+          dayCount: 10,
+          dayCostUsd: 0.5,
+          week: "2026-W44",
+          weekCount: 10,
+          month: "2026-11",
+          monthCostUsd: 0.5,
+        },
       }),
     });
     // a day already at its 10 questions: same limits apply in the fallback
     const fq = fakeQuery([{ structured_output: REVIEW_OUT }, { structured_output: ASK_OUT }]);
-    const r = await runReview({ now: NOW, trigger: "schedule", gist: g.gist, fetchImpl: noNet, maxRunCostUsd: 0.5, trace: new Trace(), queryFn: fq.fn, ask: askLimits({}) });
+    const r = await runReview({
+      now: NOW,
+      trigger: "schedule",
+      gist: g.gist,
+      fetchImpl: noNet,
+      maxRunCostUsd: 0.5,
+      trace: new Trace(),
+      queryFn: fq.fn,
+      ask: askLimits({}),
+    });
     expect(r.status).toBe("delivered");
     expect(fq.seen).toHaveLength(1);
     expect(answers(g.files).answers[0]).toMatchObject({ id: "ask-0001", status: "over_limit" });
@@ -119,7 +160,16 @@ describe("Ask fallback in the Sunday review", () => {
     g.files["jazz2-ask.json"] = askFile([q("ask-0002", "How did my week go?", "2026-11-02T20:00:00.000Z")]);
     const fq2 = fakeQuery([{ structured_output: REVIEW_OUT }, { structured_output: ASK_OUT }]);
     const monday = new Date("2026-11-02T21:00:00Z");
-    await runReview({ now: monday, trigger: "manual", gist: g.gist, fetchImpl: noNet, maxRunCostUsd: 0.5, trace: new Trace(), queryFn: fq2.fn, ask: askLimits({}) });
+    await runReview({
+      now: monday,
+      trigger: "manual",
+      gist: g.gist,
+      fetchImpl: noNet,
+      maxRunCostUsd: 0.5,
+      trace: new Trace(),
+      queryFn: fq2.fn,
+      ask: askLimits({}),
+    });
     expect(fq2.seen).toHaveLength(2);
     expect(fq2.seen[1].options!.effort).toBe("medium");
     expect(fq2.seen[1].prompt).toContain("A steady week");

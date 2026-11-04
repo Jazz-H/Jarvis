@@ -20,17 +20,7 @@ import { Trace } from "../lib/trace.ts";
 import type { GistClient } from "../tools/gist.ts";
 import type { Sender } from "../tools/push.ts";
 import { fakeQuery, memoryGist } from "./helpers.ts";
-import {
-  NOW,
-  TODAY,
-  JAZZ_FILE,
-  BRIEFING_FILE,
-  INBOX_INJECTION,
-  SUB,
-  ASK_OUT,
-  q,
-  askFile,
-} from "./ask-fixture.ts";
+import { NOW, TODAY, JAZZ_FILE, BRIEFING_FILE, INBOX_INJECTION, SUB, ASK_OUT, q, askFile } from "./ask-fixture.ts";
 
 const LIMITS = askLimits({});
 const T0 = "2026-10-30T13:00:00.000Z";
@@ -212,7 +202,11 @@ describe("Ask orchestrator", () => {
     const fq = fakeQuery([out("Answer one."), out("Answer two."), out("Answer three.")]);
     const sent: string[] = [];
     const r = await done(runAsk(deps({ gist: g.gist, queryFn: fq.fn, push: async (_s, p) => void sent.push(p) })));
-    expect(fq.seen.map((s) => /"question": "(\w+)\?"/.exec(String(s.prompt))![1])).toEqual(["First", "Second", "Third"]);
+    expect(fq.seen.map((s) => /"question": "(\w+)\?"/.exec(String(s.prompt))![1])).toEqual([
+      "First",
+      "Second",
+      "Third",
+    ]);
     expect(r.answered.map((a) => [a.id, a.text])).toEqual([
       ["ask-0001", "Answer one."],
       ["ask-0002", "Answer two."],
@@ -220,7 +214,12 @@ describe("Ask orchestrator", () => {
     ]);
     expect(stored(g).answers.map((a) => a.id)).toEqual(["ask-0003", "ask-0002", "ask-0001"]); // newest first
     expect(sent.map((p) => JSON.parse(p))).toEqual([
-      { title: "Jarvis answered 3 questions", body: "Answer one.", url: "./jazz2.0.html?tab=console&ask=ask-0001", tag: "ask" },
+      {
+        title: "Jarvis answered 3 questions",
+        body: "Answer one.",
+        url: "./jazz2.0.html?tab=console&ask=ask-0001",
+        tag: "ask",
+      },
     ]);
   });
 
@@ -280,7 +279,11 @@ describe("Ask orchestrator", () => {
     const g = memoryGist(files({ "jazz2-ask.json": askFile([q("ask-0001", "   ", T0)]) }));
     const r = await done(runAsk(deps({ gist: g.gist, queryFn: fq.fn })));
     expect(fq.seen).toHaveLength(0);
-    expect(r.answered[0]).toMatchObject({ status: "declined", by: "fallback", text: "There was no question to answer." });
+    expect(r.answered[0]).toMatchObject({
+      status: "declined",
+      by: "fallback",
+      text: "There was no question to answer.",
+    });
     expect(stored(g).usage.dayCount).toBe(0);
   });
 });
@@ -326,7 +329,10 @@ describe("Ask limits", () => {
     const { fq, run } = withUsage({ dayCount: 3, dayCostUsd: 0.95, monthCostUsd: 3 });
     const r = await done(run);
     expect(fq.seen).toHaveLength(0);
-    expect(r.answered[0]).toMatchObject({ status: "over_limit", text: "You've reached today's Ask budget. Ask again tomorrow." });
+    expect(r.answered[0]).toMatchObject({
+      status: "over_limit",
+      text: "You've reached today's Ask budget. Ask again tomorrow.",
+    });
   });
 
   it("40 a week", async () => {
@@ -351,25 +357,58 @@ describe("Ask limits", () => {
 
   it("periods are New York days, ISO weeks and months, across the DST change", () => {
     // Sat Oct 31 11:30pm EDT (already Nov 1 in UTC)
-    expect(usagePeriods(new Date("2026-11-01T03:30:00Z"))).toEqual({ day: "2026-10-31", week: "2026-W44", month: "2026-10" });
+    expect(usagePeriods(new Date("2026-11-01T03:30:00Z"))).toEqual({
+      day: "2026-10-31",
+      week: "2026-W44",
+      month: "2026-10",
+    });
     // Sun Nov 1 11:30pm EST, after clocks went back (already Nov 2 in UTC)
-    expect(usagePeriods(new Date("2026-11-02T04:30:00Z"))).toEqual({ day: "2026-11-01", week: "2026-W44", month: "2026-11" });
+    expect(usagePeriods(new Date("2026-11-02T04:30:00Z"))).toEqual({
+      day: "2026-11-01",
+      week: "2026-W44",
+      month: "2026-11",
+    });
     // Mon Nov 2 12:30am EST: a new ISO week
-    expect(usagePeriods(new Date("2026-11-02T05:30:00Z"))).toEqual({ day: "2026-11-02", week: "2026-W45", month: "2026-11" });
+    expect(usagePeriods(new Date("2026-11-02T05:30:00Z"))).toEqual({
+      day: "2026-11-02",
+      week: "2026-W45",
+      month: "2026-11",
+    });
     // Dec 31 to Jan 1 2027 (2027-W53 doesn't exist: Dec 31 2026 is in 2026-W53)
-    expect(usagePeriods(new Date("2027-01-01T04:59:00Z"))).toEqual({ day: "2026-12-31", week: "2026-W53", month: "2026-12" });
+    expect(usagePeriods(new Date("2027-01-01T04:59:00Z"))).toEqual({
+      day: "2026-12-31",
+      week: "2026-W53",
+      month: "2026-12",
+    });
   });
 
   it("counts reset when the day, week or month rolls over", async () => {
-    const full = { day: "2026-10-31", dayCount: 10, dayCostUsd: 0.99, week: "2026-W44", weekCount: 40, month: "2026-10", monthCostUsd: 7.99 };
+    const full = {
+      day: "2026-10-31",
+      dayCount: 10,
+      dayCostUsd: 0.99,
+      week: "2026-W44",
+      weekCount: 40,
+      month: "2026-10",
+      monthCostUsd: 7.99,
+    };
     // still Oct 31 in New York (UTC is already Nov 1): every limit is still reached
     const before = withUsage(full, 1, new Date("2026-11-01T03:30:00Z"));
     expect((await done(before.run)).answered[0].status).toBe("over_limit");
     expect(before.fq.seen).toHaveLength(0);
     // Sunday Nov 1 (EST): new day and month, same ISO week, so the weekly count still applies
     const sunday = withUsage(full, 1, new Date("2026-11-02T04:30:00Z"));
-    expect((await done(sunday.run)).answered[0].text).toBe("You've reached this week's 40 questions. Ask again on Monday.");
-    expect(stored(sunday.g).usage).toEqual({ ...full, day: "2026-11-01", dayCount: 0, dayCostUsd: 0, month: "2026-11", monthCostUsd: 0 });
+    expect((await done(sunday.run)).answered[0].text).toBe(
+      "You've reached this week's 40 questions. Ask again on Monday.",
+    );
+    expect(stored(sunday.g).usage).toEqual({
+      ...full,
+      day: "2026-11-01",
+      dayCount: 0,
+      dayCostUsd: 0,
+      month: "2026-11",
+      monthCostUsd: 0,
+    });
     // Monday Nov 2: everything has reset
     const monday = withUsage(full, 1, new Date("2026-11-02T05:30:00Z"));
     expect((await done(monday.run)).answered[0].status).toBe("ok");
@@ -449,7 +488,16 @@ describe("Ask files", () => {
 
   it("the id pattern", () => {
     for (const ok of ["abcdefgh", "a1b2-c3d4-e5f6", "m0x9k2-4f8a", "0".repeat(40)]) expect(ASK_ID.test(ok)).toBe(true);
-    for (const bad of ["abcdefg", "0".repeat(41), "ABCDEFGH", "abc_defgh", "abcd efgh", "abcdefgh\n", "../../etc", "abc${x}defg"])
+    for (const bad of [
+      "abcdefg",
+      "0".repeat(41),
+      "ABCDEFGH",
+      "abc_defgh",
+      "abcd efgh",
+      "abcdefgh\n",
+      "../../etc",
+      "abc${x}defg",
+    ])
       expect(ASK_ID.test(bad)).toBe(false);
     expect(AskItem.safeParse(q("abcdefgh", "x", T0)).success).toBe(true);
     expect(AskItem.safeParse(q("abcdefgh", "x".repeat(1001), T0)).success).toBe(false);
@@ -459,7 +507,10 @@ describe("Ask files", () => {
     for (const ask of ["not json", '{"version":1,"items":"x"}', askFile([]), askFile([{ id: "x" }])]) {
       const g = memoryGist(files({ "jazz2-ask.json": ask }));
       const fq = fakeQuery([{ structured_output: ASK_OUT }]);
-      expect(await runAsk(deps({ gist: g.gist, queryFn: fq.fn }))).toEqual({ status: "idle", reason: "nothing pending" });
+      expect(await runAsk(deps({ gist: g.gist, queryFn: fq.fn }))).toEqual({
+        status: "idle",
+        reason: "nothing pending",
+      });
       expect(g.writes).toEqual([]);
       expect(fq.seen).toHaveLength(0);
     }
@@ -470,10 +521,15 @@ describe("Ask files", () => {
   it("drops stored answers that fail the schema and starts usage over if it's unreadable", async () => {
     const good = okAnswer("ask-0009", at(-60));
     const bad = { ...good, id: "ask-0008", text: "x".repeat(1201) };
-    const r = readAnswersFile(JSON.stringify({ version: 1, answers: [good, bad, { ...good, status: "<b>" }], usage: { day: 1 } }), NOW);
+    const r = readAnswersFile(
+      JSON.stringify({ version: 1, answers: [good, bad, { ...good, status: "<b>" }], usage: { day: 1 } }),
+      NOW,
+    );
     expect(r).toEqual({ answers: [good], usage: usage(), junk: true });
     expect(readAnswersFile("not json", NOW)).toEqual({ answers: [], usage: usage(), junk: true });
-    const g = memoryGist(files({ "jazz2-answers.json": JSON.stringify({ version: 1, answers: [good, bad], usage: { day: 1 } }) }));
+    const g = memoryGist(
+      files({ "jazz2-answers.json": JSON.stringify({ version: 1, answers: [good, bad], usage: { day: 1 } }) }),
+    );
     await runAsk(deps({ gist: g.gist }));
     expect(stored(g).answers.map((a) => a.id)).toEqual(["ask-0001", "ask-0009"]);
   });
@@ -588,7 +644,9 @@ describe("Ask safety", () => {
     const r = await done(runAsk(deps({ gist: g.gist, queryFn: fq.fn })));
     const p = String(fq.seen[0].prompt);
     expect(p.match(/<\/untrusted_data>/g)).toHaveLength(1); // only the real closing tag
-    expect(p.trim().endsWith('</untrusted_data>\nAnswer the question in "question". Return the JSON object.')).toBe(true);
+    expect(p.trim().endsWith('</untrusted_data>\nAnswer the question in "question". Return the JSON object.')).toBe(
+      true,
+    );
     expect(p).toContain(INBOX_INJECTION.slice(0, 60)); // the email summary is in there, as data
     expect(fq.seen[0].options!.systemPrompt).toMatch(/ignore\s+that part/);
     expect(r.answered[0]).toMatchObject({
@@ -603,13 +661,29 @@ describe("Ask safety", () => {
 
   it("keeps question and answer text out of the trace and stdout", async () => {
     const secretQ = "Can I afford the Rain jacket this pay period? zebra-question";
-    const out = { ...ASK_OUT, text: "Yes, zebra-answer.", bullets: ["zebra-bullet"], chips: [{ kind: "shopping", text: "zebra-chip", due: null }] };
+    const out = {
+      ...ASK_OUT,
+      text: "Yes, zebra-answer.",
+      bullets: ["zebra-bullet"],
+      chips: [{ kind: "shopping", text: "zebra-chip", due: null }],
+    };
     const items = [q("ask-0001", secretQ, T0), q("ask-0002", "zebra-second", at(1), "ask-0001")];
-    const g = memoryGist(files({ "jazz2-ask.json": askFile(items), "jazz2-answers.json": answersFile([], { dayCount: 9, weekCount: 9 }) }));
+    const g = memoryGist(
+      files({ "jazz2-ask.json": askFile(items), "jazz2-answers.json": answersFile([], { dayCount: 9, weekCount: 9 }) }),
+    );
     const trace = new Trace();
-    await runAsk(deps({ gist: g.gist, trace, queryFn: fakeQuery([{ structured_output: out }]).fn, push: async () => {} }));
+    await runAsk(
+      deps({ gist: g.gist, trace, queryFn: fakeQuery([{ structured_output: out }]).fn, push: async () => {} }),
+    );
     const all = JSON.stringify(trace.events) + "\n" + logs.join("\n");
-    for (const s of ["zebra", "Rain jacket", "afford", "reached today's", "Lunch on Saturday", INBOX_INJECTION.slice(0, 20)])
+    for (const s of [
+      "zebra",
+      "Rain jacket",
+      "afford",
+      "reached today's",
+      "Lunch on Saturday",
+      INBOX_INJECTION.slice(0, 20),
+    ])
       expect(all).not.toContain(s);
     expect(trace.events.map((e) => e.event)).toEqual(expect.arrayContaining(["queue", "answered", "answers written"]));
     expect(all).toContain("ask-0001"); // ids are fine
@@ -624,13 +698,20 @@ describe("Ask safety", () => {
     const g = memoryGist(
       files({
         "jazz2-ask.json": askFile(items),
-        "jazz2-answers.json": answersFile([okAnswer("ask-0001", at(0), "Rent is due Nov 1."), okAnswer("ask-0002", at(1), "Other.")]),
+        "jazz2-answers.json": answersFile([
+          okAnswer("ask-0001", at(0), "Rent is due Nov 1."),
+          okAnswer("ask-0002", at(1), "Other."),
+        ]),
       }),
     );
     const fq = fakeQuery([{ structured_output: ASK_OUT }]);
     await runAsk(deps({ gist: g.gist, queryFn: fq.fn }));
     const input = String(fq.seen[0].prompt);
-    const thread = JSON.parse(input.slice(input.indexOf("\n") + 1, input.lastIndexOf("</untrusted_data>")).replace(/^<untrusted_data[^>]*>\n/, "")).thread;
+    const thread = JSON.parse(
+      input
+        .slice(input.indexOf("\n") + 1, input.lastIndexOf("</untrusted_data>"))
+        .replace(/^<untrusted_data[^>]*>\n/, ""),
+    ).thread;
     expect(thread).toEqual([{ askedAt: at(0), question: "When is rent due?", answer: "Rent is due Nov 1." }]);
   });
 });
@@ -641,19 +722,27 @@ describe("Ask output checks", () => {
 
   it("plain text only, capped", () => {
     const md = "# Heading\n\n**Bold** and _soft_ and `code`.\n- a list line\n> quoted\n1. numbered";
-    expect(cleanAskOutput({ ...base, text: md }, TODAY, [...all]).text).toBe("Heading\nBold and soft and code.\na list line\nquoted\nnumbered");
+    expect(cleanAskOutput({ ...base, text: md }, TODAY, [...all]).text).toBe(
+      "Heading\nBold and soft and code.\na list line\nquoted\nnumbered",
+    );
     expect(cleanAskOutput({ ...base, text: "y".repeat(3000) }, TODAY, [...all]).text).toHaveLength(1200);
     expect(cleanAskOutput({ ...base, text: "<script>x</script>ok" }, TODAY, [...all]).text).toBe("xok");
     expect(() => cleanAskOutput({ ...base, text: "  https://x.example  " }, TODAY, [...all])).toThrow(/empty/);
   });
 
   it("bullets: one line, at most 5 of 200, no repeats", () => {
-    const b = cleanAskOutput({ ...base, bullets: ["one\ntwo", "One two", "z".repeat(500), "a", "b", "c", "d", ""] }, TODAY, [...all]).bullets;
+    const b = cleanAskOutput(
+      { ...base, bullets: ["one\ntwo", "One two", "z".repeat(500), "a", "b", "c", "d", ""] },
+      TODAY,
+      [...all],
+    ).bullets;
     expect(b).toEqual(["one two", "z".repeat(200), "a", "b", "c"]);
   });
 
   it("sources: only ones the context had, once each", () => {
-    expect(cleanAskOutput({ ...base, sources: ["jazz", "jazz", "review", "news"] }, TODAY, ["jazz", "news"]).sources).toEqual(["jazz", "news"]);
+    expect(
+      cleanAskOutput({ ...base, sources: ["jazz", "jazz", "review", "news"] }, TODAY, ["jazz", "news"]).sources,
+    ).toEqual(["jazz", "news"]);
   });
 
   it("chips: a to-do's date from today to a year out, or the chip is dropped; deduped; at most 3", () => {
@@ -680,7 +769,10 @@ describe("Ask output checks", () => {
       { kind: "todo", text: "Today is fine", due: TODAY },
       { kind: "shopping", text: "Rain jacket" },
     ]);
-    expect(cleanAskOutput({ ...base, chips: [{ kind: "todo", text: "Year out", due: "2027-10-30" }] }, TODAY, [...all]).chips).toHaveLength(1);
+    expect(
+      cleanAskOutput({ ...base, chips: [{ kind: "todo", text: "Year out", due: "2027-10-30" }] }, TODAY, [...all])
+        .chips,
+    ).toHaveLength(1);
   });
 
   it("push message: body cut to about 120 characters", () => {
@@ -700,6 +792,9 @@ describe("Ask output checks", () => {
       writeFile: async () => {},
     };
     expect(await answerPendingQuietly(deps({ gist: broken, trace, trigger: "briefing" }))).toBeNull();
-    expect(trace.events.at(-1)).toMatchObject({ event: "pending questions not answered", detail: { trigger: "briefing" } });
+    expect(trace.events.at(-1)).toMatchObject({
+      event: "pending questions not answered",
+      detail: { trigger: "briefing" },
+    });
   });
 });

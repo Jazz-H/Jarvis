@@ -124,7 +124,9 @@ describe("gmail tool", () => {
     expect(visibleText({})).toBe("");
     // padding written as entities (a real store's email opens with hundreds) takes up no room
     const padded = "Almost here! " + "&#8199; &#847; &shy; ".repeat(300) + "<b>Dog treats</b>&#39;s &#x26; toys";
-    expect(visibleText({ mimeType: "text/html", body: { data: b64(padded) } })).toBe("Almost here! Dog treats 's & toys");
+    expect(visibleText({ mimeType: "text/html", body: { data: b64(padded) } })).toBe(
+      "Almost here! Dog treats 's & toys",
+    );
   });
 
   it("throws on API errors", async () => {

@@ -168,7 +168,14 @@ describe("shopper sub-agent", () => {
         shoppingMatch: "Rain jacket",
         carrier: "Amazon",
       },
-      { item: "Desk lamp", status: "ordered", eta: "2026-11-04", etaText: null, shoppingMatch: null, carrier: "Amazon" },
+      {
+        item: "Desk lamp",
+        status: "ordered",
+        eta: "2026-11-04",
+        etaText: null,
+        shoppingMatch: null,
+        carrier: "Amazon",
+      },
     ]);
     expect(d.specs[0].model).toBe("claude-haiku-5-5");
     for (const q of ["from:amazon.com", "from:ups.com", "from:fedex.com", "from:usps.com", "from:dhl.com"])
@@ -221,7 +228,10 @@ describe("shopper sub-agent", () => {
       count: async () => 0,
       searchWithText: async () => [
         digestMail("2026-11-03T12:35:00Z"),
-        { ...mail("Amazon.com", "Shipped: a lamp"), text: "Your lamp shipped. https://track.example/abc Desk lamp, brass Shipping address Sam Doe 1 Main St" },
+        {
+          ...mail("Amazon.com", "Shipped: a lamp"),
+          text: "Your lamp shipped. https://track.example/abc Desk lamp, brass Shipping address Sam Doe 1 Main St",
+        },
       ],
     };
     const d = deps({ packages: [{ ids: ["m1"], item: "Desk lamp", status: "shipped", eta: null, etaText: null }] });
@@ -229,7 +239,11 @@ describe("shopper sub-agent", () => {
     const prompt = d.specs[0].prompt;
     expect(prompt).toContain("Your lamp shipped. Desk lamp, brass");
     expect(prompt).not.toMatch(/Sam Doe|Main St|track\.example|Informed Delivery|940000/);
-    expect(card.packages.map((p) => p.item)).toEqual(["Acme Tools package (…1111)", "Desk lamp", "USPS package (…2222)"]);
+    expect(card.packages.map((p) => p.item)).toEqual([
+      "Acme Tools package (…1111)",
+      "Desk lamp",
+      "USPS package (…2222)",
+    ]);
   });
 
   it("trims an email to what comes before any address or payment label, 800 characters at most", () => {
@@ -241,7 +255,8 @@ describe("shopper sub-agent", () => {
   });
 
   it("searches for the delivered and on-the-way wording stores use", () => {
-    for (const s of ["been delivered", "was delivered", "on the way", "arrive today"]) expect(CONFIG.deliveries.query).toContain(`subject:"${s}"`);
+    for (const s of ["been delivered", "was delivered", "on the way", "arrive today"])
+      expect(CONFIG.deliveries.query).toContain(`subject:"${s}"`);
   });
 
   it("names the carrier from the senders, never the model (a carrier beats the store)", () => {
@@ -328,13 +343,22 @@ describe("orchestrator with Phase 2 sources", () => {
 
   it("leaves packages the owner dismissed out of the card and out of what Jarvis sees", async () => {
     const q = fakeQuery([{ structured_output: jarvisOut }]);
-    const pkg = (item: string) => ({ item, status: "shipped" as const, eta: "2026-10-30", etaText: null, shoppingMatch: null, carrier: "UPS" });
+    const pkg = (item: string) => ({
+      item,
+      status: "shipped" as const,
+      eta: "2026-10-30",
+      etaText: null,
+      shoppingMatch: null,
+      carrier: "UPS",
+    });
     const r = await runBriefing({
       now: NOW,
       trigger: "manual",
       gist: {
         readFile: async () =>
-          JSON.stringify({ data: { "jarvis-settings": { hiddenPackages: [{ item: "ACME GLOW SERUM", at: "2026-10-29" }] } } }),
+          JSON.stringify({
+            data: { "jarvis-settings": { hiddenPackages: [{ item: "ACME GLOW SERUM", at: "2026-10-29" }] } },
+          }),
         writeFile: async () => {},
       },
       fetchImpl: fakeFetch([]).impl,
@@ -366,7 +390,10 @@ describe("orchestrator with Phase 2 sources", () => {
       now: NOW,
       trigger: "manual",
       gist: {
-        readFile: async () => JSON.stringify({ data: { "jarvis-settings": { hiddenSuggestions: [{ text: "Answer Sam Lee", at: "2026-10-29" }] } } }),
+        readFile: async () =>
+          JSON.stringify({
+            data: { "jarvis-settings": { hiddenSuggestions: [{ text: "Answer Sam Lee", at: "2026-10-29" }] } },
+          }),
         writeFile: async () => {},
       },
       fetchImpl: fakeFetch([]).impl,
@@ -399,7 +426,10 @@ describe("orchestrator with Phase 2 sources", () => {
       now: NOW,
       trigger: "manual",
       gist: {
-        readFile: async () => JSON.stringify({ data: { "jarvis-settings": { hiddenPackages: [{ item: "Acme Glow C-10 serum", at: "2026-10-29" }] } } }),
+        readFile: async () =>
+          JSON.stringify({
+            data: { "jarvis-settings": { hiddenPackages: [{ item: "Acme Glow C-10 serum", at: "2026-10-29" }] } },
+          }),
         writeFile: async () => {},
       },
       fetchImpl: fakeFetch([]).impl,

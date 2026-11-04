@@ -15,7 +15,17 @@ const IsoTime = z
 const N = z.number().int().min(0).max(100_000);
 const Usd = z.number().min(0).max(100_000);
 
-export const AskSource = z.enum(["jazz", "calendar", "inbox", "deliveries", "weather", "news", "review", "web", "drive"]);
+export const AskSource = z.enum([
+  "jazz",
+  "calendar",
+  "inbox",
+  "deliveries",
+  "weather",
+  "news",
+  "review",
+  "web",
+  "drive",
+]);
 export type AskSource = z.infer<typeof AskSource>;
 
 // ---- jazz2-ask.json (the app's file) ----

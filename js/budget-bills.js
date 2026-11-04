@@ -507,32 +507,6 @@ function billBodyAttrs(r, b, paid) {
   if (b) return dataAttrs("bill-row-open", { mode: "bill", "bill-id": b.id });
   return "";
 }
-function billRowHtml(r, today) {
-  const b = r.bill,
-    paid = !!r.payment;
-  const overdue = !paid && r.due < today;
-  const meta = [];
-  if (paid) meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
-  else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(billWhen(r.due))}</span>`);
-  else if (b && b.autopay)
-    meta.push(`<span class="autopay">${AUTOPAY_ICON}Autopays ${escapeHtml(billWhen(r.due))}</span>`);
-  else meta.push(`Due ${escapeHtml(billWhen(r.due))}`);
-  const acct = (b && b.account) || (r.payment && r.payment.account);
-  if (acct) meta.push(`<span class="acct-tag"><i style="--acct:${accountColor(acct)}"></i>${escapeHtml(acct)}</span>`);
-  if (b && !paid && b.repeat && b.repeat !== "monthly")
-    meta.push(escapeHtml((BILL_REPEATS[b.repeat] || {}).label || ""));
-  if (b && b.share && b.group === "joint" && !paid) meta.push(`${b.share}%`);
-  const check = paid
-    ? `<button class="todo-check" role="checkbox" aria-checked="true" aria-label="Mark not paid: ${escapeAttr(r.name)}" data-action="bill-unpay" data-payment-id="${r.payment.id}"><span class="box">${BOX_CHECK_SVG}</span></button>`
-    : r.current
-      ? `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="Mark paid: ${escapeAttr(r.name)}" data-action="bill-pay" data-bill-id="${b.id}" data-due="${b.due}"><span class="box">${BOX_CHECK_SVG}</span></button>`
-      : `<span class="row-icon" aria-hidden="true">${CALENDAR_ICON}</span>`;
-  return `<div class="item bill-row ${paid ? "checked" : ""}">
-      ${check}
-      <div class="body" ${billBodyAttrs(r, b, paid)}><div class="title">${billLogoHtml(b, r.name)}${escapeHtml(r.name)}</div><div class="todo-meta">${meta.join(" · ")}</div></div>
-      <div class="bill-amt">${b && b.varies && !paid ? `<span class="approx" title="Amount varies">~</span>` : ""}${money(r.amount)}${b && !paid ? linkHtml(b.link, 'class="bill-pay" data-action="stop-click" aria-label="Pay online"', "Pay →") : ""}</div>
-    </div>`;
-}
 // Each card/bank gets its own pill color, by its place in the list (never red,
 // which reads as overdue)
 const ACCOUNT_HUES = [210, 170, 40, 270, 130, 300, 190, 25];

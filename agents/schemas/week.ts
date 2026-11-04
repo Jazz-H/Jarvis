@@ -29,9 +29,7 @@ export const DayDigest = z.object({
     .optional(),
   deliveries: z
     .object({
-      packages: z
-        .array(z.object({ item: z.string().max(40), status: PackageStatus, eta: IsoDate.nullable() }))
-        .max(5),
+      packages: z.array(z.object({ item: z.string().max(40), status: PackageStatus, eta: IsoDate.nullable() })).max(5),
     })
     .optional(),
   calendar: z.object({ events: N, overlaps: N, titles: z.array(z.string().max(40)).max(4) }).optional(),

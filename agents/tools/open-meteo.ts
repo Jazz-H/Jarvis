@@ -47,7 +47,8 @@ export function forecastUrl(q: WeatherQuery): string {
   const p = new URLSearchParams({
     latitude: String(q.latitude),
     longitude: String(q.longitude),
-    current: "temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day",
+    current:
+      "temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day",
     hourly:
       "precipitation_probability,relative_humidity_2m,temperature_2m,weather_code,uv_index,apparent_temperature,is_day,wind_speed_10m,wind_direction_10m",
     daily: "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset",
@@ -91,10 +92,12 @@ function nightCode(j: any, date: string): number | null {
   times.forEach((t, i) => {
     if (typeof t !== "string" || !finite(codes[i])) return;
     const h = Number(t.slice(11, 13));
-    if ((t.startsWith(date) && h >= 18) || (t.startsWith(next) && h < 6)) count.set(codes[i] as number, (count.get(codes[i] as number) ?? 0) + 1);
+    if ((t.startsWith(date) && h >= 18) || (t.startsWith(next) && h < 6))
+      count.set(codes[i] as number, (count.get(codes[i] as number) ?? 0) + 1);
   });
   let best: number | null = null;
-  for (const [c, n] of count) if (best === null || n > count.get(best)! || (n === count.get(best) && c > best)) best = c;
+  for (const [c, n] of count)
+    if (best === null || n > count.get(best)! || (n === count.get(best) && c > best)) best = c;
   return best;
 }
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -158,7 +161,12 @@ function forecastDays(j: any): OutlookDay[] {
   return out;
 }
 // The outlook's days after `after`: the members' middle high and low, and the share of members with rain
-async function outlookDays(q: WeatherQuery, after: string, until: string, fetchImpl: typeof fetch): Promise<OutlookDay[]> {
+async function outlookDays(
+  q: WeatherQuery,
+  after: string,
+  until: string,
+  fetchImpl: typeof fetch,
+): Promise<OutlookDay[]> {
   try {
     const res = await fetchImpl(seasonalUrl(q), { signal: AbortSignal.timeout(20_000) });
     if (!res.ok) return [];
@@ -187,7 +195,8 @@ async function outlookDays(q: WeatherQuery, after: string, until: string, fetchI
     return [];
   }
 }
-const addDaysIso = (iso: string, n: number) => new Date(Date.parse(iso + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
+const addDaysIso = (iso: string, n: number) =>
+  new Date(Date.parse(iso + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
 // Open-Meteo's air-quality API (also keyless): today's hourly US AQI
 export function airQualityUrl(q: WeatherQuery): string {
   const p = new URLSearchParams({

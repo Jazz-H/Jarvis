@@ -284,7 +284,20 @@ export function readAnswersFile(raw: string | null, now: Date): StoredAnswers {
 }
 
 // ---- limits ----
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 // The message for the first limit reached (the one with the longest wait first), or null
 export function overLimit(u: AskUsage, l: AskLimits): string | null {
@@ -294,7 +307,8 @@ export function overLimit(u: AskUsage, l: AskLimits): string | null {
   }
   if (u.weekCount >= l.perWeek) return `You've reached this week's ${l.perWeek} questions. Ask again on Monday.`;
   if (u.dayCount >= l.perDay) return `You've reached today's ${l.perDay} questions. Ask again tomorrow.`;
-  if (u.dayCostUsd + l.estimateUsd > l.dailyBudgetUsd + 1e-9) return "You've reached today's Ask budget. Ask again tomorrow.";
+  if (u.dayCostUsd + l.estimateUsd > l.dailyBudgetUsd + 1e-9)
+    return "You've reached today's Ask budget. Ask again tomorrow.";
   return null;
 }
 
@@ -374,7 +388,12 @@ const quoted = (s: string) => `"${s.length > 60 ? s.slice(0, 59).trimEnd() + "â€
 const dayWord = (iso: string, today: string) =>
   iso === today
     ? "today"
-    : new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    : new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      });
 
 // The model's actions, checked against the owner's data: known types only, ids that exist (and
 // are still open), real dates in range, a sane weight; repeats dropped; at most 5. Labels are
@@ -388,24 +407,38 @@ export function cleanActions(list: AskOutput["actions"], today: string, t: Actio
     const text = a.text ? tidy(plainText(a.text, 300), 120) : "";
     const date = a.date && validDate(a.date) ? a.date : null;
     let act: AskAction | null = null;
-    if (a.type === "todo_done" && t.todos.has(id)) act = { type: a.type, id, label: `Ticked ${quoted(t.todos.get(id)!)}` };
+    if (a.type === "todo_done" && t.todos.has(id))
+      act = { type: a.type, id, label: `Ticked ${quoted(t.todos.get(id)!)}` };
     else if (a.type === "todo_add" && text) {
       const due = date && date >= today && date <= yearOut ? date : undefined;
-      act = { type: a.type, text, ...(due ? { date: due } : {}), label: `Added to-do ${quoted(text)}${due ? ` for ${dayWord(due, today)}` : ""}` };
+      act = {
+        type: a.type,
+        text,
+        ...(due ? { date: due } : {}),
+        label: `Added to-do ${quoted(text)}${due ? ` for ${dayWord(due, today)}` : ""}`,
+      };
     } else if (a.type === "todo_move" && t.todos.has(id) && date && date >= today && date <= yearOut)
       act = { type: a.type, id, date, label: `Moved ${quoted(t.todos.get(id)!)} to ${dayWord(date, today)}` };
-    else if (a.type === "goal_done" && t.goals.has(id)) act = { type: a.type, id, label: `Ticked goal ${quoted(t.goals.get(id)!)}` };
-    else if (a.type === "shopping_add" && text) act = { type: a.type, text, label: `Added ${quoted(text)} to Shopping` };
+    else if (a.type === "goal_done" && t.goals.has(id))
+      act = { type: a.type, id, label: `Ticked goal ${quoted(t.goals.get(id)!)}` };
+    else if (a.type === "shopping_add" && text)
+      act = { type: a.type, text, label: `Added ${quoted(text)} to Shopping` };
     else if (a.type === "shopping_bought" && t.shopping.has(id))
       act = { type: a.type, id, label: `Marked ${quoted(t.shopping.get(id)!)} bought` };
     else if (a.type === "weight_log" && typeof a.lbs === "number" && a.lbs >= 40 && a.lbs <= 800) {
       const day = date && date <= today && date >= addDays(today, -7) ? date : today;
       const lbs = Math.round(a.lbs * 10) / 10;
-      act = { type: a.type, lbs, date: day, label: `Logged weight ${lbs} lb ${day === today ? "today" : `for ${dayWord(day, today)}`}` };
+      act = {
+        type: a.type,
+        lbs,
+        date: day,
+        label: `Logged weight ${lbs} lb ${day === today ? "today" : `for ${dayWord(day, today)}`}`,
+      };
     } else if (a.type === "remember" && a.text) {
       const fact = tidy(plainText(a.text, 400), 200);
       if (fact) act = { type: a.type, text: fact, label: `Remembered ${quoted(fact)}` };
-    } else if (a.type === "forget" && t.memory.has(id)) act = { type: a.type, id, label: `Forgot ${quoted(t.memory.get(id)!)}` };
+    } else if (a.type === "forget" && t.memory.has(id))
+      act = { type: a.type, id, label: `Forgot ${quoted(t.memory.get(id)!)}` };
     else if (a.type === "note_add" && text && a.note) {
       const title = tidy(plainText(a.text ?? "", 120), 60);
       const note = plainText(a.note, 3000).trim().slice(0, 1500);
@@ -416,11 +449,14 @@ export function cleanActions(list: AskOutput["actions"], today: string, t: Actio
     } else if (a.type === "package_hide" && a.text && t.packages.has(a.text.trim().toLowerCase())) {
       const item = t.packages.get(a.text.trim().toLowerCase())!;
       act = { type: a.type, text: item.slice(0, 200), label: `Dismissed ${quoted(item)} from Deliveries` };
-    } else if (a.type === "notice_dismiss" && a.text && t.lines.has(a.text.replace(/\s+/g, " ").trim().slice(0, 200).toLowerCase())) {
+    } else if (
+      a.type === "notice_dismiss" &&
+      a.text &&
+      t.lines.has(a.text.replace(/\s+/g, " ").trim().slice(0, 200).toLowerCase())
+    ) {
       const line = t.lines.get(a.text.replace(/\s+/g, " ").trim().slice(0, 200).toLowerCase())!;
       act = { type: a.type, text: line, label: `Dismissed ${quoted(line)}` };
-    }
-    else if (a.type === "workout_done" && t.workoutsToday.has(id))
+    } else if (a.type === "workout_done" && t.workoutsToday.has(id))
       act = { type: a.type, id, date: today, label: `Ticked workout ${quoted(t.workoutsToday.get(id)!)}` };
     if (!act) continue;
     const key = `${act.type}|${act.id ?? ""}|${(act.text ?? "").toLowerCase()}`;
@@ -474,8 +510,15 @@ export function cleanAskOutput(
     seen.add(k);
     return true;
   };
-  const bullets = out.bullets.map((b) => tidy(plainText(b, 400), 200)).filter(once).slice(0, 5);
-  const can: AskSource[] = [...available, ...(webSearches > 0 ? ["web" as const] : []), ...(driveReads > 0 ? ["drive" as const] : [])];
+  const bullets = out.bullets
+    .map((b) => tidy(plainText(b, 400), 200))
+    .filter(once)
+    .slice(0, 5);
+  const can: AskSource[] = [
+    ...available,
+    ...(webSearches > 0 ? ["web" as const] : []),
+    ...(driveReads > 0 ? ["drive" as const] : []),
+  ];
   const sources = [...new Set(out.sources)].filter((s) => can.includes(s)).slice(0, 6);
   const chips: AskChip[] = [];
   const chipSeen = new Set<string>();
@@ -484,7 +527,8 @@ export function cleanAskOutput(
     const t = tidy(plainText(c.text, 300), 120);
     if (!t || chipSeen.has(c.kind + t.toLowerCase())) continue;
     if (c.kind === "expense") {
-      const amount = typeof c.amount === "number" && c.amount > 0 && c.amount <= 100_000 ? Math.round(c.amount * 100) / 100 : null;
+      const amount =
+        typeof c.amount === "number" && c.amount > 0 && c.amount <= 100_000 ? Math.round(c.amount * 100) / 100 : null;
       if (amount == null || chipSeen.has(c.kind + t.toLowerCase())) continue;
       chipSeen.add(c.kind + t.toLowerCase());
       chips.push({ kind: "expense", text: t, amount });
@@ -500,10 +544,15 @@ export function cleanAskOutput(
     chips.push({ kind: c.kind, text: t, ...(due ? { due } : {}) });
     if (chips.length === 3) break;
   }
-  const all = targets && webSearches === 0 && driveReads === 0 && out.status === "ok" ? cleanActions(out.actions, today, targets) : [];
+  const all =
+    targets && webSearches === 0 && driveReads === 0 && out.status === "ok"
+      ? cleanActions(out.actions, today, targets)
+      : [];
   // a photo or PDF can carry someone else's words: from a file Jarvis may only add things
   const actions = withFile
-    ? all.filter((a) => a.type === "todo_add" || a.type === "shopping_add" || a.type === "remember" || a.type === "note_add")
+    ? all.filter(
+        (a) => a.type === "todo_add" || a.type === "shopping_add" || a.type === "remember" || a.type === "note_add",
+      )
     : all;
   const links = webSearches > 0 || driveReads > 0 ? cleanLinks(out.links) : [];
   return {
@@ -596,7 +645,13 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
   const checks = dueCheckins(readBrain(data), now, CONFIG.timezone, answeredIds);
   const pending: PendingItem[] = [
     ...queue.items.filter((x) => !answeredIds.has(x.id) && !cleared(x.at) && time(x.at) >= oldestKept),
-    ...checks.map((c) => ({ id: c.id, kind: "ask" as const, text: c.checkin.prompt, at: now.toISOString(), checkin: c.checkin.name })),
+    ...checks.map((c) => ({
+      id: c.id,
+      kind: "ask" as const,
+      text: c.checkin.prompt,
+      at: now.toISOString(),
+      checkin: c.checkin.name,
+    })),
   ];
   const pruned = stored.answers.filter((a) => cleared(a.askedAt)).length;
   trace.log("ask", "queue", {
@@ -752,7 +807,10 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
       .sort((x, y) => time(y.a.answeredAt) - time(x.a.answeredAt) || time(y.a.askedAt) - time(x.a.askedAt) || x.i - y.i)
       .map((e) => e.a)
       .slice(0, CONFIG.ask.answersKept);
-    await gist.writeFile(CONFIG.gistFiles.answers, JSON.stringify(AnswersFile.parse({ version: 1, answers, usage: merged })));
+    await gist.writeFile(
+      CONFIG.gistFiles.answers,
+      JSON.stringify(AnswersFile.parse({ version: 1, answers, usage: merged })),
+    );
     trace.log("ask", "answers written", {
       answered: answered.length,
       ok: answered.filter((a) => a.status === "ok").length,
@@ -786,7 +844,10 @@ export async function answerPendingQuietly(deps: AskDeps): Promise<AskOutcome | 
   try {
     return await runAsk(deps);
   } catch (e) {
-    deps.trace.log("ask", "pending questions not answered", { trigger: deps.trigger, error: deps.trace.publicError(e) });
+    deps.trace.log("ask", "pending questions not answered", {
+      trigger: deps.trigger,
+      error: deps.trace.publicError(e),
+    });
     return null;
   }
 }
@@ -812,7 +873,11 @@ async function main() {
   ]);
   const google =
     env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN
-      ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, refreshToken: env.GOOGLE_REFRESH_TOKEN }
+      ? {
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          refreshToken: env.GOOGLE_REFRESH_TOKEN,
+        }
       : null;
   const dispatched = !process.argv.includes("--now") && env.GITHUB_EVENT_NAME === "workflow_dispatch";
   const outDir = path.join(here, "out");
@@ -824,7 +889,9 @@ async function main() {
       gist: gistClient(need("JARVIS_GIST_ID"), gistToken),
       limits: askLimits(env),
       trace,
-      push: env.VAPID_PRIVATE_KEY ? vapidSender(CONFIG.push.publicKey, env.VAPID_PRIVATE_KEY, CONFIG.push.subject) : null,
+      push: env.VAPID_PRIVATE_KEY
+        ? vapidSender(CONFIG.push.publicKey, env.VAPID_PRIVATE_KEY, CONFIG.push.subject)
+        : null,
       drive: google ? async () => driveClient(await googleAccessToken(google)) : null,
     });
     // the repo is public: counts only, never question or answer text

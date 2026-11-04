@@ -45,8 +45,14 @@ export function promptWithAttachments(spec: AgentSpec<unknown>): string | AsyncI
   if (!spec.attachments?.length) return spec.prompt;
   const blocks = spec.attachments.map((a) =>
     a.mime === "application/pdf"
-      ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: a.data } }
-      : { type: "image" as const, source: { type: "base64" as const, media_type: a.mime as "image/jpeg", data: a.data } },
+      ? {
+          type: "document" as const,
+          source: { type: "base64" as const, media_type: "application/pdf" as const, data: a.data },
+        }
+      : {
+          type: "image" as const,
+          source: { type: "base64" as const, media_type: a.mime as "image/jpeg", data: a.data },
+        },
   );
   const msg: SDKUserMessage = {
     type: "user",
@@ -104,7 +110,10 @@ export async function runAgent<T>(
     const started = Date.now();
     let result: SDKResultMessage | undefined;
     try {
-      for await (const msg of queryFn({ prompt: promptWithAttachments(spec), options: agentOptions(spec, budget, ac) })) {
+      for await (const msg of queryFn({
+        prompt: promptWithAttachments(spec),
+        options: agentOptions(spec, budget, ac),
+      })) {
         if (msg.type === "result") result = msg;
       }
     } catch (e) {
@@ -114,7 +123,8 @@ export async function runAgent<T>(
     }
     if (result) recordUsage(spec, result, ledger);
     if (result && spec.usage)
-      for (const u of Object.values(result.modelUsage ?? {})) spec.usage.webSearches += Number(u.webSearchRequests) || 0;
+      for (const u of Object.values(result.modelUsage ?? {}))
+        spec.usage.webSearches += Number(u.webSearchRequests) || 0;
     trace.log(spec.name, "attempt", {
       attempt,
       ms: Date.now() - started,

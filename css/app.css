@@ -1549,20 +1549,6 @@ nav.tabbar button.orb-tab::before {
   font-weight: 700;
 }
 
-.period-sub {
-  display: flex;
-  justify-content: space-between;
-  margin: 12px 2px 0;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-dim);
-}
-.period-sub span:last-child {
-  text-transform: none;
-  letter-spacing: 0;
-}
 .period-empty {
   color: var(--text-dim);
   font-size: 13px;
@@ -3553,25 +3539,6 @@ body[data-tab="wants"] main {
 .home-sub[style] ~ .todo-wrap .kind-ic {
   display: none;
 } /* the label already shows the type */
-.weight-top {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 2px 2px 10px;
-}
-.weight-now b {
-  font-size: 38px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-.weight-now span {
-  margin-left: 4px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-dim);
-}
 .weight-goal {
   display: inline-flex;
   align-items: center;
@@ -4541,7 +4508,6 @@ body.todo-dragging {
 .jv-tile.pink .jv-tile-bar span {
   background: var(--navy);
 }
-.jv-more,
 .jv-sub-label {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -4615,14 +4581,6 @@ body.todo-dragging {
   color: var(--olive);
 }
 /* The days ahead: 16-day forecast, then the outlook (folded) */
-.jv-days-head {
-  margin-top: 14px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
 .jv-day {
   grid-template-columns: 88px 64px minmax(0, 1fr) 44px;
 }
@@ -4842,9 +4800,6 @@ body.todo-dragging {
 .jv-skin-meta b {
   color: var(--text);
 }
-.jv-wash-tag {
-  color: var(--navy);
-}
 .jv-skin-cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4997,11 +4952,6 @@ body.todo-dragging {
 }
 .jv-tiles > .jv-detail {
   margin-bottom: 0; /* in the tile grid the grid gap spaces it */
-}
-.jv-facts {
-  font-size: 13.5px;
-  color: var(--text-dim);
-  margin-bottom: 4px;
 }
 /* briefing lines that drill into Weather or News */
 .jv-sum-drill {
@@ -6977,26 +6927,6 @@ a.jv-gmail {
 .jv-pkg-what span {
   font-size: 13px;
   color: var(--text-dim);
-}
-/* Skin weather (in the Weather detail) */
-.jv-skinwx {
-  display: grid;
-  gap: 6px;
-  margin: 2px 0 10px;
-}
-.jv-skinwx-row {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-.jv-skinwx-row .jv-mini {
-  color: var(--text-dim);
-  padding-top: 1px;
-}
-.jv-skinwx-row.warn span:last-child {
-  color: var(--warn);
 }
 /* Jarvis suggestions (wash-day swap) */
 .jv-suggest {

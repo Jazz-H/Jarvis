@@ -8,7 +8,8 @@ import type { InboxCard } from "../schemas/inbox.ts";
 
 const GUARD_DAYS = 3; // a bill not on autopay is flagged this many days ahead
 const isIso = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
-const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number.isFinite(Number(v)) ? Number(v) : 0);
+const num = (v: unknown) =>
+  typeof v === "number" && Number.isFinite(v) ? v : Number.isFinite(Number(v)) ? Number(v) : 0;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const clip = (s: unknown, n: number) =>
   String(s ?? "")
@@ -58,7 +59,7 @@ function readBills(data: any): Bill[] {
       id: String(b.id ?? ""),
       name: clip(b.name, 60),
       // js/budget-bills.js billShare: your part of a joint bill
-      amount: r2(num(b.amount) * (b.group === "joint" && b.share ? num(b.share) : 100) / 100),
+      amount: r2((num(b.amount) * (b.group === "joint" && b.share ? num(b.share) : 100)) / 100),
       due: b.due,
       repeat: b.repeat,
       day: Number.isInteger(b.day) ? b.day : undefined,
@@ -153,7 +154,15 @@ export function readDebts(data: any, today: string): DebtStatus[] {
       const p = debtPayoff(balance, apr, payment, today);
       const isNext = !p.done && !next;
       if (isNext) next = true;
-      return { name: clip(d.name, 60), balance, apr, payment, paidOff: p.paidOff, coversInterest: p.coversInterest, next: isNext };
+      return {
+        name: clip(d.name, 60),
+        balance,
+        apr,
+        payment,
+        paidOff: p.paidOff,
+        coversInterest: p.coversInterest,
+        next: isNext,
+      };
     });
 }
 
@@ -176,7 +185,10 @@ export function readCards(data: any, today: string): CardStatus[] {
       const c = info[a];
       let month = today.slice(0, 7);
       if (dueIn(month, c.due) < today) month = addMonthsIso(month + "-01", 1).slice(0, 7);
-      const st = c.st && typeof c.st === "object" && c.st[month] != null && Number.isFinite(Number(c.st[month])) ? r2(num(c.st[month])) : null;
+      const st =
+        c.st && typeof c.st === "object" && c.st[month] != null && Number.isFinite(Number(c.st[month]))
+          ? r2(num(c.st[month]))
+          : null;
       const lc = a.toLowerCase();
       const due = dueIn(month, c.due),
         prevDue = dueIn(addMonthsIso(month + "-01", -1).slice(0, 7), c.due);
@@ -232,15 +244,40 @@ export function buildMoneyCard(raw: string | null, today: string, inbox: InboxCa
   // a card due within the guard window whose payment isn't in a paycheck plan yet
   const cards = readCards(data, today);
   for (const c of cards)
-    if (c.due <= soon && !c.planned) guard.push({ reason: "card", name: c.name, amount: c.statement, due: c.due, budgetAmount: null });
+    if (c.due <= soon && !c.planned)
+      guard.push({ reason: "card", name: c.name, amount: c.statement, due: c.due, budgetAmount: null });
   const period = payPeriod(data, today);
   if (period && period.pay > 0 && period.left < 0)
-    guard.push({ reason: "short", name: "Bills before payday", amount: r2(-period.left), due: period.end, budgetAmount: null });
+    guard.push({
+      reason: "short",
+      name: "Bills before payday",
+      amount: r2(-period.left),
+      due: period.end,
+      budgetAmount: null,
+    });
   for (const c of inbox?.bills ?? []) {
     if (c.status === "differs")
-      guard.push({ reason: "differs", name: clip(c.budgetName || c.payee, 60), amount: c.amount, due: c.due, budgetAmount: c.budgetAmount });
+      guard.push({
+        reason: "differs",
+        name: clip(c.budgetName || c.payee, 60),
+        amount: c.amount,
+        due: c.due,
+        budgetAmount: c.budgetAmount,
+      });
     else if (c.status === "not-in-budget")
-      guard.push({ reason: "not-in-budget", name: clip(c.payee, 60), amount: c.amount, due: c.due, budgetAmount: null });
+      guard.push({
+        reason: "not-in-budget",
+        name: clip(c.payee, 60),
+        amount: c.amount,
+        due: c.due,
+        budgetAmount: null,
+      });
   }
-  return MoneyCard.parse({ period, guard: guard.slice(0, 8), overspent: overspent(data, today), debts: readDebts(data, today), cards });
+  return MoneyCard.parse({
+    period,
+    guard: guard.slice(0, 8),
+    overspent: overspent(data, today),
+    debts: readDebts(data, today),
+    cards,
+  });
 }

@@ -80,7 +80,10 @@ export function driveClient(accessToken: string, fetchImpl: typeof fetch = fetch
           name: clean(f.name, 120) || "Untitled",
           type: kind(String(f.mimeType || "")),
           modified: String(f.modifiedTime || "").slice(0, 10),
-          link: typeof f.webViewLink === "string" && f.webViewLink.startsWith("https://") ? f.webViewLink.slice(0, 500) : null,
+          link:
+            typeof f.webViewLink === "string" && f.webViewLink.startsWith("https://")
+              ? f.webViewLink.slice(0, 500)
+              : null,
         }));
     },
     async read(id) {
@@ -89,11 +92,15 @@ export function driveClient(accessToken: string, fetchImpl: typeof fetch = fetch
       const mime = String(meta.mimeType || "");
       const name = clean(meta.name, 120) || "Untitled";
       let text: string;
-      if (EXPORT[mime]) text = await (await get(`${BASE}/${id}/export?mimeType=${encodeURIComponent(EXPORT[mime])}`)).text();
+      if (EXPORT[mime])
+        text = await (await get(`${BASE}/${id}/export?mimeType=${encodeURIComponent(EXPORT[mime])}`)).text();
       else if (kind(mime) === "text") {
         if (Number(meta.size) > 2_000_000) throw new Error("that file is too big to read");
         text = await (await get(`${BASE}/${id}?alt=media&supportsAllDrives=true`)).text();
-      } else throw new Error(`a ${kind(mime) === "pdf" ? "PDF" : "file of that type"} can't be read here: the owner can send it with the 📎 in Console`);
+      } else
+        throw new Error(
+          `a ${kind(mime) === "pdf" ? "PDF" : "file of that type"} can't be read here: the owner can send it with the 📎 in Console`,
+        );
       const full = clean(text, DRIVE_READ_MAX + 1);
       return { name, text: full.slice(0, DRIVE_READ_MAX), truncated: full.length > DRIVE_READ_MAX };
     },

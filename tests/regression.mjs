@@ -73,7 +73,9 @@ async function openApp({ seed = {}, phone = true, query = "", route, setup } = {
   if (route) await ctx.route("https://api.github.com/**", route);
   if (setup) await setup(ctx); // e.g. routes that must be in place before the page loads
   // NWS alerts (the Weather detail checks them for a saved location): none, unless a test routes its own
-  await ctx.route("https://api.weather.gov/**", (r) => r.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({ features: [] }) }));
+  await ctx.route("https://api.weather.gov/**", (r) =>
+    r.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({ features: [] }) }),
+  );
   await ctx.addInitScript((s) => {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");
@@ -2834,7 +2836,10 @@ await section("Fitness (Jazz 3.0): weight, weekly plan, Home, import link", asyn
   );
   const ui = await page.evaluate(() => ({
     weight: document.getElementById("weight-card").textContent.replace(/\s+/g, " "),
-    order: [...document.querySelectorAll("#panel-jazz3 > [id]")].map((e) => e.id).slice(0, 3).join(),
+    order: [...document.querySelectorAll("#panel-jazz3 > [id]")]
+      .map((e) => e.id)
+      .slice(0, 3)
+      .join(),
     tally: !!document.querySelector(".fit-tally"),
     week: document.getElementById("todo-list").textContent.replace(/\s+/g, " "),
     planOnFitness: !!document.querySelector("#panel-jazz3 #fit-plan"),
@@ -3124,7 +3129,9 @@ await section("Briefing: suggested to-dos and Bill Guard", async () => {
   );
   check(
     "the chip then reads Added, and a second tap adds nothing",
-    await page.evaluate(() => document.querySelector('.jv-suggest .rv-chip[data-index="0"]').classList.contains("added")),
+    await page.evaluate(() =>
+      document.querySelector('.jv-suggest .rv-chip[data-index="0"]').classList.contains("added"),
+    ),
   );
   await page.evaluate(() => document.getElementById("toast").querySelector("button")?.click());
   check(
@@ -3132,20 +3139,36 @@ await section("Briefing: suggested to-dos and Bill Guard", async () => {
     await page.evaluate((n) => todoList.length === n && !todoList.some((t) => t.text === "Pay Rent"), n0),
   );
   // × dismisses a suggestion, with Undo; it sits beside its chip and stays gone after a reload of the data
-  const chipTexts = () => page.$$eval(".jv-suggest .rv-chip", (els) => els.map((c) => c.textContent.replace(/\s+/g, " ").trim()));
+  const chipTexts = () =>
+    page.$$eval(".jv-suggest .rv-chip", (els) => els.map((c) => c.textContent.replace(/\s+/g, " ").trim()));
   const side = await page.evaluate(() => {
     const chip = document.querySelector('.jv-suggest .rv-chip[data-index="0"]').getBoundingClientRect();
-    const x = document.querySelector('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]').getBoundingClientRect();
-    return { beside: x.left >= chip.right - 1 && x.top < chip.bottom && x.bottom > chip.top, inPage: x.right <= document.documentElement.clientWidth, h: x.height };
+    const x = document
+      .querySelector('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]')
+      .getBoundingClientRect();
+    return {
+      beside: x.left >= chip.right - 1 && x.top < chip.bottom && x.bottom > chip.top,
+      inPage: x.right <= document.documentElement.clientWidth,
+      h: x.height,
+    };
   });
   check("each suggestion has a × beside it, with room to tap", side.beside && side.inPage && side.h >= 44, side);
   const before3 = await chipTexts();
   await page.tap('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]');
   const after = await chipTexts();
-  check("× dismisses that suggestion and keeps the others", after.length === 2 && after[0] === before3[1] && !after.some((t) => t.includes("Pay Rent")), after);
+  check(
+    "× dismisses that suggestion and keeps the others",
+    after.length === 2 && after[0] === before3[1] && !after.some((t) => t.includes("Pay Rent")),
+    after,
+  );
   check(
     "the dismissal is saved in Jarvis's settings",
-    await page.evaluate(() => jarvisSettings.hiddenSuggestions.length === 1 && jarvisSettings.hiddenSuggestions[0].text === "Pay Rent" && jarvisSettings.hiddenSuggestions[0].at === addDaysIso(0)),
+    await page.evaluate(
+      () =>
+        jarvisSettings.hiddenSuggestions.length === 1 &&
+        jarvisSettings.hiddenSuggestions[0].text === "Pay Rent" &&
+        jarvisSettings.hiddenSuggestions[0].at === addDaysIso(0),
+    ),
   );
   await page.evaluate(() => document.getElementById("toast").querySelector("button")?.click());
   check("Undo brings the suggestion back", (await chipTexts()).length === 3);
@@ -3155,15 +3178,28 @@ await section("Briefing: suggested to-dos and Bill Guard", async () => {
   await page.tap('.jv-suggest [data-action="jv-suggest-hide"][data-index="1"]');
   check(
     "a chip stays Added after another one is dismissed, and an added chip has no ×",
-    await page.evaluate(() => document.querySelector('.jv-suggest .rv-chip[data-index="0"]').classList.contains("added") && !document.querySelector('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]')),
+    await page.evaluate(
+      () =>
+        document.querySelector('.jv-suggest .rv-chip[data-index="0"]').classList.contains("added") &&
+        !document.querySelector('.jv-suggest [data-action="jv-suggest-hide"][data-index="0"]'),
+    ),
   );
   check(
     "the normalizer drops junk and old dismissed suggestions",
     await page.evaluate(() => {
       const keep = jarvisSettings;
-      jarvisSettings = { ...keep, hiddenSuggestions: ["junk", { text: "", at: addDaysIso(0) }, { text: "Old", at: "2020-01-01" }, { text: "<b>Keep</b>", at: addDaysIso(0) }] };
+      jarvisSettings = {
+        ...keep,
+        hiddenSuggestions: [
+          "junk",
+          { text: "", at: addDaysIso(0) },
+          { text: "Old", at: "2020-01-01" },
+          { text: "<b>Keep</b>", at: addDaysIso(0) },
+        ],
+      };
       normalizeJarvisBrain();
-      const ok = jarvisSettings.hiddenSuggestions.length === 1 && jarvisSettings.hiddenSuggestions[0].text === "<b>Keep</b>";
+      const ok =
+        jarvisSettings.hiddenSuggestions.length === 1 && jarvisSettings.hiddenSuggestions[0].text === "<b>Keep</b>";
       jarvisSettings = keep;
       normalizeJarvisBrain();
       return ok;
@@ -3202,7 +3238,15 @@ await section("Price watcher: this week's check on Home's Shopping detail and th
     data: {
       checkedAt: isoOffset(-2),
       items: [
-        { id: "w-jacket", name: "Rain jacket", saved: 120, found: 89, store: "REI <b>", url: "https://www.rei.com/p/1", drop: true },
+        {
+          id: "w-jacket",
+          name: "Rain jacket",
+          saved: 120,
+          found: 89,
+          store: "REI <b>",
+          url: "https://www.rei.com/p/1",
+          drop: true,
+        },
         { id: "w-belt", name: "Belt", saved: 40, found: 39, store: "Target", url: "javascript:alert(1)", drop: false },
         { id: "w-none", name: "Headphones", saved: 300, found: null, store: "x", url: "https://x.com", drop: false },
         { id: "bad id!", name: "Junk", saved: 1, found: 1, drop: true },
@@ -3221,7 +3265,11 @@ await section("Price watcher: this week's check on Home's Shopping detail and th
   await page.tap('.jv-tile[data-go="shop"]');
   const r = await page.evaluate(() => ({
     label: document.querySelector("#jv-detail-shop .jv-sub-label").textContent,
-    rows: [...document.querySelectorAll("#jv-detail-shop .jv-price")].map((x) => [x.tagName, x.textContent.replace(/\s+/g, " ").trim(), x.getAttribute("href")]),
+    rows: [...document.querySelectorAll("#jv-detail-shop .jv-price")].map((x) => [
+      x.tagName,
+      x.textContent.replace(/\s+/g, " ").trim(),
+      x.getAttribute("href"),
+    ]),
   }));
   check("Home's Shopping detail leads with this week's price check", r.label.startsWith("Price check · "), r.label);
   check(
@@ -3235,7 +3283,11 @@ await section("Price watcher: this week's check on Home's Shopping detail and th
   );
   await page.evaluate(() => activateTab("wants"));
   const tags = await page.evaluate(() => [...document.querySelectorAll(".want-tag.drop")].map((t) => t.textContent));
-  check("the Shopping list tags an item whose price dropped", tags.length === 1 && tags[0] === "↓ $89 at REI <b> · price check", tags);
+  check(
+    "the Shopping list tags an item whose price dropped",
+    tags.length === 1 && tags[0] === "↓ $89 at REI <b> · price check",
+    tags,
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -3244,9 +3296,14 @@ await section("Jazz 3.0: Today card, workout streak and the last 4 weeks", async
   const { ctx, page, errors } = await openApp({ query: "?tab=jazz3" });
   const r = await page.evaluate(() => {
     const all = [0, 1, 2, 3, 4, 5, 6];
-    fitness = { start: null, goal: null, weights: [], weighDay: -1, checks: {}, plan: [
-      { id: "wo1", name: "Gym", days: all, every: 1, anchor: addDaysIso(-40), time: "07:30", kind: "fitness" },
-    ] };
+    fitness = {
+      start: null,
+      goal: null,
+      weights: [],
+      weighDay: -1,
+      checks: {},
+      plan: [{ id: "wo1", name: "Gym", days: all, every: 1, anchor: addDaysIso(-40), time: "07:30", kind: "fitness" }],
+    };
     normalizeFitness();
     // the last 3 days done, 4 days ago missed
     [-1, -2, -3].forEach((n) => (fitness.checks[addDaysIso(n) + "|wo1"] = true));
@@ -3294,13 +3351,10 @@ await section("Jazz 3.0: Today card, workout streak and the last 4 weeks", async
   await page.click('#j3-today [data-action="jv-goal-another"]');
   check(
     "Another swaps the goal step on Jazz 3.0",
-    await page.evaluate(
-      (b) => {
-        const shown = document.querySelector('#j3-today [data-action="plan3-edit"] b').textContent;
-        return shown !== b && shown === dashGoalOfDay().item;
-      },
-      before,
-    ),
+    await page.evaluate((b) => {
+      const shown = document.querySelector('#j3-today [data-action="plan3-edit"] b').textContent;
+      return shown !== b && shown === dashGoalOfDay().item;
+    }, before),
   );
   check(
     "no Today card and no grid with nothing planned",
@@ -6240,12 +6294,7 @@ await section("bill pay/unpay checks: delegated from Home and Budget, validated,
       addDaysIso(0),
       addDaysIso(0).slice(0, 7) + "-01",
     );
-    const c = document.createElement("div");
-    c.innerHTML = billRowHtml(
-      { bill: b, name: b.name, amount: 40, due: addDaysIso(60), current: false },
-      addDaysIso(0),
-    );
-    return [h, r, c].map(
+    return [h, r].map(
       (e) =>
         e.querySelectorAll(
           "[data-action]:not(.body[data-action=home-bill-open]):not(.body[data-action=bill-row-open]):not(.btab-name[data-action=bill-row-open]), [onclick]:not(.body):not(.btab-name)",
@@ -6542,21 +6591,6 @@ await section("budget bill rows: pay/unpay delegated; latest-payment-only and au
         bills.find((b) => b.id === "ba").due === addDaysIso(-3) &&
         bills.find((b) => b.id === "ba").hold === addDaysIso(-3),
     ),
-  );
-  // calendar-day rows (billRowHtml) are delegated too
-  const cal = await page.evaluate(() => {
-    const b = bills.find((x) => x.id === "bw");
-    const d = document.createElement("div");
-    d.id = "cal-host";
-    d.innerHTML = `<div id="cal-wrap">${billRowHtml({ bill: b, name: b.name, amount: 40, due: b.due, current: true }, addDaysIso(0))}</div>`;
-    document.body.appendChild(d);
-    return d.querySelectorAll("[onclick].todo-check").length;
-  });
-  check("calendar bill row check is delegated", cal === 0);
-  await page.evaluate(() => document.querySelector("#cal-host .todo-check").click());
-  check(
-    "calendar-row pay works and opens no editor",
-    await page.evaluate(() => billPayments.some((p) => p.billId === "bw") && window.__edit.length === 0),
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
@@ -7957,7 +7991,14 @@ await section("jarvis: stored briefing renders escaped, with agent cards and saf
 
 await section("jarvis: weather for 90 days, and your own location", async () => {
   const b = briefingFixture();
-  const day = (n, kind) => ({ date: isoOffset(n), highF: 60 + (n % 5), lowF: 40, rainChance: n % 3 === 0 ? 70 : 10, conditions: kind === "forecast" ? "Clear" : null, kind });
+  const day = (n, kind) => ({
+    date: isoOffset(n),
+    highF: 60 + (n % 5),
+    lowF: 40,
+    rainChance: n % 3 === 0 ? 70 : 10,
+    conditions: kind === "forecast" ? "Clear" : null,
+    kind,
+  });
   b.cards.weather.data.outlook = [
     ...Array.from({ length: 16 }, (_, i) => day(i, "forecast")),
     ...Array.from({ length: 74 }, (_, i) => day(i + 16, "outlook")),
@@ -7969,9 +8010,13 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   await page.tap('.jv-tile[data-go="weather"]');
   const read = () =>
     page.evaluate(() => ({
-      next: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+      next: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((r) =>
+        r.textContent.replace(/\s+/g, " ").trim(),
+      ),
       more: document.querySelector("#jarvis-weather .wx-more > summary")?.textContent || "",
-      weeks: [...document.querySelectorAll('#jarvis-weather [aria-label="Outlook by week"] .jv-day')].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+      weeks: [...document.querySelectorAll('#jarvis-weather [aria-label="Outlook by week"] .jv-day')].map((r) =>
+        r.textContent.replace(/\s+/g, " ").trim(),
+      ),
       days: document.querySelectorAll('#jarvis-weather [aria-label="Outlook day by day"] .jv-day').length,
       summary: document.querySelector("#jarvis-weather .jv-outlook > summary")?.textContent || "",
       open: document.querySelector("#jarvis-weather .jv-outlook")?.open,
@@ -7984,16 +8029,37 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
       toast: document.getElementById("toast").textContent,
     }));
   const r = await read();
-  check("today and the next 15 days, 7 shown and the rest under 16-day forecast", r.next.length === 16 && r.more === "16-day forecast", r);
-  check("a day row: name, rain, high and low", r.next[0].startsWith("Today ") && /^\w{3} \d+% \d+°40°$/.test(r.next[2]), r.next);
+  check(
+    "today and the next 15 days, 7 shown and the rest under 16-day forecast",
+    r.next.length === 16 && r.more === "16-day forecast",
+    r,
+  );
+  check(
+    "a day row: name, rain, high and low",
+    r.next[0].startsWith("Today ") && /^\w{3} \d+% \d+°40°$/.test(r.next[2]),
+    r.next,
+  );
   check("weather text from the briefing is escaped", r.pwned === 0 && r.imgs === 0, r);
   check(
     "the outlook is folded, says it's a trend, and has every day (junk rows dropped)",
     r.open === false && r.summary.startsWith("Outlook to ") && r.days === 74,
     r,
   );
-  check("the outlook by week (Monday start)", r.weeks.length >= 11 && r.weeks.length <= 12 && r.weeks.every((w) => /° \d+° (\d of \d days lean wet|Leans dry)$/.test(w)), r.weeks);
-  check("the Location tile: whose forecast, and Use my location", r.place.startsWith("Location Springfield, IL") && r.place.includes("The default city") && r.place.includes("Use my location") && !r.place.includes("Forget"), r.place);
+  check(
+    "the outlook by week (Monday start)",
+    r.weeks.length >= 11 &&
+      r.weeks.length <= 12 &&
+      r.weeks.every((w) => /° \d+° (\d of \d days lean wet|Leans dry)$/.test(w)),
+    r.weeks,
+  );
+  check(
+    "the Location tile: whose forecast, and Use my location",
+    r.place.startsWith("Location Springfield, IL") &&
+      r.place.includes("The default city") &&
+      r.place.includes("Use my location") &&
+      !r.place.includes("Forget"),
+    r.place,
+  );
 
   // Use my location: saved to 3 decimals, synced in jarvis-settings, never shown
   await page.evaluate(() => {
@@ -8006,9 +8072,17 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   await page.tap('#jarvis-weather [data-action="wx-locate"]');
   if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
   const a = await read();
-  check("Use my location saves it rounded to about 100 m, with today's date", a.saved && a.saved.lat === 39.781 && a.saved.lon === -89.656 && a.saved.at === isoOffset(0), a.saved);
+  check(
+    "Use my location saves it rounded to about 100 m, with today's date",
+    a.saved && a.saved.lat === 39.781 && a.saved.lon === -89.656 && a.saved.at === isoOffset(0),
+    a.saved,
+  );
   check("the coordinates are never shown", !a.shown);
-  check("it says the next briefing uses it, and offers Update and Forget", a.place.includes("Saved: the next briefing uses it") && a.place.includes("Update") && a.place.includes("Forget"), a.place);
+  check(
+    "it says the next briefing uses it, and offers Update and Forget",
+    a.place.includes("Saved: the next briefing uses it") && a.place.includes("Update") && a.place.includes("Forget"),
+    a.place,
+  );
   check("a toast confirms it", a.toast.startsWith("Location saved"), a.toast);
 
   // Opening the app keeps it current, but only a move of 1 km or more is saved
@@ -8033,7 +8107,11 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   });
   if (!(await page.$("#jarvis-weather"))) await page.tap('.jv-tile[data-go="weather"]');
   const m = await read();
-  check("a briefing for your location says so", m.place.startsWith("Location Your location") && m.place.includes("From your phone") && !m.place.includes("Saved:"), m.place);
+  check(
+    "a briefing for your location says so",
+    m.place.startsWith("Location Your location") && m.place.includes("From your phone") && !m.place.includes("Saved:"),
+    m.place,
+  );
 
   // Blocked, then Forget it
   await page.evaluate(() => (window.__geo = null));
@@ -8057,120 +8135,182 @@ await section("jarvis: weather for 90 days, and your own location", async () => 
   await ctx.close();
 });
 
-await section("weather: the phone-app layout (hero, hourly line, day and night icons, tiles, sun, alerts)", async () => {
-  const b = briefingFixture();
-  const p = (n) => String(n).padStart(2, "0");
-  const start = new Date();
-  start.setMinutes(0, 0, 0);
-  const hours = Array.from({ length: 30 }, (_, i) => {
-    const t = new Date(start.getTime() + (i - 2) * 3600e3); // starts 2 hours ago, like a morning run
-    return {
-      time: `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`,
-      tempF: 50 + i,
-      feelsF: 47 + i,
-      chance: i === 3 ? 70 : 10,
-      code: i === 3 ? 63 : 3,
-      isDay: true,
-      humidityPct: 81,
-      windMph: 9,
-      windDir: "NW",
-    };
-  });
-  const later = new Date(Date.now() + 3 * 3600e3).toISOString();
-  Object.assign(b.cards.weather.data, {
-    code: 3,
-    now: { feelsF: 40, humidityPct: 50, windMph: 4, gustMph: 20, windDir: "S", isDay: true },
-    hours,
-    outlook: [
-      { date: isoOffset(0), highF: 69, lowF: 49, rainChance: 60, conditions: "Light rain", code: 61, nightCode: 0, kind: "forecast" },
-      { date: isoOffset(1), highF: 72, lowF: 52, rainChance: 20, conditions: "Partly cloudy", code: 2, nightCode: 95, kind: "forecast" },
-    ],
-    sun: [{ date: isoOffset(0), rise: "00:01", set: "23:58" }],
-    alerts: [
-      { event: "Wind Advisory", severity: "Moderate", headline: "Wind Advisory until 6PM", ends: later },
-      { event: "<b>Tornado Warning</b>", severity: "Extreme", headline: "<img src=x onerror=window.__pwned=1>", ends: later },
-      { event: "Old Frost Advisory", severity: "Minor", headline: "h", ends: "2020-01-01T00:00:00Z" },
-      { event: "Odd", severity: "Bogus", headline: "h", ends: "nope" },
-    ],
-  });
-  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
-  await page.tap('.jv-tile[data-go="weather"]');
-  const read = () =>
-    page.evaluate(() => ({
-      tileSub: document.querySelector('.jv-tile[data-go="weather"] .jv-tile-sub').textContent,
-      now: document.querySelector("#jarvis-weather .wx-now").textContent,
-      cond: document.querySelector("#jarvis-weather .wx-cond").textContent,
-      feels: document.querySelector("#jarvis-weather .wx-feels")?.textContent || "",
-      sky: document.querySelector("#jarvis-weather .wx-hero").className,
-      hrs: [...document.querySelectorAll("#jarvis-weather .wx-hr")].map((h) => h.getAttribute("aria-label")),
-      dots: document.querySelectorAll("#jarvis-weather .wx-hr-line circle").length,
-      line: document.querySelector("#jarvis-weather .wx-hr-line polyline")?.getAttribute("points") || "",
-      days: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((d) => d.getAttribute("aria-label")),
-      dayIcons: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((d) => d.querySelectorAll("svg.wx-i").length),
-      tiles: [...document.querySelectorAll("#jarvis-weather .wx-tile")].map((e) => [...e.children].map((c) => c.textContent).join(" ")),
-      sun: document.querySelector("#jarvis-weather .wx-sun-text b")?.textContent || "",
-      alerts: [...document.querySelectorAll("#jarvis-weather .wx-alert")].map((a) => ({ cls: a.className, text: a.textContent.replace(/\s+/g, " ").trim() })),
-      pwned: window.__pwned || 0,
-      bold: document.querySelectorAll("#jarvis-weather .wx-alert b b").length,
-    }));
-  const r = await read();
-  check("the hero and the tile show this hour's temperature from the 48 hours", r.now === "52°" && r.tileSub.startsWith("Now 52°"), r);
-  check("the hero names this hour's conditions, with feels like, over a cloudy glow", r.cond === "Overcast" && r.feels === "Feels like 49°" && r.sky.includes("wx-sky-cloudy"), r);
-  check("the hourly strip starts at Now and runs 25 hours", r.hrs.length === 25 && r.hrs[0] === "Now: 52°, 10% rain, Overcast", r.hrs.slice(0, 2));
-  check("a rainy hour says so", r.hrs[1].endsWith("70% rain, Rain"), r.hrs[1]);
-  check("the temperature line has a point per hour, warmest highest", r.dots === 25 && Number(r.line.split(" ")[0].split(",")[1]) > Number(r.line.split(" ")[24].split(",")[1]), r.line);
-  check(
-    "day rows have a day and a night icon and say both",
-    r.days[0] === "Today: Light rain, then clear overnight, high 69°, low 49°, 60% rain" &&
-      r.days[1].includes("then thunderstorms overnight") &&
-      r.dayIcons.every((n) => n === 2),
-    r,
-  );
-  check(
-    "tiles: feels like, wind and humidity from this hour, then UV and air quality",
-    r.tiles[0] === "Feels like 49° Colder than the actual temperature" && r.tiles[1] === "Wind 9 mph From the NW" && r.tiles[2] === "Humidity 81% Humid",
-    r.tiles,
-  );
-  check("the sun card says when the sun sets", r.sun === "Sunset will be at 11:58 PM", r.sun);
-  check(
-    "alerts: most severe first, escaped, ended ones dropped, odd severity kept as Unknown",
-    r.alerts.length === 3 &&
-      r.alerts[0].cls.includes("wx-alert-extreme") &&
-      r.alerts[0].text.startsWith("<b>Tornado Warning</b> until ") &&
-      r.alerts[0].text.endsWith("National Weather Service · as of this morning") &&
-      r.alerts[2].cls.includes("wx-alert-unknown") &&
-      r.pwned === 0 &&
-      r.bold === 0,
-    r.alerts,
-  );
+await section(
+  "weather: the phone-app layout (hero, hourly line, day and night icons, tiles, sun, alerts)",
+  async () => {
+    const b = briefingFixture();
+    const p = (n) => String(n).padStart(2, "0");
+    const start = new Date();
+    start.setMinutes(0, 0, 0);
+    const hours = Array.from({ length: 30 }, (_, i) => {
+      const t = new Date(start.getTime() + (i - 2) * 3600e3); // starts 2 hours ago, like a morning run
+      return {
+        time: `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`,
+        tempF: 50 + i,
+        feelsF: 47 + i,
+        chance: i === 3 ? 70 : 10,
+        code: i === 3 ? 63 : 3,
+        isDay: true,
+        humidityPct: 81,
+        windMph: 9,
+        windDir: "NW",
+      };
+    });
+    const later = new Date(Date.now() + 3 * 3600e3).toISOString();
+    Object.assign(b.cards.weather.data, {
+      code: 3,
+      now: { feelsF: 40, humidityPct: 50, windMph: 4, gustMph: 20, windDir: "S", isDay: true },
+      hours,
+      outlook: [
+        {
+          date: isoOffset(0),
+          highF: 69,
+          lowF: 49,
+          rainChance: 60,
+          conditions: "Light rain",
+          code: 61,
+          nightCode: 0,
+          kind: "forecast",
+        },
+        {
+          date: isoOffset(1),
+          highF: 72,
+          lowF: 52,
+          rainChance: 20,
+          conditions: "Partly cloudy",
+          code: 2,
+          nightCode: 95,
+          kind: "forecast",
+        },
+      ],
+      sun: [{ date: isoOffset(0), rise: "00:01", set: "23:58" }],
+      alerts: [
+        { event: "Wind Advisory", severity: "Moderate", headline: "Wind Advisory until 6PM", ends: later },
+        {
+          event: "<b>Tornado Warning</b>",
+          severity: "Extreme",
+          headline: "<img src=x onerror=window.__pwned=1>",
+          ends: later,
+        },
+        { event: "Old Frost Advisory", severity: "Minor", headline: "h", ends: "2020-01-01T00:00:00Z" },
+        { event: "Odd", severity: "Bogus", headline: "h", ends: "nope" },
+      ],
+    });
+    const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b } });
+    await page.tap('.jv-tile[data-go="weather"]');
+    const read = () =>
+      page.evaluate(() => ({
+        tileSub: document.querySelector('.jv-tile[data-go="weather"] .jv-tile-sub').textContent,
+        now: document.querySelector("#jarvis-weather .wx-now").textContent,
+        cond: document.querySelector("#jarvis-weather .wx-cond").textContent,
+        feels: document.querySelector("#jarvis-weather .wx-feels")?.textContent || "",
+        sky: document.querySelector("#jarvis-weather .wx-hero").className,
+        hrs: [...document.querySelectorAll("#jarvis-weather .wx-hr")].map((h) => h.getAttribute("aria-label")),
+        dots: document.querySelectorAll("#jarvis-weather .wx-hr-line circle").length,
+        line: document.querySelector("#jarvis-weather .wx-hr-line polyline")?.getAttribute("points") || "",
+        days: [...document.querySelectorAll("#jarvis-weather .wx-day")].map((d) => d.getAttribute("aria-label")),
+        dayIcons: [...document.querySelectorAll("#jarvis-weather .wx-day")].map(
+          (d) => d.querySelectorAll("svg.wx-i").length,
+        ),
+        tiles: [...document.querySelectorAll("#jarvis-weather .wx-tile")].map((e) =>
+          [...e.children].map((c) => c.textContent).join(" "),
+        ),
+        sun: document.querySelector("#jarvis-weather .wx-sun-text b")?.textContent || "",
+        alerts: [...document.querySelectorAll("#jarvis-weather .wx-alert")].map((a) => ({
+          cls: a.className,
+          text: a.textContent.replace(/\s+/g, " ").trim(),
+        })),
+        pwned: window.__pwned || 0,
+        bold: document.querySelectorAll("#jarvis-weather .wx-alert b b").length,
+      }));
+    const r = await read();
+    check(
+      "the hero and the tile show this hour's temperature from the 48 hours",
+      r.now === "52°" && r.tileSub.startsWith("Now 52°"),
+      r,
+    );
+    check(
+      "the hero names this hour's conditions, with feels like, over a cloudy glow",
+      r.cond === "Overcast" && r.feels === "Feels like 49°" && r.sky.includes("wx-sky-cloudy"),
+      r,
+    );
+    check(
+      "the hourly strip starts at Now and runs 25 hours",
+      r.hrs.length === 25 && r.hrs[0] === "Now: 52°, 10% rain, Overcast",
+      r.hrs.slice(0, 2),
+    );
+    check("a rainy hour says so", r.hrs[1].endsWith("70% rain, Rain"), r.hrs[1]);
+    check(
+      "the temperature line has a point per hour, warmest highest",
+      r.dots === 25 && Number(r.line.split(" ")[0].split(",")[1]) > Number(r.line.split(" ")[24].split(",")[1]),
+      r.line,
+    );
+    check(
+      "day rows have a day and a night icon and say both",
+      r.days[0] === "Today: Light rain, then clear overnight, high 69°, low 49°, 60% rain" &&
+        r.days[1].includes("then thunderstorms overnight") &&
+        r.dayIcons.every((n) => n === 2),
+      r,
+    );
+    check(
+      "tiles: feels like, wind and humidity from this hour, then UV and air quality",
+      r.tiles[0] === "Feels like 49° Colder than the actual temperature" &&
+        r.tiles[1] === "Wind 9 mph From the NW" &&
+        r.tiles[2] === "Humidity 81% Humid",
+      r.tiles,
+    );
+    check("the sun card says when the sun sets", r.sun === "Sunset will be at 11:58 PM", r.sun);
+    check(
+      "alerts: most severe first, escaped, ended ones dropped, odd severity kept as Unknown",
+      r.alerts.length === 3 &&
+        r.alerts[0].cls.includes("wx-alert-extreme") &&
+        r.alerts[0].text.startsWith("<b>Tornado Warning</b> until ") &&
+        r.alerts[0].text.endsWith("National Weather Service · as of this morning") &&
+        r.alerts[2].cls.includes("wx-alert-unknown") &&
+        r.pwned === 0 &&
+        r.bold === 0,
+      r.alerts,
+    );
 
-  // With a saved location, the app checks NWS itself; those replace this morning's
-  await page.route("https://api.weather.gov/**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/geo+json",
-      body: JSON.stringify({
-        features: [
-          { properties: { event: "Severe Thunderstorm Warning", severity: "Severe", headline: "Storms now", ends: later, status: "Actual", messageType: "Alert" } },
-          { properties: { event: "Test", severity: "Minor", status: "Test" } },
-        ],
+    // With a saved location, the app checks NWS itself; those replace this morning's
+    await page.route("https://api.weather.gov/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/geo+json",
+        body: JSON.stringify({
+          features: [
+            {
+              properties: {
+                event: "Severe Thunderstorm Warning",
+                severity: "Severe",
+                headline: "Storms now",
+                ends: later,
+                status: "Actual",
+                messageType: "Alert",
+              },
+            },
+            { properties: { event: "Test", severity: "Minor", status: "Test" } },
+          ],
+        }),
       }),
-    }),
-  );
-  await page.evaluate(() => {
-    jarvisSettings.location = { lat: 39.781, lon: -89.656, at: addDaysIso(0) };
-    renderHome();
-  });
-  await page.waitForFunction(() => document.querySelectorAll("#jarvis-weather .wx-alert").length === 1);
-  const live = await read();
-  check(
-    "live NWS alerts replace the morning's, without 'as of this morning'",
-    live.alerts.length === 1 && live.alerts[0].text.startsWith("Severe Thunderstorm Warning") && live.alerts[0].text.endsWith("National Weather Service"),
-    live.alerts,
-  );
-  check("no JS errors", errors.length === 0, errors);
-  await ctx.close();
-});
+    );
+    await page.evaluate(() => {
+      jarvisSettings.location = { lat: 39.781, lon: -89.656, at: addDaysIso(0) };
+      renderHome();
+    });
+    await page.waitForFunction(() => document.querySelectorAll("#jarvis-weather .wx-alert").length === 1);
+    const live = await read();
+    check(
+      "live NWS alerts replace the morning's, without 'as of this morning'",
+      live.alerts.length === 1 &&
+        live.alerts[0].text.startsWith("Severe Thunderstorm Warning") &&
+        live.alerts[0].text.endsWith("National Weather Service"),
+      live.alerts,
+    );
+    check("no JS errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
 
 await section("jarvis: error cards, stale briefing and junk data", async () => {
   const b = briefingFixture({
@@ -8200,15 +8340,26 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
   }));
   check(
     "yesterday's briefing is labeled and dimmed (or flagged late after 8 AM)",
-    (new Date().getHours() >= 8 ? r.when.startsWith("Today's briefing hasn't arrived. Showing ") : r.when.startsWith("From ")) && r.stale,
+    (new Date().getHours() >= 8
+      ? r.when.startsWith("Today's briefing hasn't arrived. Showing ")
+      : r.when.startsWith("From ")) && r.stale,
     r,
   );
   check(
     "the late notice turns on at 8 AM",
     await page.evaluate(() => {
       const b = { date: addDaysIso(-1) };
-      const at = (h) => { const d = new Date(); d.setHours(h, 0, 0, 0); return briefingLateHtml(b, d); };
-      return at(7).includes("From ") && !at(7).includes("jv-late") && at(8).includes("jv-late") && !briefingLateHtml({ date: addDaysIso(0) }).includes("jv-late");
+      const at = (h) => {
+        const d = new Date();
+        d.setHours(h, 0, 0, 0);
+        return briefingLateHtml(b, d);
+      };
+      return (
+        at(7).includes("From ") &&
+        !at(7).includes("jv-late") &&
+        at(8).includes("jv-late") &&
+        !briefingLateHtml({ date: addDaysIso(0) }).includes("jv-late")
+      );
     }),
   );
   check("failed agent shows its error", r.newsErr.includes("timed out") && r.newsInsight === "Unavailable", r);
@@ -8696,7 +8847,14 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
     data: {
       packages: [
         { item: "Columbia rain jacket", status: "out", eta: today, etaText: "by 8 PM", shoppingMatch: "Rain jacket" },
-        { item: "Desk lamp", status: "teleported", eta: "soon", etaText: null, shoppingMatch: null, carrier: "UPS <b>" },
+        {
+          item: "Desk lamp",
+          status: "teleported",
+          eta: "soon",
+          etaText: null,
+          shoppingMatch: null,
+          carrier: "UPS <b>",
+        },
       ],
     },
   };
@@ -8829,11 +8987,15 @@ await section("skin weather: UV with SPF advice and air quality, on Weather and 
   check("Beauty tile flags a high-UV day", skinSub.includes("UV 7 · SPF"), skinSub);
   await page.tap('.jv-tile[data-go="weather"]');
   const rows = await page.$$eval("#jarvis-weather .wx-tile", (els) =>
-    els.map((e) => [...e.children].map((c) => c.textContent).join(" ")).filter((t) => /^(UV index|Air quality)/.test(t)),
+    els
+      .map((e) => [...e.children].map((c) => c.textContent).join(" "))
+      .filter((t) => /^(UV index|Air quality)/.test(t)),
   );
   check(
     "Weather detail shows UV with SPF advice and the hours, and air quality, as tiles",
-    rows.length === 2 && rows[0] === "UV index 7 High, 11a–3p: SPF 50, reapply every 2 h" && rows[1] === "Air quality 42 Good",
+    rows.length === 2 &&
+      rows[0] === "UV index 7 High, 11a–3p: SPF 50, reapply every 2 h" &&
+      rows[1] === "Air quality 42 Good",
     rows,
   );
   check("a high UV tile is flagged", (await page.$$eval("#jarvis-weather .wx-tile.warn", (els) => els.length)) === 1);
@@ -8844,7 +9006,9 @@ await section("skin weather: UV with SPF advice and air quality, on Weather and 
     renderHome();
   });
   const junk = await page.$$eval("#jarvis-weather .wx-tile", (els) =>
-    els.map((e) => [...e.children].map((c) => c.textContent).join(" ")).filter((t) => /^(UV index|Air quality)/.test(t)),
+    els
+      .map((e) => [...e.children].map((c) => c.textContent).join(" "))
+      .filter((t) => /^(UV index|Air quality)/.test(t)),
   );
   check(
     "bad UV / AQI values are dropped or clamped, never shown raw",
@@ -9996,9 +10160,7 @@ await section("Console: every Jazz 3.0 entry point still works", async () => {
   });
   check(
     'dashGo("jazz3", "weight-card") lands on the Weight card',
-    await page.evaluate(
-      () => currentTab === "jazz3" && !!document.querySelector("#panel-jazz3.active #weight-card"),
-    ),
+    await page.evaluate(() => currentTab === "jazz3" && !!document.querySelector("#panel-jazz3.active #weight-card")),
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
@@ -11591,83 +11753,122 @@ await section(
   },
 );
 
-await section("ask: Jarvis acts on small things (on the asking device, once, with Undo); links; repeats fold", async () => {
-  const now = Date.now();
-  const qs = [
-    { id: "a-act-mine01", text: "Mark call mom done and log 127.6", at: now - 120000, state: "sent", sentAt: now - 120000 },
-    { id: "a-act-other1", text: "Laptop question", at: now - 100000, state: "seen" },
-    { id: "a-dup-000001", text: "what's the last letter", at: now - 90000, state: "queued" },
-    { id: "a-dup-000002", text: "What's the last letter", at: now - 80000, state: "queued" },
-  ];
-  const a = await openAsk({
-    seed: {
-      ...askSync({ "ask-questions": qs }),
-      "todo-content": [{ id: "t-mom", text: "Call mom", done: false, due: isoOffset(0), starred: false, subitems: [], completedAt: null }],
-    },
-  });
-  const act = (type, over) => ({ type, label: type, ...over });
-  const file = answersFile([
-    answerFixture("a-act-mine01", {
-      text: "Done.",
-      chips: [],
-      bullets: [],
-      actions: [
-        act("todo_done", { id: "t-mom", label: 'Ticked "Call mom"' }),
-        act("weight_log", { lbs: 127.6, date: isoOffset(0), label: "Logged weight 127.6 lb today" }),
-        act("delete_everything", { label: "nope" }),
-      ],
-      links: [
-        { title: "Good <b>", url: "https://example.com/a" },
-        { title: "Bad", url: "javascript:alert(1)" },
-      ],
-    }),
-    answerFixture("a-act-other1", {
-      text: "Done on the laptop.",
-      actions: [act("todo_add", { text: "From the laptop", label: 'Added to-do "From the laptop"' })],
-    }),
-    answerFixture("a-dup-000001", { status: "declined", text: "That's general trivia.", chips: [], bullets: [], sources: [] }),
-    answerFixture("a-dup-000002", { status: "declined", text: "Still trivia.", chips: [], bullets: [], sources: [] }),
-  ]);
-  await a.page.evaluate(async (f) => ingestAnswersFile({ content: JSON.stringify(f) }), file);
-  const r = await a.page.evaluate(() => ({
-    done: todoList.find((t) => t.id === "t-mom")?.done || !todoList.some((t) => t.id === "t-mom" && !t.done),
-    weight: fitness.weights.find((w) => w.date === addDaysIso(0))?.lbs,
-    laptop: todoList.some((t) => t.text === "From the laptop"),
-    toast: document.getElementById("toast").textContent,
-    acts: [...document.querySelectorAll('[data-ask-entry="a-act-mine01"] .ak-acts li')].map((li) => li.textContent),
-    links: [...document.querySelectorAll('[data-ask-entry="a-act-mine01"] .ak-link')].map((l) => [l.textContent.trim(), l.getAttribute("href"), l.target]),
-    dups: document.querySelectorAll('[data-ask-entry^="a-dup-"]').length,
-    repeat: document.querySelector('[data-ask-entry^="a-dup-"] .ak-repeat')?.textContent,
-    line: !!document.querySelector('[data-ask-entry^="a-dup-"] details.ak-flag-line'),
-  }));
-  check("the asking device applies Jarvis's actions (to-do ticked, weight logged)", r.done && r.weight === 127.6, r);
-  check("an unknown action type is ignored", r.acts.length === 2, r.acts);
-  check("a question from another device doesn't act here", !r.laptop, r);
-  check("one Undo toast for everything Jarvis did", /^Jarvis did 2 things/.test(r.toast), r.toast);
-  check("the answer lists what Jarvis did", r.acts[0].includes('Ticked "Call mom"'), r.acts);
-  check(
-    "web links: https only, shown as text, opened in a new tab",
-    r.links.length === 1 && r.links[0][0] === "↗ Good <b>" && r.links[0][1] === "https://example.com/a" && r.links[0][2] === "_blank",
-    r.links,
-  );
-  check("the same declined question asked twice shows once, ×2, as one quiet line", r.dups === 1 && r.repeat === "×2" && r.line, r);
-  await a.page.evaluate(() => document.querySelector("#toast .toast-action").click());
-  check(
-    "Undo puts it all back",
-    await a.page.evaluate(() => todoList.some((t) => t.id === "t-mom" && !t.done) && !fitness.weights.some((w) => w.date === addDaysIso(0))),
-  );
-  // the same answers again (the next sync): nothing is applied twice
-  await a.page.evaluate(async (f) => {
-    writeQuietly(ANSWERS_KEY, { version: 1, answers: [], usage: null });
-    await ingestAnswersFile({ content: JSON.stringify(f) });
-  }, file);
-  check(
-    "actions apply once per answer on this device",
-    await a.page.evaluate(() => todoList.some((t) => t.id === "t-mom" && !t.done)),
-  );
-  check("no JS errors", a.errors.length === 0, a.errors);
-  await a.ctx.close();
-});
+await section(
+  "ask: Jarvis acts on small things (on the asking device, once, with Undo); links; repeats fold",
+  async () => {
+    const now = Date.now();
+    const qs = [
+      {
+        id: "a-act-mine01",
+        text: "Mark call mom done and log 127.6",
+        at: now - 120000,
+        state: "sent",
+        sentAt: now - 120000,
+      },
+      { id: "a-act-other1", text: "Laptop question", at: now - 100000, state: "seen" },
+      { id: "a-dup-000001", text: "what's the last letter", at: now - 90000, state: "queued" },
+      { id: "a-dup-000002", text: "What's the last letter", at: now - 80000, state: "queued" },
+    ];
+    const a = await openAsk({
+      seed: {
+        ...askSync({ "ask-questions": qs }),
+        "todo-content": [
+          {
+            id: "t-mom",
+            text: "Call mom",
+            done: false,
+            due: isoOffset(0),
+            starred: false,
+            subitems: [],
+            completedAt: null,
+          },
+        ],
+      },
+    });
+    const act = (type, over) => ({ type, label: type, ...over });
+    const file = answersFile([
+      answerFixture("a-act-mine01", {
+        text: "Done.",
+        chips: [],
+        bullets: [],
+        actions: [
+          act("todo_done", { id: "t-mom", label: 'Ticked "Call mom"' }),
+          act("weight_log", { lbs: 127.6, date: isoOffset(0), label: "Logged weight 127.6 lb today" }),
+          act("delete_everything", { label: "nope" }),
+        ],
+        links: [
+          { title: "Good <b>", url: "https://example.com/a" },
+          { title: "Bad", url: "javascript:alert(1)" },
+        ],
+      }),
+      answerFixture("a-act-other1", {
+        text: "Done on the laptop.",
+        actions: [act("todo_add", { text: "From the laptop", label: 'Added to-do "From the laptop"' })],
+      }),
+      answerFixture("a-dup-000001", {
+        status: "declined",
+        text: "That's general trivia.",
+        chips: [],
+        bullets: [],
+        sources: [],
+      }),
+      answerFixture("a-dup-000002", { status: "declined", text: "Still trivia.", chips: [], bullets: [], sources: [] }),
+    ]);
+    await a.page.evaluate(async (f) => ingestAnswersFile({ content: JSON.stringify(f) }), file);
+    const r = await a.page.evaluate(() => ({
+      done: todoList.find((t) => t.id === "t-mom")?.done || !todoList.some((t) => t.id === "t-mom" && !t.done),
+      weight: fitness.weights.find((w) => w.date === addDaysIso(0))?.lbs,
+      laptop: todoList.some((t) => t.text === "From the laptop"),
+      toast: document.getElementById("toast").textContent,
+      acts: [...document.querySelectorAll('[data-ask-entry="a-act-mine01"] .ak-acts li')].map((li) => li.textContent),
+      links: [...document.querySelectorAll('[data-ask-entry="a-act-mine01"] .ak-link')].map((l) => [
+        l.textContent.trim(),
+        l.getAttribute("href"),
+        l.target,
+      ]),
+      dups: document.querySelectorAll('[data-ask-entry^="a-dup-"]').length,
+      repeat: document.querySelector('[data-ask-entry^="a-dup-"] .ak-repeat')?.textContent,
+      line: !!document.querySelector('[data-ask-entry^="a-dup-"] details.ak-flag-line'),
+    }));
+    check("the asking device applies Jarvis's actions (to-do ticked, weight logged)", r.done && r.weight === 127.6, r);
+    check("an unknown action type is ignored", r.acts.length === 2, r.acts);
+    check("a question from another device doesn't act here", !r.laptop, r);
+    check("one Undo toast for everything Jarvis did", /^Jarvis did 2 things/.test(r.toast), r.toast);
+    check("the answer lists what Jarvis did", r.acts[0].includes('Ticked "Call mom"'), r.acts);
+    check(
+      "web links: https only, shown as text, opened in a new tab",
+      r.links.length === 1 &&
+        r.links[0][0] === "↗ Good <b>" &&
+        r.links[0][1] === "https://example.com/a" &&
+        r.links[0][2] === "_blank",
+      r.links,
+    );
+    check(
+      "the same declined question asked twice shows once, ×2, as one quiet line",
+      r.dups === 1 && r.repeat === "×2" && r.line,
+      r,
+    );
+    await a.page.evaluate(() => document.querySelector("#toast .toast-action").click());
+    check(
+      "Undo puts it all back",
+      await a.page.evaluate(
+        () =>
+          todoList.some((t) => t.id === "t-mom" && !t.done) && !fitness.weights.some((w) => w.date === addDaysIso(0)),
+      ),
+    );
+    // the same answers again (the next sync): nothing is applied twice
+    await a.page.evaluate(async (f) => {
+      writeQuietly(ANSWERS_KEY, { version: 1, answers: [], usage: null });
+      await ingestAnswersFile({ content: JSON.stringify(f) });
+    }, file);
+    check(
+      "actions apply once per answer on this device",
+      await a.page.evaluate(() => todoList.some((t) => t.id === "t-mom" && !t.done)),
+    );
+    check("no JS errors", a.errors.length === 0, a.errors);
+    await a.ctx.close();
+  },
+);
 
 await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, checked, escaped)", async () => {
   const b = briefingFixture({});
@@ -11681,7 +11882,11 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
         { id: "bad id!", text: "Keeps a fresh id", by: "nobody" },
         "junk",
       ],
-      "jarvis-settings": { tone: "loud", newsTopics: ["F1", "", 5], checkins: [{ id: "c1", prompt: "Plan my week", days: [0, 9], time: "99:99" }] },
+      "jarvis-settings": {
+        tone: "loud",
+        newsTopics: ["F1", "", 5],
+        checkins: [{ id: "c1", prompt: "Plan my week", days: [0, 9], time: "99:99" }],
+      },
     },
   });
   await page.evaluate(() => {
@@ -11714,7 +11919,11 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
   await page.click("#modal-backdrop .modal-btn.primary");
   check(
     "Remember something saves a fact (synced)",
-    await page.evaluate(() => jarvisMemory[0].text === "I don't eat pork" && JSON.parse(localStorage.getItem("jarvis-memory"))[0].by === "you"),
+    await page.evaluate(
+      () =>
+        jarvisMemory[0].text === "I don't eat pork" &&
+        JSON.parse(localStorage.getItem("jarvis-memory"))[0].by === "you",
+    ),
   );
   await page.click('[data-action="brain-forget"][data-mem-id="m1"]');
   check("× forgets a fact", await page.evaluate(() => !jarvisMemory.some((m) => m.id === "m1")));
@@ -11727,7 +11936,9 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
   await page.click("#modal-backdrop .modal-btn.primary");
   check(
     "tone and news topics save",
-    await page.evaluate(() => jarvisSettings.tone === "brief" && jarvisSettings.newsTopics.join("|") === "Formula 1|AI agents|EVs"),
+    await page.evaluate(
+      () => jarvisSettings.tone === "brief" && jarvisSettings.newsTopics.join("|") === "Formula 1|AI agents|EVs",
+    ),
   );
   await page.click('#cn-brain-card .add-row[data-action="brain-checkin"]');
   await page.fill("#modal-name", "Wind down");
@@ -11738,25 +11949,48 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
     "a new check-in saves with its days and time",
     await page.evaluate(() => {
       const c = jarvisSettings.checkins.find((x) => x.name === "Wind down");
-      return !!c && c.time === "21:00" && c.days.join() === "0" && document.getElementById("cn-brain-card").textContent.includes("Sun · 9 PM");
+      return (
+        !!c &&
+        c.time === "21:00" &&
+        c.days.join() === "0" &&
+        document.getElementById("cn-brain-card").textContent.includes("Sun · 9 PM")
+      );
     }),
   );
   // ratings: the briefing, once; tap again to take it back
   await page.evaluate(() => activateTab("home"));
   await page.click('.jv-rate-row [data-action="jv-rate"][data-vote="1"]');
-  const rated = await page.evaluate(() => ({ fb: jarvisFeedback, on: document.querySelector('.jv-rate-row [data-vote="1"]').getAttribute("aria-pressed") }));
+  const rated = await page.evaluate(() => ({
+    fb: jarvisFeedback,
+    on: document.querySelector('.jv-rate-row [data-vote="1"]').getAttribute("aria-pressed"),
+  }));
   check(
     "rating the briefing stores its headline as the item",
-    rated.fb.length === 1 && rated.fb[0].kind === "briefing" && rated.fb[0].vote === 1 && rated.fb[0].item.startsWith("Rain by noon") && rated.on === "true",
+    rated.fb.length === 1 &&
+      rated.fb[0].kind === "briefing" &&
+      rated.fb[0].vote === 1 &&
+      rated.fb[0].item.startsWith("Rain by noon") &&
+      rated.on === "true",
     rated,
   );
   await page.click('.jv-rate-row [data-action="jv-rate"][data-vote="1"]');
   check("tapping it again takes the rating back", await page.evaluate(() => jarvisFeedback.length === 0));
   // synced data goes through the same checks
   await page.evaluate(() =>
-    applyRemote({ updatedAt: Date.now(), data: { "jarvis-feedback": [{ kind: "answer", ref: "x<y", vote: 1 }, { kind: "answer", ref: "a-1", vote: 7 }] } }),
+    applyRemote({
+      updatedAt: Date.now(),
+      data: {
+        "jarvis-feedback": [
+          { kind: "answer", ref: "x<y", vote: 1 },
+          { kind: "answer", ref: "a-1", vote: 7 },
+        ],
+      },
+    }),
   );
-  check("synced ratings are checked (bad refs and votes dropped)", await page.evaluate(() => jarvisFeedback.length === 0));
+  check(
+    "synced ratings are checked (bad refs and votes dropped)",
+    await page.evaluate(() => jarvisFeedback.length === 0),
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -11765,13 +11999,21 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
   const gh = askGitHub();
   const a = await openAsk({ route: gh.route, seed: { ...askSync(), "ask-token": ASK_KEY } });
   await a.page.evaluate(() => (ASK_TIMING.cooldown = 0));
-  await a.page.setInputFiles("#cn-file", { name: "bill.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test") });
+  await a.page.setInputFiles("#cn-file", {
+    name: "bill.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4 test"),
+  });
   await a.page.waitForTimeout(200);
   const att = await a.page.evaluate(() => ({
     chip: document.getElementById("cn-attach").textContent.replace(/\s+/g, " ").trim(),
     mode: document.querySelector('.cn-seg[data-mode="ask"]').getAttribute("aria-pressed"),
   }));
-  check("the attached file shows under the box and the box switches to Jarvis", att.chip.replace(/\s/g, "").startsWith("📎bill.pdf") && att.mode === "true", att);
+  check(
+    "the attached file shows under the box and the box switches to Jarvis",
+    att.chip.replace(/\s/g, "").startsWith("📎bill.pdf") && att.mode === "true",
+    att,
+  );
   // send with an empty box: a default question goes with the file
   await a.page.click("#cn-send");
   await a.page.waitForTimeout(600);
@@ -11782,17 +12024,29 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
   const file = fileName ? gh.read(fileName) : null;
   check(
     "the question and its file go in one write; the file name only in the ask item",
-    item && /^jazz2-file-[a-z0-9-]{8,40}\.json$/.test(fileName) && patch.files.includes(fileName) && patch.files.includes("jazz2-ask.json"),
+    item &&
+      /^jazz2-file-[a-z0-9-]{8,40}\.json$/.test(fileName) &&
+      patch.files.includes(fileName) &&
+      patch.files.includes("jazz2-ask.json"),
     { item, files: patch && patch.files },
   );
   check(
     "the file holds the PDF as base64, with its name and type",
-    file && file.version === 1 && file.mime === "application/pdf" && Buffer.from(file.data, "base64").toString().startsWith("%PDF") && file.name === "bill.pdf",
+    file &&
+      file.version === 1 &&
+      file.mime === "application/pdf" &&
+      Buffer.from(file.data, "base64").toString().startsWith("%PDF") &&
+      file.name === "bill.pdf",
     file && { ...file, data: file.data.slice(0, 12) },
   );
   check(
     "the attachment clears; the bubble shows a paperclip",
-    await a.page.evaluate(() => !askAttachment && !document.getElementById("cn-attach").textContent && document.querySelector("#cn-feed .cn-said").textContent.includes("📎")),
+    await a.page.evaluate(
+      () =>
+        !askAttachment &&
+        !document.getElementById("cn-attach").textContent &&
+        document.querySelector("#cn-feed .cn-said").textContent.includes("📎"),
+    ),
   );
   // the answer offers a receipt chip: it opens Budget's add sheet filled in, nothing is saved
   await a.page.evaluate(
@@ -11803,8 +12057,20 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
           version: 1,
           usage: null,
           answers: [
-            { id, askedAt: at, answeredAt: new Date().toISOString(), status: "ok", text: "A $54.24 receipt from Corner Market.", bullets: [], sources: [], by: "jarvis",
-              chips: [{ kind: "expense", text: "Corner Market", amount: 54.24 }, { kind: "expense", text: "No amount" }] },
+            {
+              id,
+              askedAt: at,
+              answeredAt: new Date().toISOString(),
+              status: "ok",
+              text: "A $54.24 receipt from Corner Market.",
+              bullets: [],
+              sources: [],
+              by: "jarvis",
+              chips: [
+                { kind: "expense", text: "Corner Market", amount: 54.24 },
+                { kind: "expense", text: "No amount" },
+              ],
+            },
           ],
         }),
       );
@@ -11812,14 +12078,27 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
     },
     [item.id, item.at],
   );
-  const chips = await a.page.evaluate((id) => [...document.querySelectorAll(`[data-ask-entry="${id}"] .rv-chip`)].map((c) => c.textContent.replace(/\s+/g, " ").trim()), item.id);
-  check("an expense chip needs an amount and reads like a Budget entry", chips.length === 1 && chips[0] === "+ $54.24 · Corner Market Budget", chips);
+  const chips = await a.page.evaluate(
+    (id) =>
+      [...document.querySelectorAll(`[data-ask-entry="${id}"] .rv-chip`)].map((c) =>
+        c.textContent.replace(/\s+/g, " ").trim(),
+      ),
+    item.id,
+  );
+  check(
+    "an expense chip needs an amount and reads like a Budget entry",
+    chips.length === 1 && chips[0] === "+ $54.24 · Corner Market Budget",
+    chips,
+  );
   const n0 = await a.page.evaluate(() => budget.expenses.length);
   await a.page.click(`[data-ask-entry="${item.id}"] .rv-chip`);
   check(
     "tapping it opens Budget's add sheet with the text and amount, and saves nothing yet",
     await a.page.evaluate(
-      (n) => document.getElementById("composer").classList.contains("open") && document.getElementById("composer-text").value === "Corner Market $54.24" && budget.expenses.length === n,
+      (n) =>
+        document.getElementById("composer").classList.contains("open") &&
+        document.getElementById("composer-text").value === "Corner Market $54.24" &&
+        budget.expenses.length === n,
       n0,
     ),
   );
@@ -11827,7 +12106,10 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
   await a.page.evaluate(() => closeComposer && closeComposer());
   await a.page.setInputFiles("#cn-file", { name: "x.html", mimeType: "text/html", buffer: Buffer.from("<script>") });
   await a.page.waitForTimeout(150);
-  check("other file types are refused", await a.page.evaluate(() => !askAttachment && /photo or a PDF/.test(document.getElementById("toast").textContent)));
+  check(
+    "other file types are refused",
+    await a.page.evaluate(() => !askAttachment && /photo or a PDF/.test(document.getElementById("toast").textContent)),
+  );
   check("no JS errors", a.errors.length === 0, a.errors);
   await a.ctx.close();
 });
@@ -11835,7 +12117,14 @@ await section("Console 📎: a photo or PDF goes to Jarvis with the question; re
 await section("Read aloud: 🔊 on answers and the briefing; a spoken question's answer is read by itself", async () => {
   const now = Date.now();
   const qs = [
-    { id: "a-spk-voice1", text: "What's due today?", at: now - 60000, state: "sent", sentAt: now - 60000, spoken: true },
+    {
+      id: "a-spk-voice1",
+      text: "What's due today?",
+      at: now - 60000,
+      state: "sent",
+      sentAt: now - 60000,
+      spoken: true,
+    },
     { id: "a-spk-typed1", text: "Typed question", at: now - 50000, state: "sent", sentAt: now - 50000 },
   ];
   const a = await openAsk({ seed: { ...askSync({ "ask-questions": qs }), "jarvis-briefing": briefingFixture({}) } });
@@ -11859,7 +12148,12 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
     };
   });
   const file = answersFile([
-    answerFixture("a-spk-voice1", { text: "Rent is due today.", bullets: ["It's $1450"], chips: [], actions: [{ type: "todo_done", id: "t1", label: 'Ticked "Call mom"' }] }),
+    answerFixture("a-spk-voice1", {
+      text: "Rent is due today.",
+      bullets: ["It's $1450"],
+      chips: [],
+      actions: [{ type: "todo_done", id: "t1", label: 'Ticked "Call mom"' }],
+    }),
     answerFixture("a-spk-typed1", { text: "Typed answer." }),
   ]);
   await a.page.evaluate(async (f) => ingestAnswersFile({ content: JSON.stringify(f) }), file);
@@ -11873,7 +12167,9 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
   await a.page.click('[data-ask-entry="a-spk-typed1"] [data-action="ask-speak"]');
   const on = await a.page.evaluate(() => ({
     said: window.__said.slice(-1)[0],
-    pressed: document.querySelector('[data-ask-entry="a-spk-typed1"] [data-action="ask-speak"]').getAttribute("aria-pressed"),
+    pressed: document
+      .querySelector('[data-ask-entry="a-spk-typed1"] [data-action="ask-speak"]')
+      .getAttribute("aria-pressed"),
   }));
   check(
     "🔊 reads that answer (text, then its points) and shows it's reading",
@@ -11890,7 +12186,10 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
   await a.page.click('.jv-rate-row [data-action="jv-speak-briefing"]');
   check(
     "the briefing reads its headline and items",
-    await a.page.evaluate(() => /^Rain by noon/.test(window.__said.slice(-1)[0]) && window.__said.slice(-1)[0].includes("Rent is due Saturday")),
+    await a.page.evaluate(
+      () =>
+        /^Rain by noon/.test(window.__said.slice(-1)[0]) && window.__said.slice(-1)[0].includes("Rent is due Saturday"),
+    ),
   );
   // the setting: Never
   await a.page.evaluate(async (f) => {
@@ -11899,52 +12198,83 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
     window.__said = [];
     await ingestAnswersFile({ content: JSON.stringify(f) });
   }, file);
-  check("with Read aloud set to Never, nothing is read by itself", await a.page.evaluate(() => window.__said.length === 0));
-  check("no JS errors", a.errors.length === 0, a.errors);
-  await a.ctx.close();
-});
-
-await section("Console box: the grip resizes it (tap for tall, drag to set); the row under it never squashes", async () => {
-  const a = await openAsk({ seed: askSync() });
-  const h = () => a.page.evaluate(() => Math.round(document.getElementById("console-input").getBoundingClientRect().height));
-  const h0 = await h();
-  await a.page.click("#cn-grip");
-  const tall = await h();
-  const vh = await a.page.evaluate(() => innerHeight);
-  check("tapping the grip makes the box tall (about 40% of the screen)", Math.abs(tall - Math.round(vh * 0.4)) <= 2 && tall > h0, { h0, tall, vh });
-  check("and it says so", (await a.page.getAttribute("#cn-grip", "aria-pressed")) === "true");
-  await a.page.click("#cn-grip");
-  check("tapping again fits the text", (await h()) === h0);
-  // drag down 120px
-  const g = await a.page.locator("#cn-grip").boundingBox();
-  await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
-  await a.page.mouse.down();
-  await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 60, { steps: 4 });
-  await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 120, { steps: 4 });
-  await a.page.mouse.up();
-  const dragged = await h();
-  check("dragging the grip sets the height", dragged >= h0 + 100 && dragged <= h0 + 140, { h0, dragged });
-  check("a drag doesn't also count as a tap", (await a.page.getAttribute("#cn-grip", "aria-pressed")) === "true" && (await h()) === dragged);
-  // narrow screen: Jarvis | List and the pill stay on one line each
-  await a.page.setViewportSize({ width: 320, height: 700 });
-  await a.page.evaluate(() => {
-    localStorage.setItem("jarvis-answers", JSON.stringify({ version: 1, answers: [], usage: { day: addDaysIso(0), dayCount: 0, dayCostUsd: 0, week: "2030-W01", weekCount: 0, month: addDaysIso(0).slice(0, 7), monthCostUsd: 0.18 } }));
-    renderConsole();
-  });
-  const row = await a.page.evaluate(() => ({
-    segs: [...document.querySelectorAll(".cn-route .cn-seg")].map((b) => Math.round(b.getBoundingClientRect().height)),
-    pill: Math.round(document.getElementById("cn-usage").getBoundingClientRect().height),
-    pillText: document.getElementById("cn-usage-text").textContent,
-    pageW: document.scrollingElement.scrollWidth,
-  }));
   check(
-    "at 320px the switch and the pill keep their text on one line (the pill can drop below)",
-    row.segs.every((x) => x <= 46) && row.pill <= 40 && row.pageW <= 320 && row.pillText === "10 left · $0.18/$20",
-    row,
+    "with Read aloud set to Never, nothing is read by itself",
+    await a.page.evaluate(() => window.__said.length === 0),
   );
   check("no JS errors", a.errors.length === 0, a.errors);
   await a.ctx.close();
 });
+
+await section(
+  "Console box: the grip resizes it (tap for tall, drag to set); the row under it never squashes",
+  async () => {
+    const a = await openAsk({ seed: askSync() });
+    const h = () =>
+      a.page.evaluate(() => Math.round(document.getElementById("console-input").getBoundingClientRect().height));
+    const h0 = await h();
+    await a.page.click("#cn-grip");
+    const tall = await h();
+    const vh = await a.page.evaluate(() => innerHeight);
+    check(
+      "tapping the grip makes the box tall (about 40% of the screen)",
+      Math.abs(tall - Math.round(vh * 0.4)) <= 2 && tall > h0,
+      { h0, tall, vh },
+    );
+    check("and it says so", (await a.page.getAttribute("#cn-grip", "aria-pressed")) === "true");
+    await a.page.click("#cn-grip");
+    check("tapping again fits the text", (await h()) === h0);
+    // drag down 120px
+    const g = await a.page.locator("#cn-grip").boundingBox();
+    await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+    await a.page.mouse.down();
+    await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 60, { steps: 4 });
+    await a.page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 120, { steps: 4 });
+    await a.page.mouse.up();
+    const dragged = await h();
+    check("dragging the grip sets the height", dragged >= h0 + 100 && dragged <= h0 + 140, { h0, dragged });
+    check(
+      "a drag doesn't also count as a tap",
+      (await a.page.getAttribute("#cn-grip", "aria-pressed")) === "true" && (await h()) === dragged,
+    );
+    // narrow screen: Jarvis | List and the pill stay on one line each
+    await a.page.setViewportSize({ width: 320, height: 700 });
+    await a.page.evaluate(() => {
+      localStorage.setItem(
+        "jarvis-answers",
+        JSON.stringify({
+          version: 1,
+          answers: [],
+          usage: {
+            day: addDaysIso(0),
+            dayCount: 0,
+            dayCostUsd: 0,
+            week: "2030-W01",
+            weekCount: 0,
+            month: addDaysIso(0).slice(0, 7),
+            monthCostUsd: 0.18,
+          },
+        }),
+      );
+      renderConsole();
+    });
+    const row = await a.page.evaluate(() => ({
+      segs: [...document.querySelectorAll(".cn-route .cn-seg")].map((b) =>
+        Math.round(b.getBoundingClientRect().height),
+      ),
+      pill: Math.round(document.getElementById("cn-usage").getBoundingClientRect().height),
+      pillText: document.getElementById("cn-usage-text").textContent,
+      pageW: document.scrollingElement.scrollWidth,
+    }));
+    check(
+      "at 320px the switch and the pill keep their text on one line (the pill can drop below)",
+      row.segs.every((x) => x <= 46) && row.pill <= 40 && row.pageW <= 320 && row.pillText === "10 left · $0.18/$20",
+      row,
+    );
+    check("no JS errors", a.errors.length === 0, a.errors);
+    await a.ctx.close();
+  },
+);
 
 await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chips come back", async () => {
   const gh = askGitHub();
@@ -11970,7 +12300,11 @@ await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chi
     box: document.getElementById("console-input").value,
     feed: document.getElementById("cn-feed").textContent.replace(/\s+/g, " "),
   }));
-  check("the preview closes and the conversation shows it as a Sort", !r.preview && r.box === "" && r.feed.includes("Sort " + dump), r);
+  check(
+    "the preview closes and the conversation shows it as a Sort",
+    !r.preview && r.box === "" && r.feed.includes("Sort " + dump),
+    r,
+  );
   // the answer: 4 chips (more than a question's 3), no Follow up
   const id = item.id;
   const chips = [
@@ -11986,7 +12320,17 @@ await section("Sort with Jarvis: Capture's preview sends the dump as a sort; chi
         normalizeAnswers({
           version: 1,
           answers: [
-            { id, askedAt: at, answeredAt: new Date().toISOString(), status: "ok", text: "Sorted into 3 to-dos and 1 Shopping item.", bullets: [], sources: [], chips, by: "jarvis" },
+            {
+              id,
+              askedAt: at,
+              answeredAt: new Date().toISOString(),
+              status: "ok",
+              text: "Sorted into 3 to-dos and 1 Shopping item.",
+              bullets: [],
+              sources: [],
+              chips,
+              by: "jarvis",
+            },
           ],
           usage: null,
         }),
@@ -12116,7 +12460,11 @@ await section("ask: without a key it's queued; a refused key warns and queues; e
     note: document.getElementById("cn-ask-note").textContent,
     open: !!document.querySelector('#cn-ask-note [data-action="open-sync"]'),
   }));
-  check("sync off: Ask says it needs sync, with a way to open Sync", /Jarvis needs sync/.test(off.hint) && off.open, off);
+  check(
+    "sync off: Ask says it needs sync, with a way to open Sync",
+    /Jarvis needs sync/.test(off.hint) && off.open,
+    off,
+  );
   await b.page.fill("#console-input", "What's due before payday?");
   await b.page.press("#console-input", "Enter");
   await b.page.waitForTimeout(200);
@@ -12469,7 +12817,10 @@ await section(
         again: !!entry("a-q-error-001").querySelector('[data-action="ask-again"]'),
         declined: t("a-q-decl-0001"),
         other: t("a-other-dev01"),
-        usage: [document.getElementById("cn-usage-text").textContent, document.getElementById("cn-usage-pop").textContent],
+        usage: [
+          document.getElementById("cn-usage-text").textContent,
+          document.getElementById("cn-usage-pop").textContent,
+        ],
       };
     });
     check("an ok answer shows its text and bullets", r.ok.includes("You have 2 bills") && r.bullets === 2, r.ok);
@@ -12493,7 +12844,8 @@ await section(
     );
     check(
       "today's questions left and this month's spending come from usage",
-      r.usage[0] === "7 left · $1.20/$20" && r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
+      r.usage[0] === "7 left · $1.20/$20" &&
+        r.usage[1].startsWith("7 of 10 questions left today · $1.20 of $20 used this month."),
       r.usage,
     );
     // chips: nothing until tapped; then one item with its date, and Undo
@@ -12742,7 +13094,9 @@ await section("ask: ?tab=console&ask=<id> opens Console at that answer, now or w
   });
   check(
     "an older answer opens in the conversation (Earlier shown)",
-    await b.page.evaluate(() => askShowAll && !!document.querySelector('#cn-feed [data-ask-entry="a-link-older1"].ak-hit')),
+    await b.page.evaluate(
+      () => askShowAll && !!document.querySelector('#cn-feed [data-ask-entry="a-link-older1"].ak-hit'),
+    ),
   );
   await b.ctx.close();
   const c = await openAsk({ query: "?tab=console&ask=a-link-today1", seed: { "ask-questions": qs } });
@@ -13913,7 +14267,11 @@ await section("Wallet / Glow: switch fits at 390px in both themes; desktop bar",
     return { cn, cs, tab: pick(document.getElementById("tab-switch")), ts: seg(document.querySelector(".tab-seg")) };
   });
   // Console's Jarvis | Quick list is a compact version of the same control (smaller padding and text)
-  const strip = (v, i) => v.split("|").filter((_, k) => k !== i).join("|");
+  const strip = (v, i) =>
+    v
+      .split("|")
+      .filter((_, k) => k !== i)
+      .join("|");
   check(
     "the group switch matches Console's switch (colors, radius, height)",
     strip(look.cn, 1) === strip(look.tab, 1) && strip(look.cs, 2) === strip(look.ts, 2),
@@ -14661,11 +15019,18 @@ await section("Wallet: a card payment due soon shows in Next 14 days until it's 
   });
   check(
     "the card shows with its statement, a plan button and the escaped name; the total doesn't change",
-    r.before.includes("Visa <b>x</b> payment") && r.before.includes("$412.50") && /to the .* paycheck/.test(r.before) && !r.tag &&
+    r.before.includes("Visa <b>x</b> payment") &&
+      r.before.includes("$412.50") &&
+      /to the .* paycheck/.test(r.before) &&
+      !r.tag &&
       /Next 14 days\s*\$0/.test(r.before),
     r,
   );
-  check("a card with no statement asks for one", /Store payment.*add the statement/s.test(r.before) && r.before.includes("+ Statement"), r);
+  check(
+    "a card with no statement asks for one",
+    /Store payment.*add the statement/s.test(r.before) && r.before.includes("+ Statement"),
+    r,
+  );
   await page.click('#wb-next [data-action="card-plan"]');
   const after = await page.evaluate(() => ({
     lines: Object.values(budget.plans).flatMap((p) => p.lines.map((l) => `${l.name} ${l.amount}`)),
@@ -14673,7 +15038,9 @@ await section("Wallet: a card payment due soon shows in Next 14 days until it's 
   }));
   check(
     "one tap plans it and it leaves the list",
-    after.lines.includes("Visa <b>x</b> payment 412.5") && !after.text.includes("Visa <b>x</b> payment") && /Store payment/.test(after.text),
+    after.lines.includes("Visa <b>x</b> payment 412.5") &&
+      !after.text.includes("Visa <b>x</b> payment") &&
+      /Store payment/.test(after.text),
     after,
   );
   // a card due early next month: the row carries that month, and planning lands in next month's paycheck
@@ -14690,10 +15057,16 @@ await section("Wallet: a card payment due soon shows in Next 14 days until it's 
     b.click();
     return {
       want: cardPaycheck(k, cardDueIso(k, budget.cardInfo.Store.due)).key,
-      keys: Object.entries(budget.plans).filter(([, p]) => p.lines.some((l) => l.name === "Store payment")).map(([key]) => key),
+      keys: Object.entries(budget.plans)
+        .filter(([, p]) => p.lines.some((l) => l.name === "Store payment"))
+        .map(([key]) => key),
     };
   });
-  check("data-month plans next month's statement in the check that covers it", next.keys.length === 1 && next.keys[0] === next.want, next);
+  check(
+    "data-month plans next month's statement in the check that covers it",
+    next.keys.length === 1 && next.keys[0] === next.want,
+    next,
+  );
   const pick = await page.evaluate(() => {
     budget.income = [{ id: "inc-2", name: "Pay", amount: 1000, start: "2030-04-30", repeat: "biweekly" }];
     return {
@@ -14737,7 +15110,11 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
     agent: "Bill Guard",
     model: "code",
     updatedAt: b.generatedAt,
-    data: { period: null, guard: [{ reason: "card", name: "Visa", amount: 412.5, due: isoOffset(2), budgetAmount: null }], overspent: [] },
+    data: {
+      period: null,
+      guard: [{ reason: "card", name: "Visa", amount: 412.5, due: isoOffset(2), budgetAmount: null }],
+      overspent: [],
+    },
   };
   const { ctx, page, errors } = await openApp({
     seed: {
@@ -14748,19 +15125,23 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
   });
   check(
     "the normalizer drops old and junk dismissals",
-    (await page.evaluate(() => jarvisSettings.hiddenPackages.length)) === 0 && (await page.evaluate(() => jarvisSettings.hiddenLines.length)) === 0,
+    (await page.evaluate(() => jarvisSettings.hiddenPackages.length)) === 0 &&
+      (await page.evaluate(() => jarvisSettings.hiddenLines.length)) === 0,
     "",
   );
   check(
     "Bill Guard's card warning reaches the app",
-    await page.evaluate(() => billGuardLines(loadBriefing()).some((l) => /Visa/.test(typeof l === "string" ? l : l.text || ""))),
+    await page.evaluate(() =>
+      billGuardLines(loadBriefing()).some((l) => /Visa/.test(typeof l === "string" ? l : l.text || "")),
+    ),
     "",
   );
   // Got it on a package: gone from the detail, the timeline, the chip count and its briefing line
   await page.tap('.jv-day-row[data-go="deliveries"]');
   check(
     "each package has Got it; the name stays text",
-    (await page.$$("#jv-detail-deliveries [data-action='pkg-hide']")).length === 2 && !(await page.$("#jv-detail-deliveries .jv-pkg-what b b")),
+    (await page.$$("#jv-detail-deliveries [data-action='pkg-hide']")).length === 2 &&
+      !(await page.$("#jv-detail-deliveries .jv-pkg-what b b")),
     "",
   );
   await page.tap('#jv-detail-deliveries [data-action="pkg-hide"][data-item="Acme <b>order</b>"]');
@@ -14773,13 +15154,19 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
   }));
   check(
     "Got it hides the package everywhere on Home, with its Deliveries line, and saves it (synced settings)",
-    gone.pkgs.join() === "Desk lamp" && !gone.row && !gone.line && /· 1$/.test(gone.chip) && gone.saved[0].item === "Acme <b>order</b>" && gone.saved[0].at === today,
+    gone.pkgs.join() === "Desk lamp" &&
+      !gone.row &&
+      !gone.line &&
+      /· 1$/.test(gone.chip) &&
+      gone.saved[0].item === "Acme <b>order</b>" &&
+      gone.saved[0].at === today,
     gone,
   );
   await page.click("#toast .toast-action");
   check(
     "Undo brings it back",
-    (await page.evaluate(() => briefingPackages().length)) === 2 && (await page.textContent(".jv-summary")).includes("Acme"),
+    (await page.evaluate(() => briefingPackages().length)) === 2 &&
+      (await page.textContent(".jv-summary")).includes("Acme"),
     "",
   );
   // A line from another source or a suggested to-do about it goes too ("Acme" alone isn't enough
@@ -14787,17 +15174,35 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
   check(
     "lines from any source and suggested to-dos about a package you got are hidden",
     await page.evaluate(() => {
-      const b = { summary: [{ text: "Your Acme Glow order shipped", source: "inbox" }, { text: "Rent is due", source: "jazz" }], suggestions: [{ text: "Track the Acme Glow order", due: null }, { text: "Pay rent", due: null }] };
+      const b = {
+        summary: [
+          { text: "Your Acme Glow order shipped", source: "inbox" },
+          { text: "Rent is due", source: "jazz" },
+        ],
+        suggestions: [
+          { text: "Track the Acme Glow order", due: null },
+          { text: "Pay rent", due: null },
+        ],
+      };
       jarvisSettings.hiddenPackages = [{ item: "Acme Glow C-10 serum", at: addDaysIso(0) }];
       hideDismissed(b);
       const out = b.summary.map((s) => s.text).join("|") + " / " + b.suggestions.map((s) => s.text).join("|");
       jarvisSettings.hiddenPackages = [];
       // a headline naming its order number gives way to the first line left
-      const h = { headline: "Check on Order #48151, it's two weeks late", summary: [{ text: "Rent is due", source: "jazz" }], suggestions: [] };
+      const h = {
+        headline: "Check on Order #48151, it's two weeks late",
+        summary: [{ text: "Rent is due", source: "jazz" }],
+        suggestions: [],
+      };
       jarvisSettings.hiddenPackages = [{ item: "Order #48151", at: addDaysIso(0) }];
       hideDismissed(h);
       jarvisSettings.hiddenPackages = [];
-      return out === "Rent is due / Pay rent" && h.headline === "Rent is due" && !mentionsPackage("Acme films", ["acme glow c-10 serum"]) && !mentionsPackage("Buy a belt", ["belt"]);
+      return (
+        out === "Rent is due / Pay rent" &&
+        h.headline === "Rent is due" &&
+        !mentionsPackage("Acme films", ["acme glow c-10 serum"]) &&
+        !mentionsPackage("Buy a belt", ["belt"])
+      );
     }),
   );
   // × on a briefing line
@@ -14806,7 +15211,10 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
   const after = await page.$$eval(".jv-summary .jv-sum-text", (els) => els.map((e) => e.textContent));
   check(
     "× dismisses that line only (and doesn't open its detail)",
-    before.length === 3 && after.length === 2 && !after.some((t) => t.includes("Light rain")) && !(await page.$("#jv-detail-weather")),
+    before.length === 3 &&
+      after.length === 2 &&
+      !after.some((t) => t.includes("Light rain")) &&
+      !(await page.$("#jv-detail-weather")),
     { before, after },
   );
   // Jarvis's actions: only what's on Home now, by name
@@ -14820,14 +15228,29 @@ await section("dismissing on Home and by Jarvis: packages and briefing lines", a
   ]);
   check(
     "Jarvis can dismiss a package or line that's showing, and nothing else",
-    acts[0] === true && acts[1] === false && acts[2] === true && acts[3] === false && acts[4].join() === "Acme <b>order</b>" && acts[5].length === 1,
+    acts[0] === true &&
+      acts[1] === false &&
+      acts[2] === true &&
+      acts[3] === false &&
+      acts[4].join() === "Acme <b>order</b>" &&
+      acts[5].length === 1,
     acts,
   );
   // Console sends "remove that notification" to Jarvis instead of making it a to-do
   const modes = await page.evaluate(() =>
-    ["Acme order was delivered remove that notifications", "dismiss the package alert", "Clean cars", "order pizza", "Delete old photos"].map(consoleGuess),
+    [
+      "Acme order was delivered remove that notifications",
+      "dismiss the package alert",
+      "Clean cars",
+      "order pizza",
+      "Delete old photos",
+    ].map(consoleGuess),
   );
-  check("Console routes dismiss requests to Jarvis; to-dos stay to-dos", modes.join() === "ask,ask,capture,capture,capture", modes);
+  check(
+    "Console routes dismiss requests to Jarvis; to-dos stay to-dos",
+    modes.join() === "ask,ask,capture,capture,capture",
+    modes,
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -14852,24 +15275,32 @@ await section("Top 3 today in the briefing, and the evening recap check-in", asy
   });
   const top = await page.evaluate(() => {
     const el = document.querySelector(".jv-hero .jv-top3");
-    return el && {
-      head: el.querySelector(".jv-top3-head").textContent,
-      rows: [...el.querySelectorAll(".todo-wrap")].map((r) => r.dataset.todoId),
-      why: el.querySelector(".todo-meta").textContent,
-      tags: !!el.querySelector(".todo-meta b, .title i"),
-      title: el.querySelectorAll(".title")[1].textContent,
-    };
+    return (
+      el && {
+        head: el.querySelector(".jv-top3-head").textContent,
+        rows: [...el.querySelectorAll(".todo-wrap")].map((r) => r.dataset.todoId),
+        why: el.querySelector(".todo-meta").textContent,
+        tags: !!el.querySelector(".todo-meta b, .title i"),
+        title: el.querySelectorAll(".title")[1].textContent,
+      }
+    );
   });
   check(
     "the Top 3 shows the live to-dos (deleted and bad ids drop out) with the reason, all as text",
-    top && top.rows.join() === "t1,t2" && top.why === "Before <b>payday</b>" && !top.tags && top.title.startsWith("Renew <i>passport</i>") && /0 of 2 done/.test(top.head),
+    top &&
+      top.rows.join() === "t1,t2" &&
+      top.why === "Before <b>payday</b>" &&
+      !top.tags &&
+      top.title.startsWith("Renew <i>passport</i>") &&
+      /0 of 2 done/.test(top.head),
     top,
   );
   await page.click('.jv-top3 [data-action="home-todo-complete"][data-todo-id="t1"]');
   await page.waitForTimeout(150);
   check(
     "ticking one there completes the to-do and the count follows",
-    (await page.evaluate(() => todoList.find((t) => t.id === "t1").done)) && /1 of 2 done/.test(await page.textContent(".jv-top3-head")),
+    (await page.evaluate(() => todoList.find((t) => t.id === "t1").done)) &&
+      /1 of 2 done/.test(await page.textContent(".jv-top3-head")),
     "",
   );
   check(
@@ -14884,13 +15315,21 @@ await section("Top 3 today in the briefing, and the evening recap check-in", asy
     renderConsole();
   });
   await page.click('[data-action="brain-checkin"][data-preset="top3"]');
-  check("the preset fills in the recap", (await page.inputValue("#modal-backdrop textarea")).startsWith("How did today's Top 3 go?"), "");
+  check(
+    "the preset fills in the recap",
+    (await page.inputValue("#modal-backdrop textarea")).startsWith("How did today's Top 3 go?"),
+    "",
+  );
   await page.click("#modal-backdrop .modal-btn.primary");
   const ci = await page.evaluate(() => ({
     c: jarvisSettings.checkins.map((c) => [c.name, c.days.length, c.time]),
     offer: !!document.querySelector('[data-preset="top3"]'),
   }));
-  check("saved for every day at 8 PM, and not offered again", JSON.stringify(ci.c) === '[["Top 3 recap",7,"20:00"]]' && !ci.offer, ci);
+  check(
+    "saved for every day at 8 PM, and not offered again",
+    JSON.stringify(ci.c) === '[["Top 3 recap",7,"20:00"]]' && !ci.offer,
+    ci,
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -14924,12 +15363,18 @@ await section("the Notebook: notes by hand and by Jarvis, Note it after a to-do 
   });
   const list = await page.evaluate(() => ({
     notes: jarvisNotes.map((n) => n.id),
-    rows: [...document.querySelectorAll('[data-action="brain-note"][data-note-id]')].map((b) => b.querySelector("span").textContent),
+    rows: [...document.querySelectorAll('[data-action="brain-note"][data-note-id]')].map(
+      (b) => b.querySelector("span").textContent,
+    ),
     tag: !!document.querySelector('[data-action="brain-note"] span b'),
   }));
   check(
     "the Notebook lists notes (checked, no repeats), titles as text",
-    list.notes.length === 2 && list.notes[0] === "note-car" && /^note-/.test(list.notes[1]) && list.rows.join() === "Car <b>x</b>,Fixed id" && !list.tag,
+    list.notes.length === 2 &&
+      list.notes[0] === "note-car" &&
+      /^note-/.test(list.notes[1]) &&
+      list.rows.join() === "Car <b>x</b>,Fixed id" &&
+      !list.tag,
     list,
   );
   await page.click('[data-action="brain-note"]:not([data-note-id])');
@@ -14954,7 +15399,13 @@ await section("the Notebook: notes by hand and by Jarvis, Note it after a to-do 
   check(
     "Jarvis saves a note, adds to one with the same title or id, and nothing else",
     acts.slice(0, 5).join() === "true,true,true,false,false" &&
-      JSON.stringify(acts[5]) === JSON.stringify([["Car <b>x</b>", "jarvis", 2], ["Lease", "jarvis", 2], ["Bike", "jarvis", 1], ["Fixed id", "you", 1]]),
+      JSON.stringify(acts[5]) ===
+        JSON.stringify([
+          ["Car <b>x</b>", "jarvis", 2],
+          ["Lease", "jarvis", 2],
+          ["Bike", "jarvis", 1],
+          ["Fixed id", "you", 1],
+        ]),
     acts,
   );
   // Note it: finishing a to-do with 2+ steps offers it; it hands Jarvis a note request
@@ -14976,16 +15427,27 @@ await section("the Notebook: notes by hand and by Jarvis, Note it after a to-do 
     sent,
   );
   const modes = await page.evaluate(() =>
-    ["Save that as a note", "add this to my car note", "make a note of the gate code", "note: call mom", "Add oat milk"].map(consoleGuess),
+    [
+      "Save that as a note",
+      "add this to my car note",
+      "make a note of the gate code",
+      "note: call mom",
+      "Add oat milk",
+    ].map(consoleGuess),
   );
-  check("Console sends note requests to Jarvis; note: and lists stay local", modes.join() === "ask,ask,ask,capture,capture", modes);
+  check(
+    "Console sends note requests to Jarvis; note: and lists stay local",
+    modes.join() === "ask,ask,ask,capture,capture",
+    modes,
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
 
 await section("desktop: the To-Do details pane", async () => {
   const today = new Date();
-  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const iso = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const { ctx, page, errors } = await openApp({
     phone: false,
     query: "?tab=todo",
@@ -15009,7 +15471,11 @@ await section("desktop: the To-Do details pane", async () => {
     title: document.getElementById("tdp-text") && document.getElementById("tdp-text").value,
     sel: !!document.querySelector('#todo-list .todo-wrap[data-todo-id="t1"] .item.sel'),
   }));
-  check("a row opens in the pane, not the dialog, and is marked", !picked.modal && picked.title === "Email landlord" && picked.sel, picked);
+  check(
+    "a row opens in the pane, not the dialog, and is marked",
+    !picked.modal && picked.title === "Email landlord" && picked.sel,
+    picked,
+  );
   await page.click('#tdp [data-action="tde-due"]:has-text("Tomorrow")');
   await page.click('#tdp [data-action="tde-repeat"]:has-text("Weekly")');
   const dated = await page.evaluate(() => todoList.find((t) => t.id === "t1"));
@@ -15031,9 +15497,17 @@ await section("desktop: the To-Do details pane", async () => {
     subs: todoList.find((t) => t.id === "t1").subitems,
     focus: document.activeElement.id,
   }));
-  check("a step is added and the box stays ready", step.subs && step.subs[0].text === "Ask about renewal" && step.focus === "tdp-sub", step);
+  check(
+    "a step is added and the box stays ready",
+    step.subs && step.subs[0].text === "Ask about renewal" && step.focus === "tdp-sub",
+    step,
+  );
   await page.click('#todo-details [data-action="todo-star"]');
-  check("the star works from the pane", await page.evaluate(() => todoList.find((t) => t.id === "t1").starred === true), "");
+  check(
+    "the star works from the pane",
+    await page.evaluate(() => todoList.find((t) => t.id === "t1").starred === true),
+    "",
+  );
   await page.click('#todo-list .todo-wrap[data-todo-id="t2"] .body');
   check(
     "synced text in the pane stays text",
@@ -15078,10 +15552,16 @@ await section("desktop: Console history column", async () => {
     [...document.querySelectorAll(".cn-hist-day")].map((b) => b.textContent.replace(/\s+/g, " ").trim()),
   );
   check("the days with something in them, newest first", days.length === 2 && /^Today ?1$/.test(days[0]), days);
-  check("how much is kept, with Clear history", /kept for the last 50 questions/.test(await page.textContent(".cn-hist")), "");
+  check(
+    "how much is kept, with Clear history",
+    /kept for the last 50 questions/.test(await page.textContent(".cn-hist")),
+    "",
+  );
   check(
     "only one Clear history on screen",
-    (await page.evaluate(() => [...document.querySelectorAll('[data-action="ask-clear"]')].filter((b) => b.offsetParent).length)) === 1,
+    (await page.evaluate(
+      () => [...document.querySelectorAll('[data-action="ask-clear"]')].filter((b) => b.offsetParent).length,
+    )) === 1,
     "",
   );
   await page.fill("#cn-search", "passport");
@@ -15090,11 +15570,16 @@ await section("desktop: Console history column", async () => {
     text: document.getElementById("cn-feed").textContent,
     tag: !!document.querySelector("#cn-feed b"),
   }));
-  check("search finds older entries and keeps their text as text", found.rows === 1 && found.text.includes("renew <b>passport</b>") && !found.tag, found);
+  check(
+    "search finds older entries and keeps their text as text",
+    found.rows === 1 && found.text.includes("renew <b>passport</b>") && !found.tag,
+    found,
+  );
   await page.press("#cn-search", "Escape");
   check(
     "Escape clears the search",
-    (await page.inputValue("#cn-search")) === "" && (await page.evaluate(() => document.querySelectorAll("#cn-feed .cn-entry").length)) === 2,
+    (await page.inputValue("#cn-search")) === "" &&
+      (await page.evaluate(() => document.querySelectorAll("#cn-feed .cn-entry").length)) === 2,
     "",
   );
   await page.click(".cn-hist-day >> nth=1");

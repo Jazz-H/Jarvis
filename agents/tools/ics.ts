@@ -100,7 +100,12 @@ export function eventsFromIcs(raw: string, now: Date, timeZone: string): Calenda
 
 // How many events fall on each local day from `fromIso` to `toIso` (inclusive), for the Weekly
 // Review's look at the week ahead. Counts only: no titles or places leave this function.
-export function eventCountsByDay(raw: string, fromIso: string, toIso: string, timeZone: string): Record<string, number> {
+export function eventCountsByDay(
+  raw: string,
+  fromIso: string,
+  toIso: string,
+  timeZone: string,
+): Record<string, number> {
   const counts: Record<string, number> = {};
   for (let d = fromIso; d <= toIso && Object.keys(counts).length < 60; d = addDay(d, 1)) counts[d] = 0;
   const parsed = ical.sync.parseICS(raw);

@@ -27,11 +27,20 @@ const INBOX = {
   urgent: [{ from: "Bank", summary: "Card locked" }],
   needsReply: [{ from: "Ann " + "y".repeat(60), summary: "Lunch? " + "z".repeat(200) }],
   bills: [
-    { payee: "City Power", amount: 120.5, due: "2026-11-03", budgetName: "Power", budgetAmount: 100, status: "differs" },
+    {
+      payee: "City Power",
+      amount: 120.5,
+      due: "2026-11-03",
+      budgetName: "Power",
+      budgetAmount: 100,
+      status: "differs",
+    },
   ],
 };
 const DELIVERIES = {
-  packages: [{ item: "Rain jacket", status: "out", eta: "2026-10-29", etaText: "by 8 PM", shoppingMatch: "Rain jacket" }],
+  packages: [
+    { item: "Rain jacket", status: "out", eta: "2026-10-29", etaText: "by 8 PM", shoppingMatch: "Rain jacket" },
+  ],
 };
 
 const briefing = (cards: Record<string, unknown>, date = "2026-10-29") =>
@@ -67,7 +76,9 @@ describe("day digest", () => {
       inbox: {
         unread: 4,
         urgent: 1,
-        needsReply: [{ from: ("Ann " + "y".repeat(60)).slice(0, 30), summary: ("Lunch? " + "z".repeat(200)).slice(0, 60) }],
+        needsReply: [
+          { from: ("Ann " + "y".repeat(60)).slice(0, 30), summary: ("Lunch? " + "z".repeat(200)).slice(0, 60) },
+        ],
         bills: [{ payee: "City Power", amount: 120.5, status: "differs" }],
       },
       deliveries: { packages: [{ item: "Rain jacket", status: "out", eta: "2026-10-29" }] },
@@ -154,7 +165,13 @@ describe("morning run writes the day digest", () => {
     expect(g.writes.map(([n]) => n)).toEqual(["jazz2-briefing.json", "jazz2-week.json"]);
     expect(JSON.parse(g.files["jazz2-week.json"])).toEqual({
       version: 1,
-      days: [old, { date: "2026-10-29", calendar: { events: 2, overlaps: 0, titles: CALENDAR.events.slice(0, 2).map((e) => e.title.slice(0, 40)) } }],
+      days: [
+        old,
+        {
+          date: "2026-10-29",
+          calendar: { events: 2, overlaps: 0, titles: CALENDAR.events.slice(0, 2).map((e) => e.title.slice(0, 40)) },
+        },
+      ],
     });
   });
 

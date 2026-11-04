@@ -150,12 +150,16 @@ function speakText(text, key) {
   synth.cancel();
   speakingKey = null;
   speakUi();
-  const t = String(text || "").replace(/\s+/g, " ").trim();
+  const t = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (same || !t) return false;
   const u = new SpeechSynthesisUtterance(t.slice(0, 3000));
   u.lang = "en-US";
   u.rate = 1.02;
-  const v = synth.getVoices().find((x) => /^en(-|_)US/i.test(x.lang) && /natural|premium|enhanced|google/i.test(x.name));
+  const v = synth
+    .getVoices()
+    .find((x) => /^en(-|_)US/i.test(x.lang) && /natural|premium|enhanced|google/i.test(x.name));
   if (v) u.voice = v;
   u.onend = u.onerror = () => {
     if (speakingKey === key) speakingKey = null;

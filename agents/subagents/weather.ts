@@ -32,10 +32,19 @@ export function weatherSpec(facts: WeatherFacts): AgentSpec<WeatherAdvice> {
 }
 
 // `here`: the owner's own location, saved from their phone (jarvis-settings); never logged
-export async function runWeather(deps: SubagentDeps, washDay: boolean, here: DeviceLocation | null = null): Promise<WeatherCard> {
+export async function runWeather(
+  deps: SubagentDeps,
+  washDay: boolean,
+  here: DeviceLocation | null = null,
+): Promise<WeatherCard> {
   const place = here ? { name: "Your location", latitude: here.latitude, longitude: here.longitude } : CONFIG.location;
   const facts = await fetchWeather({ ...place, timezone: CONFIG.timezone, washDay }, deps.fetchImpl);
-  deps.trace.log("weather", "fetched", { hours: facts.hourlyRain.length, days: facts.outlook?.length ?? 0, washDay, device: !!here });
+  deps.trace.log("weather", "fetched", {
+    hours: facts.hourlyRain.length,
+    days: facts.outlook?.length ?? 0,
+    washDay,
+    device: !!here,
+  });
   const advice = await deps.run(weatherSpec(facts));
   return WeatherCard.parse({ ...facts, ...advice, washDayNote: washDay ? advice.washDayNote : null });
 }

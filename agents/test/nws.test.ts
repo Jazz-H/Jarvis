@@ -19,8 +19,19 @@ describe("NWS alerts tool", () => {
         () =>
           json({
             features: [
-              feature({ event: "Wind Advisory", severity: "Moderate", headline: "Wind Advisory  until 6PM", ends: "2026-11-02T18:00:00-05:00" }),
-              feature({ event: "Tornado Warning", severity: "Extreme", headline: "x".repeat(400), ends: null, expires: "2026-11-02T13:45:00-05:00" }),
+              feature({
+                event: "Wind Advisory",
+                severity: "Moderate",
+                headline: "Wind Advisory  until 6PM",
+                ends: "2026-11-02T18:00:00-05:00",
+              }),
+              feature({
+                event: "Tornado Warning",
+                severity: "Extreme",
+                headline: "x".repeat(400),
+                ends: null,
+                expires: "2026-11-02T13:45:00-05:00",
+              }),
               feature({ event: "Test Message", severity: "Minor", status: "Test" }),
               feature({ event: "Flood Watch", severity: "Severe", messageType: "Cancel" }),
               feature({ event: "Odd", severity: "Bogus", headline: "h" }),
@@ -41,7 +52,13 @@ describe("NWS alerts tool", () => {
   });
 
   it("no alerts when NWS fails or the place is outside the US", async () => {
-    expect(await fetchAlerts(51.5, -0.1, fakeFetch([["https://api.weather.gov/", () => json({ title: "Not found" }, 404)]]).impl)).toEqual([]);
+    expect(
+      await fetchAlerts(
+        51.5,
+        -0.1,
+        fakeFetch([["https://api.weather.gov/", () => json({ title: "Not found" }, 404)]]).impl,
+      ),
+    ).toEqual([]);
     expect(await fetchAlerts(35, -80, fakeFetch([]).impl)).toEqual([]); // a thrown fetch
   });
 });

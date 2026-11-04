@@ -37,19 +37,44 @@ function hideDismissed(b) {
   if (!pk.length && !lines.size && !sugg.size) return b;
   const d = b.deliveries && b.deliveries.status === "ok" ? b.deliveries.data : null;
   const ids = new Set(pk.flatMap(pkgIds));
-  if (d) d.packages = d.packages.filter((p) => !pk.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)));
+  if (d)
+    d.packages = d.packages.filter(
+      (p) => !pk.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)),
+    );
   b.summary = b.summary.filter((s) => !lines.has(lineKey(s.text)) && !mentionsPackage(s.text, pk, s.source));
   b.suggestions = b.suggestions.filter((t) => !sugg.has(lineKey(t.text)) && !mentionsPackage(t.text, pk));
   // a headline about it gives way to the first line left
-  if (mentionsPackage(b.headline, pk)) b.headline = b.summary.length ? b.summary[0].text.slice(0, 100) : "Your morning briefing";
+  if (mentionsPackage(b.headline, pk))
+    b.headline = b.summary.length ? b.summary[0].text.slice(0, 100) : "Your morning briefing";
   return b;
 }
 // Is this line or suggestion about a package you said came? Its whole name, or two of its words
 // ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or inbox
 // line, so "Belt" doesn't hide "Buy a belt". An order number ("#48151": 5+ characters with a
 // digit) counts anywhere. Same rule as agents/lib/brain.ts mentionsHidden.
-const PKG_SKIP = new Set(["the", "and", "for", "your", "with", "from", "order", "orders", "package", "packages", "delivery", "item", "items", "set", "pack", "new"]);
-const pkgWords = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
+const PKG_SKIP = new Set([
+  "the",
+  "and",
+  "for",
+  "your",
+  "with",
+  "from",
+  "order",
+  "orders",
+  "package",
+  "packages",
+  "delivery",
+  "item",
+  "items",
+  "set",
+  "pack",
+  "new",
+]);
+const pkgWords = (s) =>
+  s
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
 const pkgIds = (s) => pkgWords(s).filter((w) => w.length >= 5 && /\d/.test(w));
 function mentionsPackage(text, items, source = null) {
   if (!items.length) return false;
@@ -178,7 +203,13 @@ function normalizeBriefing(b) {
         : null,
       // the next 48 hours from the run, for the hourly strip and "now" later in the day
       hours: arr(d.hours)
-        .filter((h) => isObj(h) && typeof h.time === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(h.time) && num(h.tempF, -80, 150) != null)
+        .filter(
+          (h) =>
+            isObj(h) &&
+            typeof h.time === "string" &&
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(h.time) &&
+            num(h.tempF, -80, 150) != null,
+        )
         .slice(0, 48)
         .map((h) => ({
           time: h.time,
@@ -337,7 +368,8 @@ function normalizeBriefing(b) {
             .slice(0, 8)
             .map((x) => {
               const found = num(x.found, 0.01, 1e5);
-              const url = typeof x.url === "string" && /^https:\/\/[^\s<>"']+$/.test(x.url) && x.url.length <= 500 ? x.url : null;
+              const url =
+                typeof x.url === "string" && /^https:\/\/[^\s<>"']+$/.test(x.url) && x.url.length <= 500 ? x.url : null;
               return {
                 id: String(x.id),
                 name: str(x.name, 60),
@@ -628,8 +660,7 @@ function billGuardLines(b, today = addDaysIso(0)) {
   const $ = (n) => (n == null ? "" : moneyShort(n));
   const out = [];
   m.guard.forEach((g) => {
-    if (g.reason === "short")
-      out.push(`Bills due before payday are ${$(g.amount)} more than your paycheck.`);
+    if (g.reason === "short") out.push(`Bills due before payday are ${$(g.amount)} more than your paycheck.`);
     else if (g.reason === "differs")
       out.push(`${g.name}: the email says ${$(g.amount)}, Budget says ${$(g.budgetAmount)}.`);
     else if (g.reason === "card")

@@ -11,7 +11,9 @@ export const DRIVE_TOOLS = ["mcp__drive__search_drive", "mcp__drive__read_drive_
 
 export function driveServer(getDrive: () => Promise<Drive>, usage: { driveReads: number }) {
   const fail = (e: unknown) => ({
-    content: [{ type: "text" as const, text: `Drive didn't answer: ${e instanceof Error ? e.message : "error"}`.slice(0, 300) }],
+    content: [
+      { type: "text" as const, text: `Drive didn't answer: ${e instanceof Error ? e.message : "error"}`.slice(0, 300) },
+    ],
     isError: true,
   });
   return createSdkMcpServer({
@@ -42,7 +44,10 @@ export function driveServer(getDrive: () => Promise<Drive>, usage: { driveReads:
             const f = await (await getDrive()).read(id);
             return {
               content: [
-                { type: "text" as const, text: dataBlock("drive-file", { name: f.name, truncated: f.truncated, text: f.text }) },
+                {
+                  type: "text" as const,
+                  text: dataBlock("drive-file", { name: f.name, truncated: f.truncated, text: f.text }),
+                },
               ],
             };
           } catch (e) {

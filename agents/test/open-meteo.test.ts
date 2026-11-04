@@ -29,7 +29,9 @@ describe("open-meteo tool", () => {
 
   // A seasonal response: the control plus 50 members, 92 days from the forecast's first day
   const seasonal = (n = 92) => {
-    const time = Array.from({ length: n }, (_, i) => new Date(Date.parse("2026-10-29T12:00:00Z") + i * 864e5).toISOString().slice(0, 10));
+    const time = Array.from({ length: n }, (_, i) =>
+      new Date(Date.parse("2026-10-29T12:00:00Z") + i * 864e5).toISOString().slice(0, 10),
+    );
     const daily: Record<string, unknown[]> = { time };
     for (let m = 0; m <= 50; m++) {
       const sfx = m ? `_member${String(m).padStart(2, "0")}` : "";
@@ -51,10 +53,26 @@ describe("open-meteo tool", () => {
     expect(calls).toHaveLength(4);
     const o = f.outlook!;
     expect(o).toHaveLength(90); // Oct 29 + 89 days
-    expect(o[0]).toEqual({ date: "2026-10-29", highF: 69, lowF: 49, rainChance: 60, conditions: "Light rain", code: 61, nightCode: 0, kind: "forecast" });
+    expect(o[0]).toEqual({
+      date: "2026-10-29",
+      highF: 69,
+      lowF: 49,
+      rainChance: 60,
+      conditions: "Light rain",
+      code: 61,
+      nightCode: 0,
+      kind: "forecast",
+    });
     expect(o[1]).toMatchObject({ date: "2026-10-30", kind: "forecast", conditions: "Partly cloudy" });
     // the outlook starts the day after the forecast's last day (the fixture has 2)
-    expect(o[2]).toEqual({ date: "2026-10-31", highF: 75, lowF: 33, rainChance: 33, conditions: null, kind: "outlook" });
+    expect(o[2]).toEqual({
+      date: "2026-10-31",
+      highF: 75,
+      lowF: 33,
+      rainChance: 33,
+      conditions: null,
+      kind: "outlook",
+    });
     expect(o.at(-1)!.date).toBe("2027-01-26");
     expect(o.filter((d) => d.kind === "outlook").find((d) => d.lowF !== 33)).toBeUndefined(); // a missing member doesn't skew the middle value
   });
@@ -69,7 +87,10 @@ describe("open-meteo tool", () => {
     const thin = fakeFetch([
       ["https://api.open-meteo.com/", () => json(fixture)],
       ["https://air-quality-api.open-meteo.com/", () => json({}, 503)],
-      ["https://seasonal-api.open-meteo.com/", () => json({ daily: { time: ["2026-11-01"], temperature_2m_max: [60], temperature_2m_min: [40] } })],
+      [
+        "https://seasonal-api.open-meteo.com/",
+        () => json({ daily: { time: ["2026-11-01"], temperature_2m_max: [60], temperature_2m_min: [40] } }),
+      ],
     ]);
     expect((await fetchWeather(q, thin.impl)).outlook).toHaveLength(2);
   });
@@ -113,7 +134,15 @@ describe("open-meteo tool", () => {
   it("adds now (feels like, wind), the next 48 hours, night codes, sun times and alerts", async () => {
     const rich = {
       ...fixture,
-      current: { ...fixture.current, apparent_temperature: 48.6, relative_humidity_2m: 88, wind_speed_10m: 7.4, wind_direction_10m: 315, wind_gusts_10m: 15.2, is_day: 1 },
+      current: {
+        ...fixture.current,
+        apparent_temperature: 48.6,
+        relative_humidity_2m: 88,
+        wind_speed_10m: 7.4,
+        wind_direction_10m: 315,
+        wind_gusts_10m: 15.2,
+        is_day: 1,
+      },
       hourly: {
         ...fixture.hourly,
         apparent_temperature: [47, 48, 49, 59, 66, 50, 70],
@@ -121,20 +150,47 @@ describe("open-meteo tool", () => {
         wind_speed_10m: [3, 4, 5, 8, 9, 2, 6],
         wind_direction_10m: [0, 90, 180, 200, 270, 350, 45],
       },
-      daily: { ...fixture.daily, sunrise: ["2026-10-29T07:32", "2026-10-30T07:33"], sunset: ["2026-10-29T18:39", "2026-10-30T18:38"] },
+      daily: {
+        ...fixture.daily,
+        sunrise: ["2026-10-29T07:32", "2026-10-30T07:33"],
+        sunset: ["2026-10-29T18:39", "2026-10-30T18:38"],
+      },
     };
     const { impl } = fakeFetch([
       ["https://api.open-meteo.com/", () => json(rich)],
       ["https://air-quality-api.open-meteo.com/", () => json({}, 503)],
       ["https://seasonal-api.open-meteo.com/", () => json({}, 503)],
-      ["https://api.weather.gov/", () => json({ features: [{ properties: { event: "Wind Advisory", severity: "Moderate", headline: "h", ends: null } }] })],
+      [
+        "https://api.weather.gov/",
+        () =>
+          json({
+            features: [{ properties: { event: "Wind Advisory", severity: "Moderate", headline: "h", ends: null } }],
+          }),
+      ],
     ]);
     const f = await fetchWeather(q, impl);
     expect(f.now).toEqual({ feelsF: 49, humidityPct: 88, windMph: 7, gustMph: 15, windDir: "NW", isDay: true });
     expect(f.code).toBe(61);
     // from the current hour (6:45 → 6:00): 5am is behind us
-    expect(f.hours!.map((h) => h.time)).toEqual(["2026-10-29T06:00", "2026-10-29T07:00", "2026-10-29T12:00", "2026-10-29T17:00", "2026-10-29T23:00", "2026-10-30T12:00"]);
-    expect(f.hours![4]).toEqual({ time: "2026-10-29T23:00", tempF: expect.any(Number), feelsF: 50, chance: expect.any(Number), code: 0, isDay: false, humidityPct: expect.any(Number), windMph: 2, windDir: "N" });
+    expect(f.hours!.map((h) => h.time)).toEqual([
+      "2026-10-29T06:00",
+      "2026-10-29T07:00",
+      "2026-10-29T12:00",
+      "2026-10-29T17:00",
+      "2026-10-29T23:00",
+      "2026-10-30T12:00",
+    ]);
+    expect(f.hours![4]).toEqual({
+      time: "2026-10-29T23:00",
+      tempF: expect.any(Number),
+      feelsF: 50,
+      chance: expect.any(Number),
+      code: 0,
+      isDay: false,
+      humidityPct: expect.any(Number),
+      windMph: 2,
+      windDir: "N",
+    });
     expect(f.outlook![0]).toMatchObject({ code: 61, nightCode: 0 }); // the night: 11pm only (clear)
     expect(f.outlook![1]).toMatchObject({ code: 2, nightCode: null });
     expect(f.sun).toEqual([

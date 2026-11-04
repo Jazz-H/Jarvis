@@ -310,7 +310,7 @@ function wbBillsHtml(today) {
   const list =
     rows.length || cards.length
       ? `<div class="wb-card wb-bills">${rows.map((r) => wbBillRowHtml(r, today)).join("")}${cards.map((c) => wbCardRowHtml(c, today)).join("")}</div>`
-    : `<div class="wb-card wb-none">Nothing due in the next 14 days. <button class="wb-link" data-action="bill-add">+ Add bill</button></div>`;
+      : `<div class="wb-card wb-none">Nothing due in the next 14 days. <button class="wb-link" data-action="bill-add">+ Add bill</button></div>`;
   // folds like the month view below; its label is the summary (NEXT 14 DAYS ─── $862 ⌄), remembered
   const open = wbNextOpen();
   return `<details class="wb-sec wb-upcoming" id="wb-next" aria-label="Bills due in the next 14 days"${open ? " open" : ""}><summary class="jv-label wb-label wb-fold"><span>Next 14 days</span><i></i><span class="jv-label-count">${moneyShort(due)}</span>${CHEVRON_DOWN}</summary>${list}</details>`;

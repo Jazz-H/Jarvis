@@ -41,10 +41,32 @@ const clip = (s: unknown, n: number) =>
     .trim()
     .slice(0, n);
 
-export const BRAIN_LIMITS = { notes: 30, notesPromptChars: 12_000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenLines: 10, hiddenSuggestions: 20 };
+export const BRAIN_LIMITS = {
+  notes: 30,
+  notesPromptChars: 12_000,
+  memory: 60,
+  feedback: 60,
+  checkins: 8,
+  topics: 6,
+  hiddenPackages: 20,
+  hiddenLines: 10,
+  hiddenSuggestions: 20,
+};
 
 export function emptyBrain(): Brain {
-  return { memory: [], notes: [], about: "", tone: "normal", newsTopics: [], checkins: [], feedback: [], hiddenPackages: [], hiddenLines: [], hiddenSuggestions: [], location: null };
+  return {
+    memory: [],
+    notes: [],
+    about: "",
+    tone: "normal",
+    newsTopics: [],
+    checkins: [],
+    feedback: [],
+    hiddenPackages: [],
+    hiddenLines: [],
+    hiddenSuggestions: [],
+    location: null,
+  };
 }
 function readLocation(v: unknown): DeviceLocation | null {
   if (!isObj(v)) return null;
@@ -60,7 +82,11 @@ export function readBrain(data: unknown): Brain {
   const memory = arr(data["jarvis-memory"])
     .filter((m) => isObj(m) && SAFE_ID.test(String(m.id)) && clip(m.text, 200))
     .slice(0, BRAIN_LIMITS.memory)
-    .map((m) => ({ id: String(m.id), text: clip(m.text, 200), by: m.by === "jarvis" ? ("jarvis" as const) : ("you" as const) }));
+    .map((m) => ({
+      id: String(m.id),
+      text: clip(m.text, 200),
+      by: m.by === "jarvis" ? ("jarvis" as const) : ("you" as const),
+    }));
   const feedback = arr(data["jarvis-feedback"])
     .filter((f) => isObj(f) && (f.kind === "answer" || f.kind === "briefing") && (f.vote === 1 || f.vote === -1))
     .map((f) => ({ kind: f.kind, item: clip(f.item, 200), vote: f.vote, at: Number(f.at) || 0 }))
@@ -83,7 +109,10 @@ export function readBrain(data: unknown): Brain {
     .map((n) => ({
       id: String(n.id),
       title: clip(n.title, 60),
-      text: String(n.text ?? "").replace(/\r\n?/g, "\n").trim().slice(0, 2000),
+      text: String(n.text ?? "")
+        .replace(/\r\n?/g, "\n")
+        .trim()
+        .slice(0, 2000),
       at: typeof n.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n.at) ? n.at : "",
     }));
   return {
@@ -123,8 +152,29 @@ export function withoutHidden<T extends { item: string }>(packages: T[], hidden:
 // words ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or
 // inbox line, so "Belt" doesn't hide "Buy a belt". An order number ("#48151": 5+ characters
 // with a digit) counts anywhere. js/jarvis.js mentionsPackage matches this.
-const PKG_SKIP = new Set(["the", "and", "for", "your", "with", "from", "order", "orders", "package", "packages", "delivery", "item", "items", "set", "pack", "new"]);
-const pkgWords = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
+const PKG_SKIP = new Set([
+  "the",
+  "and",
+  "for",
+  "your",
+  "with",
+  "from",
+  "order",
+  "orders",
+  "package",
+  "packages",
+  "delivery",
+  "item",
+  "items",
+  "set",
+  "pack",
+  "new",
+]);
+const pkgWords = (s: string) =>
+  s
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
 const pkgIds = (s: string) => pkgWords(s).filter((w) => w.length >= 5 && /\d/.test(w));
 export function mentionsHidden(text: string, hidden: string[], source: string | null = null): boolean {
   if (!hidden.length) return false;
@@ -155,7 +205,9 @@ export function brainForPrompt(b: Brain) {
     remember: b.memory.map((m) => m.text),
     about: b.about || null,
     tone: b.tone,
-    recentRatings: b.feedback.slice(0, 15).map((f) => ({ on: f.kind, item: f.item, rating: f.vote > 0 ? "useful" : "not useful" })),
+    recentRatings: b.feedback
+      .slice(0, 15)
+      .map((f) => ({ on: f.kind, item: f.item, rating: f.vote > 0 ? "useful" : "not useful" })),
   };
 }
 
@@ -171,10 +223,18 @@ Clock times: the data's times are already Eastern (America/New_York); write them
 // than 6 hours ago (a late run doesn't send a stale one), and it hasn't run today (`done` holds the
 // answer ids already written). The answer id is fixed per check-in and day, so it runs once.
 export function checkinAnswerId(c: Checkin, date: string) {
-  const base = c.id.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 22);
+  const base = c.id
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .slice(0, 22);
   return `ck-${base}-${date.replace(/-/g, "")}`.slice(0, 40);
 }
-export function dueCheckins(b: Brain, now: Date, timeZone: string, done: Set<string>): { checkin: Checkin; id: string; date: string }[] {
+export function dueCheckins(
+  b: Brain,
+  now: Date,
+  timeZone: string,
+  done: Set<string>,
+): { checkin: Checkin; id: string; date: string }[] {
   const t = localTime(now, timeZone);
   const dow = new Date(t.date + "T12:00:00Z").getUTCDay();
   return b.checkins

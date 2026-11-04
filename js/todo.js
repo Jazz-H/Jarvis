@@ -391,7 +391,10 @@ function tdpSet(patch) {
 }
 function tdpSaveText(el) {
   const t = selectedTodo();
-  const text = (el.value || "").replace(/\s*\n\s*/g, " ").trim().slice(0, TODO_MAX_LEN);
+  const text = (el.value || "")
+    .replace(/\s*\n\s*/g, " ")
+    .trim()
+    .slice(0, TODO_MAX_LEN);
   if (!t || !text || text === t.text) return;
   t.text = text;
   saveContent("todo-content", todoList);
@@ -484,9 +487,7 @@ function tdeHtml(s = tde, idp = "modal", text) {
   if (!d) sum.push("No date · it sits under Anytime");
   else {
     sum.push(
-      s.end
-        ? `${short(d)} – ${short(s.end)} (${Math.round((noonOf(s.end) - noonOf(d)) / 864e5) + 1} days)`
-        : short(d),
+      s.end ? `${short(d)} – ${short(s.end)} (${Math.round((noonOf(s.end) - noonOf(d)) / 864e5) + 1} days)` : short(d),
     );
     if (s.repeat) sum.push(repeatLabel({ repeat: s.repeat, every: s.every, due: d }));
   }

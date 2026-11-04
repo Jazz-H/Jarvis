@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { localTime, shouldDeliver, shouldDeliverReview, startedByHand, toMinutes, utcCronLines, weekday } from "../lib/schedule.ts";
+import {
+  localTime,
+  shouldDeliver,
+  shouldDeliverReview,
+  startedByHand,
+  toMinutes,
+  utcCronLines,
+  weekday,
+} from "../lib/schedule.ts";
 import { CONFIG } from "../config.ts";
 
 const TZ = "America/New_York";
@@ -51,7 +59,9 @@ describe("schedule", () => {
       expect(gs).toContain(`mode: "${mode}"`);
       expect(yml).toMatch(new RegExp(`options:[\\s\\S]*- ${mode}\\r?\\n`));
     }
-    expect(yml.match(/JARVIS_GATED: \$\{\{ inputs\.mode == 'alarm' \|\| inputs\.mode == 'alarm-review' \}\}/g)).toHaveLength(2);
+    expect(
+      yml.match(/JARVIS_GATED: \$\{\{ inputs\.mode == 'alarm' \|\| inputs\.mode == 'alarm-review' \}\}/g),
+    ).toHaveLength(2);
     // the check-in poke passes jarvis-ask.yml's id check
     expect("alarm-checkins").toMatch(/^[a-z0-9-]{8,40}$/);
     expect(gs).not.toMatch(/github_pat_|ghp_/);
@@ -113,7 +123,10 @@ describe("review schedule", () => {
   });
 
   it("skips the second line once this week's review exists, other days, and very late starts", () => {
-    expect(rgate("2026-07-05T22:45:00Z", true)).toMatchObject({ deliver: false, reason: expect.stringMatching(/already exists/) });
+    expect(rgate("2026-07-05T22:45:00Z", true)).toMatchObject({
+      deliver: false,
+      reason: expect.stringMatching(/already exists/),
+    });
     expect(rgate("2026-07-06T21:45:00Z")).toMatchObject({ deliver: false, reason: "not the review day" });
     expect(rgate("2026-07-06T01:30:00Z").deliver).toBe(false); // Sun 9:30pm EDT: too late
     expect(rgate("2026-07-06T00:30:00Z").deliver).toBe(true); // Sun 8:30pm EDT: GitHub was late

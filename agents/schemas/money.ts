@@ -38,7 +38,10 @@ export const DebtStatus = z.object({
   balance: Usd,
   apr: z.number().min(0).max(99),
   payment: Usd, // monthly
-  paidOff: z.string().regex(/^\d{4}-\d{2}$/).nullable(), // YYYY-MM; null when paid off, no payment, or it doesn't cover interest
+  paidOff: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .nullable(), // YYYY-MM; null when paid off, no payment, or it doesn't cover interest
   coversInterest: z.boolean(),
   next: z.boolean(), // the first one not paid off: where extra money goes after the goals
 });

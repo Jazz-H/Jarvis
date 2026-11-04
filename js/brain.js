@@ -15,13 +15,35 @@
 //                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days
 //                     hiddenSuggestions: [{text, at: "YYYY-MM-DD"}]   suggested to-dos dismissed, 20, gone after 14 days}
 // Synced data is untrusted: every field is checked and capped here and on the way back in.
-const BRAIN_MAX = { notes: 30, noteTitle: 60, noteText: 2000, memory: 60, feedback: 60, checkins: 8, topics: 6, hiddenPackages: 20, hiddenDays: 14, hiddenLines: 10, hiddenSuggestions: 20 };
+const BRAIN_MAX = {
+  notes: 30,
+  noteTitle: 60,
+  noteText: 2000,
+  memory: 60,
+  feedback: 60,
+  checkins: 8,
+  topics: 6,
+  hiddenPackages: 20,
+  hiddenDays: 14,
+  hiddenLines: 10,
+  hiddenSuggestions: 20,
+};
 const BRAIN_TONES = { brief: "Brief", normal: "Normal", detailed: "Detailed" };
 const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Never" }; // read answers aloud
 let jarvisMemory = [];
 let jarvisNotes = [];
 let jarvisFeedback = [];
-let jarvisSettings = { tone: "normal", newsTopics: [], about: "", speak: "voice", checkins: [], hiddenPackages: [], hiddenLines: [], hiddenSuggestions: [], location: null };
+let jarvisSettings = {
+  tone: "normal",
+  newsTopics: [],
+  about: "",
+  speak: "voice",
+  checkins: [],
+  hiddenPackages: [],
+  hiddenLines: [],
+  hiddenSuggestions: [],
+  location: null,
+};
 
 function normalizeJarvisBrain() {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -34,7 +56,12 @@ function normalizeJarvisBrain() {
   const seen = new Set();
   jarvisMemory = (Array.isArray(jarvisMemory) ? jarvisMemory : [])
     .filter((m) => isObj(m) && str(m.text, 200))
-    .map((m) => ({ id: safeId(m.id, "mem"), text: str(m.text, 200), at: day(m.at), by: m.by === "jarvis" ? "jarvis" : "you" }))
+    .map((m) => ({
+      id: safeId(m.id, "mem"),
+      text: str(m.text, 200),
+      at: day(m.at),
+      by: m.by === "jarvis" ? "jarvis" : "you",
+    }))
     .filter((m) => !seen.has(m.text.toLowerCase()) && seen.add(m.text.toLowerCase()))
     .slice(0, BRAIN_MAX.memory);
   const noteSeen = new Set();
@@ -82,13 +109,21 @@ function normalizeJarvisBrain() {
         id: safeId(c.id, "ci"),
         name: str(c.name, 40) || "Check-in",
         prompt: str(c.prompt, 300),
-        days: [...new Set((Array.isArray(c.days) ? c.days : []).map(Number))].filter((d) => Number.isInteger(d) && d >= 0 && d <= 6).sort(),
+        days: [...new Set((Array.isArray(c.days) ? c.days : []).map(Number))]
+          .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+          .sort(),
         time: typeof c.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(c.time) ? c.time : "08:00",
         on: c.on !== false,
       })),
     hiddenPackages: dismissedList(s.hiddenPackages, "item", 80, BRAIN_MAX.hiddenDays, BRAIN_MAX.hiddenPackages),
     hiddenLines: dismissedList(s.hiddenLines, "text", 200, 2, BRAIN_MAX.hiddenLines),
-    hiddenSuggestions: dismissedList(s.hiddenSuggestions, "text", 80, BRAIN_MAX.hiddenDays, BRAIN_MAX.hiddenSuggestions),
+    hiddenSuggestions: dismissedList(
+      s.hiddenSuggestions,
+      "text",
+      80,
+      BRAIN_MAX.hiddenDays,
+      BRAIN_MAX.hiddenSuggestions,
+    ),
     location: savedLocation(s.location),
   };
 }
@@ -98,15 +133,28 @@ function savedLocation(l) {
   const lat = Number(l.lat),
     lon = Number(l.lon);
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
-  return { lat: Math.round(lat * 1000) / 1000, lon: Math.round(lon * 1000) / 1000, at: typeof l.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(l.at) ? l.at : "" };
+  return {
+    lat: Math.round(lat * 1000) / 1000,
+    lon: Math.round(lon * 1000) / 1000,
+    at: typeof l.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(l.at) ? l.at : "",
+  };
 }
 // What you dismissed on Home (jarvis.js): [{[field]: name, at}] from the last `days`, no repeats, newest first
 function dismissedList(list, field, max, days, n) {
   const since = addDaysIso(-days),
     seen = new Set();
   return (Array.isArray(list) ? list : [])
-    .filter((h) => h && typeof h === "object" && typeof h.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(h.at) && h.at >= since)
-    .map((h) => ({ [field]: String(h[field] == null ? "" : h[field]).replace(/\s+/g, " ").trim().slice(0, max), at: h.at }))
+    .filter(
+      (h) =>
+        h && typeof h === "object" && typeof h.at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(h.at) && h.at >= since,
+    )
+    .map((h) => ({
+      [field]: String(h[field] == null ? "" : h[field])
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, max),
+      at: h.at,
+    }))
     .filter((h) => h[field] && !seen.has(h[field].toLowerCase()) && seen.add(h[field].toLowerCase()))
     .slice(0, n);
 }
@@ -136,7 +184,12 @@ function weatherUseLocation(quiet = false) {
       renderHome();
       if (!quiet) showToast("Location saved: the next briefing's weather is for where you are");
     },
-    (e) => fail(e && e.code === 1 ? "Location is blocked for this site: allow it in your browser's settings" : "Couldn't get your location"),
+    (e) =>
+      fail(
+        e && e.code === 1
+          ? "Location is blocked for this site: allow it in your browser's settings"
+          : "Couldn't get your location",
+      ),
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10 * 60 * 1000 },
   );
 }
@@ -184,7 +237,10 @@ function brainAddMemory() {
     "Remember something",
     [
       { key: "text", label: "Something Jarvis should keep in mind", type: "text" },
-      { type: "note", label: "For example: “I don't eat pork”, “Payday moves early in December”, “Mom's birthday is Mar 3”." },
+      {
+        type: "note",
+        label: "For example: “I don't eat pork”, “Payday moves early in December”, “Mom's birthday is Mar 3”.",
+      },
     ],
     {},
     (v) => {
@@ -197,7 +253,10 @@ function brainAddMemory() {
 // A note with the same title (any case) is the same note: saving again adds to it. Jarvis writes
 // here only through an Ask action ("save that as a note", "add this to my car note"), with Undo.
 function brainSaveNote(title, text, by = "you") {
-  const t = String(title || "").replace(/\s+/g, " ").trim().slice(0, BRAIN_MAX.noteTitle);
+  const t = String(title || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, BRAIN_MAX.noteTitle);
   const body = String(text || "").trim();
   if (!t || !body) return false;
   const old = jarvisNotes.find((n) => n.title.toLowerCase() === t.toLowerCase());
@@ -231,12 +290,20 @@ function brainEditNote(id) {
     [
       { key: "title", label: "Title (e.g. Car, Lease, Health)", type: "text" },
       { key: "text", label: "Note", type: "textarea" },
-      { type: "note", label: "Jarvis reads your notes when it answers. Longer than a fact: what you'd want it to know about a topic." },
+      {
+        type: "note",
+        label: "Jarvis reads your notes when it answers. Longer than a fact: what you'd want it to know about a topic.",
+      },
     ],
     n ? { title: n.title, text: n.text } : {},
     (v) => {
-      const title = String(v.title || "").replace(/\s+/g, " ").trim().slice(0, BRAIN_MAX.noteTitle);
-      const text = String(v.text || "").trim().slice(0, BRAIN_MAX.noteText);
+      const title = String(v.title || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, BRAIN_MAX.noteTitle);
+      const text = String(v.text || "")
+        .trim()
+        .slice(0, BRAIN_MAX.noteText);
       if (!title || !text) {
         showToast("Give the note a title and some text", true);
         return;
@@ -305,7 +372,10 @@ function brainEditTone() {
     "How Jarvis writes",
     [
       { key: "tone", label: "Length and detail", type: "select", options: labels },
-      { type: "note", label: "Brief keeps answers and briefings as short as possible; Detailed adds a little more context." },
+      {
+        type: "note",
+        label: "Brief keeps answers and briefings as short as possible; Detailed adds a little more context.",
+      },
     ],
     { tone: BRAIN_TONES[jarvisSettings.tone] },
     (v) => {
@@ -321,7 +391,10 @@ function brainEditSpeak() {
     "Read answers aloud",
     [
       { key: "speak", label: "Jarvis reads a new answer aloud", type: "select", options: labels },
-      { type: "note", label: "Only while the app is on screen. Every answer also has a 🔊 button, and so does the briefing." },
+      {
+        type: "note",
+        label: "Only while the app is on screen. Every answer also has a 🔊 button, and so does the briefing.",
+      },
     ],
     { speak: BRAIN_SPEAK[jarvisSettings.speak] },
     (v) => {
@@ -336,7 +409,11 @@ function brainEditTopics() {
     "News topics",
     [
       { key: "topics", label: "Topics, separated by commas (up to 6)", type: "text" },
-      { type: "note", label: "Leave empty for the usual mix: AI, tech, cars and what's trending. Used from the next morning's briefing." },
+      {
+        type: "note",
+        label:
+          "Leave empty for the usual mix: AI, tech, cars and what's trending. Used from the next morning's briefing.",
+      },
     ],
     { topics: jarvisSettings.newsTopics.join(", ") },
     (v) => {
@@ -354,7 +431,10 @@ function brainEditAbout() {
     "About you",
     [
       { key: "about", label: "Anything Jarvis should know about you", type: "textarea" },
-      { type: "note", label: "Your job, your routines, what matters to you. Jarvis reads it with every briefing and answer." },
+      {
+        type: "note",
+        label: "Your job, your routines, what matters to you. Jarvis reads it with every briefing and answer.",
+      },
     ],
     { about: jarvisSettings.about },
     (v) => {
@@ -392,15 +472,24 @@ function brainEditCheckin(id, preset = null) {
         label: "Jarvis sends it as a notification and in Console. It counts as a question toward your limits.",
       },
     ],
-    c ? { name: c.name, prompt: c.prompt, days: c.days, time: c.time } : preset ? { ...preset } : { days: [0], time: "20:00" },
+    c
+      ? { name: c.name, prompt: c.prompt, days: c.days, time: c.time }
+      : preset
+        ? { ...preset }
+        : { days: [0], time: "20:00" },
     (v) => {
-      const prompt = String(v.prompt || "").trim().slice(0, 300);
+      const prompt = String(v.prompt || "")
+        .trim()
+        .slice(0, 300);
       if (!prompt || !(v.days || []).length) {
         showToast("Say what Jarvis should do, and pick at least one day", true);
         return;
       }
       const t = c || { id: genId("ci"), on: true };
-      t.name = String(v.name || "").trim().slice(0, 40) || "Check-in";
+      t.name =
+        String(v.name || "")
+          .trim()
+          .slice(0, 40) || "Check-in";
       t.prompt = prompt;
       t.days = v.days;
       t.time = /^([01]\d|2[0-3]):[0-5]\d$/.test(v.time || "") ? v.time : "08:00";
@@ -427,7 +516,7 @@ function brainCardHtml() {
     ? `<ul class="br-mem">${jarvisMemory
         .map(
           (m) =>
-            `<li><span>${escapeHtml(m.text)}${m.by === "jarvis" ? ' <small>from a chat</small>' : ""}</span><button type="button" class="br-x" data-action="brain-forget" data-mem-id="${escapeAttr(m.id)}" aria-label="Forget: ${escapeAttr(m.text)}">&times;</button></li>`,
+            `<li><span>${escapeHtml(m.text)}${m.by === "jarvis" ? " <small>from a chat</small>" : ""}</span><button type="button" class="br-x" data-action="brain-forget" data-mem-id="${escapeAttr(m.id)}" aria-label="Forget: ${escapeAttr(m.text)}">&times;</button></li>`,
         )
         .join("")}</ul>`
     : `<p class="br-empty">Nothing yet. Tell Jarvis “remember …” in a chat, or add it here.</p>`;

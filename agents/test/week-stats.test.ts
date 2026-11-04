@@ -152,7 +152,14 @@ describe("week stats edge cases", () => {
     expect(stats.workouts).toEqual({ done: 0, planned: 0, missedDays: [] });
     expect(stats.weight).toEqual({ weighIns: 0, current: null, change: null, pct: null, eta: null });
     expect(stats.goals).toEqual([]);
-    expect(stats.bills).toEqual({ paid: 0, autopaid: 0, paidTotal: 0, unpaidPastDue: [], dueNextWeek: 0, dueNextWeekTotal: 0 });
+    expect(stats.bills).toEqual({
+      paid: 0,
+      autopaid: 0,
+      paidTotal: 0,
+      unpaidPastDue: [],
+      dueNextWeek: 0,
+      dueNextWeekTotal: 0,
+    });
     expect(stats.spending).toEqual({ total: 0, byCat: [] });
     expect(stats.shopping).toEqual({ bought: null, boughtCount: null, needsOpen: 0, estOpen: 0 });
     // no saved routine = the app's built-in wash schedule (every 14 days from Jul 16)
@@ -166,8 +173,16 @@ describe("week stats edge cases", () => {
       "todo-content": { not: "an array" },
       "todo-archive-content": [{ completedAt: "abc" }, { completedAt: 1e20 }, { completedAt: -5 }],
       "routine-checks": ["x"],
-      "fitness-content": { weights: "x", plan: [{ id: "a", days: "x", every: "abc", anchor: 7 }], goal: "x", checks: 3 },
-      "plan3-content": [{ id: "<b>", cat: long, item: long, done: true }, ...Array.from({ length: 20 }, (_, i) => ({ id: `p${i}`, cat: `S${i}`, item: "x" }))],
+      "fitness-content": {
+        weights: "x",
+        plan: [{ id: "a", days: "x", every: "abc", anchor: 7 }],
+        goal: "x",
+        checks: 3,
+      },
+      "plan3-content": [
+        { id: "<b>", cat: long, item: long, done: true },
+        ...Array.from({ length: 20 }, (_, i) => ({ id: `p${i}`, cat: `S${i}`, item: "x" })),
+      ],
       "bills-content": [
         { name: long, amount: "-5", due: "nope" },
         { id: "j", name: long, amount: 1e300, due: "2026-10-30", repeat: "bogus", autopay: "yes" },
@@ -175,8 +190,17 @@ describe("week stats edge cases", () => {
         ...Array.from({ length: 10 }, (_, i) => ({ name: `B${i}`, amount: 1, due: "2026-10-01", repeat: "once" })),
       ],
       "bill-payments": [{ date: "2026-10-27" }, { due: "2026-10-27", date: "2026-10-27", amount: "x" }],
-      "budget-content": { categories: "x", expenses: [{ amount: 1e12, date: "2026-10-27" }, { amount: "5", date: "bad" }] },
-      "wants-content": [{ id: "w", name: long, price: -3 }, { id: { evil: 1 }, name: 5 }],
+      "budget-content": {
+        categories: "x",
+        expenses: [
+          { amount: 1e12, date: "2026-10-27" },
+          { amount: "5", date: "bad" },
+        ],
+      },
+      "wants-content": [
+        { id: "w", name: long, price: -3 },
+        { id: { evil: 1 }, name: 5 },
+      ],
       "wants-state": "x",
       "skin-routine-content": { washPm: [], wash: "x" },
     };

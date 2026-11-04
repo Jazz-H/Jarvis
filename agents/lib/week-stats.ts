@@ -115,7 +115,8 @@ export function nextBillIso(iso: string, repeat: string, day?: number): string |
 // ---- to-dos ----
 const TODO_REPEATS = new Set(["daily", "weekdays", "weekly", "biweekly", "monthly", "yearly", "weeks", "months"]);
 function todoNext(iso: string, t: Obj): string | null {
-  const day = Number.isInteger(t.repeatDay) && t.repeatDay >= 1 && t.repeatDay <= 31 ? t.repeatDay : +t.due.slice(8, 10);
+  const day =
+    Number.isInteger(t.repeatDay) && t.repeatDay >= 1 && t.repeatDay <= 31 ? t.repeatDay : +t.due.slice(8, 10);
   const every =
     t.repeat === "weeks" || t.repeat === "months" ? Math.max(1, Math.min(99, parseInt(t.every, 10) || 2)) : 1;
   return nextRepeatIso(iso, t.repeat, day, every);
@@ -294,7 +295,7 @@ export function weightStatus(data: Obj, asOf: string): WeightStatus {
   const upTo = weighIns(data).filter((x) => x.date <= asOf);
   const cur = upTo.length ? upTo[upTo.length - 1].lbs : null;
   const goal = lbs(f.goal);
-  const start = lbs(f.start) ?? (upTo[0]?.lbs ?? null);
+  const start = lbs(f.start) ?? upTo[0]?.lbs ?? null;
   const out: WeightStatus = {
     current: cur,
     start,
@@ -346,7 +347,13 @@ function weightStats(data: Obj, w: ReviewWeek): WeekStats["weight"] {
 export function goalItems(data: Obj): Obj[] {
   return arr(data["plan3-content"]).filter((x) => isObj(x) && String(x.item ?? "").trim());
 }
-export const goalSection = (x: Obj) => clip(String(x.cat || "Goals").trim().slice(0, 30), 40) || "Goals";
+export const goalSection = (x: Obj) =>
+  clip(
+    String(x.cat || "Goals")
+      .trim()
+      .slice(0, 30),
+    40,
+  ) || "Goals";
 
 function goalStats(data: Obj, prev: Snapshot | null): { goals: WeekStats["goals"]; doneIds: string[] } {
   const items = goalItems(data);
@@ -511,7 +518,12 @@ export function monthSpending(data: Obj, asOf: string) {
   const known = new Set(cats.map((c) => c.id));
   const rows = cats.map((c) => {
     const spent = sum(mtd.filter((e) => e.cat === c.id));
-    return { name: c.name, spent, limit: c.limit ? money(c.limit) : null, left: c.limit ? Math.round((c.limit - spent) * 100) / 100 : null };
+    return {
+      name: c.name,
+      spent,
+      limit: c.limit ? money(c.limit) : null,
+      left: c.limit ? Math.round((c.limit - spent) * 100) / 100 : null,
+    };
   });
   const orphan = mtd.filter((e) => !known.has(e.cat));
   if (orphan.length) rows.push({ name: "Uncategorized", spent: sum(orphan), limit: null, left: null });

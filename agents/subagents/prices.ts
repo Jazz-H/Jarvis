@@ -63,8 +63,13 @@ export function watchItems(data: any): WatchItem[] {
   const bought = data?.["wants-state"] && typeof data["wants-state"] === "object" ? data["wants-state"] : {};
   const isNeed = (w: any) => w.kind === "need" || (w.kind !== "want" && !!w.wardrobeCat);
   return list
-    .filter((w: any) => w && SAFE_ID.test(String(w.id)) && !bought[w.id] && !w.later && clip(w.name, 60) && money(w.price))
-    .sort((a: any, b: any) => Number(b.priority === "high") - Number(a.priority === "high") || Number(isNeed(b)) - Number(isNeed(a)))
+    .filter(
+      (w: any) => w && SAFE_ID.test(String(w.id)) && !bought[w.id] && !w.later && clip(w.name, 60) && money(w.price),
+    )
+    .sort(
+      (a: any, b: any) =>
+        Number(b.priority === "high") - Number(a.priority === "high") || Number(isNeed(b)) - Number(isNeed(a)),
+    )
     .slice(0, CONFIG.prices.maxItems)
     .map((w: any) => ({
       id: String(w.id),
@@ -76,16 +81,26 @@ export function watchItems(data: any): WatchItem[] {
 }
 
 // A drop is at least 5% and $2 under the saved price
-export const isDrop = (saved: number, found: number | null) => found != null && found <= saved * 0.95 && saved - found >= 2;
+export const isDrop = (saved: number, found: number | null) =>
+  found != null && found <= saved * 0.95 && saved - found >= 2;
 
 export function cleanPrices(read: PriceRead, items: WatchItem[], today: string): PricesCard {
   const byId = new Map(read.items.map((r) => [r.id, r]));
   const out: PriceItem[] = items.map((w) => {
     const r = byId.get(w.id);
     const found = r ? money(r.price) : null;
-    const url = r && typeof r.url === "string" && /^https:\/\/[^\s<>"']+$/.test(r.url) && r.url.length <= 500 ? r.url : null;
+    const url =
+      r && typeof r.url === "string" && /^https:\/\/[^\s<>"']+$/.test(r.url) && r.url.length <= 500 ? r.url : null;
     const store = (r && clip(r.store, 60)) || (url ? host(url) : null);
-    return { id: w.id, name: w.name, saved: w.saved, found, store: found ? store : null, url: found ? url : null, drop: isDrop(w.saved, found) };
+    return {
+      id: w.id,
+      name: w.name,
+      saved: w.saved,
+      found,
+      store: found ? store : null,
+      url: found ? url : null,
+      drop: isDrop(w.saved, found),
+    };
   });
   return PricesCard.parse({ checkedAt: today, items: out });
 }
@@ -94,6 +109,10 @@ export async function runPrices(deps: SubagentDeps, items: WatchItem[], today: s
   if (!items.length) return PricesCard.parse({ checkedAt: today, items: [] });
   const read = await deps.run(pricesSpec(items));
   const card = cleanPrices(read, items, today);
-  deps.trace.log("prices", "checked", { items: items.length, found: card.items.filter((i) => i.found).length, drops: card.items.filter((i) => i.drop).length });
+  deps.trace.log("prices", "checked", {
+    items: items.length,
+    found: card.items.filter((i) => i.found).length,
+    drops: card.items.filter((i) => i.drop).length,
+  });
   return card;
 }

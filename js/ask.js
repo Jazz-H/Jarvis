@@ -84,10 +84,20 @@ async function askAttachFile(input) {
         showToast("That PDF is over 3 MB: try a smaller one or a photo of the page", true);
         return;
       }
-      askAttachment = { name: file.name.slice(0, 120), mime: "application/pdf", data: await askBase64(file), size: file.size };
+      askAttachment = {
+        name: file.name.slice(0, 120),
+        mime: "application/pdf",
+        data: await askBase64(file),
+        size: file.size,
+      };
     } else if (/^image\//.test(file.type)) {
       const data = await askShrinkImage(file);
-      askAttachment = { name: file.name.slice(0, 120) || "photo.jpg", mime: "image/jpeg", data, size: Math.round((data.length * 3) / 4) };
+      askAttachment = {
+        name: file.name.slice(0, 120) || "photo.jpg",
+        mime: "image/jpeg",
+        data,
+        size: Math.round((data.length * 3) / 4),
+      };
     } else {
       showToast("Attach a photo or a PDF", true);
       return;
@@ -252,7 +262,8 @@ function normalizeAskLocal(raw, now = Date.now()) {
       const out = { id: q.id, text, at, state };
       if (q.kind === "sort") out.kind = "sort"; // Sort with Jarvis: a brain dump to split into chips
       if (typeof q.file === "string" && ASK_FILE_RE.test(q.file)) out.file = q.file; // sent with a photo or PDF
-      if (q.spoken === true) out.spoken = true; // asked by voice: the answer may be read aloud
+      if (q.spoken === true)
+        out.spoken = true; // asked by voice: the answer may be read aloud
       else if (typeof q.thread === "string" && ASK_ID.test(q.thread) && q.thread !== q.id) out.thread = q.thread;
       const sentAt = Number(q.sentAt);
       if (state === "sent" && isFinite(sentAt) && sentAt > 0) out.sentAt = Math.min(sentAt, now);
@@ -315,7 +326,12 @@ function normalizeAnswer(a) {
         text: askStr(c.text, 120),
         due: c.kind === "todo" && isDay(c.due) ? c.due : null,
         ...(c.kind === "expense"
-          ? { amount: typeof c.amount === "number" && isFinite(c.amount) && c.amount > 0 && c.amount <= 1e5 ? Math.round(c.amount * 100) / 100 : null }
+          ? {
+              amount:
+                typeof c.amount === "number" && isFinite(c.amount) && c.amount > 0 && c.amount <= 1e5
+                  ? Math.round(c.amount * 100) / 100
+                  : null,
+            }
           : {}),
       }))
       .filter((c) => c.text && (c.kind !== "expense" || c.amount != null))
@@ -329,13 +345,18 @@ function normalizeAnswer(a) {
         id: typeof x.id === "string" && SAFE_ID.test(x.id) ? x.id : null,
         text: askStr(x.text, 200),
         date: isDay(x.date) ? x.date : null,
-        lbs: typeof x.lbs === "number" && isFinite(x.lbs) && x.lbs >= 40 && x.lbs <= 800 ? Math.round(x.lbs * 10) / 10 : null,
+        lbs:
+          typeof x.lbs === "number" && isFinite(x.lbs) && x.lbs >= 40 && x.lbs <= 800
+            ? Math.round(x.lbs * 10) / 10
+            : null,
         note: typeof x.note === "string" ? x.note.trim().slice(0, 1500) : "",
         label: askStr(x.label, 160),
       })),
     // web pages the answer used: https only (linkHtml checks again when drawing)
     links: arr(a.links)
-      .filter((l) => askIsObj(l) && typeof l.url === "string" && /^https:\/\/[^\s<>"']+$/.test(l.url) && l.url.length <= 500)
+      .filter(
+        (l) => askIsObj(l) && typeof l.url === "string" && /^https:\/\/[^\s<>"']+$/.test(l.url) && l.url.length <= 500,
+      )
       .slice(0, 3)
       .map((l) => ({ url: l.url, title: askStr(l.title, 100) || "Link" })),
     checkin: askStr(a.checkin, 40), // a scheduled check-in's name ("" for a question)
@@ -530,7 +551,9 @@ function askApplyActions(answers) {
   askSet(ASK_APPLIED_KEY, JSON.stringify([...applied].slice(-100)));
   if (!done.length) return false;
   const after = dataSnapshot();
-  showUndoToast(done.length === 1 ? `Jarvis: ${done[0]}` : `Jarvis did ${done.length} things`, () => undoTo(before, after));
+  showUndoToast(done.length === 1 ? `Jarvis: ${done[0]}` : `Jarvis did ${done.length} things`, () =>
+    undoTo(before, after),
+  );
   return true;
 }
 
@@ -853,7 +876,11 @@ function askUsageLeft() {
 function askMonthSpent() {
   const u = loadAnswers().usage;
   if (!u || !u.month) return null;
-  return u.month === isoDate(new Date()).slice(0, 7) ? u.monthCostUsd : u.month < isoDate(new Date()).slice(0, 7) ? 0 : null;
+  return u.month === isoDate(new Date()).slice(0, 7)
+    ? u.monthCostUsd
+    : u.month < isoDate(new Date()).slice(0, 7)
+      ? 0
+      : null;
 }
 function askUsageText() {
   const left = askUsageLeft(),
@@ -869,7 +896,10 @@ function askUsageText() {
 function askUsageShort() {
   const left = askUsageLeft(),
     spent = askMonthSpent();
-  const parts = [left == null ? "" : `${left} left`, spent == null ? "" : `$${spent.toFixed(2)}/$${ASK_MONTH_BUDGET}`].filter(Boolean);
+  const parts = [
+    left == null ? "" : `${left} left`,
+    spent == null ? "" : `$${spent.toFixed(2)}/$${ASK_MONTH_BUDGET}`,
+  ].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Limits";
 }
 function askUsagePopHtml() {
@@ -962,7 +992,6 @@ function askAnswerHtml(q) {
 }
 // One question and its answer (or status); repeats: the same question asked again in a row
 function askEntryHtml(q) {
-  const day = "";
   const said = q.text
     ? escapeHtml(q.text)
     : q.answer && q.answer.checkin
@@ -976,7 +1005,7 @@ function askEntryHtml(q) {
         ? '<span class="ak-thread">Follow-up</span> '
         : "";
   return `<li class="cn-entry ak-entry" data-ask-entry="${escapeAttr(q.id)}" tabindex="-1">
-    <span class="cn-who">You</span><p class="cn-said">${clip}${follow}${said}${q.repeats ? ` <span class="ak-repeat" aria-label="asked ${q.repeats + 1} times">×${q.repeats + 1}</span>` : ""} <time class="cn-time">${escapeHtml(day + askTime(q.at))}</time></p>
+    <span class="cn-who">You</span><p class="cn-said">${clip}${follow}${said}${q.repeats ? ` <span class="ak-repeat" aria-label="asked ${q.repeats + 1} times">×${q.repeats + 1}</span>` : ""} <time class="cn-time">${escapeHtml(askTime(q.at))}</time></p>
     <span class="cn-who cn-j">J</span><div class="cn-reply">${q.answer ? askAnswerHtml(q) : askStatusHtml(q)}</div>
   </li>`;
 }
@@ -1150,5 +1179,3 @@ function askDeepLink(id) {
   const has = loadAnswers().answers.some((a) => a.id === id);
   if (!askFocusEntry(id) || !has) askPendingLink = id;
 }
-
-

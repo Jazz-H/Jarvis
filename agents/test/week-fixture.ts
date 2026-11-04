@@ -61,7 +61,17 @@ export const FIXTURE: Record<string, unknown> = {
   ],
   "bills-content": [
     { id: "rent", name: "Rent", amount: 1450, due: "2026-11-01", repeat: "monthly" },
-    { id: "power", name: "Power", amount: 200, group: "joint", share: 50, autopay: true, due: "2026-10-28", repeat: "monthly", day: 28 },
+    {
+      id: "power",
+      name: "Power",
+      amount: 200,
+      group: "joint",
+      share: 50,
+      autopay: true,
+      due: "2026-10-28",
+      repeat: "monthly",
+      day: 28,
+    },
     { id: "phone", name: "Phone", amount: 80, due: "2026-11-05", repeat: "monthly" },
     { id: "gym", name: "Gym", amount: 30, due: "2026-10-24", repeat: "weekly" },
   ],
@@ -69,7 +79,15 @@ export const FIXTURE: Record<string, unknown> = {
     { id: "pay1", billId: "net", name: "Internet", amount: 60, due: "2026-10-25", date: "2026-10-27" },
     { id: "pay0", billId: "net", name: "Internet", amount: 60, due: "2026-09-25", date: "2026-10-25" },
     // the app already logged Power's autopay: it must not be counted twice
-    { id: "pay-auto-power-2026-10-28", billId: "power", name: "Power", amount: 100, due: "2026-10-28", date: "2026-10-28", auto: true },
+    {
+      id: "pay-auto-power-2026-10-28",
+      billId: "power",
+      name: "Power",
+      amount: 100,
+      due: "2026-10-28",
+      date: "2026-10-28",
+      auto: true,
+    },
   ],
   "budget-content": {
     categories: [
@@ -128,4 +146,3 @@ export const DIGESTS: DayDigest[] = [
     },
   },
 ];
-

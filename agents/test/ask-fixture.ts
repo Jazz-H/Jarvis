@@ -30,7 +30,11 @@ export const BRIEFING = Briefing.parse({
   summary: [{ text: "Rent is due Nov 1.", source: "jazz" }],
   summaryBy: "jarvis",
   cards: {
-    weather: { status: "ok", data: { ...FACTS, date: TODAY, summary: "Light rain by noon.", wear: "Rain jacket.", washDayNote: null }, ...meta("Weather") },
+    weather: {
+      status: "ok",
+      data: { ...FACTS, date: TODAY, summary: "Light rain by noon.", wear: "Rain jacket.", washDayNote: null },
+      ...meta("Weather"),
+    },
     news: { status: "ok", data: { stories: [{ ...CANDIDATE, summary: "A model did well." }] }, ...meta("News") },
     inbox: {
       status: "ok",

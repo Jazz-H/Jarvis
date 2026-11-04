@@ -14,12 +14,12 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
   token) or the app starting a run when today's is missing. Home now says when it's late.
 - [ ] **Top up Claude API credit** (you) when it runs low: briefing, review and Ask stop without it.
 
-## Decide
-- [ ] **Obsidian vault** (`OBSIDIAN-SCOPE.md` section 8): phone or computer, Obsidian Sync ($4/mo)
-  or a private GitHub repo, new or existing vault, what goes in the daily note, what Jarvis may read.
-  Replaces the "daily log as markdown" idea.
-
 ## Build
+- [ ] **Ask: drop the question limits** (Nov 3): remove the 10-a-day and 40-a-week question caps
+  and only track credits spent, up to the $20 monthly limit.
+- [ ] **Free-to-read news** (Nov 3): articles the app pulls in should open without a paywall (a
+  Washington Post link hit a subscribe wall). Likely a skip list of paywalled sites in the News
+  tool, in code, picking another outlet's copy of the story when there is one.
 - [ ] **HUD**: a small glance view for a desktop corner (next event, Top 3, safe to spend, latest alert).
 - [ ] **Run the Ask test set** (you: Actions → Jarvis Eval, about $0.30) to check the per-question
   models against the Oct 31 baseline (12/12).
@@ -84,5 +84,6 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [x] Reactor theme, light/dark mode, self-hosted fonts (`main`)
 
 ## Dropped
+- ~~Obsidian vault~~ (Nov 3). Scope doc removed, nothing built.
 - ~~Settings → Jarvis screen~~ (Oct 30). Name, location, news topics and briefing time stay in
   `agents/config.ts` and `js/dashboard.js`.

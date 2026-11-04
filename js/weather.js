@@ -62,11 +62,13 @@ function wxKind(code, text) {
 const WX_SUN =
   '<g class="sun"><circle cx="16" cy="16" r="5.5"/><path d="M24.5 16h3M22 22l2.1 2.1M16 24.5v3M10 22l-2.1 2.1M7.5 16h-3M10 10L7.9 7.9M16 7.5v-3M22 10l2.1-2.1"/></g>';
 const WX_MOON = '<path class="moon" d="M24 19.5A9.5 9.5 0 1 1 12.5 8a7.5 7.5 0 0 0 11.5 11.5z"/>';
-const WX_SUN_SMALL = '<g class="sun"><circle cx="11" cy="11" r="3.8"/><path d="M11 3.5v2M4.5 11h2M6.4 6.4l1.4 1.4M15.6 6.4l-1.4 1.4M6.4 15.6l1.4-1.4"/></g>';
+const WX_SUN_SMALL =
+  '<g class="sun"><circle cx="11" cy="11" r="3.8"/><path d="M11 3.5v2M4.5 11h2M6.4 6.4l1.4 1.4M15.6 6.4l-1.4 1.4M6.4 15.6l1.4-1.4"/></g>';
 const WX_MOON_SMALL = '<path class="moon" d="M15.5 13.5A5.5 5.5 0 1 1 8.5 6.5a4.5 4.5 0 0 0 7 7z"/>';
 const WX_CLOUD = '<path class="cloud" d="M10 25h13a5.5 5.5 0 0 0 .6-11A7.5 7.5 0 0 0 9.3 16.2 4.5 4.5 0 0 0 10 25z"/>';
 const WX_CLOUD_LOW = '<path class="cloud" d="M13 27h11a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.4 1.9A3.6 3.6 0 0 0 13 27z"/>';
-const WX_CLOUD_UP = '<path class="cloud" d="M10 20h13a5.5 5.5 0 0 0 .6-11A7.5 7.5 0 0 0 9.3 11.2 4.5 4.5 0 0 0 10 20z"/>';
+const WX_CLOUD_UP =
+  '<path class="cloud" d="M10 20h13a5.5 5.5 0 0 0 .6-11A7.5 7.5 0 0 0 9.3 11.2 4.5 4.5 0 0 0 10 20z"/>';
 const WX_ICON_PARTS = {
   clear: (day) => (day ? WX_SUN : WX_MOON),
   partly: (day) => (day ? WX_SUN_SMALL : WX_MOON_SMALL) + WX_CLOUD_LOW,
@@ -97,7 +99,9 @@ function wxEnds(iso) {
   const d = new Date(iso);
   const opts = { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" };
   const day = d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-  return day === addDaysIso(0) ? d.toLocaleTimeString("en-US", opts) : d.toLocaleString("en-US", { ...opts, weekday: "short" });
+  return day === addDaysIso(0)
+    ? d.toLocaleTimeString("en-US", opts)
+    : d.toLocaleString("en-US", { ...opts, weekday: "short" });
 }
 const wxHourKey = (d = new Date()) => `${addDaysIso(0)}T${String(d.getHours()).padStart(2, "0")}`;
 
@@ -153,7 +157,9 @@ function wxRefreshAlerts() {
   const key = `${l.lat},${l.lon}`;
   if (wxLive && wxLive.key === key && Date.now() - wxLive.at < 10 * 60 * 1000) return;
   wxLive = { key, at: Date.now(), alerts: wxLive && wxLive.key === key ? wxLive.alerts : null };
-  fetch(`https://api.weather.gov/alerts/active?point=${l.lat.toFixed(4)},${l.lon.toFixed(4)}`, { headers: { Accept: "application/geo+json" } })
+  fetch(`https://api.weather.gov/alerts/active?point=${l.lat.toFixed(4)},${l.lon.toFixed(4)}`, {
+    headers: { Accept: "application/geo+json" },
+  })
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => {
       if (!j || !Array.isArray(j.features) || !wxLive || wxLive.key !== key) return;
@@ -168,7 +174,10 @@ function wxRefreshAlerts() {
     .catch(() => {});
 }
 function wxAlertsHtml(w) {
-  const live = wxLive && jarvisSettings.location && wxLive.key === `${jarvisSettings.location.lat},${jarvisSettings.location.lon}` ? wxLive.alerts : null;
+  const live =
+    wxLive && jarvisSettings.location && wxLive.key === `${jarvisSettings.location.lat},${jarvisSettings.location.lon}`
+      ? wxLive.alerts
+      : null;
   const list = (live || w.alerts || []).filter((a) => !a.ends || Date.parse(a.ends) > Date.now());
   return list
     .map(
@@ -216,7 +225,14 @@ function wxHourlyHtml(w) {
     // older briefings: today's waking hours
     hrs = (w.date === addDaysIso(0) ? w.hourlyRain : [])
       .filter((h) => h.tempF != null)
-      .map((h) => ({ time: `${w.date}T${String(h.hour).padStart(2, "0")}:00`, tempF: h.tempF, chance: h.chance, code: null, words: h.conditions, isDay: h.hour >= 7 && h.hour < 18 }));
+      .map((h) => ({
+        time: `${w.date}T${String(h.hour).padStart(2, "0")}:00`,
+        tempF: h.tempF,
+        chance: h.chance,
+        code: null,
+        words: h.conditions,
+        isDay: h.hour >= 7 && h.hour < 18,
+      }));
     fromNow = false;
   }
   if (hrs.length < 2) return "";
@@ -247,9 +263,11 @@ function wxHourlyHtml(w) {
 
 // ---- daily: the forecast days with day and night icons, then the long-range outlook ----
 function wxDayRow(d, today) {
-  const name = d.date === today ? "Today" : new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" });
+  const name =
+    d.date === today ? "Today" : new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" });
   const dayKind = wxKind(d.code, d.code == null ? d.conditions : "");
-  const night = d.nightCode != null ? wxIcon(wxKind(d.nightCode), false) : '<span class="wx-i" aria-hidden="true"></span>';
+  const night =
+    d.nightCode != null ? wxIcon(wxKind(d.nightCode), false) : '<span class="wx-i" aria-hidden="true"></span>';
   const words = (d.code != null && WX_WORDS[d.code]) || d.conditions || "";
   const nightWords = d.nightCode != null ? WX_WORDS[d.nightCode] || "" : "";
   return `<li class="wx-day" aria-label="${escapeAttr(`${name}: ${words}${nightWords ? `, then ${nightWords.toLowerCase()} overnight` : ""}, high ${d.highF}°, low ${d.lowF}°, ${d.rainChance}% rain`)}">
@@ -263,15 +281,24 @@ function wxDailyHtml(w) {
   const today = addDaysIso(0);
   const days = (w.outlook || []).filter((d) => d.kind === "forecast" && d.date >= today);
   const later = (w.outlook || []).filter((d) => d.kind === "outlook" && d.date > today);
-  const first = days.slice(0, 7).map((d) => wxDayRow(d, today)).join("");
-  const rest = days.slice(7).map((d) => wxDayRow(d, today)).join("");
+  const first = days
+    .slice(0, 7)
+    .map((d) => wxDayRow(d, today))
+    .join("");
+  const rest = days
+    .slice(7)
+    .map((d) => wxDayRow(d, today))
+    .join("");
   return `${days.length ? `<div class="wx-head">Daily</div><ol class="wx-days">${first}</ol>` : ""}
     ${rest ? `<details class="wx-more"><summary>${days.length}-day forecast</summary><ol class="wx-days">${rest}</ol></details>` : ""}
     ${wxOutlookHtml(later)}`;
 }
 // Past the forecast (about day 17 to 90): by week, with every day under "Day by day". A trend, and it says so.
 function jvDayLabel(iso, withDow = true) {
-  return new Date(iso + "T12:00:00").toLocaleDateString("en-US", withDow ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric" });
+  return new Date(iso + "T12:00:00").toLocaleDateString(
+    "en-US",
+    withDow ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric" },
+  );
 }
 function jvDayRow(d) {
   return `<div class="jv-hour jv-day" role="row">
@@ -320,16 +347,32 @@ function wxTilesHtml(w, now) {
   const tiles = [];
   if (now.feelsF != null && now.tempF != null) {
     const diff = now.feelsF - now.tempF;
-    tiles.push({ label: "Feels like", value: `${now.feelsF}°`, sub: diff >= 3 ? "Warmer than the actual temperature" : diff <= -3 ? "Colder than the actual temperature" : "Close to the actual temperature" });
+    tiles.push({
+      label: "Feels like",
+      value: `${now.feelsF}°`,
+      sub:
+        diff >= 3
+          ? "Warmer than the actual temperature"
+          : diff <= -3
+            ? "Colder than the actual temperature"
+            : "Close to the actual temperature",
+    });
   }
   if (now.windMph != null)
     tiles.push({
       label: "Wind",
       value: `${now.windMph} mph`,
-      sub: [now.windDir ? `From the ${now.windDir}` : "", now.gustMph ? `gusts ${now.gustMph} mph` : ""].filter(Boolean).join(", ") || "Calm",
+      sub:
+        [now.windDir ? `From the ${now.windDir}` : "", now.gustMph ? `gusts ${now.gustMph} mph` : ""]
+          .filter(Boolean)
+          .join(", ") || "Calm",
     });
   if (now.humidityPct != null)
-    tiles.push({ label: "Humidity", value: `${now.humidityPct}%`, sub: now.humidityPct < 30 ? "Dry" : now.humidityPct < 60 ? "Comfortable" : "Humid" });
+    tiles.push({
+      label: "Humidity",
+      value: `${now.humidityPct}%`,
+      sub: now.humidityPct < 30 ? "Dry" : now.humidityPct < 60 ? "Comfortable" : "Humid",
+    });
   if (w.uvMax != null)
     tiles.push({
       label: "UV index",
@@ -340,7 +383,8 @@ function wxTilesHtml(w, now) {
   if (w.aqi != null) tiles.push({ label: "Air quality", value: `${w.aqi}`, sub: jvAqiLevel(w.aqi), warn: w.aqi > 100 });
   return `<div class="wx-tiles">${tiles
     .map(
-      (t) => `<div class="wx-tile${t.warn ? " warn" : ""}"><span class="wx-tile-l">${t.label}</span><b class="wx-tile-v">${escapeHtml(t.value)}</b><span class="wx-tile-s">${escapeHtml(t.sub)}</span></div>`,
+      (t) =>
+        `<div class="wx-tile${t.warn ? " warn" : ""}"><span class="wx-tile-l">${t.label}</span><b class="wx-tile-v">${escapeHtml(t.value)}</b><span class="wx-tile-s">${escapeHtml(t.sub)}</span></div>`,
     )
     .join("")}${jvPlaceHtml(w)}</div>`;
 }
@@ -358,8 +402,14 @@ function wxSunHtml(w) {
     set = mins(today.set);
   let label, text, frac;
   if (nowM < rise) [label, text, frac] = ["Sunrise", `Sunrise will be at ${wxClock(today.rise)}`, 0];
-  else if (nowM < set) [label, text, frac] = ["Sunset", `Sunset will be at ${wxClock(today.set)}`, (nowM - rise) / (set - rise)];
-  else [label, text, frac] = ["Sunrise", tomorrow ? `Sunrise tomorrow at ${wxClock(tomorrow.rise)}` : `The sun set at ${wxClock(today.set)}`, 1];
+  else if (nowM < set)
+    [label, text, frac] = ["Sunset", `Sunset will be at ${wxClock(today.set)}`, (nowM - rise) / (set - rise)];
+  else
+    [label, text, frac] = [
+      "Sunrise",
+      tomorrow ? `Sunrise tomorrow at ${wxClock(tomorrow.rise)}` : `The sun set at ${wxClock(today.set)}`,
+      1,
+    ];
   const a = Math.PI * (1 - frac);
   const x = (60 + 48 * Math.cos(a)).toFixed(1),
     y = (56 - 48 * Math.sin(a)).toFixed(1);

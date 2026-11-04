@@ -16,7 +16,14 @@ beforeEach(() => {
 const TODAY = "2026-10-29";
 const DATA = {
   "wants-content": [
-    { id: "w1", name: "Rain jacket", kind: "need", price: 120, link: "https://www.rei.com/p/1", meta: "Men's M, black" },
+    {
+      id: "w1",
+      name: "Rain jacket",
+      kind: "need",
+      price: 120,
+      link: "https://www.rei.com/p/1",
+      meta: "Men's M, black",
+    },
     { id: "w2", name: "Belt", price: "$40.00" },
     { id: "w3", name: "No price", price: null },
     { id: "w4", name: "Later", price: 50, later: true },
@@ -61,7 +68,15 @@ describe("Price watcher", () => {
       checkedAt: TODAY,
       items: [
         { id: "w6", name: "Headphones", saved: 300, found: null, store: null, url: null, drop: false },
-        { id: "w1", name: "Rain jacket", saved: 120, found: 90, store: "REI", url: "https://www.rei.com/p/1", drop: true },
+        {
+          id: "w1",
+          name: "Rain jacket",
+          saved: 120,
+          found: 90,
+          store: "REI",
+          url: "https://www.rei.com/p/1",
+          drop: true,
+        },
         { id: "w2", name: "Belt", saved: 40, found: 39, store: null, url: null, drop: false },
       ],
     });
@@ -79,7 +94,10 @@ describe("Price watcher", () => {
       checkedAt: TODAY,
       items: [{ id: "w1", name: "Rain jacket", saved: 120, found: 89, store: "REI", url: null, drop: true }],
     });
-    expect(m.find((x) => x.tag === "price")).toMatchObject({ title: "Price drop on your list", body: "Rain jacket: $89.00 at REI (you saved $120.00)" });
+    expect(m.find((x) => x.tag === "price")).toMatchObject({
+      title: "Price drop on your list",
+      body: "Rain jacket: $89.00 at REI (you saved $120.00)",
+    });
   });
 });
 
@@ -89,8 +107,12 @@ describe("Price watcher in the morning run", () => {
     weather: async () => ({ ...FACTS, summary: "Dry.", wear: "Jacket.", washDayNote: null }),
     news: async () => ({ stories: [{ ...CANDIDATE, summary: "s" }] }),
   };
-  const files = (over: Record<string, string> = {}) => ({ "jazz2-data.json": JSON.stringify({ data: DATA }), ...over }) as Record<string, string>;
-  const gistOf = (f: Record<string, string>): GistClient => ({ readFile: async (n) => f[n] ?? null, writeFile: async (n, c) => void (f[n] = c) });
+  const files = (over: Record<string, string> = {}) =>
+    ({ "jazz2-data.json": JSON.stringify({ data: DATA }), ...over }) as Record<string, string>;
+  const gistOf = (f: Record<string, string>): GistClient => ({
+    readFile: async (n) => f[n] ?? null,
+    writeFile: async (n, c) => void (f[n] = c),
+  });
   const run = (f: Record<string, string>, prices: Subagents["prices"]) =>
     runBriefing({
       now: NOW,
@@ -108,7 +130,10 @@ describe("Price watcher in the morning run", () => {
     const seen: string[][] = [];
     await run(f, async (_d, items, today) => {
       seen.push(items.map((i) => i.id));
-      return { checkedAt: today, items: [{ id: "w1", name: "Rain jacket", saved: 120, found: 90, store: "REI", url: null, drop: true }] };
+      return {
+        checkedAt: today,
+        items: [{ id: "w1", name: "Rain jacket", saved: 120, found: 90, store: "REI", url: null, drop: true }],
+      };
     });
     expect(seen).toEqual([["w6", "w1", "w2"]]);
     expect(JSON.parse(f["jazz2-prices.json"]).checkedAt).toBe(TODAY);

@@ -20,7 +20,11 @@ const clip = (v: unknown, n: number) =>
     .trim()
     .slice(0, n);
 
-export async function fetchAlerts(latitude: number, longitude: number, fetchImpl: typeof fetch): Promise<WeatherAlert[]> {
+export async function fetchAlerts(
+  latitude: number,
+  longitude: number,
+  fetchImpl: typeof fetch,
+): Promise<WeatherAlert[]> {
   try {
     const res = await fetchImpl(alertsUrl(latitude, longitude), {
       // NWS asks every caller to identify itself; no contact details here (the repo is public)

@@ -64,7 +64,11 @@ describe("Ask actions", () => {
     );
     expect(out).toEqual([
       { type: "package_hide", text: "Acme Glow serum", label: 'Dismissed "Acme Glow serum" from Deliveries' },
-      { type: "notice_dismiss", text: "Your Acme Glow serum arrives today.", label: 'Dismissed "Your Acme Glow serum arrives today."' },
+      {
+        type: "notice_dismiss",
+        text: "Your Acme Glow serum arrives today.",
+        label: 'Dismissed "Your Acme Glow serum arrives today."',
+      },
     ]);
   });
 
@@ -150,10 +154,27 @@ describe("Ask actions", () => {
       const fq = fakeQuery([
         {
           structured_output: { ...ASK_OUT, actions: [A("todo_done", { id: todo.id })] },
-          modelUsage: { "claude-opus-5-5": { webSearchRequests: searches, inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 0.01 } } as any,
+          modelUsage: {
+            "claude-opus-5-5": {
+              webSearchRequests: searches,
+              inputTokens: 1,
+              outputTokens: 1,
+              cacheReadInputTokens: 0,
+              cacheCreationInputTokens: 0,
+              costUSD: 0.01,
+            },
+          } as any,
         },
       ]);
-      await runAsk({ gist, now: NOW, trigger: "dispatch", limits: askLimits({}), trace: new Trace(), queryFn: fq.fn, push: null });
+      await runAsk({
+        gist,
+        now: NOW,
+        trigger: "dispatch",
+        limits: askLimits({}),
+        trace: new Trace(),
+        queryFn: fq.fn,
+        push: null,
+      });
       const a = AnswersFile.parse(JSON.parse(files["jazz2-answers.json"])).answers[0];
       if (searches) expect(a.actions).toBeUndefined();
       else expect(a.actions?.map((x) => x.type)).toEqual(["todo_done"]);

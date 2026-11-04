@@ -77,7 +77,12 @@ export const WeekStats = z.object({
   }),
   // bought is null until there's a previous review to compare with; estOpen is everything still to
   // buy (not "later"), like Home's Shopping tile
-  shopping: z.object({ bought: z.array(S(60)).max(8).nullable(), boughtCount: N.nullable(), needsOpen: N, estOpen: Money }),
+  shopping: z.object({
+    bought: z.array(S(60)).max(8).nullable(),
+    boughtCount: N.nullable(),
+    needsOpen: N,
+    estOpen: Money,
+  }),
   // events is null when the calendar isn't connected; busiestDay counts events, to-dos, bills and
   // workouts per day
   nextWeek: z.object({

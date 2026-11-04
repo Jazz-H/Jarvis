@@ -209,7 +209,8 @@ const SHELL_CLICK = {
   "home-todo-edit": (el) => {
     const t = homeRowTodo(el);
     if (!t) return;
-    if (todoPaneOn() && el.closest("#panel-todo")) selectTodo(t.id); // desktop: the details pane
+    if (todoPaneOn() && el.closest("#panel-todo"))
+      selectTodo(t.id); // desktop: the details pane
     else editTodo(t.id);
   },
   // Desktop To-Do details pane (todoDetailsHtml)
@@ -751,7 +752,10 @@ const SHELL_CLICK = {
   },
   "brain-checkin": (el) => {
     const id = el.getAttribute("data-ci-id");
-    brainEditCheckin(id && SAFE_ID.test(id) ? id : null, el.getAttribute("data-preset") === "top3" ? TOP3_CHECKIN : null);
+    brainEditCheckin(
+      id && SAFE_ID.test(id) ? id : null,
+      el.getAttribute("data-preset") === "top3" ? TOP3_CHECKIN : null,
+    );
   },
   "jv-rate": (el) => {
     const v = el.getAttribute("data-vote");

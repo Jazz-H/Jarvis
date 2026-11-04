@@ -35,7 +35,16 @@ const DATA = {
     { id: "b1", name: "Rent", amount: 1450, due: "2026-11-01", repeat: "monthly", autopay: false },
     { id: "b2", name: "Phone", amount: 80, due: "2026-11-10", repeat: "monthly", autopay: true },
     { id: "b3", name: "Gym", amount: 40, due: "2026-10-27", repeat: "monthly", autopay: false }, // overdue
-    { id: "b4", name: "Internet", amount: 120, due: "2026-11-05", repeat: "monthly", autopay: true, group: "joint", share: 50 },
+    {
+      id: "b4",
+      name: "Internet",
+      amount: 120,
+      due: "2026-11-05",
+      repeat: "monthly",
+      autopay: true,
+      group: "joint",
+      share: 50,
+    },
     { id: "b5", name: "Old", amount: 999, due: "2026-10-30", done: true },
   ],
   "bill-payments": [{ id: "p1", billId: "b6", name: "Card", amount: 300, due: "2026-10-20", date: "2026-10-20" }],
@@ -93,7 +102,14 @@ describe("Bill Guard", () => {
       urgent: [],
       needsReply: [],
       bills: [
-        { payee: "City Power", amount: 142, due: "2026-11-04", budgetName: "Electric", budgetAmount: 110, status: "differs" },
+        {
+          payee: "City Power",
+          amount: 142,
+          due: "2026-11-04",
+          budgetName: "Electric",
+          budgetAmount: 110,
+          status: "differs",
+        },
         { payee: "Spotify", amount: 12, due: null, budgetName: null, budgetAmount: null, status: "not-in-budget" },
         { payee: "Rent Co", amount: 1450, due: null, budgetName: "Rent", budgetAmount: 1450, status: "matches" },
       ],
@@ -109,7 +125,13 @@ describe("Bill Guard", () => {
     expect(buildMoneyCard(null, TODAY, null)).toBeNull();
     expect(buildMoneyCard("not json", TODAY, null)).toBeNull();
     const m = buildMoneyCard(
-      raw({ "bills-content": [5, { name: "x".repeat(200), amount: "12", due: "2026-10-30" }, { name: "", due: "2026-10-30" }] }),
+      raw({
+        "bills-content": [
+          5,
+          { name: "x".repeat(200), amount: "12", due: "2026-10-30" },
+          { name: "", due: "2026-10-30" },
+        ],
+      }),
       TODAY,
       null,
     )!;
@@ -127,7 +149,10 @@ describe("Bill Guard in the briefing", () => {
     news: async () => ({ stories: [{ ...CANDIDATE, summary: "s" }] }),
   };
   function gistWith(files: Record<string, string>) {
-    const gist: GistClient = { readFile: async (n) => files[n] ?? null, writeFile: async (n, c) => void (files[n] = c) };
+    const gist: GistClient = {
+      readFile: async (n) => files[n] ?? null,
+      writeFile: async (n, c) => void (files[n] = c),
+    };
     return gist;
   }
 

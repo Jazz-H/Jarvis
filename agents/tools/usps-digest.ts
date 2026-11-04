@@ -15,13 +15,16 @@ const BUCKETS: Record<string, DigestBucket | null> = {
   outbound: null, // what you're sending
 };
 
-export const isDigest = (m: { from: string; subject: string }) => /informed delivery/i.test(m.from) && /daily digest/i.test(m.subject);
+export const isDigest = (m: { from: string; subject: string }) =>
+  /informed delivery/i.test(m.from) && /daily digest/i.test(m.subject);
 
 export function parseDigest(text: string): DigestPackage[] {
   const at = text.indexOf("PACKAGES"); // the MAIL section above it has its own "Expected Today"
   if (at < 0) return [];
   const body = text.slice(at);
-  const heads = [...body.matchAll(/(Expected Today|Expected 1-2 Days|Awaiting From Sender|Outbound)\s+\d+\s+item\(s\)/gi)];
+  const heads = [
+    ...body.matchAll(/(Expected Today|Expected 1-2 Days|Awaiting From Sender|Outbound)\s+\d+\s+item\(s\)/gi),
+  ];
   const out: DigestPackage[] = [];
   heads.forEach((h, i) => {
     const bucket = BUCKETS[h[1].toLowerCase()];
