@@ -65,7 +65,14 @@ export function promptWithAttachments(spec: AgentSpec<unknown>): string | AsyncI
   })();
 }
 
-export class AgentError extends Error {}
+export class AgentError extends Error {
+  // The API turned down this very request (a bad or oversized file, say): asking again gets the same
+  refused: boolean;
+  constructor(message: string, refused = false) {
+    super(message);
+    this.refused = refused;
+  }
+}
 
 // Only what the SDK's subprocess needs to run and reach the API. Gist tokens and anything else
 // in the Action's environment are left out, so an agent can't see them even indirectly.
@@ -103,6 +110,7 @@ export async function runAgent<T>(
   queryFn: QueryFn = query,
 ): Promise<T> {
   let lastProblem = "";
+  let refused = false;
   for (let attempt = 1; attempt <= 2; attempt++) {
     const budget = ledger.budgetFor(spec.name);
     if (budget <= 0) throw new AgentError(lastProblem || "no budget left under MAX_RUN_COST_USD");
@@ -153,6 +161,7 @@ export async function runAgent<T>(
     if (result.is_error) {
       const status = "api_error_status" in result ? result.api_error_status : null;
       lastProblem = `Claude API error${status ? ` ${status}` : ""}`;
+      refused = status === 400 || status === 413 || status === 422;
       if (status && status >= 400 && status < 500 && status !== 429) break; // retrying won't help
       continue;
     }
@@ -166,7 +175,7 @@ export async function runAgent<T>(
     lastProblem = "output didn't match its schema";
     trace.log(spec.name, "invalid output", { issues: parsed.error.issues.length });
   }
-  throw new AgentError(lastProblem || "agent failed");
+  throw new AgentError(lastProblem || "agent failed", refused);
 }
 
 function usualCost(agent: string): number {

@@ -359,6 +359,50 @@ describe("a photo or PDF doesn't stay in the gist once its question is done", ()
     expect(JSON.parse(m.files["jazz2-answers.json"]).answers[0].status).toBe("error");
   });
 
+  it("a model failure keeps the question and its photo for the next run, and still counts what it cost", async () => {
+    const m = memoryGist(app({ "jazz2-ask.json": askFile([item()]), [FILE]: PIC }));
+    const fq = fakeQuery([{ is_error: true, api_error_status: 500, total_cost_usd: 0.25 } as any]);
+    const r = await run(m.gist, { queryFn: fq.fn });
+    expect(r).toMatchObject({ status: "done", answered: [], leftPending: 1 });
+    expect(m.files[FILE]).toBe(PIC);
+    const saved = JSON.parse(m.files["jazz2-answers.json"]);
+    expect(saved.answers).toEqual([]);
+    expect(saved.usage.monthCostUsd).toBeGreaterThan(0);
+    expect(saved.usage.dayCount).toBe(0); // it counts once, when it's answered
+
+    const again = await run(m.gist); // the next run answers it, with the photo
+    expect(again).toMatchObject({ status: "done", leftPending: 0 });
+    const after = JSON.parse(m.files["jazz2-answers.json"]);
+    expect(after.answers[0].status).toBe("ok");
+    expect(after.usage.dayCount).toBe(1);
+    expect(after.usage.monthCostUsd).toBeGreaterThanOrEqual(saved.usage.monthCostUsd);
+    expect(m.files[FILE]).toBeUndefined();
+  });
+
+  it("the model still failing a day later ends in an error", async () => {
+    const m = memoryGist(app({ "jazz2-ask.json": askFile([item({ at: "2026-10-28T13:00:00.000Z" })]), [FILE]: PIC }));
+    const fq = fakeQuery([{ is_error: true, api_error_status: 500 } as any]);
+    const r = await run(m.gist, { queryFn: fq.fn });
+    expect(r).toMatchObject({ status: "done", leftPending: 0 });
+    expect(JSON.parse(m.files["jazz2-answers.json"]).answers[0].status).toBe("error");
+  });
+
+  it("a file the API refuses ends in an error at once: trying again gets the same", async () => {
+    const m = memoryGist(app({ "jazz2-ask.json": askFile([item()]), [FILE]: PIC }));
+    const fq = fakeQuery([{ is_error: true, api_error_status: 400 } as any]);
+    const r = await run(m.gist, { queryFn: fq.fn });
+    expect(r).toMatchObject({ status: "done", leftPending: 0 });
+    expect(JSON.parse(m.files["jazz2-answers.json"]).answers[0].status).toBe("error");
+  });
+
+  it("a question with no file still gets its error answer straight away", async () => {
+    const m = memoryGist(app({ "jazz2-ask.json": askFile([item({ file: undefined })]) }));
+    const fq = fakeQuery([{ is_error: true, api_error_status: 500 } as any]);
+    const r = await run(m.gist, { queryFn: fq.fn });
+    expect(r).toMatchObject({ status: "done", leftPending: 0 });
+    expect(JSON.parse(m.files["jazz2-answers.json"]).answers[0].status).toBe("error");
+  });
+
   it("the same when the photo is gone and the check for another run's answer can't read", async () => {
     const m = memoryGist(app({ "jazz2-ask.json": askFile([item()]) }));
     const realRead = m.gist.readFile;

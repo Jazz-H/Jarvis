@@ -50,7 +50,7 @@ import { CostLedger } from "./lib/cost.ts";
 import { Trace } from "./lib/trace.ts";
 import { notifyPhones } from "./lib/notify.ts";
 import { plainText, tidy } from "./lib/text.ts";
-import { runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
+import { AgentError, runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
 import { sortSpec, cleanSort } from "./subagents/sorter.ts";
 
 export const ASK_SYSTEM = `You are Jarvis, the chief of staff behind a personal dashboard app called Jazz.
@@ -737,7 +737,7 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
     }
     const q = new CostLedger(Math.max(0.0001, Math.min(limits.maxQuestionCostUsd, ledger.budgetFor("ask"))));
     const t0 = Date.now();
-    let answer: Answer;
+    let answer: Answer | null;
     // a sort goes to the Sorter (Haiku, no app data); a question to Jarvis with the context
     const sorting = item.kind === "sort" ? sortSpec(item, ctx!.today, ctx!.weekday) : null;
     const asking = sorting
@@ -811,16 +811,25 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
       };
     } catch (e) {
       trace.log("ask", "model failed", { id: item.id, error: trace.publicError(e) });
-      answer = fixed(item, now, "error", MESSAGES.error);
+      // An error answer closes the question, which deletes the photo, so the owner would have to send it
+      // again. A failure that may pass waits for the next run instead, for up to a day like a failed read.
+      const mayPass = !(e instanceof AgentError && e.refused) && now.getTime() - time(item.at) <= FILE_RETRY_MS;
+      answer = withFile && mayPass ? null : fixed(item, now, "error", MESSAGES.error);
     } finally {
       for (const e of q.entries) ledger.record(e);
       ledger.release("ask");
     }
     modelRuns++;
-    usage.dayCount++;
-    usage.weekCount++;
+    // what it spent counts either way; the question itself counts once, when it's answered
     usage.dayCostUsd = r4(usage.dayCostUsd + q.spentUsd);
     usage.monthCostUsd = r4(usage.monthCostUsd + q.spentUsd);
+    if (!answer) {
+      leftPending++;
+      trace.log("ask", "left for the next run", { id: item.id, reason: "model failed", costUsd: r4(q.spentUsd) });
+      continue;
+    }
+    usage.dayCount++;
+    usage.weekCount++;
     answered.push(answer);
     byId.set(answer.id, answer); // a later follow-up in this run sees it
     trace.log("ask", "answered", {
@@ -838,7 +847,8 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
   }
 
   let newAnswers = answered;
-  if (answered.length || pruned) {
+  // A failed try that's waiting for the next run has no answer to save, but what it cost still counts
+  if (answered.length || pruned || usage.monthCostUsd !== start.monthCostUsd) {
     const delta = {
       dayCount: usage.dayCount - start.dayCount,
       weekCount: usage.weekCount - start.weekCount,
