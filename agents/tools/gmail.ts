@@ -58,9 +58,15 @@ export function senderName(from: string): string {
   return clean(domain, 80);
 }
 
+// "City Power <billing@citypower.example>" → "billing@citypower.example"
+export function senderAddress(from: string): string {
+  const m = /<([^>]+)>/.exec(from);
+  return (m ? m[1] : from).trim().toLowerCase();
+}
+
 export interface Gmail {
   search(q: string, max: number): Promise<RawMail[]>;
-  searchWithText(q: string, max: number): Promise<(RawMail & { text: string })[]>;
+  searchWithText(q: string, max: number): Promise<(RawMail & { text: string; address: string })[]>;
   count(q: string): Promise<number>;
 }
 
@@ -131,7 +137,10 @@ export function gmailClient(accessToken: string, fetchImpl: typeof fetch = fetch
     async searchWithText(q, max) {
       const ids: string[] = ((await list(q, max)).messages ?? []).map((m: any) => String(m.id));
       const msgs = await Promise.all(ids.map((id) => get(`/messages/${encodeURIComponent(id)}?format=full`)));
-      return msgs.map((m) => ({ ...toRaw(m), text: visibleText(m.payload) }));
+      return msgs.map((m) => {
+        const from = (m.payload?.headers ?? []).find((x: any) => String(x.name).toLowerCase() === "from")?.value ?? "";
+        return { ...toRaw(m), text: visibleText(m.payload), address: senderAddress(from) };
+      });
     },
     // Counts the matches (up to COUNT_CAP) instead of trusting resultSizeEstimate, which is a rough
     // guess (it said ~201 for a handful of unread). Past the cap it returns COUNT_CAP ("99+").

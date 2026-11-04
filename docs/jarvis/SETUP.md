@@ -135,7 +135,9 @@ away, so answers come back in about a minute (and as a notification). Without th
 wait for the next morning run.
 
 The key can **only** start, re-run or cancel this repo's Actions. It can't read your secrets,
-your gist, or your code, and it can't push anything. A run with no question waiting does nothing.
+your gist, or your code, and it can't push anything. It can start any workflow in this repo, though,
+including paid briefing runs, so if a key is lost, delete it right away. A monthly spend limit in the
+Anthropic console is the ceiling over all of this.
 1. Open https://github.com/settings/personal-access-tokens/new (a **fine-grained** token).
 2. **Token name:** `Jarvis Ask`. **Expiration:** custom, 1 year (the app warns you 2 weeks before).
 3. **Repository access:** *Only select repositories* → **Jazz2.0**.
@@ -165,7 +167,7 @@ the briefing at about 6:45am (once more about 45 minutes later, in case), the We
 Sundays at about 5:45pm, and check-ins hourly. Its starts are gated like scheduled runs, so it
 never delivers twice.
 
-Its token can **only** start, re-run or cancel this repo's Actions (like the Ask key). It lives
+Its token can **only** start, re-run or cancel this repo's Actions, including paid runs (like the Ask key). It lives
 only in the script's Script Properties: never in the script's code, the app, the gist or the repo.
 1. Make a fine-grained token exactly like section 8 steps 1–5, named `Jarvis alarm clock`
    (this repo only, **Actions: Read and write**, nothing else). Use a new token, not your Ask key,

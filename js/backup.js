@@ -118,7 +118,11 @@ function openSyncModal() {
       then paste the same token into the app on each device. Changes from both devices are
       combined item by item.`,
       },
-      { key: "token", label: "GitHub token", type: "password" },
+      {
+        key: "token",
+        label: connected ? "GitHub token (connected; paste a new one to replace it)" : "GitHub token",
+        type: "password",
+      },
       { type: "html", key: "askToken", label: askKeyFieldHtml() },
       {
         type: "note",
@@ -130,7 +134,7 @@ function openSyncModal() {
       </span>`,
       },
     ],
-    { token: localStorage.getItem("sync-token") || "" },
+    {}, // the token is never put back in the page
     (v) => {
       askKeySave(v.askToken); // the Ask Jarvis key (ask.js); never shown or synced
       if (!v.token) return; // closing without a token (e.g. after a backup) is fine

@@ -192,7 +192,12 @@ async function fetchRemote(gistId) {
   ingestAnswersFile(g.files && g.files[ANSWERS_FILE]); // and Jarvis's answers (read-only)
   const file = g.files && g.files[GIST_FILENAME];
   if (!file) return null;
-  const text = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;
+  let text = file.content;
+  if (file.truncated) {
+    const raw = safeUrl(file.raw_url);
+    if (!raw || new URL(raw).hostname !== "gist.githubusercontent.com") return null;
+    text = await (await fetch(raw)).text();
+  }
   try {
     const p = JSON.parse(text);
     return p && typeof p === "object" && p.data && typeof p.data === "object" ? p : null;

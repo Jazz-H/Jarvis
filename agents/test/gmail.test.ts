@@ -119,6 +119,7 @@ describe("gmail tool", () => {
     ]);
     const [m] = await gmailClient("at", impl).searchWithText("x", 1);
     expect(m.text).toBe("Dog treats & toys");
+    expect(m.address).toBe("s@store.com");
     expect(m.snippet).toBe("Shipped");
     expect(visibleText({ mimeType: "text/plain", body: { data: b64("just plain") } })).toBe("just plain");
     expect(visibleText({})).toBe("");

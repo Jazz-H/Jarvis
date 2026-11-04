@@ -704,7 +704,8 @@ async function main() {
     });
     if (outcome.status === "skipped") console.log(`Skipped: ${outcome.reason}`);
     else {
-      console.log(`Delivered: ${outcome.briefing.headline}`);
+      // the repo's logs are public: never the headline or anything else from the briefing
+      console.log(`Delivered briefing ${outcome.briefing.date} (${outcome.briefing.summaryBy})`);
       writeFileSync(path.join(outDir, "cost.json"), JSON.stringify(outcome.cost, null, 2));
     }
   } catch (e) {

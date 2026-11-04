@@ -15,8 +15,9 @@ const BUCKETS: Record<string, DigestBucket | null> = {
   outbound: null, // what you're sending
 };
 
-export const isDigest = (m: { from: string; subject: string }) =>
-  /informed delivery/i.test(m.from) && /daily digest/i.test(m.subject);
+// By the real sending address too: a display name and subject are easy to fake
+export const isDigest = (m: { from: string; subject: string; address: string }) =>
+  /informed delivery/i.test(m.from) && /daily digest/i.test(m.subject) && /@([a-z0-9-]+\.)*usps\.com$/.test(m.address);
 
 export function parseDigest(text: string): DigestPackage[] {
   const at = text.indexOf("PACKAGES"); // the MAIL section above it has its own "Expected Today"

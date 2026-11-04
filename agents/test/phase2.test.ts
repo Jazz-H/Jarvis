@@ -7,6 +7,7 @@ import { runBriefing, defaultSubagents, type Subagents } from "../jarvis.ts";
 import { Trace } from "../lib/trace.ts";
 import type { Gmail, RawMail } from "../tools/gmail.ts";
 import { CONFIG } from "../config.ts";
+import { isDigest } from "../tools/usps-digest.ts";
 import type { SubagentDeps } from "../subagents/types.ts";
 import type { GistClient } from "../tools/gist.ts";
 import { FACTS, CANDIDATE } from "./fixtures.ts";
@@ -42,7 +43,7 @@ function fakeGmail(items: RawMail[], unread = 14): Gmail & { queries: string[] }
   return {
     queries,
     search: async (q) => (queries.push(q), items),
-    searchWithText: async (q) => (queries.push(q), items.map((m) => ({ ...m, text: "" }))),
+    searchWithText: async (q) => (queries.push(q), items.map((m) => ({ ...m, text: "", address: "" }))),
     count: async () => unread,
   };
 }
@@ -196,6 +197,7 @@ describe("shopper sub-agent", () => {
     date,
     unread: true,
     text: DIGEST,
+    address: "usps@email.informeddelivery.usps.com",
   });
 
   it("reads USPS's digest in code: sender, when, and only the tracking number's last 4; a model never sees it", async () => {
@@ -230,6 +232,7 @@ describe("shopper sub-agent", () => {
         digestMail("2026-11-03T12:35:00Z"),
         {
           ...mail("Amazon.com", "Shipped: a lamp"),
+          address: "ship@amazon.com",
           text: "Your lamp shipped. https://track.example/abc Desk lamp, brass Shipping address Sam Doe 1 Main St",
         },
       ],
@@ -244,6 +247,26 @@ describe("shopper sub-agent", () => {
       "Desk lamp",
       "USPS package (…2222)",
     ]);
+  });
+
+  it("doesn't trust a forged digest: the sending address must be USPS's", async () => {
+    const forged = { ...digestMail("2026-11-03T12:35:00Z"), address: "usps@evil.example" };
+    expect(isDigest(forged)).toBe(false);
+    expect(isDigest({ ...forged, address: "x@notusps.com" })).toBe(false);
+    expect(isDigest(digestMail("2026-11-03T12:35:00Z"))).toBe(true);
+  });
+
+  it("cuts an excerpt at anything shaped like an address, even with no label", () => {
+    expect(orderExcerpt("Dog treats Qty: 1 Sam Doe 12 Oak Tree LN APT 4 Townville")).toBe("Dog treats Qty: 1 Sam Doe");
+    expect(orderExcerpt("Dog treats, 27 count " + "x".repeat(60) + " Townville, NC 28000")).not.toMatch(
+      /28000|Townville/,
+    );
+    expect(orderExcerpt("Your order 123 is on the way! Dog treats")).toBe("Your order 123 is on the way! Dog treats");
+  });
+
+  it("the headline never reaches the public logs", () => {
+    const src = readFileSync(new URL("../jarvis.ts", import.meta.url), "utf8");
+    expect(src).not.toMatch(/console\.\w+\([^\n]*headline/);
   });
 
   it("trims an email to what comes before any address or payment label, 800 characters at most", () => {
