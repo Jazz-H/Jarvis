@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { z } from "zod";
 import { runAgent, agentEnv, dataBlock, AgentError, type AgentSpec } from "../lib/run-agent.ts";
+import { CONFIG } from "../config.ts";
 import { CostLedger } from "../lib/cost.ts";
 import { Trace } from "../lib/trace.ts";
 import { fakeQuery } from "./helpers.ts";
@@ -125,6 +126,96 @@ describe("runAgent", () => {
       throw new Error("auth failed for sk-ant-secret");
     });
     await expect(runAgent(spec, ledger, trace, q.fn)).rejects.toThrow("auth failed for [redacted]");
+  });
+
+  describe("an attempt that ends with no cost report still counts", () => {
+    const seen = (then: () => never) => ({
+      fn: () =>
+        (async function* () {
+          yield { type: "assistant" } as any;
+          then();
+        })(),
+    });
+
+    it("a crash before the model has answered anything isn't charged", async () => {
+      const crash = {
+        fn: () =>
+          (async function* () {
+            yield { type: "system", subtype: "init" } as any;
+            throw new Error("subprocess died");
+          })(),
+      };
+      await expect(runAgent(spec, ledger, trace, crash.fn as any)).rejects.toThrow("subprocess died");
+      expect(ledger.spentUsd).toBe(0);
+    });
+
+    it("a timeout charges the agent's estimate, for each attempt", async () => {
+      const hang = {
+        fn: (params: any) =>
+          (async function* () {
+            await new Promise((_, reject) =>
+              params.options.abortController.signal.addEventListener("abort", () => reject(new Error("aborted"))),
+            );
+          })(),
+      };
+      await expect(runAgent({ ...spec, name: "news", timeoutMs: 1 }, ledger, trace, hang.fn as any)).rejects.toThrow(
+        "timed out",
+      );
+      expect(ledger.spentUsd).toBeCloseTo(CONFIG.costEstimateUsd.news * 2);
+      expect(ledger.entries[0]).toMatchObject({ agent: "news", model: spec.model, inputTokens: 0 });
+    });
+
+    it("a crash once the agent has started charges it too", async () => {
+      const crash = seen(() => {
+        throw new Error("subprocess died");
+      });
+      await expect(runAgent(spec, ledger, trace, crash.fn as any)).rejects.toThrow("subprocess died");
+      expect(ledger.spentUsd).toBeCloseTo(CONFIG.costEstimateUsd.weather * 2);
+    });
+
+    it("never charges more than the budget it was given", async () => {
+      const small = new CostLedger(0.03);
+      const crash = seen(() => {
+        throw new Error("subprocess died");
+      });
+      await expect(runAgent({ ...spec, name: "news" }, small, trace, crash.fn as any)).rejects.toThrow();
+      expect(small.spentUsd).toBeCloseTo(0.03);
+    });
+
+    it("when the estimate uses up the budget, the error is still the real problem", async () => {
+      const small = new CostLedger(0.03);
+      const crash = seen(() => {
+        throw new Error("subprocess died");
+      });
+      await expect(runAgent({ ...spec, name: "news" }, small, trace, crash.fn as any)).rejects.toThrow(
+        "subprocess died",
+      );
+    });
+
+    it("the Sorter is charged its own small estimate", async () => {
+      const crash = seen(() => {
+        throw new Error("subprocess died");
+      });
+      await expect(runAgent({ ...spec, name: "sort" }, ledger, trace, crash.fn as any)).rejects.toThrow();
+      expect(ledger.spentUsd).toBeCloseTo(CONFIG.costEstimateUsd.sort * 2);
+      expect(CONFIG.costEstimateUsd.sort).toBeLessThan(CONFIG.costEstimateUsd.ask);
+    });
+
+    it("an agent with no estimate of its own is charged the Ask one", async () => {
+      const crash = seen(() => {
+        throw new Error("subprocess died");
+      });
+      await expect(runAgent({ ...spec, name: "made-up" }, ledger, trace, crash.fn as any)).rejects.toThrow();
+      expect(ledger.spentUsd).toBeCloseTo(CONFIG.costEstimateUsd.ask * 2);
+    });
+
+    it("a failure before anything started costs nothing", async () => {
+      const q = fakeQuery(() => {
+        throw new Error("couldn't start");
+      });
+      await expect(runAgent(spec, ledger, trace, q.fn)).rejects.toThrow("couldn't start");
+      expect(ledger.spentUsd).toBe(0);
+    });
   });
 
   it("wraps data in an untrusted block that can't be closed from inside", () => {

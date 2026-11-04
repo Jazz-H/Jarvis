@@ -74,6 +74,56 @@ export interface Gmail {
   count(q: string): Promise<number>;
 }
 
+// HTML without its tags, and without what's inside style, script and head. An email is untrusted and
+// can be many megabytes, before any cap applies, so each pass walks it once: every search carries on
+// from the last, and one that finds nothing isn't repeated. A regex here takes minutes on a crafted
+// email. Blocks go first, so a stray "<" before one can't be read as a tag that swallows its opening.
+const HIDDEN_BLOCK = /<(style|script|head)\b/y;
+function withoutHiddenBlocks(html: string): string {
+  const lower = html.replace(/[A-Z]+/g, (s) => s.toLowerCase()); // the same length, so positions match
+  const unclosed = new Set<string>();
+  const out: string[] = [];
+  let at = 0;
+  let from = 0;
+  for (;;) {
+    const open = html.indexOf("<", from);
+    if (open < 0) break;
+    from = open + 1;
+    HIDDEN_BLOCK.lastIndex = open;
+    const name = HIDDEN_BLOCK.exec(lower)?.[1];
+    if (!name || unclosed.has(name)) continue;
+    const closer = `</${name}>`;
+    const close = lower.indexOf(closer, open);
+    if (close < 0) {
+      unclosed.add(name); // none from here on, so only its tag can go, in the next pass
+      continue;
+    }
+    out.push(html.slice(at, open), " ");
+    at = from = close + closer.length;
+  }
+  out.push(html.slice(at));
+  return out.join("");
+}
+// A tag starts with a letter, "/", "!" or "?". Any other "<" is text ("a < b", "<3"), and stays.
+const TAG_START = /[a-zA-Z/!?]/;
+function withoutTags(html: string): string {
+  const out: string[] = [];
+  let at = 0;
+  let from = 0;
+  for (;;) {
+    const open = html.indexOf("<", from);
+    if (open < 0) break;
+    from = open + 1;
+    if (!TAG_START.test(html.charAt(from))) continue;
+    const end = html.indexOf(">", from);
+    if (end < 0) break; // no ">" left, so no more tags
+    out.push(html.slice(at, open), " ");
+    at = from = end + 1;
+  }
+  out.push(html.slice(at));
+  return out.join("");
+}
+
 // What a message's body shows when read: its HTML with the tags gone (some senders, like USPS, put
 // nothing useful in the plain part), else the plain part. Attachments are never decoded.
 export function visibleText(payload: any): string {
@@ -90,9 +140,7 @@ export function visibleText(payload: any): string {
   walk(payload);
   const text =
     found.html !== undefined
-      ? found.html
-          .replace(/<(style|script|head)\b[\s\S]*?<\/\1>/gi, " ")
-          .replace(/<[^>]+>/g, " ")
+      ? withoutTags(withoutHiddenBlocks(found.html))
           .replace(/&#(\d{1,7});|&#x([0-9a-f]{1,6});/gi, (_, d, x) => {
             const n = d ? Number(d) : parseInt(x, 16);
             return n <= 0x10ffff ? String.fromCodePoint(n) : " ";

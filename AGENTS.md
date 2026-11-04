@@ -36,7 +36,7 @@ that file before any Jarvis work, and README.md before any app work.
   (`orderExcerpt`) before Deliveries' model sees them, and reads USPS's digest itself. Never log or
   store email text.
 - The backend never writes the app's gist files; its only exception is deleting a question's
-  `jazz2-file-*.json` once Ask has answered it. An answer about a file may only add (to-dos,
+  `jazz2-file-*.json` once that question is no longer open. An answer about a file may only add (to-dos,
   Shopping, memory).
 - Ask Jarvis may return small actions, only the types in `agents/schemas/ask.ts` `ACTION_TYPES`
   (to-dos, Jazz 3.0 goal items, Shopping, weight, today's workout, dismissing one of this morning's

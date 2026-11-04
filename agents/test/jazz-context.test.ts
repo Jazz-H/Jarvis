@@ -98,6 +98,22 @@ describe("jazz context", () => {
     ]);
     expect(c.weightGoalPct).toBe(50);
     expect(buildJazzContext(gist({}), TODAY)).toMatchObject({ shoppingNeeds: [], goals: [], weightGoalPct: null });
+    // a merge can leave the newest weigh-in anywhere in the list
+    const merged = buildJazzContext(
+      gist({
+        "fitness-content": {
+          start: 200,
+          goal: 180,
+          weights: [
+            { date: "2026-07-01", lbs: 200 },
+            { date: "2026-07-20", lbs: 190 },
+            { date: "2026-07-10", lbs: 195 },
+          ],
+        },
+      }),
+      TODAY,
+    );
+    expect(merged.weightGoalPct).toBe(50);
   });
 
   it("adds days across months", () => {

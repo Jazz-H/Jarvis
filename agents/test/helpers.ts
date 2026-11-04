@@ -52,12 +52,21 @@ export function fakeQuery(results: Partial<Extract<SDKMessage, { type: "result" 
 // An in-memory Gist: reads from `files`, records every write. Nothing touches the network.
 export function memoryGist(files: Record<string, string> = {}) {
   const writes: [string, string][] = [];
+  const deleted: string[][] = [];
   const gist: GistClient = {
     readFile: async (n) => files[n] ?? null,
     writeFile: async (n, c) => {
       writes.push([n, c]);
       files[n] = c;
     },
+    snapshot: async () => {
+      const copy = { ...files };
+      return { names: Object.keys(copy), read: async (n) => copy[n] ?? null };
+    },
+    deleteFiles: async (names) => {
+      deleted.push(names);
+      names.forEach((n) => delete files[n]);
+    },
   };
-  return { gist, writes, files };
+  return { gist, writes, files, deleted };
 }

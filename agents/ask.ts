@@ -173,21 +173,22 @@ export interface AskQueue {
   items: AskItem[]; // valid "ask" items, oldest first
   clearBefore: string | null;
   junk: boolean; // something in the file was unreadable and was skipped
+  heldFiles: string[]; // files named by questions left out of items (too old, or an unknown kind)
 }
 
 // jazz2-ask.json is the app's file and untrusted: each item is checked on its own, text over
 // 1,000 characters is cut, a bad thread id is dropped, anything else invalid is skipped.
 // "ask" and "sort" items are read; other kinds are left alone. Only questions have threads.
 export function readAskFile(raw: string | null): AskQueue {
-  if (!raw) return { items: [], clearBefore: null, junk: false };
+  if (raw == null) return { items: [], clearBefore: null, junk: false, heldFiles: [] };
   let j: any;
   try {
     j = JSON.parse(raw);
   } catch {
-    return { items: [], clearBefore: null, junk: true };
+    return { items: [], clearBefore: null, junk: true, heldFiles: [] };
   }
   if (!j || typeof j !== "object" || j.version !== 1 || !Array.isArray(j.items))
-    return { items: [], clearBefore: null, junk: true };
+    return { items: [], clearBefore: null, junk: true, heldFiles: [] };
   let junk = false;
   const items: AskItem[] = [];
   for (const x of j.items.slice(0, 100)) {
@@ -218,7 +219,12 @@ export function readAskFile(raw: string | null): AskQueue {
     .sort((a, b) => time(a.x.at) - time(b.x.at) || a.i - b.i)
     .map((e) => e.x)
     .slice(-CONFIG.ask.pendingKept);
-  return { items: sorted, clearBefore: cb, junk };
+  // Not read here doesn't mean finished: those questions' files aren't this run's to delete
+  const read = new Set(sorted.map((x) => x.id));
+  const heldFiles: string[] = j.items
+    .filter((x: any) => typeof x?.file === "string" && ASK_FILE_NAME.test(x.file) && !read.has(x.id))
+    .map((x: any) => x.file);
+  return { items: sorted, clearBefore: cb, junk, heldFiles };
 }
 
 export interface UsagePeriods {
@@ -251,28 +257,38 @@ export interface StoredAnswers {
   junk: boolean;
 }
 
-// jazz2-answers.json: answers that still pass the schema are kept, anything else is dropped
+// jazz2-answers.json: answers that still pass the schema are kept, anything else is dropped. This
+// file is also the month's spending and the record of what's been answered. Starting those over
+// would lift the budget and pay for old questions again, so a file that has lost them stops the run
+// (the workflow fails) until it's repaired or deleted by hand.
 export function readAnswersFile(raw: string | null, now: Date): StoredAnswers {
   const p = usagePeriods(now);
-  if (!raw) return { answers: [], usage: rollUsage(null, p), junk: false };
+  if (raw == null) return { answers: [], usage: rollUsage(null, p), junk: false };
   let j: any;
   try {
     j = JSON.parse(raw);
   } catch {
-    return { answers: [], usage: rollUsage(null, p), junk: true };
+    j = null;
   }
-  const list = Array.isArray(j?.answers) ? j.answers.slice(0, 200) : [];
+  const u = AskUsage.safeParse(j?.usage);
+  if (!Array.isArray(j?.answers) || !u.success) throw new Error(`${CONFIG.gistFiles.answers} can't be read`);
+  const list = j.answers.slice(0, 200);
   const answers: Answer[] = [];
   for (const a of list) {
     const r = Answer.safeParse(a);
     if (r.success && !answers.some((x) => x.id === r.data.id)) answers.push(r.data);
   }
-  const u = AskUsage.safeParse(j?.usage);
-  return {
-    answers,
-    usage: rollUsage(u.success ? u.data : null, p),
-    junk: answers.length < list.length || !Array.isArray(j?.answers) || !u.success,
-  };
+  return { answers, usage: rollUsage(u.data, p), junk: answers.length < list.length };
+}
+
+// The questions still to be answered. When the answers list is full, a question older than the oldest
+// kept answer was answered and has since rolled off; it isn't asked again.
+function openQuestions(queue: AskQueue, answers: Answer[]): AskItem[] {
+  const cb = queue.clearBefore ? time(queue.clearBefore) : null;
+  const answered = new Set(answers.map((a) => a.id));
+  const times = answers.map((a) => time(a.askedAt)).filter(Number.isFinite); // one bad date mustn't close them all
+  const oldestKept = answers.length >= CONFIG.ask.answersKept && times.length ? Math.min(...times) : -Infinity;
+  return queue.items.filter((x) => !answered.has(x.id) && (cb == null || time(x.at) >= cb) && time(x.at) >= oldestKept);
 }
 
 // ---- limits ----
@@ -535,9 +551,7 @@ export function cleanAskOutput(
       : [];
   // a photo or PDF can carry someone else's words: from a file Jarvis may only add things
   const actions = withFile
-    ? all.filter(
-        (a) => a.type === "todo_add" || a.type === "shopping_add" || a.type === "remember" || a.type === "note_add",
-      )
+    ? all.filter((a) => a.type === "todo_add" || a.type === "shopping_add" || a.type === "remember")
     : all;
   const links = webSearches > 0 || driveReads > 0 ? cleanLinks(out.links) : [];
   return {
@@ -561,6 +575,7 @@ export interface AskDeps {
   queryFn?: QueryFn;
   push?: Sender | null;
   drive?: (() => Promise<Drive>) | null; // Google Drive (read-only), when the Google secrets are set
+  saveRetryMs?: number; // the wait between tries at saving the answers (tests set 0)
 }
 
 export type AskOutcome =
@@ -608,6 +623,33 @@ export function askPush(answered: Answer[]): PushMessage {
 }
 
 const r4 = (n: number) => Math.round(n * 10_000) / 10_000;
+const SAVE_TRIES = 3;
+const SAVE_RETRY_MS = 5_000;
+const FILE_RETRY_MS = 24 * 60 * 60 * 1000;
+
+// A photo or PDF stays in the gist only while its question is open. This goes by what's in the gist,
+// not what this run read, so it also catches a refused or cleared question, one the app has since
+// dropped from its list, and a delete that failed last time. It all comes from one read of the gist,
+// and the app writes a question and its file in one go, so any file seen here has its question seen
+// too. A list it can't fully read might be hiding a file's question, so nothing goes. Never fails the run.
+async function deleteFinishedFiles({ gist, trace, now }: AskDeps): Promise<void> {
+  if (!gist.snapshot || !gist.deleteFiles) return;
+  try {
+    const snap = await gist.snapshot();
+    const names = snap.names.filter((n) => ASK_FILE_NAME.test(n));
+    if (!names.length) return;
+    const queue = readAskFile(await snap.read(CONFIG.gistFiles.ask));
+    if (queue.junk) return;
+    const { answers } = readAnswersFile(await snap.read(CONFIG.gistFiles.answers), now);
+    const open = new Set([...openQuestions(queue, answers).map((x) => x.file), ...queue.heldFiles]);
+    const done = names.filter((n) => !open.has(n));
+    if (!done.length) return;
+    await gist.deleteFiles(done);
+    trace.log("ask", "files deleted", { count: done.length });
+  } catch (e) {
+    trace.log("ask", "files not deleted", { error: trace.publicError(e) });
+  }
+}
 
 export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
   const { gist, trace, limits, now } = deps;
@@ -621,15 +663,11 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
   const cb = queue.clearBefore ? time(queue.clearBefore) : null;
   const cleared = (iso: string) => cb != null && time(iso) < cb;
   const answeredIds = new Set(stored.answers.map((a) => a.id));
-  // When the answers list is full, a question older than the oldest kept answer was answered and
-  // has since rolled off; it isn't asked again
-  const full = stored.answers.length >= CONFIG.ask.answersKept;
-  const oldestKept = full ? Math.min(...stored.answers.map((a) => time(a.askedAt))) : -Infinity;
   // The owner's data is read up front: check-ins that are due join the questions
   const data = parseJazzData(await gist.readFile(CONFIG.gistFiles.data));
   const checks = dueCheckins(readBrain(data), now, CONFIG.timezone, answeredIds);
   const pending: PendingItem[] = [
-    ...queue.items.filter((x) => !answeredIds.has(x.id) && !cleared(x.at) && time(x.at) >= oldestKept),
+    ...openQuestions(queue, stored.answers),
     ...checks.map((c) => ({
       id: c.id,
       kind: "ask" as const,
@@ -646,7 +684,10 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
     checkins: checks.length,
     pruned,
   });
-  if (!pending.length && !pruned) return { status: "idle", reason: "nothing pending" };
+  if (!pending.length && !pruned) {
+    await deleteFinishedFiles(deps);
+    return { status: "idle", reason: "nothing pending" };
+  }
 
   let ctx: AskContext | null = null;
   if (pending.length) {
@@ -670,7 +711,6 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
   const answered: Answer[] = [];
   let modelRuns = 0,
     leftPending = 0;
-  const filesDone: string[] = []; // photos and PDFs read this run: deleted once the answers are saved
   // Google Drive, signed in at most once per run and only if a question uses it
   let driveOnce: Promise<Drive> | null = null;
   const drive = deps.drive ? () => (driveOnce ??= deps.drive!()) : null;
@@ -706,16 +746,48 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
     const spec = (sorting ?? asking)!;
     let withFile = false;
     if (asking && item.file) {
+      let raw: string | null;
       try {
-        const f = AskAttachment.safeParse(JSON.parse((await gist.readFile(item.file)) ?? "null"));
-        if (f.success) {
-          asking.attachments = [{ mime: f.data.mime, data: f.data.data }];
-          withFile = true;
-        } else trace.log("ask", "file unreadable", { id: item.id });
+        raw = await gist.readFile(item.file);
+        // Gone: another run (the morning's, say) may have finished this question and deleted the file.
+        // Answering again would pay for an answer that can't see it.
+        if (raw === null) {
+          const latest = readAnswersFile(await gist.readFile(CONFIG.gistFiles.answers), now);
+          if (latest.answers.some((a) => a.id === item.id)) {
+            ledger.release("ask");
+            trace.log("ask", "already answered by another run", { id: item.id });
+            continue;
+          }
+        }
       } catch (e) {
-        trace.log("ask", "file unreadable", { id: item.id, error: trace.publicError(e) });
+        // A failed read says nothing about the file. Answering without it would pay for a useless
+        // answer and then delete the photo, so the question waits for the next run. Not forever: a
+        // day on, the owner is told it couldn't be answered, so it doesn't sit there unanswered.
+        ledger.release("ask");
+        if (now.getTime() - time(item.at) > FILE_RETRY_MS) {
+          answered.push(fixed(item, now, "error", MESSAGES.error));
+          trace.log("ask", "answered", { id: item.id, status: "error", reason: "file not read" });
+          continue;
+        }
+        leftPending++;
+        trace.log("ask", "left for the next run", {
+          id: item.id,
+          reason: "file not read",
+          error: trace.publicError(e),
+        });
+        continue;
       }
-      filesDone.push(item.file);
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(raw ?? "null");
+      } catch {
+        // checked just below: a file that isn't JSON is unreadable like any other bad one
+      }
+      const f = AskAttachment.safeParse(parsed);
+      if (f.success) {
+        asking.attachments = [{ mime: f.data.mime, data: f.data.data }];
+        withFile = true;
+      } else trace.log("ask", "file unreadable", { id: item.id });
     }
     try {
       const out = sorting
@@ -765,58 +837,85 @@ export async function runAsk(deps: AskDeps): Promise<AskOutcome> {
     });
   }
 
+  let newAnswers = answered;
   if (answered.length || pruned) {
-    // Re-read just before writing, so answers another run wrote meanwhile are kept and its usage
-    // is added to, not overwritten. A failed read stops here without writing.
-    const fresh = readAnswersFile(await gist.readFile(CONFIG.gistFiles.answers), now);
     const delta = {
       dayCount: usage.dayCount - start.dayCount,
       weekCount: usage.weekCount - start.weekCount,
       dayCostUsd: usage.dayCostUsd - start.dayCostUsd,
       monthCostUsd: usage.monthCostUsd - start.monthCostUsd,
     };
-    const merged: AskUsage = {
-      ...fresh.usage,
-      dayCount: Math.min(100_000, fresh.usage.dayCount + delta.dayCount),
-      weekCount: Math.min(100_000, fresh.usage.weekCount + delta.weekCount),
-      dayCostUsd: r4(fresh.usage.dayCostUsd + delta.dayCostUsd),
-      monthCostUsd: r4(fresh.usage.monthCostUsd + delta.monthCostUsd),
-    };
-    const mine = new Set(answered.map((a) => a.id));
-    const answers = [...answered, ...fresh.answers.filter((a) => !mine.has(a.id) && !cleared(a.askedAt))]
-      .map((a, i) => ({ a, i }))
-      .sort((x, y) => time(y.a.answeredAt) - time(x.a.answeredAt) || time(y.a.askedAt) - time(x.a.askedAt) || x.i - y.i)
-      .map((e) => e.a)
-      .slice(0, CONFIG.ask.answersKept);
-    await gist.writeFile(
-      CONFIG.gistFiles.answers,
-      JSON.stringify(AnswersFile.parse({ version: 1, answers, usage: merged })),
-    );
-    trace.log("ask", "answers written", {
-      answered: answered.length,
-      ok: answered.filter((a) => a.status === "ok").length,
-      overLimit: answered.filter((a) => a.status === "over_limit").length,
-      errors: answered.filter((a) => a.status === "error").length,
-      leftPending,
-      pruned,
-      kept: answers.length,
-      dayCount: merged.dayCount,
-      weekCount: merged.weekCount,
-      dayCostUsd: merged.dayCostUsd,
-      monthCostUsd: merged.monthCostUsd,
-      ms: Date.now() - started,
-    });
-  }
-  // the photos and PDFs read this run aren't needed any more (a failed delete is retried next run)
-  if (filesDone.length && gist.deleteFiles)
-    try {
-      await gist.deleteFiles(filesDone);
-      trace.log("ask", "files deleted", { count: filesDone.length });
-    } catch (e) {
-      trace.log("ask", "files not deleted", { error: trace.publicError(e) });
+    // These answers and their cost are paid for and exist nowhere else yet, so a GitHub hiccup is
+    // tried again rather than throwing them away. Each try re-reads just before writing, so answers
+    // another run wrote meanwhile are kept and its usage is added to, not overwritten. If every try
+    // fails nothing is written and the run fails.
+    let body = ""; // what the last try sent: a write can land and still report a failure
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const raw = await gist.readFile(CONFIG.gistFiles.answers);
+        const fresh = readAnswersFile(raw, now);
+        const landed =
+          body &&
+          (raw === body ||
+            fresh.answers.some((a) => newAnswers.some((n) => n.id === a.id && n.answeredAt === a.answeredAt)));
+        if (landed) {
+          trace.log("ask", "answers written", { answered: newAnswers.length, attempt, landedEarlier: true });
+          break;
+        }
+        const merged: AskUsage = {
+          ...fresh.usage,
+          dayCount: Math.min(100_000, fresh.usage.dayCount + delta.dayCount),
+          weekCount: Math.min(100_000, fresh.usage.weekCount + delta.weekCount),
+          dayCostUsd: r4(fresh.usage.dayCostUsd + delta.dayCostUsd),
+          monthCostUsd: r4(fresh.usage.monthCostUsd + delta.monthCostUsd),
+        };
+        // Another run may have answered one of these meanwhile: the answer already saved stays, unless
+        // all it says is that it couldn't answer
+        const saved = new Map(fresh.answers.map((a) => [a.id, a]));
+        newAnswers = answered.filter((a) => {
+          const had = saved.get(a.id);
+          return !had || (had.status === "error" && a.status !== "error");
+        });
+        const replaced = new Set(newAnswers.map((a) => a.id));
+        const answers = [...newAnswers, ...fresh.answers.filter((a) => !cleared(a.askedAt) && !replaced.has(a.id))]
+          .map((a, i) => ({ a, i }))
+          .sort(
+            (x, y) => time(y.a.answeredAt) - time(x.a.answeredAt) || time(y.a.askedAt) - time(x.a.askedAt) || x.i - y.i,
+          )
+          .map((e) => e.a)
+          .slice(0, CONFIG.ask.answersKept);
+        body = JSON.stringify(AnswersFile.parse({ version: 1, answers, usage: merged }));
+        await gist.writeFile(CONFIG.gistFiles.answers, body);
+        trace.log("ask", "answers written", {
+          answered: newAnswers.length,
+          ok: newAnswers.filter((a) => a.status === "ok").length,
+          overLimit: newAnswers.filter((a) => a.status === "over_limit").length,
+          errors: newAnswers.filter((a) => a.status === "error").length,
+          leftPending,
+          pruned,
+          kept: answers.length,
+          dayCount: merged.dayCount,
+          weekCount: merged.weekCount,
+          dayCostUsd: merged.dayCostUsd,
+          monthCostUsd: merged.monthCostUsd,
+          ms: Date.now() - started,
+        });
+        break;
+      } catch (e) {
+        trace.log("ask", "answers not saved", {
+          attempt,
+          unsavedAnswers: answered.length,
+          unsavedCostUsd: r4(delta.monthCostUsd),
+          error: trace.publicError(e),
+        });
+        if (attempt >= SAVE_TRIES) throw e;
+        await new Promise((done) => setTimeout(done, deps.saveRetryMs ?? SAVE_RETRY_MS));
+      }
     }
-  if (answered.length && deps.push) await notifyPhones(gist, deps.push, [askPush(answered)], trace);
-  return { status: "done", answered, leftPending, pruned, cost: ledger ? ledger.summary() : null };
+  }
+  if (newAnswers.length && deps.push) await notifyPhones(gist, deps.push, [askPush(newAnswers)], trace);
+  await deleteFinishedFiles(deps); // after the answers are saved, so a failed save keeps the files
+  return { status: "done", answered: newAnswers, leftPending, pruned, cost: ledger ? ledger.summary() : null };
 }
 
 // Option B: the morning briefing and the Sunday review answer whatever is still pending after

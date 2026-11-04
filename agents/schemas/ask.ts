@@ -40,7 +40,7 @@ export const AskItem = z.object({
 export type AskItem = z.infer<typeof AskItem>;
 
 // A photo or PDF sent with a question: its own gist file, written by the app with the question and
-// deleted by the Ask run once it's answered. Only these types, at most ~4.5 MB of base64.
+// deleted by the Ask run once that question is no longer open. Only these types, at most ~4.5 MB of base64.
 export const ATTACH_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"] as const;
 export const AskAttachment = z.object({
   version: z.literal(1),

@@ -449,9 +449,9 @@ describe("Ask files", () => {
       ["ask-0002", 6, "ask-0001"],
       ["ask-0003", 5, null],
     ]);
-    for (const raw of [null, ""]) expect(readAskFile(raw)).toEqual({ items: [], clearBefore: null, junk: false });
-    for (const raw of ["not json", "[]", '{"version":2,"items":[]}', '{"version":1}'])
-      expect(readAskFile(raw)).toEqual({ items: [], clearBefore: null, junk: true });
+    expect(readAskFile(null)).toEqual({ items: [], clearBefore: null, junk: false, heldFiles: [] });
+    for (const raw of ["", "not json", "[]", '{"version":2,"items":[]}', '{"version":1}'])
+      expect(readAskFile(raw)).toEqual({ items: [], clearBefore: null, junk: true, heldFiles: [] });
     // at most the 20 newest
     const many = readAskFile(askFile(ids(25).map((id, i) => q(id, "q", at(i)))));
     expect(many.items.map((i) => i.id)).toEqual(ids(20, 6));
@@ -489,20 +489,38 @@ describe("Ask files", () => {
     expect((await runAsk(deps({ gist: g.gist }))).status).toBe("idle");
   });
 
-  it("drops stored answers that fail the schema and starts usage over if it's unreadable", async () => {
+  it("drops single stored answers that fail the schema", async () => {
     const good = okAnswer("ask-0009", at(-60));
     const bad = { ...good, id: "ask-0008", text: "x".repeat(1201) };
     const r = readAnswersFile(
-      JSON.stringify({ version: 1, answers: [good, bad, { ...good, status: "<b>" }], usage: { day: 1 } }),
+      JSON.stringify({ version: 1, answers: [good, bad, { ...good, status: "<b>" }], usage: usage() }),
       NOW,
     );
     expect(r).toEqual({ answers: [good], usage: usage(), junk: true });
-    expect(readAnswersFile("not json", NOW)).toEqual({ answers: [], usage: usage(), junk: true });
     const g = memoryGist(
-      files({ "jazz2-answers.json": JSON.stringify({ version: 1, answers: [good, bad], usage: { day: 1 } }) }),
+      files({ "jazz2-answers.json": JSON.stringify({ version: 1, answers: [good, bad], usage: usage() }) }),
     );
     await runAsk(deps({ gist: g.gist }));
     expect(stored(g).answers.map((a) => a.id)).toEqual(["ask-0001", "ask-0009"]);
+  });
+
+  it("stops if it can't read the answers file: no spending count means no model calls and no re-billing", async () => {
+    const good = okAnswer("ask-0009", at(-60));
+    const unreadable = [
+      "not json",
+      "[]",
+      JSON.stringify({ version: 1, answers: "nope", usage: usage() }),
+      JSON.stringify({ version: 1, answers: [good], usage: { day: 1 } }),
+      JSON.stringify({ version: 1, answers: [good] }),
+    ];
+    for (const raw of unreadable) {
+      expect(() => readAnswersFile(raw, NOW)).toThrow(/jazz2-answers\.json/);
+      const g = memoryGist(files({ "jazz2-answers.json": raw }));
+      const fq = fakeQuery([{ structured_output: ASK_OUT }]);
+      await expect(runAsk(deps({ gist: g.gist, queryFn: fq.fn }))).rejects.toThrow(/jazz2-answers\.json/);
+      expect(fq.seen).toHaveLength(0);
+      expect(g.writes).toEqual([]);
+    }
   });
 
   it("clearBefore deletes older answers and skips older questions", async () => {
@@ -563,6 +581,81 @@ describe("Ask files", () => {
     expect(s.answers.map((a) => a.id)).toEqual(["ask-0001", "ask-0777"]);
     expect(s.usage).toEqual(usage({ dayCount: 5, dayCostUsd: 0.201, weekCount: 7, monthCostUsd: 1.001 }));
   });
+
+  it("an answer another run saved first isn't replaced, and its cost still counts", async () => {
+    const other = okAnswer("ask-0001", at(2), "The first run's answer.");
+    const { gist, files: f } = memoryGist(files());
+    let reads = 0;
+    const racing: GistClient = {
+      readFile: async (n) => {
+        if (n === "jazz2-answers.json" && reads++ === 1) return answersFile([other]);
+        return f[n] ?? null;
+      },
+      writeFile: gist.writeFile,
+    };
+    const r = await done(runAsk(deps({ gist: racing })));
+    const s = stored({ files: f });
+    expect(s.answers.map((a) => a.text)).toEqual(["The first run's answer."]);
+    expect(s.usage.monthCostUsd).toBeCloseTo(0.001);
+    expect(r.answered).toEqual([]); // what the logs count: answers this run actually saved
+  });
+
+  it("a save that landed but reported failure isn't counted twice", async () => {
+    const { gist, files: f } = memoryGist(files());
+    let writes = 0;
+    const lostReply: GistClient = {
+      readFile: gist.readFile,
+      writeFile: async (n, c) => {
+        await gist.writeFile(n, c);
+        if (writes++ === 0) throw new Error("GitHub API 502 writing");
+      },
+    };
+    const r = await done(runAsk(deps({ gist: lostReply, saveRetryMs: 0 })));
+    expect(writes).toBe(1);
+    expect(stored({ files: f }).usage.monthCostUsd).toBeCloseTo(0.001);
+    expect(stored({ files: f }).usage.dayCount).toBe(1);
+    expect(r.answered.map((a) => a.id)).toEqual(["ask-0001"]);
+  });
+
+  it("another run's error doesn't beat a good answer this run paid for", async () => {
+    const failed = { ...okAnswer("ask-0001", at(2), "Couldn't answer"), status: "error" };
+    const { gist, files: f } = memoryGist(files());
+    let reads = 0;
+    const racing: GistClient = {
+      readFile: async (n) => {
+        if (n === "jazz2-answers.json" && reads++ === 1) return answersFile([failed as any]);
+        return f[n] ?? null;
+      },
+      writeFile: gist.writeFile,
+    };
+    const r = await done(runAsk(deps({ gist: racing })));
+    expect(stored({ files: f }).answers.map((a) => a.status)).toEqual(["ok"]);
+    expect(r.answered).toHaveLength(1);
+  });
+
+  it("a hiccup while saving is tried again, so a paid answer and its cost aren't lost", async () => {
+    for (const hiccup of ["read", "write"]) {
+      const { gist, files: f } = memoryGist(files());
+      let reads = 0,
+        writes = 0;
+      const flaky: GistClient = {
+        readFile: async (n) => {
+          if (hiccup === "read" && n === "jazz2-answers.json" && reads++ === 1)
+            throw new Error("GitHub API 502 reading the gist");
+          return f[n] ?? null;
+        },
+        writeFile: async (n, c) => {
+          if (hiccup === "write" && writes++ === 0) throw new Error("GitHub API 502 writing");
+          await gist.writeFile(n, c);
+        },
+      };
+      const fq = fakeQuery([{ structured_output: ASK_OUT }]);
+      await runAsk(deps({ gist: flaky, queryFn: fq.fn, saveRetryMs: 0 }));
+      expect(fq.seen).toHaveLength(1);
+      expect(stored({ files: f }).answers.map((a) => a.id)).toEqual(["ask-0001"]);
+      expect(stored({ files: f }).usage.monthCostUsd).toBeCloseTo(0.001);
+    }
+  });
 });
 
 describe("Ask safety", () => {
@@ -582,18 +675,18 @@ describe("Ask safety", () => {
       expect(writes).toEqual([]);
       expect(fq.seen).toHaveLength(0);
     }
-    // the re-read just before writing fails too: still nothing written
+    // the re-read just before writing keeps failing: still nothing written, and the run says so
     const { files: f } = memoryGist(files());
     let n = 0;
     const writes: string[] = [];
     const late: GistClient = {
       readFile: async (name) => {
-        if (name === "jazz2-answers.json" && n++ === 1) throw new Error("GitHub API 500 reading the gist");
+        if (name === "jazz2-answers.json" && n++ >= 1) throw new Error("GitHub API 500 reading the gist");
         return f[name] ?? null;
       },
       writeFile: async (name) => void writes.push(name),
     };
-    await expect(runAsk(deps({ gist: late }))).rejects.toThrow("500");
+    await expect(runAsk(deps({ gist: late, saveRetryMs: 0 }))).rejects.toThrow("500");
     expect(writes).toEqual([]);
   });
 

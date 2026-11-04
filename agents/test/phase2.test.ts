@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { runCalendar, calendarSpec } from "../subagents/calendar.ts";
 import { runInbox, inboxSpec, checkBills, sameName } from "../subagents/inbox.ts";
-import { runShopper, carrierOf, digestPackages, orderExcerpt } from "../subagents/shopper.ts";
+import { runShopper, carrierOf, digestPackages, orderExcerpt, orderLine } from "../subagents/shopper.ts";
 import { runBriefing, defaultSubagents, type Subagents } from "../jarvis.ts";
 import { Trace } from "../lib/trace.ts";
 import type { Gmail, RawMail } from "../tools/gmail.ts";
@@ -147,6 +147,85 @@ describe("inbox sub-agent", () => {
 });
 
 describe("shopper sub-agent", () => {
+  it("scrubs addresses from the subject and snippet too, not just the body", async () => {
+    const gmail: Gmail = {
+      ...fakeGmail([]),
+      searchWithText: async () => [
+        {
+          ...mail(
+            "Corner Store",
+            "Socks shipped to 742 Evergreen Terrace",
+            "Wool socks are on the way to 12 Maple Street, Townville, NC 27000",
+          ),
+          address: "ship@store.example",
+          text: "Wool socks",
+        },
+      ],
+    };
+    const d = deps({ packages: [] });
+    await runShopper(d, gmail, "2026-10-30", []);
+    const prompt = d.specs[0].prompt;
+    expect(prompt).toContain("Socks");
+    expect(prompt).toContain("Wool socks are on the way");
+    for (const leak of ["Evergreen", "742", "Maple", "Townville", "27000"]) expect(prompt).not.toContain(leak);
+  });
+
+  it("keeps a subject's and snippet's status wording when it cuts what comes after", async () => {
+    const gmail: Gmail = {
+      ...fakeGmail([]),
+      searchWithText: async () => [
+        {
+          ...mail(
+            "Corner Store",
+            "Your package was delivered to your front door",
+            "Payment received: your order 123 will ship soon",
+          ),
+          address: "ship@store.example",
+          text: "",
+        },
+      ],
+    };
+    const d = deps({ packages: [] });
+    await runShopper(d, gmail, "2026-10-30", []);
+    const prompt = d.specs[0].prompt;
+    expect(prompt).toContain("Your package was delivered");
+    expect(prompt).not.toContain("front door");
+    expect(prompt).toContain("Payment received: your order 123 will ship soon");
+  });
+
+  it("a subject or snippet still loses a real address or payment label", () => {
+    expect(orderLine("Your order has shipped to Alex")).toBe("Your order has shipped");
+    expect(orderLine("Dog treats Billing address: Sam Doe")).toBe("Dog treats");
+    expect(orderLine("Dog treats Payment method: Visa 1234")).toBe("Dog treats");
+    expect(orderLine("Dog treats Payment: Visa 1234")).toBe("Dog treats");
+    expect(orderLine("Dog treats Ship to: Sam Doe")).toBe("Dog treats");
+    expect(orderLine("Delivered 12 Oak St Townville")).toBe("Delivered");
+    // labels with no colon, and other ways of saying where it's going
+    expect(orderLine("Dog treats Payment Visa ending 1234")).toBe("Dog treats");
+    expect(orderLine("Dog treats Billing Sam Doe")).toBe("Dog treats");
+    expect(orderLine("Dog treats Paid with Visa ending in 1234")).toBe("Dog treats");
+    expect(orderLine("Dog treats Mastercard 1234")).toBe("Dog treats");
+    for (const to of ["Delivery to", "Ships to", "Sent to", "Bill to", "Billed to", "Charged to", "Addressed to"]) {
+      expect(orderLine(`Dog treats ${to} Sam Doe`)).toBe("Dog treats");
+      expect(orderExcerpt(`Dog treats ${to} Sam Doe`)).toBe("Dog treats");
+    }
+    expect(orderLine("Dog treats on its way to Sam Doe")).toBe("Dog treats on its way");
+    expect(orderLine("Out for delivery to Sam Doe")).toBe("Out for delivery");
+    expect(orderExcerpt("Your package is out for delivery to 12 Elm St")).toBe("Your package is out for delivery");
+    expect(orderLine("Delivery to Sam Doe")).toBe("");
+    for (const label of ["Bill-To:", "Ship-to:", "Deliver-to"])
+      expect(orderLine(`Dog treats ${label} Sam`)).toBe("Dog treats");
+    expect(orderLine("Dog treats Card ****1234")).toBe("Dog treats Card");
+    expect(orderLine("Arriving to Sam Doe tomorrow")).toBe("Arriving");
+    // and a body is never looser than a line
+    expect(orderExcerpt("Dog treats Paid with Visa ending in 1234")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats Mastercard 1234")).toBe("Dog treats");
+    expect(orderLine("Payment failed for your order 123")).toBe("Payment failed for your order 123");
+    // the body stays stricter, but a status word before the address is safe to keep there too
+    expect(orderExcerpt("Your package was delivered to Sam Doe, 12 Oak St")).toBe("Your package was delivered");
+    expect(orderExcerpt("Payment received: Dog treats")).toBe("");
+  });
+
   it("groups packages, sorts out-for-delivery first, and matches Shopping items", async () => {
     const gmail = fakeGmail([
       mail("amazon.com", 'Shipped: "Columbia Watertight Rain Jacket"'),

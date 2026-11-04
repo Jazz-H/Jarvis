@@ -98,6 +98,7 @@ export const CONFIG = {
     prices: 0.15, // weekly: up to 8 items, a web search or two each
     review: 0.15,
     ask: 0.1, // one Ask answer (Opus, effort low: ~8k in / ~1.5k out, about $0.06)
+    sort: 0.01, // one Sort with Jarvis (Haiku, no app data)
   },
   defaultMaxRunCostUsd: 0.5,
   // Ask Jarvis (ask.ts). Every limit is enforced here in the backend, not just in the app.

@@ -11,6 +11,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { z } from "zod";
 import type { EffortLevel } from "@anthropic-ai/claude-agent-sdk";
+import { CONFIG } from "../config.ts";
 import type { CostLedger } from "./cost.ts";
 import type { Trace } from "./trace.ts";
 import { outputSchema } from "./output-schema.ts";
@@ -104,16 +105,18 @@ export async function runAgent<T>(
   let lastProblem = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const budget = ledger.budgetFor(spec.name);
-    if (budget <= 0) throw new AgentError("no budget left under MAX_RUN_COST_USD");
+    if (budget <= 0) throw new AgentError(lastProblem || "no budget left under MAX_RUN_COST_USD");
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), spec.timeoutMs);
     const started = Date.now();
     let result: SDKResultMessage | undefined;
+    let began = false;
     try {
       for await (const msg of queryFn({
         prompt: promptWithAttachments(spec),
         options: agentOptions(spec, budget, ac),
       })) {
+        if (msg.type === "assistant") began = true; // the first sign the model was actually called
         if (msg.type === "result") result = msg;
       }
     } catch (e) {
@@ -122,6 +125,19 @@ export async function runAgent<T>(
       clearTimeout(timer);
     }
     if (result) recordUsage(spec, result, ledger);
+    // The cost report comes in the result, but an attempt cut off before it was still billed. Its real
+    // cost is unknown, so it counts as the agent's usual cost; the caps would otherwise never see it.
+    const estimatedUsd = !result && (began || ac.signal.aborted) ? Math.min(budget, usualCost(spec.name)) : 0;
+    if (estimatedUsd)
+      ledger.record({
+        agent: spec.name,
+        model: spec.model,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: estimatedUsd,
+      });
     if (result && spec.usage)
       for (const u of Object.values(result.modelUsage ?? {}))
         spec.usage.webSearches += Number(u.webSearchRequests) || 0;
@@ -129,7 +145,8 @@ export async function runAgent<T>(
       attempt,
       ms: Date.now() - started,
       outcome: result ? result.subtype : "no result",
-      costUsd: result ? Number(result.total_cost_usd.toFixed(4)) : 0,
+      costUsd: result ? Number(result.total_cost_usd.toFixed(4)) : estimatedUsd,
+      ...(estimatedUsd ? { estimated: true } : {}),
     });
     if (!result) continue;
     // API failures (bad key, overload…) arrive as subtype "success" with is_error set
@@ -150,6 +167,11 @@ export async function runAgent<T>(
     trace.log(spec.name, "invalid output", { issues: parsed.error.issues.length });
   }
   throw new AgentError(lastProblem || "agent failed");
+}
+
+function usualCost(agent: string): number {
+  const estimates: Record<string, number> = CONFIG.costEstimateUsd;
+  return estimates[agent] ?? estimates.ask;
 }
 
 function tryJson(s: string): unknown {

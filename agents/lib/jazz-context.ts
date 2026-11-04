@@ -104,7 +104,9 @@ function goals(data: any): JazzContext["goals"] {
 // Same math as js/fitness.js weightStatus().pct
 function weightGoalPct(data: any): number | null {
   const f = data["fitness-content"];
+  // A merge between two devices can leave the list out of date order until one of them next saves it
   const ws = f && Array.isArray(f.weights) ? f.weights.filter((w: any) => typeof w?.lbs === "number") : [];
+  ws.sort((a: any, b: any) => String(a.date ?? "").localeCompare(String(b.date ?? "")));
   if (!ws.length || typeof f.goal !== "number") return null;
   const cur = ws[ws.length - 1].lbs;
   const start = typeof f.start === "number" ? f.start : ws[0].lbs;

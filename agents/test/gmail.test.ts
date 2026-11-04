@@ -130,6 +130,37 @@ describe("gmail tool", () => {
     );
   });
 
+  it("takes the tags out of HTML the way it reads", () => {
+    const b64 = (s: string) => Buffer.from(s).toString("base64url");
+    const html = (s: string) => visibleText({ mimeType: "text/html", body: { data: b64(s) } });
+    expect(html("<HEAD><title>no</title></HEAD><p>Dog</p><STYLE>a{}</style> treats<script>x</SCRIPT>")).toBe(
+      "Dog treats",
+    );
+    expect(html("<style>a{}</style>one<style>b{}</style> two")).toBe("one two");
+    expect(html("<style>never closed<p>kept</p>")).toBe("never closed kept"); // only its tag goes
+    expect(html("1 <> 2, a < b and <b>bold</b>")).toBe("1 <> 2, a < b and bold");
+    expect(html("left <unclosed")).toBe("left <unclosed");
+  });
+
+  it("a plain < doesn't expose the hidden block after it", () => {
+    const b64 = (s: string) => Buffer.from(s).toString("base64url");
+    const html = (s: string) => visibleText({ mimeType: "text/html", body: { data: b64(s) } });
+    expect(html("Price < $5 <style>.x{color:red}</style>Hello")).toBe("Price < $5 Hello");
+    expect(html("a <3 you <head><title>T</title></head>Body")).toBe("a <3 you Body");
+    expect(html("<x <script>steal()</script>Hello")).not.toContain("steal");
+  });
+
+  it("isn't slowed down by hostile HTML (a huge email must not stall the morning run)", () => {
+    const shapes = ["<a ", "<style ", "<script><head>", "<", "<style></styl", "&#1;<", "< <style>a</style>", "< b>"];
+    for (const s of shapes) {
+      const data = Buffer.from(s.repeat(Math.ceil(300_000 / s.length))).toString("base64url");
+      const hostile = { mimeType: "text/html", body: { data } };
+      const t0 = Date.now();
+      visibleText(hostile);
+      expect(Date.now() - t0, s).toBeLessThan(1000);
+    }
+  });
+
   it("throws on API errors", async () => {
     const { impl } = fakeFetch([[/gmail/, () => json({}, 401)]]);
     await expect(gmailClient("at", impl).search("x", 1)).rejects.toThrow("Gmail HTTP 401");
