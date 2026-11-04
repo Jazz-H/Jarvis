@@ -60,9 +60,10 @@ The address only lets someone *read* that calendar. Never share it; if it ever l
 ### Gmail: Inbox and Deliveries (about 15 minutes, once, on a computer)
 For the Inbox, Jarvis reads only headers and Gmail's short preview snippet. For Deliveries, code
 also reads the body of order and shipping emails, because the product name is often only there. It
-strips links and cuts everything from the first address or payment label on ("Shipping address",
-"Billing" and the like), and a model sees at most 800 characters of each. A store that puts your
-address above those labels could still slip through. USPS's Daily Digest is read by code only. None
+strips links and cuts everything from the first address or payment label ("Shipping address",
+"Billing" and the like), or anything shaped like a street, PO box or "City, ST 12345", on, and a
+model sees at most 800 characters of each. An address in an unusual shape, or your name printed
+above an address, could still slip through. USPS's Daily Digest is read by code only. None
 of this text is stored or logged, and attachments are never opened.
 
 1. **Project:** go to console.cloud.google.com and create a project named "Jarvis".

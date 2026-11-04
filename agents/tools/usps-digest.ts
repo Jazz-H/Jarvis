@@ -15,9 +15,12 @@ const BUCKETS: Record<string, DigestBucket | null> = {
   outbound: null, // what you're sending
 };
 
-// By the real sending address too: a display name and subject are easy to fake
+// By the From address too: a display name and subject are easy to fake. The header isn't proof of
+// who sent it, but mail forging a usps.com address has to get past Gmail's own sender checks first.
 export const isDigest = (m: { from: string; subject: string; address: string }) =>
-  /informed delivery/i.test(m.from) && /daily digest/i.test(m.subject) && /@([a-z0-9-]+\.)*usps\.com$/.test(m.address);
+  /informed delivery/i.test(m.from) &&
+  /daily digest/i.test(m.subject) &&
+  /^[^\s@,<>"]+@([a-z0-9-]+\.)*usps\.com$/.test(m.address);
 
 export function parseDigest(text: string): DigestPackage[] {
   const at = text.indexOf("PACKAGES"); // the MAIL section above it has its own "Expected Today"

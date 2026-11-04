@@ -8,6 +8,7 @@ import { Trace } from "../lib/trace.ts";
 import type { Gmail, RawMail } from "../tools/gmail.ts";
 import { CONFIG } from "../config.ts";
 import { isDigest } from "../tools/usps-digest.ts";
+import { senderAddress } from "../tools/gmail.ts";
 import type { SubagentDeps } from "../subagents/types.ts";
 import type { GistClient } from "../tools/gist.ts";
 import { FACTS, CANDIDATE } from "./fixtures.ts";
@@ -254,6 +255,97 @@ describe("shopper sub-agent", () => {
     expect(isDigest(forged)).toBe(false);
     expect(isDigest({ ...forged, address: "x@notusps.com" })).toBe(false);
     expect(isDigest(digestMail("2026-11-03T12:35:00Z"))).toBe(true);
+  });
+
+  it("doesn't accept USPS's address written into the display name or next to another address", () => {
+    const fromHeader = (address: string) => ({ ...digestMail("2026-11-03T12:35:00Z"), address });
+    for (const header of [
+      '"Informed Delivery <x@usps.com>" <attacker@evil.example>',
+      "Informed Delivery <x@usps.com> <attacker@evil.example>",
+      "<attacker@evil.example>, <x@usps.com>",
+      "attacker@evil.example, x@usps.com",
+      "attacker@evil.example@usps.com",
+      "Informed Delivery <x@usps.com>, attacker@evil.example",
+      "attacker@evil.example, Informed Delivery <x@usps.com>",
+      "Informed Delivery <x@usps.com> attacker@evil.example",
+    ]) {
+      expect(isDigest(fromHeader(senderAddress(header))), header).toBe(false);
+    }
+    const real = "USPS Informed Delivery <USPSInformeddelivery@email.informeddelivery.usps.com>";
+    expect(isDigest(fromHeader(senderAddress(real)))).toBe(true);
+  });
+
+  it("cuts the address shapes stores commonly print", () => {
+    expect(orderExcerpt("Dog treats Sam Doe 12 Oak Way Townville NC 28000")).toBe("Dog treats Sam Doe");
+    expect(orderExcerpt("Dog treats 12 Oak Court Apt 4 Townville NC 28000")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats PO Box 12 Townville NC 28000")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats P.O. Box 12")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats 12B Oak St Townville")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats 12 Oak Place")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats Townville NC 28000")).toBe("Dog treats");
+    expect(orderExcerpt("Dog treats Townville, NC 28000-1234")).toBe("Dog treats");
+  });
+
+  it("cuts addresses with no street word, unit-like street names, territories and ones typed in lowercase", () => {
+    for (const address of [
+      "1200 Highway 70 Townville, NC 28000",
+      "123 Pine Crossing Townville, NC 28000",
+      "500 Broadway Townville, NC 28000",
+      "12 Circle Townville",
+      "45 G St Townville",
+      "1600 L St NW Washington, DC 20036",
+      "200 Ft Myers Rd Townville, NC 28000",
+      "500 Calle Sol San Juan, PR 00901",
+      "12 oak way, townville, nc 28000",
+      "12 Oak Hollow Townville, NC, 28000",
+    ]) {
+      expect(orderExcerpt("Dog treats " + address), address).toBe("Dog treats");
+    }
+    const military = orderExcerpt("Dog treats PSC 3 Unit 1 APO, AE 09021");
+    expect(military).not.toMatch(/APO|09021/);
+    expect(orderExcerpt("Dog treats New York, NY 10001")).toBe("Dog treats");
+  });
+
+  it("reads a huge hostile email in a moment, and only the start of any email", () => {
+    for (const hostile of ["A.".repeat(100_000), "1 " + "A ".repeat(100_000), "Sold by " + "a ".repeat(100_000)]) {
+      const started = performance.now();
+      orderExcerpt(hostile);
+      expect(performance.now() - started).toBeLessThan(1000);
+    }
+  });
+
+  it("keeps product text and shipping wording that only looks like an address", () => {
+    for (const text of [
+      "Your order shipped: Greenies Dental Treats, 27 ct, Teenie size",
+      "You ordered 2 TB External Hard Drive, black",
+      "You ordered 2TB External Hard Drive, black",
+      "Qty 3 Dr. Bronner's soap",
+      "Your order 123 is on its way! Dog treats",
+      "Order 123 Is On Its Way",
+      "Order 123 Now On Its Way Dog treats",
+      "Package 1 Of 2 On Its Way Dog treats",
+      "Order ID 12345 Dog treats",
+      "Your order 123 has been placed. Dog treats",
+    ]) {
+      expect(orderExcerpt(text), text).toBe(text);
+    }
+  });
+
+  it("a store's own address doesn't erase the order, and an item right before a city survives", () => {
+    expect(orderExcerpt("Sold by Acme, Austin, TX 78701. Your order: Dog treats 2 pack")).toBe(
+      ". Your order: Dog treats 2 pack",
+    );
+    expect(orderExcerpt("Ships from Acme Depot, Austin, TX 78701 Dog treats")).toBe("Dog treats");
+    expect(orderExcerpt("Sold by Acme Inc., Austin, TX 78701. Your order: Dog treats")).toBe(
+      ". Your order: Dog treats",
+    );
+    expect(orderExcerpt("Ships from St. Louis, MO 63101 Dog treats")).toBe("Dog treats");
+    // The customer's address isn't mistaken for the store's, and an order number isn't a ZIP
+    expect(orderExcerpt("Sold by Acme Dog treats Sam Doe 12 Oak Hollow Townville, NC 28000")).toBe(
+      "Sold by Acme Dog treats Sam Doe",
+    );
+    expect(orderExcerpt("Sold by Acme Order ID 12345 Dog treats")).toBe("Sold by Acme Order ID 12345 Dog treats");
+    expect(orderExcerpt("Dog treats 2 pack Townville, NC 28000")).toBe("Dog treats 2 pack");
   });
 
   it("cuts an excerpt at anything shaped like an address, even with no label", () => {

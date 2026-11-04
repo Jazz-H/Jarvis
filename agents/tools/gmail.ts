@@ -58,10 +58,14 @@ export function senderName(from: string): string {
   return clean(domain, 80);
 }
 
-// "City Power <billing@citypower.example>" → "billing@citypower.example"
+// "City Power <billing@citypower.example>" → "billing@citypower.example". A quoted display name can
+// hold anything, so it's ignored. A header that could mean more than one sender (a second address
+// before or after the <address>) has no clear one: "".
 export function senderAddress(from: string): string {
-  const m = /<([^>]+)>/.exec(from);
-  return (m ? m[1] : from).trim().toLowerCase();
+  const unquoted = from.replace(/"(?:[^"\\]|\\.)*"/g, " ").trim();
+  const m = /^([^<>]*)<([^<>]*)>$/.exec(unquoted);
+  if (m) return /[@,]/.test(m[1]) ? "" : m[2].trim().toLowerCase();
+  return /[<>]/.test(unquoted) ? "" : unquoted.toLowerCase();
 }
 
 export interface Gmail {
