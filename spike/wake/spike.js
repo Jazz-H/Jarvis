@@ -122,47 +122,74 @@ async function afterWake() {
     return;
   }
   run.paused = true;
-  run.stream.getTracks().forEach((t) => (t.enabled = false)); // let the recognizer have the mic
+  // Android gives the mic to one user at a time: release it fully so the recognizer can hear
+  run.source.disconnect();
+  run.stream.getTracks().forEach((t) => t.stop());
+  await new Promise((r) => setTimeout(r, 300)); // let the chime finish
   const heard = await new Promise((resolve) => {
     const rec = new Api();
     rec.lang = "en-US";
-    rec.interimResults = false;
+    rec.interimResults = true;
     rec.maxAlternatives = 1;
     let text = "",
       err = "";
-    rec.onresult = (e) => (text = e.results[0][0].transcript);
+    const seen = [];
+    ["audiostart", "soundstart", "speechstart", "speechend", "nomatch"].forEach((ev) =>
+      rec.addEventListener(ev, () => seen.push(ev)),
+    );
+    rec.onresult = (e) => {
+      text = "";
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+    };
     rec.onerror = (e) => (err = e.error);
-    rec.onend = () => resolve({ text, err });
+    rec.onend = () => resolve({ text, err, seen });
     try {
       rec.start();
       log("Listening for a command…");
     } catch (e) {
-      resolve({ text: "", err: "start failed: " + e.message });
+      resolve({ text: "", err: "start failed: " + e.message, seen });
     }
   });
-  if (run) run.stream.getTracks().forEach((t) => (t.enabled = true));
+  log(`Recognizer events: ${heard.seen.join(", ") || "none"}`);
   if (heard.err) log(`Command not heard (${heard.err}).`);
   else log(`Command: "${heard.text}"`);
+  if (run) {
+    try {
+      await openMic(run); // take the mic back for the wake phrase
+    } catch (e) {
+      log("Couldn't get the mic back: " + e.message);
+      stop();
+      return;
+    }
+  }
   const ok = await speak(heard.text ? `You said: ${heard.text}` : "Here is your daily briefing.");
   log(ok ? "Spoke after the wake phrase without a tap." : "Couldn't speak without a tap.");
   if (run) {
     run.queue.length = 0; // skip what it heard while talking
+    run.raw.length = 0;
+    run.mel.length = 0;
+    run.embs.length = 0;
     run.paused = false;
   }
+}
+
+async function openMic(r) {
+  r.stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
+  r.source = r.ctx.createMediaStreamSource(r.stream);
+  r.source.connect(r.node);
 }
 
 async function start() {
   $("start").disabled = true;
   try {
     await loadModels();
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
     const ctx = new AudioContext({ sampleRate: 16000 });
     await ctx.audioWorklet.addModule("worklet.js");
     const node = new AudioWorkletNode(ctx, "wake-tap");
-    ctx.createMediaStreamSource(stream).connect(node);
-    run = { ctx, stream, node, started: Date.now(), hits: 0, busy: false, queue: [], raw: [], mel: [], embs: [], ms: 0, n: 0, dropped: 0, cool: 0, paused: false };
+    run = { ctx, stream: null, source: null, node, started: Date.now(), hits: 0, busy: false, queue: [], raw: [], mel: [], embs: [], ms: 0, n: 0, dropped: 0, cool: 0, paused: false };
+    await openMic(run);
     node.port.onmessage = (e) => {
       if (!run || run.paused) return;
       run.queue.push(e.data);
