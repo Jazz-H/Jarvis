@@ -109,6 +109,8 @@ async function showFab(page) {
   await page.waitForFunction(() => document.body.classList.contains("home-fab"));
   await page.waitForTimeout(250); // fade-in
 }
+// Home's once-a-day cards start closed: sections that look inside them start with them open
+const HOME_CARDS_OPEN = { cards: { "jv-outfit": true, "jarvis-news": true, "jv-tomorrow": true } };
 async function section(name, fn) {
   const before = failures.length;
   try {
@@ -980,6 +982,8 @@ await section("home: calendar strip picks any day", async () => {
     days: document.querySelectorAll(".home-week .home-day").length,
     secs: [...document.querySelectorAll(".home-sec")].map((e) => e.textContent),
     dots: document.querySelector(".home-day.today").querySelectorAll(".marks i").length,
+    // a wash day's droplet takes one of the three places
+    wash: !!document.querySelector(".home-day.today .marks svg"),
   }));
   check("seven days in the strip", today.days === 7, today.days);
   check(
@@ -987,7 +991,7 @@ await section("home: calendar strip picks any day", async () => {
     JSON.stringify(today.secs) === '["Overdue","Today","Anytime"]',
     today.secs,
   );
-  check("today's dots count overdue + due", today.dots === 3, today.dots);
+  check("today's dots count overdue + due", today.dots === (today.wash ? 2 : 3), today);
   const t0 = await titles();
   check("starred floats to the top of Today", t0.indexOf("Starred today") < t0.indexOf("Today thing"), t0);
   check("later items stay off today", !t0.includes("Far thing"), t0);
@@ -8339,10 +8343,10 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
     when: document.querySelector(".jv-when").textContent,
     stale: document.querySelector(".jv-hero").classList.contains("jv-stale"),
     newsErr: document.querySelector("#jarvis-news .jv-error").textContent,
-    newsInsight: document.querySelector(".jv-news-label .jv-label-count").textContent,
+    newsInsight: document.querySelector("#jarvis-news .insight").textContent,
     weatherErr: document.querySelector("#jarvis-weather .jv-error")?.textContent || "",
     notes: document.querySelector(".jv-notes summary").textContent,
-    fallback: document.querySelector(".jv-card > .jv-meta").textContent,
+    fallback: document.querySelector(".jv-hero .jv-meta").textContent,
   }));
   check(
     "yesterday's briefing is labeled and dimmed (or flagged late after 8 AM)",
@@ -9215,7 +9219,7 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
   ];
   const b = briefingFixture();
   Object.assign(b.cards.weather.data, { highF: 69, rainChanceMax: 60 });
-  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b, "capsule-content": cap } });
+  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b, "capsule-content": cap, "home-cards": HOME_CARDS_OPEN } });
   const pick = (dayOfWeek, high, rain) =>
     page.evaluate(
       ([dow, hi, r]) => {
@@ -9625,7 +9629,7 @@ function homePolishSeed() {
 }
 
 await section("home polish: quick add says plainly what it does", async () => {
-  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const { ctx, page, errors } = await openApp({ seed: { ...homePolishSeed(), "home-cards": HOME_CARDS_OPEN } });
   const q = await page.evaluate(() => {
     const el = document.getElementById("jv-quick");
     return { ph: el.getAttribute("placeholder"), label: el.getAttribute("aria-label") };
@@ -9643,7 +9647,7 @@ await section("home polish: quick add says plainly what it does", async () => {
 });
 
 await section("home polish: briefing items are divided rows, tag on the first line", async () => {
-  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const { ctx, page, errors } = await openApp({ seed: { ...homePolishSeed(), "home-cards": HOME_CARDS_OPEN } });
   const r = await page.evaluate(() => {
     const hl = document.querySelector(".jv-hero .jv-headline").getBoundingClientRect();
     const lis = [...document.querySelectorAll(".jv-hero .jv-summary > li")];
@@ -9704,7 +9708,7 @@ await section("home polish: briefing items are divided rows, tag on the first li
 });
 
 await section("home polish: open details keep the same 12px gap as every Home card", async () => {
-  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const { ctx, page, errors } = await openApp({ seed: { ...homePolishSeed(), "home-cards": HOME_CARDS_OPEN } });
   const gap = (a, b) =>
     page.evaluate(
       ([a, b]) => {
@@ -9714,19 +9718,13 @@ await section("home polish: open details keep the same 12px gap as every Home ca
       },
       [a, b],
     );
-  check("Your day → Outfit: 12px", (await gap(".jv-day", ".jv-outfit")) === 12, await gap(".jv-day", ".jv-outfit"));
+  check("Outfit → News: 12px", (await gap(".jv-outfit", "#jarvis-news")) === 12, await gap(".jv-outfit", "#jarvis-news"));
   for (const go of ["calendar", "deliveries"]) {
     await page.tap(`.jv-label [data-go="${go}"]`);
     const above = await gap(".jv-day", `#jv-detail-${go}`);
-    const below = await gap(`#jv-detail-${go}`, ".jv-outfit");
-    check(`${go} detail: 12px from Your day and 12px above Outfit`, above === 12 && below === 12, { above, below });
+    check(`${go} detail: 12px from Your day`, above === 12, above);
     await page.tap(`.jv-label [data-go="${go}"]`);
   }
-  check(
-    "News has a section label like Systems, 10px above its card",
-    (await gap(".jv-news-label", "#jarvis-news")) === 10,
-    await gap(".jv-news-label", "#jarvis-news"),
-  );
   await page.tap('.jv-tile[data-go="money"]');
   const t = await page.evaluate(() => {
     const d = document.getElementById("jv-detail-money");
@@ -9751,7 +9749,7 @@ await section("home polish: open details keep the same 12px gap as every Home ca
 });
 
 await section("home polish: the outfit title is spaced from its pieces", async () => {
-  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const { ctx, page, errors } = await openApp({ seed: { ...homePolishSeed(), "home-cards": HOME_CARDS_OPEN } });
   const o = await page.evaluate(() => {
     const h = document.querySelector(".jv-outfit .jv-headline");
     const ctx = document.querySelector(".jv-outfit .jv-ctx");
@@ -9771,7 +9769,7 @@ await section("home polish: the outfit title is spaced from its pieces", async (
 });
 
 await section("home polish: news shows 'topic · source' and one safe Read link per story", async () => {
-  const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
+  const { ctx, page, errors } = await openApp({ seed: { ...homePolishSeed(), "home-cards": HOME_CARDS_OPEN } });
   const n = await page.evaluate(() => {
     const card = document.getElementById("jarvis-news").getBoundingClientRect();
     return [...document.querySelectorAll("#jarvis-news .jv-story")].map((s) => {
@@ -15282,10 +15280,10 @@ await section("Top 3 today in the briefing, and the evening recap check-in", asy
     },
   });
   const top = await page.evaluate(() => {
-    const el = document.querySelector(".jv-hero .jv-top3");
+    const el = document.querySelector("#jv-top3");
     return (
       el && {
-        head: el.querySelector(".jv-top3-head").textContent,
+        head: el.querySelector("#jv-top3-count").textContent,
         rows: [...el.querySelectorAll(".todo-wrap")].map((r) => r.dataset.todoId),
         why: el.querySelector(".todo-meta").textContent,
         tags: !!el.querySelector(".todo-meta b, .title i"),
@@ -15308,7 +15306,7 @@ await section("Top 3 today in the briefing, and the evening recap check-in", asy
   check(
     "ticking one there completes the to-do and the count follows",
     (await page.evaluate(() => todoList.find((t) => t.id === "t1").done)) &&
-      /1 of 2 done/.test(await page.textContent(".jv-top3-head")),
+      /1 of 2 done/.test(await page.textContent("#jv-top3-count")),
     "",
   );
   check(
@@ -16991,6 +16989,97 @@ await section("Jarvis: refreshed cards come in quietly under the morning's brief
   check("and carries no refresh time from the last one", !fresh.stored.refreshedAt, fresh.stored.refreshedAt);
   check("the page wasn't touched by the junk", (await page.evaluate(() => window.__pwned || 0)) === 0);
   check("the headline test started from the fixture", before.length > 0, before);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Home: what you re-check comes first, and once-a-day cards close to a line of insight", async () => {
+  const { ctx, page, errors } = await openApp({ hour: 18, seed: homePolishSeed() });
+  const y = (sel) => page.evaluate((s) => document.querySelector(s)?.getBoundingClientRect().top ?? null, sel);
+  const order = [
+    ".jv-quick",
+    "#jv-briefing",
+    "#jv-tomorrow",
+    ".jv-tiles",
+    ".jv-day",
+    ".jv-planner-label",
+    "#jv-outfit",
+    "#jarvis-news",
+  ];
+  const tops = [];
+  for (const sel of order) tops.push(await y(sel));
+  check(
+    "top to bottom: add, briefing, Tomorrow, tiles, your day, Planner, then once-a-day cards",
+    tops.every((t, i) => t != null && (i === 0 || t > tops[i - 1])),
+    tops,
+  );
+  const state = (id) =>
+    page.evaluate((i) => {
+      const c = document.getElementById(i);
+      if (!c) return { missing: i };
+      return {
+        open: c.classList.contains("open"),
+        expanded: c.querySelector(".coll-head").getAttribute("aria-expanded"),
+        peek: c.querySelector(".coll-peek")?.textContent || "",
+        peekShows: !!c.querySelector(".coll-peek")?.getClientRects().length,
+        bodyHidden: getComputedStyle(c.querySelector(".coll-body")).visibility === "hidden",
+      };
+    }, id);
+  const outfit = await state("jv-outfit"),
+    tomorrow = await state("jv-tomorrow"),
+    news = await state("jarvis-news");
+  check("Outfit starts closed and says what to wear", !outfit.open && outfit.peekShows && outfit.peek.length > 3, outfit);
+  check("Tomorrow starts closed with the day in a line", !tomorrow.open && tomorrow.peekShows, tomorrow);
+  check("News starts closed with its top headline", !news.open && news.peek.length > 3 && news.expanded === "false", news);
+  check("a closed card's contents can't be reached", news.bodyHidden, news);
+  const briefing = await state("jv-briefing");
+  check("a new briefing starts open", briefing.open && !briefing.peekShows, briefing);
+  await page.evaluate(() => document.querySelector("#jarvis-news .coll-head").click());
+  const opened = await state("jarvis-news");
+  check("tapping opens it and the peek gives way", opened.open && !opened.peekShows && opened.expanded === "true", opened);
+  await page.waitForTimeout(300);
+  check("its contents can be reached again", !(await state("jarvis-news")).bodyHidden);
+  await page.evaluate(() => renderHome());
+  check("an edit's re-render keeps it open", (await state("jarvis-news")).open);
+  await page.reload();
+  await page.waitForTimeout(600);
+  check("and so does the next visit", (await state("jarvis-news")).open);
+  await page.evaluate(() => {
+    const v = JSON.parse(localStorage.getItem("home-cards"));
+    v.briefing.seenAt = Date.now() - 31 * 60 * 1000;
+    localStorage.setItem("home-cards", JSON.stringify(v));
+    renderHome();
+  });
+  const later = await state("jv-briefing");
+  check("half an hour on, the briefing closes to its headline", !later.open && later.peekShows && later.peek.length > 3, later);
+  await page.evaluate(() => document.querySelector("#jv-briefing .coll-head").click());
+  await page.evaluate(() => renderHome());
+  check("opening it again sticks", (await state("jv-briefing")).open);
+  await page.evaluate(() => {
+    const b = JSON.parse(localStorage.getItem("jarvis-briefing"));
+    b.id = "another-briefing";
+    localStorage.setItem("jarvis-briefing", JSON.stringify(b));
+    const v = JSON.parse(localStorage.getItem("home-cards"));
+    v.briefing.open = false;
+    localStorage.setItem("home-cards", JSON.stringify(v));
+    renderHome();
+  });
+  check("a new briefing opens even if the last one was closed", (await state("jv-briefing")).open);
+  await page.evaluate(() => {
+    localStorage.setItem("home-cards", '{"cards":"junk","briefing":{"id":5}}');
+    renderHome();
+  });
+  check("a damaged setting falls back to the defaults", (await state("jv-briefing")).open && !(await state("jv-outfit")).open);
+  await page.evaluate(() => {
+    localStorage.removeItem("home-cards");
+    renderHome();
+    dashDrill("news");
+  });
+  check("a briefing line about News opens its card", (await state("jarvis-news")).open);
+  const stays = await page.evaluate(
+    () => !SYNC_KEYS.includes("home-cards") && !JSON.stringify([collectLocal(), liveData()]).includes("home-cards"),
+  );
+  check("open or closed stays on this device", stays);
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

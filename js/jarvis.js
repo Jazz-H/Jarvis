@@ -20,7 +20,6 @@ const BRIEFING_SOURCES = {
   deliveries: "Deliveries",
   money: "Bill Guard",
 };
-openPinned.add("jarvis-news");
 
 // ---------- dismissing ----------
 // On Home (✕ on a briefing line, "Got it" on a package) or by asking Jarvis ("the Acme order came,
@@ -495,10 +494,16 @@ function jvRainWindow(hours) {
 // unsafe links get no Read link at all.
 function jarvisNewsCard(c) {
   if (!c) return "";
-  // a section label like Systems (NEWS ─── count), then the stories in a plain card
-  const section = (count, body) =>
-    `<div class="jv-label jv-news-label"><span>News</span><i></i><span class="jv-label-count">${count}</span></div>
-    <section class="card jv-card jv-news" id="jarvis-news" aria-label="News">${body}</section>`;
+  // Closed, it shows the count and the top headline
+  const section = (count, body, peek = "") =>
+    collapsibleCard({
+      id: "jarvis-news",
+      title: "News",
+      insight: count,
+      body,
+      peek,
+      cls: "home-card jv-card jv-news",
+    });
   if (c.status !== "ok") return section("Unavailable", jvErrorBody(c));
   const rows = c.data.stories
     .map((s) => {
@@ -519,7 +524,11 @@ function jarvisNewsCard(c) {
     })
     .join("");
   const n = c.data.stories.length;
-  return section(`${n} stor${n === 1 ? "y" : "ies"}`, `<ul class="jv-stories">${rows}</ul>${jvMeta(c)}`);
+  return section(
+    `${n} stor${n === 1 ? "y" : "ies"}`,
+    `<ul class="jv-stories">${rows}</ul>${jvMeta(c)}`,
+    n ? escapeHtml(c.data.stories[0].title) : "",
+  );
 }
 
 // The briefing (layout 1): headline, then the tagged summary. Weather and News lines drill into
@@ -589,18 +598,32 @@ function jarvisHeroHtml(b) {
     ? `<details class="jv-notes"><summary>${b.notes.length} note${b.notes.length === 1 ? "" : "s"}</summary><ul>${b.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul></details>`
     : "";
   markBriefingSeen(b);
-  return `<section class="card jv-card jv-hero${b.date === today ? "" : " jv-stale"}">
-      <div class="jv-kicker">Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}</div>
-      ${((p) => (b.headline ? `<h2 class="jv-headline">${escapeHtml(p.title)}</h2>${p.sub ? `<p class="jv-headsub">${escapeHtml(p.sub)}</p>` : ""}` : ""))(briefingHeadParts(b.headline || ""))}
-      ${b.date === today ? "" : briefingLateHtml(b)}
-      <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
-      ${briefingTop3Html(b)}
+  const head = briefingHeadParts(b.headline || "");
+  const reviewRow = reviewHomeRowHtml();
+  // Open while it's fresh (or a Weekly Review is waiting in it); after that, closed to its headline
+  briefingCardSync(b, !!reviewRow);
+  const late = b.date === today ? "" : briefingLateHtml(b);
+  const count = b.summary.length;
+  const peek = [
+    late ? `<span class="coll-peek-note">${late.replace(/<[^>]+>/g, "")}</span>` : "",
+    b.headline ? `<span class="coll-peek-text">${escapeHtml(head.title)}</span>` : "",
+  ].join("");
+  return collapsibleCard({
+    id: "jv-briefing",
+    cls: `home-card jv-card jv-hero${b.date === today ? "" : " jv-stale"}`,
+    title: `Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}`,
+    insight: count ? `${count} item${count === 1 ? "" : "s"}` : "",
+    peek,
+    body: `
+      ${b.headline ? `<h2 class="jv-headline">${escapeHtml(head.title)}</h2>${head.sub ? `<p class="jv-headsub">${escapeHtml(head.sub)}</p>` : ""}` : ""}
+      ${late}
+      <ul class="jv-summary">${reviewRow}${items}</ul>
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${b.date === today && b.refreshedAt ? `<div class="jv-meta">Cards updated ${escapeHtml(jvTime(b.refreshedAt))}</div>` : ""}
       <div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}<span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
-      ${notes}
-    </section>`;
+      ${notes}`,
+  });
 }
 
 // Suggested to-dos under the summary: tap to add (with its due date), Undo in the toast.
@@ -626,7 +649,17 @@ function briefingTop3Html(b) {
     .filter(Boolean);
   if (!rows.length) return "";
   const done = b.top3.filter((x) => todoList.some((y) => y.id === x.id && y.done)).length;
-  return `<div class="jv-top3"><div class="jv-mini jv-top3-head"><span>Top 3 today</span><span>${done} of ${rows.length} done</span></div>${rows.join("")}</div>`;
+  // closed, it names the next one to do
+  const next = b.top3.map((x) => todoList.find((y) => y.id === x.id)).find((t) => t && !t.done);
+  return collapsibleCard({
+    id: "jv-top3",
+    cls: "home-card jv-card",
+    title: "Top 3 today",
+    insight: `${done} of ${rows.length} done`,
+    insightId: "jv-top3-count",
+    peek: next ? `Next: ${escapeHtml(next.text)}` : "All done",
+    body: `<div class="jv-top3">${rows.join("")}</div>`,
+  });
 }
 function briefingSuggestHtml(b) {
   if (!b.suggestions.length) return "";

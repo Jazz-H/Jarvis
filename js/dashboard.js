@@ -29,9 +29,9 @@ function dashDrill(key) {
     return;
   }
   if (key === "news") {
+    homeCardRemember("jarvis-news", true); // the card may be closed: you asked to see it
     renderHome();
-    // land on the NEWS section label, so the card shows under its header
-    const el = document.querySelector("#panel-home .jv-news-label") || document.getElementById("jarvis-news");
+    const el = document.getElementById("jarvis-news");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -395,27 +395,88 @@ function dashboardHtml(planner = "", wide = false) {
     shop: dashShopData(),
   };
   updateAppBadge(dashBadgeCount(d.todo));
+  homeCardsSync(wide);
   const tiles = dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d),
-    news = b ? jarvisNewsCard(b.news) : "";
+    hero = jarvisHeroHtml(b),
+    top3 = b ? briefingTop3Html(b) : "",
+    news = b ? jarvisNewsCard(b.news) : "",
+    outfit = dashOutfitHtml(b),
+    push = pushCardHtml();
   if (wide)
     return `<div class="jv-wrap home-desk">
       <div class="hd-head">${dashGreetingHtml(b)}</div>
-      <div class="hd-col">${jarvisHeroHtml(b)}${dashTomorrowHtml(b)}${dashWashSwapHtml(b, d)}${pushCardHtml()}${news}</div>
+      <div class="hd-col">${dashWashSwapHtml(b, d)}${hero}${top3}${dashTomorrowHtml(b)}${push}${news}</div>
       <div class="hd-col">${dashTimelineHtml(b, d)}${planner}</div>
-      <div class="hd-col">${tiles}${dashOutfitHtml(b)}</div>
+      <div class="hd-col">${tiles}${outfit}</div>
     </div>`;
+  // A phone runs from what you keep coming back to, down to what you look at once or twice a day
+  const later = push + outfit + news;
   return `<div class="jv-wrap">
       ${dashGreetingHtml(b)}
       ${dashQuickHtml()}
-      ${dashTomorrowHtml(b)}
-      ${jarvisHeroHtml(b)}
       ${dashWashSwapHtml(b, d)}
-      ${pushCardHtml()}
-      ${dashTimelineHtml(b, d)}
-      ${dashOutfitHtml(b)}
+      ${hero}
+      ${top3}
+      ${dashTomorrowHtml(b)}
       ${tiles}
-      ${news}
-    </div>${planner}`;
+      ${dashTimelineHtml(b, d)}
+    </div>${planner}${later ? `<div class="jv-wrap jv-later"><div class="jv-label"><span>Once a day</span><i></i></div>${later}</div>` : ""}`;
+}
+
+// ---- Home's collapsible cards: open or closed stays how you left it (this device only) ----
+// Default: true open, false closed. Outfit and News are once-a-day cards, so they start closed on a
+// phone; a big screen has the room. The briefing has its own rule (briefingCardSync).
+const HOME_CARDS_KEY = "home-cards"; // {cards: {id: open}, briefing: {id, seenAt, open}}
+const HOME_CARD_DEFAULTS = { "jv-top3": () => true, "jv-tomorrow": () => false, "jv-outfit": (w) => w, "jarvis-news": (w) => w };
+const HOME_BRIEFING_FRESH_MS = 30 * 60 * 1000; // how long a new briefing stays open after you first see it
+function homeCardsRead() {
+  try {
+    const v = JSON.parse(localStorage.getItem(HOME_CARDS_KEY) || "null");
+    const cards = v && v.cards && typeof v.cards === "object" ? v.cards : {};
+    const br = v && v.briefing && typeof v.briefing === "object" ? v.briefing : null;
+    return {
+      cards,
+      briefing:
+        br && typeof br.id === "string" && Number.isFinite(br.seenAt)
+          ? { id: br.id, seenAt: br.seenAt, open: typeof br.open === "boolean" ? br.open : null }
+          : null,
+    };
+  } catch (e) {
+    return { cards: {}, briefing: null };
+  }
+}
+function homeCardsWrite(v) {
+  try {
+    localStorage.setItem(HOME_CARDS_KEY, JSON.stringify(v));
+  } catch (e) {}
+}
+function homeCardsSync(wide) {
+  const { cards } = homeCardsRead();
+  Object.keys(HOME_CARD_DEFAULTS).forEach((id) => {
+    const open = typeof cards[id] === "boolean" ? cards[id] : HOME_CARD_DEFAULTS[id](wide);
+    if (open) openPinned.add(id);
+    else openPinned.delete(id);
+  });
+}
+function briefingCardSync(b, keepOpen) {
+  const v = homeCardsRead();
+  if (!v.briefing || v.briefing.id !== b.id) {
+    v.briefing = { id: b.id, seenAt: Date.now(), open: null };
+    homeCardsWrite(v);
+  }
+  const { seenAt, open } = v.briefing;
+  const fresh = Math.abs(Date.now() - seenAt) < HOME_BRIEFING_FRESH_MS;
+  if (open === null ? fresh || keepOpen : open) openPinned.add("jv-briefing");
+  else openPinned.delete("jv-briefing");
+}
+function homeCardRemember(id, open) {
+  const v = homeCardsRead();
+  if (id === "jv-briefing") {
+    if (v.briefing) v.briefing.open = open;
+  } else if (id in HOME_CARD_DEFAULTS) {
+    v.cards[id] = open;
+  } else return;
+  homeCardsWrite(v);
 }
 
 // ---- quick add: one line on Home, "call mom tomorrow" style (same parsing as the + sheet) ----
@@ -507,13 +568,28 @@ function dashTomorrowHtml(b, now = new Date()) {
           .join(", "),
       )}</span></li>`,
     );
-  const label = noonOf(iso).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-  return `<section class="card jv-card jv-tomorrow" aria-label="Tomorrow">
-      <div class="jv-kicker">Tomorrow · ${escapeHtml(label)}</div>
-      ${lines.length ? `<ul class="jv-summary">${lines.join("")}</ul>` : `<p class="jv-empty-line">Nothing planned yet.</p>`}
+  const label = noonOf(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  // closed, the day in one line
+  const peek = [
+    w && w.date === iso ? `${w.highF}° / ${w.lowF}°` : "",
+    todos.length ? `${todos.length} to-do${todos.length === 1 ? "" : "s"}` : "",
+    billList.length ? `${billList.length} bill${billList.length === 1 ? "" : "s"}` : "",
+    day.wash ? "Wash day" : "",
+    workouts.length ? `${workouts.length} workout${workouts.length === 1 ? "" : "s"}` : "",
+    weighInDue(iso) ? "Weigh in" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return collapsibleCard({
+    id: "jv-tomorrow",
+    cls: "home-card jv-card jv-tomorrow",
+    title: "Tomorrow",
+    insight: escapeHtml(label),
+    peek: escapeHtml(peek || "Nothing planned yet"),
+    body: `${lines.length ? `<ul class="jv-summary">${lines.join("")}</ul>` : `<p class="jv-empty-line">Nothing planned yet.</p>`}
       ${dashComingUpHtml()}
-      <button class="jv-open" data-action="jv-drill" data-go="tomorrow">Plan tomorrow →</button>
-    </section>`;
+      <button class="jv-open" data-action="jv-drill" data-go="tomorrow">Plan tomorrow →</button>`,
+  });
 }
 
 // ---- the app icon's badge: what still needs you today (installed app only) ----
@@ -1076,15 +1152,20 @@ function dashOutfitHtml(b) {
   const missing = o.needsLayer
     ? `<li class="jv-piece jv-piece-missing"><button data-action="jv-go" data-go="shop">${DASH_PIECE_SVG(DASH_PIECES.Outerwear.icon)}<span class="jv-mini">Layer</span><b>No ${o.rain ? "rain layer" : "coat"} yet</b><span>Add one in Shopping&nbsp;›</span></button></li>`
     : "";
-  return `<section class="card jv-card jv-outfit" aria-label="Outfit">
-      <div class="jv-outfit-head">
-        <div class="jv-kicker">Outfit</div>
+  return collapsibleCard({
+    id: "jv-outfit",
+    cls: "home-card jv-card jv-outfit",
+    title: "Outfit",
+    insight: escapeHtml(o.workday ? "Workday" : "Weekend"),
+    // closed, what to put on
+    peek: escapeHtml(o.items.map((i) => i.title).join(", ")),
+    body: `<div class="jv-outfit-head">
+        <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
         <button class="jv-outfit-swap" data-action="jv-outfit-swap" aria-label="Swap for another outfit">${SWAP_ICON}</button>
       </div>
-      <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
       <div class="jv-ctx">${chips.map((c) => `<span>${escapeHtml(c)}</span>`).join("")}</div>
-      <ul class="jv-outfit-grid">${o.items.map(tile).join("")}${missing}</ul>
-    </section>`;
+      <ul class="jv-outfit-grid">${o.items.map(tile).join("")}${missing}</ul>`,
+  });
 }
 function dashOutfitSwap() {
   try {

@@ -440,10 +440,21 @@ function washCalendarHtml() {
 // toggles the body; open state lives in openPinned.
 // No Edit mode: tapping an item opens its editor, and "+ Add" rows sit at the
 // bottom of each card (the way Android apps do it)
-function collapsibleCard({ id, title, insight = "", insightId = "", body = "", wrapBody = true, innerId = "" }) {
-  return `<div class="card pinned ${openPinned.has(id) ? "open" : ""}" id="${id}">
+// cls: extra classes on the card. peek: a line under the title that shows only while it's closed.
+function collapsibleCard({
+  id,
+  title,
+  insight = "",
+  insightId = "",
+  body = "",
+  wrapBody = true,
+  innerId = "",
+  cls = "",
+  peek = "",
+}) {
+  return `<div class="card pinned ${cls} ${openPinned.has(id) ? "open" : ""}" id="${id}">
     <div class="coll-head" role="button" tabindex="0" aria-expanded="${openPinned.has(id)}" data-action="coll-toggle" data-card-id="${escapeAttr(id)}">
-      <div style="display:flex;align-items:center;gap:8px;"><h3>${title}</h3><span class="insight"${insightId ? ` id="${insightId}"` : ""}>${insight}</span></div>
+      <div class="coll-title"><div style="display:flex;align-items:center;gap:8px;"><h3>${title}</h3><span class="insight"${insightId ? ` id="${insightId}"` : ""}>${insight}</span></div>${peek ? `<div class="coll-peek">${peek}</div>` : ""}</div>
       <div style="display:flex;align-items:center;gap:8px;">
         ${CHEVRON_DOWN}
       </div>
@@ -463,6 +474,7 @@ function toggleRules(id) {
   card.classList.toggle("open");
   const head = card.querySelector(".coll-head");
   if (head) head.setAttribute("aria-expanded", String(card.classList.contains("open")));
+  homeCardRemember(id, card.classList.contains("open")); // Home's cards stay how you left them
 }
 function editSkinRule(i) {
   openModal(

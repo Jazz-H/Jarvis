@@ -13,6 +13,16 @@ Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main
 
 **Home** is the main tab. It's a dashboard fed by the whole app, with the day Planner below
 it. Each fact appears once, and each tile drills down: tile → its detail → its tab.
+- **Layout:** on a phone it runs from what you keep coming back to, down to what you look at once
+  or twice a day: greeting, Quick add, any decision Jarvis needs (wash day), the briefing, Top 3,
+  Tomorrow (from 5 PM), the Systems tiles, Your day and the Planner; then, under **Once a day**, the
+  notifications prompt, Outfit and News.
+- **Collapsible cards:** the briefing, Top 3, Tomorrow, Outfit and News close to a line of insight:
+  the headline, the next Top 3 to-do, tomorrow's weather and counts, what to wear, the top story.
+  Tomorrow, Outfit and News start closed on a phone (Outfit and News start open on a big screen); open or closed
+  stays how you left it, on this device only (`home-cards`, never synced). A new briefing starts open and closes to its
+  headline 30 minutes after you first see it, unless you've opened or closed it yourself or a Weekly Review is
+  waiting in it. A briefing line about News opens the News card.
 - **Status:** Jarvis's state (Online / Standing by / Local mode), when it last briefed you,
   and a greeting ("Good morning, Jazz."). The date is in the header.
 - **Quick add:** one line under the greeting ("Add a to-do"). Type "call mom tomorrow" (or "…friday", "…today")
@@ -35,7 +45,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   older day's briefing is dimmed and labeled "From <date>"; from 8 AM on, it says in amber
   "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed
   under "notes".
-- **Top 3 today:** under the summary, the three open to-dos that matter most today, picked by
+- **Top 3 today:** its own card under the summary, the three open to-dos that matter most today, picked by
   Jarvis from today's, overdue and undated ones (deadlines, money, how long it's been overdue,
   stars, today's plans), each with its reason ("Before payday"). They're your own to-do rows:
   tick one (Undo) or tap it to edit; "1 of 3 done" keeps score, a deleted one drops out and an

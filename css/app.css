@@ -6373,15 +6373,6 @@ body.todo-dragging {
   padding-top: 12px;
   border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
-.jv-top3-head {
-  display: flex;
-  justify-content: space-between;
-  color: var(--olive);
-  margin-bottom: 2px;
-}
-.jv-top3-head span + span {
-  color: var(--text-dim);
-}
 .jv-top3 .todo-wrap:last-child .item {
   border-bottom: none;
 }
@@ -6467,9 +6458,6 @@ body.todo-dragging {
 /* Evening: tomorrow at a glance */
 .jv-tomorrow {
   border-color: var(--olive-dim);
-}
-.jv-tomorrow .jv-kicker {
-  margin-bottom: 10px;
 }
 .jv-empty-line {
   margin: 0;
@@ -8717,4 +8705,72 @@ details[open] > .wb-fold {
   padding: 0 8px;
   font-size: 13px;
   white-space: nowrap;
+}
+
+/* Home's collapsible cards: closed, they show a line of insight; their contents can't be tabbed into */
+.coll-title {
+  min-width: 0;
+  flex: 1;
+}
+.coll-peek {
+  margin-top: 4px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pinned.open .coll-peek {
+  display: none;
+}
+.coll-peek-note {
+  display: block;
+  color: var(--warn, var(--text-dim));
+}
+.coll-peek-text {
+  color: var(--text);
+}
+.home-card .coll-head {
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 16px;
+}
+.home-card .coll-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.home-card .coll-body {
+  visibility: hidden;
+  transition:
+    max-height 0.25s ease,
+    visibility 0.25s;
+}
+.home-card.open .coll-body {
+  visibility: visible;
+}
+.jv-hero.home-card {
+  overflow: visible; /* its corner brackets sit on the border */
+}
+.home-card .jv-top3 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.home-card .jv-outfit-head {
+  margin-bottom: 10px;
+}
+.home-card .jv-outfit-head .jv-headline {
+  margin: 0;
+}
+.jv-later {
+  margin-top: 8px;
 }
