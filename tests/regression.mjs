@@ -12197,11 +12197,11 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
   await a.page.evaluate(() => activateTab("home"));
   await a.page.click('.jv-rate-row [data-action="jv-speak-briefing"]');
   check(
-    "the briefing reads its headline and items",
-    await a.page.evaluate(
-      () =>
-        /^Rain by noon/.test(window.__said.slice(-1)[0]) && window.__said.slice(-1)[0].includes("Rent is due Saturday"),
-    ),
+    "the briefing reads its headline, then each item as its own part",
+    await a.page.evaluate(() => {
+      const parts = window.__said.slice(2);
+      return /^Rain by noon/.test(parts[0]) && parts.slice(1).some((p) => p.startsWith("Rent is due Saturday"));
+    }),
   );
   // the setting: Never
   await a.page.evaluate(async (f) => {
@@ -17195,11 +17195,12 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
   const brief = await said("read my briefing");
   check(
     "the briefing is read: headline, then each line",
-    brief[0] === b.headline.replace(/[.]?$/, ".") &&
+    brief[0] === "Here's your briefing." &&
+      brief[1] === b.headline.replace(/[.]?$/, ".") &&
       b.summary.every((x) => brief.some((p) => p.startsWith(x.text.slice(0, 20)))),
     brief,
   );
-  check("it's read as separate parts, not one long block", brief.length >= 1 + b.summary.length, brief.length);
+  check("it's read as separate parts, not one long block", brief.length >= 2 + b.summary.length, brief.length);
   check("and shows what it heard", (await page.textContent("#toast")).includes("read my briefing"));
   const wx = (await said("what's the weather")).join(" ");
   check("weather is said in words", /degrees/.test(wx) && !/°/.test(wx), wx);
@@ -17269,6 +17270,84 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
   check("on shows as pressed", away.on === "true", away);
   check("the background turns it off", away.off, away);
   check("and coming back says it's off", away.toast.includes("turned off while the app was closed"), away);
+  // what's read sounds natural: no emoji, brackets as a pause, symbols as words
+  const clean = await page.evaluate(() => [
+    speakClean("You have $1,157.87 left 💸"),
+    speakClean("Moto Loan ($175) comes out Friday"),
+    speakClean("Rent · Power & water"),
+    speakClean("Bill ≠ Budget, ~$40 more"),
+  ]);
+  check(
+    "emoji, brackets and symbols are smoothed for speech",
+    JSON.stringify(clean) ===
+      JSON.stringify([
+        "You have $1,157.87 left",
+        "Moto Loan, $175, comes out Friday",
+        "Rent, Power and water",
+        "Bill differs from Budget, about $40 more",
+      ]),
+    clean,
+  );
+  // the button and the line under the greeting say what's happening
+  const states = await page.evaluate(() => {
+    const look = () => ({
+      cls: document.getElementById("jv-wake").className,
+      hint: document.getElementById("jv-wake-hint").textContent,
+    });
+    const out = { off: look() };
+    wake = { ctx: { close() {} }, node: null, queue: [], raw: [], mel: [], embs: [] };
+    wakeUi();
+    out.idle = look();
+    wakePhase = "command";
+    wakeUi();
+    out.command = look();
+    wakePhase = "idle";
+    wakeHandle("read my briefing");
+    out.speaking = look();
+    document.getElementById("jv-wake").click();
+    out.afterTap = { ...look(), on: !!wake, talking: speakingKey };
+    wakeStop();
+    return out;
+  });
+  check("off: no line under the greeting", states.off.cls.includes("jv-wake-off") && states.off.hint === "", states);
+  check(
+    "on: it says what to say",
+    states.idle.cls.includes("jv-wake-idle") && states.idle.hint === "Say “Hey Jarvis”",
+    states,
+  );
+  check(
+    "after the chime: it says it's listening",
+    states.command.cls.includes("jv-wake-command") && /Listening/.test(states.command.hint),
+    states,
+  );
+  check(
+    "while it talks: a stop button",
+    states.speaking.cls.includes("jv-wake-speaking") && /tap ■ to stop/.test(states.speaking.hint),
+    states,
+  );
+  check(
+    "a tap stops the reading but leaves hands-free on",
+    states.afterTap.on && states.afterTap.talking === null && states.afterTap.cls.includes("jv-wake-idle"),
+    states,
+  );
+  // the reading voice: picked per device, never synced
+  const voice = await page.evaluate(() => {
+    speakSavePrefs({ voice: "Nope", rate: 1.12 });
+    const p = speakPrefs();
+    localStorage.setItem("speak-voice", '{"voice":5,"rate":9}');
+    const bad = speakPrefs();
+    return {
+      p,
+      bad,
+      synced: SYNC_KEYS.includes("speak-voice") || JSON.stringify(collectLocal()).includes("speak-voice"),
+    };
+  });
+  check(
+    "speed and voice are kept; junk falls back",
+    voice.p.rate === 1.12 && voice.p.voice === "Nope" && voice.bad.rate === 1 && voice.bad.voice === "",
+    voice,
+  );
+  check("the voice stays on this device", !voice.synced, voice);
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

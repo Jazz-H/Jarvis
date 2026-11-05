@@ -38,7 +38,11 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     browser's speech service (Google's in Chrome), like Console's mic. Commands are matched by code
     (`wakeMatch`), answered from this device's data, and never sent to Jarvis: no model, no cost.
     Inbox reads counts and senders, never the mail.
-  - **When it's on:** the button pulses and the screen stays on. It turns off when the app goes to the
+  - **What it shows:** off, the button is an outline. On, it's softly filled with resting bars and the
+    line under the greeting says "Say “Hey Jarvis”"; after the chime the button turns solid with moving
+    bars ("Listening…"); while Jarvis talks it shows a stop square ("Speaking · tap ■ to stop"): the
+    first tap stops the reading and leaves hands-free on, the next turns it off.
+  - **When it's on:** the screen stays on. It turns off when the app goes to the
     background (a web app can't listen there; coming back says so) and after 15 minutes without
     "Hey Jarvis". The first time, it loads about 15 MB of model files, then they come from the cache.
 - **Quick add:** one line under the greeting ("Add a to-do"). Type "call mom tomorrow" (or "…friday", "…today")
@@ -376,7 +380,12 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     question you asked by voice (sent as spoken) is read aloud by itself while the app is on
     screen; **Read answers aloud** in the settings switches that to Always or Never. It uses the
     phone's own speech (Web Speech synthesis): nothing is sent anywhere, and it stops when the app
-    goes to the background.
+    goes to the background. Text is smoothed for speaking (`speakClean`: no emoji, brackets read as a
+    pause, symbols as words) and read line by line, with a short pause between lines.
+  - **Reading voice** (settings): the voice and speed (Slower, Natural, Faster) for everything read
+    aloud, with **▶ Preview**. "Best available" picks the most natural English voice on the device
+    (names with Natural, Neural or Online first). Kept on this device only (`speak-voice`), since
+    each phone has its own voices; more can be added in the phone's text-to-speech settings.
   - **Ratings:** 👍 / 👎 on every answer and under the morning briefing ("Was this briefing
     useful?"); tap again to take it back. Jarvis gets your 15 latest as guidance: more of what you
     liked, less of what you didn't.

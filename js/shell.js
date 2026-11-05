@@ -743,6 +743,8 @@ const SHELL_CLICK = {
   },
   "brain-tone": () => brainEditTone(),
   "brain-speak": () => brainEditSpeak(),
+  "brain-voice": () => brainEditVoice(),
+  "speak-preview": () => speakPreview(),
   "ask-speak": (el) => askSpeak(el.getAttribute("data-ask-id")),
   "jv-speak-briefing": () => briefingSpeak(),
   "brain-topics": () => brainEditTopics(),

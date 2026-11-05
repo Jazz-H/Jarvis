@@ -83,7 +83,7 @@ function dashGreetingHtml(b) {
       : `Last briefed ${shortDate(b.date)}`;
   return `<div class="jv-greet">
       <div class="jv-status"><span class="jv-status-name"><span class="jv-dot"></span>${state}</span><span>${escapeHtml(when)}</span></div>
-      <div class="jv-hello-row"><h2 class="jv-hello">${hello}, ${JARVIS_OWNER}.</h2>${wakeChipHtml()}</div>
+      <div class="jv-hello-row"><h2 class="jv-hello">${hello}, ${JARVIS_OWNER}.</h2>${wakeChipHtml()}</div>${wakeHintHtml()}
     </div>`;
 }
 

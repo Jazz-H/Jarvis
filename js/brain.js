@@ -433,6 +433,61 @@ function brainEditSpeak() {
     },
   );
 }
+// The voice and speed for reading aloud (answers, the briefing, Hey Jarvis). This device only:
+// each phone has its own voices. Preview reads a sample with what's picked, before saving.
+const SPEAK_AUTO = "Best available";
+function speakVoiceLabel() {
+  const { voice, rate } = speakPrefs();
+  const speed = Object.keys(SPEAK_RATES).find((k) => SPEAK_RATES[k] === rate) || "Natural";
+  return `${voice || SPEAK_AUTO} · ${speed}`;
+}
+function brainEditVoice() {
+  const names = [SPEAK_AUTO, ...speakVoices().map((v) => v.name)];
+  const { voice, rate } = speakPrefs();
+  openModal(
+    "Reading voice",
+    [
+      { key: "voice", label: "Voice", type: "select", options: [...new Set(names)] },
+      { key: "rate", label: "Speed", type: "select", options: Object.keys(SPEAK_RATES) },
+      {
+        type: "html",
+        label: `<button type="button" class="add-row" data-action="speak-preview">▶ Preview</button>`,
+      },
+      {
+        type: "note",
+        label:
+          names.length > 1
+            ? "These are the voices on this phone. Voices with “Natural”, “Neural” or “Online” in the name usually sound most like a person. More can be added in your phone's text-to-speech settings."
+            : "This browser hasn't listed its voices yet. Close this and open it again in a moment.",
+      },
+    ],
+    {
+      voice: names.includes(voice) ? voice : SPEAK_AUTO,
+      rate: Object.keys(SPEAK_RATES).find((k) => SPEAK_RATES[k] === rate) || "Natural",
+    },
+    (v) => {
+      speakSavePrefs({
+        voice: v.voice === SPEAK_AUTO ? "" : v.voice,
+        rate: SPEAK_RATES[v.rate] || SPEAK_RATES.Natural,
+      });
+      speakStop();
+      renderConsole();
+    },
+  );
+}
+// Reads a sample with the voice and speed picked in the sheet (not saved until Save)
+function speakPreview() {
+  const vSel = document.getElementById("modal-voice"),
+    rSel = document.getElementById("modal-rate");
+  const saved = speakPrefs();
+  speakSavePrefs({
+    voice: vSel && vSel.value !== SPEAK_AUTO ? vSel.value : "",
+    rate: (rSel && SPEAK_RATES[rSel.value]) || SPEAK_RATES.Natural,
+  });
+  speakStop();
+  speakText(["Good morning, Jazz.", "Here's your briefing. Light rain by noon, so bring a jacket."], "preview");
+  speakSavePrefs(saved); // the utterances already carry the picked voice
+}
 function brainEditTopics() {
   openModal(
     "News topics",
@@ -582,6 +637,7 @@ function brainCardHtml() {
       <div class="jv-sub-label">Settings</div>
       ${row("brain-tone", "How it writes", BRAIN_TONES[s.tone])}
       ${speakSupported() ? row("brain-speak", "Read answers aloud", BRAIN_SPEAK[s.speak]) : ""}
+      ${speakSupported() ? row("brain-voice", "Reading voice", speakVoiceLabel()) : ""}
       ${row("brain-topics", "News topics", s.newsTopics.length ? s.newsTopics.join(", ") : "AI, tech, cars, trending")}
       ${row("brain-about", "About you", s.about ? (s.about.length > 40 ? s.about.slice(0, 39) + "…" : s.about) : "Add a note")}
       <div class="jv-sub-label">Check-ins</div>

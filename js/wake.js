@@ -28,26 +28,52 @@ function wakeSupported() {
     speakSupported()
   );
 }
-// A round button beside the greeting: sound waves, with a pulsing ring while it listens
-const WAKE_ICON =
-  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>';
+// The round button beside the greeting, and a line under the greeting that says what to do next.
+// One look per state: off (outline), starting, waiting for "Hey Jarvis" (soft fill, bars at rest),
+// hearing a command (solid, bars moving), talking (solid, a stop square: a tap stops the reading).
+let wakePhase = "idle"; // idle (waiting for the phrase) | command (listening for one) | speaking
+const WAKE_BARS =
+  '<svg class="jv-wake-bars" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 10v4"/><path d="M9.5 7v10"/><path d="M14.5 5v14"/><path d="M19 9v6"/></svg>';
+const WAKE_STOP =
+  '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>';
+function wakeState() {
+  if (wakeStarting) return "starting";
+  if (!wake) return "off";
+  if (wakePhase === "command") return "command";
+  return speakingKey === "wake" ? "speaking" : "idle";
+}
+const WAKE_STATES = {
+  off: { label: "Turn on hands-free: say Hey Jarvis", hint: "" },
+  starting: { label: "Starting hands-free", hint: "Starting…" },
+  idle: { label: "Hands-free is on. Tap to turn it off", hint: "Say “Hey Jarvis”" },
+  command: { label: "Listening for a command", hint: "Listening… try “read my briefing”" },
+  speaking: { label: "Stop reading", hint: "Speaking · tap ■ to stop" },
+};
 function wakeChipHtml() {
   if (!wakeSupported()) return "";
-  const on = !!wake;
-  const label = wakeStarting
-    ? "Starting hands-free"
-    : on
-      ? "Hands-free is on: say Hey Jarvis. Tap to turn it off"
-      : "Turn on hands-free: say Hey Jarvis";
-  return `<button type="button" class="jv-wake${on ? " on" : ""}${wakeStarting ? " busy" : ""}" id="jv-wake" data-action="wake-toggle" aria-pressed="${on}" aria-label="${label}" title="${on ? "Listening for “Hey Jarvis”" : "Hey Jarvis"}">${WAKE_ICON}</button>`;
+  const s = wakeState();
+  return `<button type="button" class="jv-wake jv-wake-${s}" id="jv-wake" data-action="wake-toggle" aria-pressed="${s !== "off" && s !== "starting"}" aria-label="${WAKE_STATES[s].label}">${s === "speaking" ? WAKE_STOP : WAKE_BARS}</button>`;
+}
+function wakeHintHtml() {
+  if (!wakeSupported()) return "";
+  return `<div class="jv-wake-hint" id="jv-wake-hint" aria-live="polite">${WAKE_STATES[wakeState()].hint}</div>`;
 }
 function wakeUi() {
   const el = document.getElementById("jv-wake");
-  if (el) el.outerHTML = wakeChipHtml();
+  if (el) {
+    const s = wakeState();
+    if (!el.classList.contains("jv-wake-" + s)) el.outerHTML = wakeChipHtml();
+  }
+  const hint = document.getElementById("jv-wake-hint");
+  if (hint) hint.textContent = WAKE_STATES[wakeState()].hint;
 }
 
 function wakeToggle() {
   if (wakeStarting) return;
+  if (wakeState() === "speaking") {
+    speakStop(); // the first tap stops the reading; hands-free stays on
+    return;
+  }
   if (wake) {
     wakeStop();
     showToast("Hands-free is off");
@@ -82,7 +108,6 @@ async function wakeLoadModels() {
 async function wakeStart() {
   wakeStarting = true;
   wakeUi();
-  showToast("Starting hands-free…");
   const w = { queue: [], raw: [], mel: [], embs: [], busy: false, cool: 0, paused: false };
   try {
     await wakeLoadModels();
@@ -113,7 +138,6 @@ async function wakeStart() {
   wakeStoppedAway = false;
   wakeIdle();
   wakeUi();
-  showToast("Say “Hey Jarvis”, then “read my briefing”");
   liveAnnounce("Hands-free is on. Say Hey Jarvis.");
 }
 async function wakeOpenMic(w) {
@@ -142,6 +166,7 @@ function wakeStop() {
   if (!wake) return;
   const w = wake;
   wake = null;
+  wakePhase = "idle";
   wakeRelease(w);
   wakeUi();
 }
@@ -218,9 +243,12 @@ async function wakeHeard() {
   w.paused = true;
   wakeChime();
   wakeCloseMic(w); // Android lets one listener have the mic at a time
+  wakePhase = "command";
+  wakeUi();
   await new Promise((r) => setTimeout(r, 300)); // the chime
-  liveAnnounce("Listening");
   const heard = await wakeListen();
+  wakePhase = "idle";
+  wakeUi();
   if (wake !== w) return;
   try {
     await wakeOpenMic(w);
@@ -344,7 +372,7 @@ const wakeEnd = (s) => (/[.!?]$/.test(s) ? s : s + ".");
 function wakeSayBriefing() {
   const b = loadBriefing();
   if (!b) return ["There's no briefing yet. It arrives each morning once Jarvis is set up."];
-  const out = [];
+  const out = ["Here's your briefing."];
   if (b.date !== addDaysIso(0))
     out.push(
       `Today's briefing hasn't arrived. This one is from ${noonOf(b.date).toLocaleDateString("en-US", { weekday: "long" })}.`,

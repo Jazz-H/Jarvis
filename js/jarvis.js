@@ -630,12 +630,10 @@ function jarvisHeroHtml(b) {
 // Tapped chips are remembered for this briefing until the page reloads.
 const briefingTapped = new Set();
 // The briefing as it's read aloud: the headline, then each item
-function briefingSpokenText(b) {
-  return [b.headline, ...b.summary.map((s) => s.text)].filter(Boolean).join(". ").replace(/\.\./g, ".");
-}
 function briefingSpeak() {
   const b = loadBriefing();
-  if (b) speakText(briefingSpokenText(b), "briefing:" + b.id);
+  // part by part: a short pause between lines sounds more natural than one long run
+  if (b) speakText([b.headline, ...b.summary.map((s) => s.text)].filter(Boolean), "briefing:" + b.id);
 }
 // Today's Top 3 as Home's own to-do rows (tick, tap to edit), with Jarvis's reason underneath.
 // A to-do that's since been deleted drops out; a done one stays, ticked, so the three read as a score.

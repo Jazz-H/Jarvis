@@ -151,23 +151,16 @@ function speakText(text, key) {
   synth.cancel();
   speakingKey = null;
   speakUi();
-  const parts = (Array.isArray(text) ? text : [text])
-    .map((p) =>
-      String(p || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 3000),
-    )
-    .filter(Boolean);
+  const parts = (Array.isArray(text) ? text : [text]).map((p) => speakClean(p).slice(0, 3000)).filter(Boolean);
   if (same || !parts.length) return false;
-  const v = synth
-    .getVoices()
-    .find((x) => /^en(-|_)US/i.test(x.lang) && /natural|premium|enhanced|google/i.test(x.name));
+  const v = speakVoice();
+  const { rate } = speakPrefs();
   speakingKey = key;
   parts.forEach((t, i) => {
     const u = new SpeechSynthesisUtterance(t);
-    u.lang = "en-US";
-    u.rate = 1.02;
+    u.lang = v ? v.lang : "en-US";
+    u.rate = rate;
+    u.pitch = 1;
     if (v) u.voice = v;
     const last = i === parts.length - 1;
     u.onend = u.onerror = (e) => {
@@ -180,6 +173,60 @@ function speakText(text, key) {
   speakUi();
   return true;
 }
+// Text the way it should sound: no emoji, brackets as a pause, symbols as words
+function speakClean(s) {
+  return String(s || "")
+    .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}️‍]/gu, "")
+    .replace(/\s*\(([^()]{1,80})\)\s*/g, ", $1, ")
+    .replace(/\s*[·•|]\s*/g, ", ")
+    .replace(/\s+[–—]\s+/g, ", ")
+    .replace(/\s*&\s*/g, " and ")
+    .replace(/≠/g, " differs from ")
+    .replace(/~\s*(?=\d|\$)/g, "about ")
+    .replace(/\bw\/\s*/gi, "with ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/,\s*([.;:!?])/g, "$1")
+    .replace(/,{2,}/g, ",")
+    .replace(/\s+/g, " ")
+    .replace(/^[,\s]+|[,\s]+$/g, "")
+    .trim();
+}
+// The reading voice and speed, chosen in Jarvis's brain (this device only: voices differ per device)
+const SPEAK_PREFS_KEY = "speak-voice"; // {voice: name or "", rate}
+const SPEAK_RATES = { Slower: 0.9, Natural: 1, Faster: 1.12 };
+function speakPrefs() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SPEAK_PREFS_KEY) || "null");
+    const rate = v && Object.values(SPEAK_RATES).includes(v.rate) ? v.rate : SPEAK_RATES.Natural;
+    return { voice: v && typeof v.voice === "string" ? v.voice.slice(0, 200) : "", rate };
+  } catch (e) {
+    return { voice: "", rate: SPEAK_RATES.Natural };
+  }
+}
+function speakSavePrefs(p) {
+  try {
+    localStorage.setItem(SPEAK_PREFS_KEY, JSON.stringify(p));
+  } catch (e) {}
+}
+// English voices, best first: neural / natural / online ones sound most like a person
+function speakVoices() {
+  if (!speakSupported()) return [];
+  const score = (x) =>
+    (/^en(-|_)US/i.test(x.lang) ? 4 : 0) +
+    (/natural|neural|wavenet|premium|enhanced|online/i.test(x.name) ? 3 : 0) +
+    (/google/i.test(x.name) ? 2 : 0) +
+    (x.localService === false ? 1 : 0);
+  return window.speechSynthesis
+    .getVoices()
+    .filter((x) => /^en(-|_)/i.test(x.lang))
+    .sort((a, b) => score(b) - score(a));
+}
+function speakVoice() {
+  const list = speakVoices();
+  const { voice } = speakPrefs();
+  return (voice && list.find((x) => x.name === voice)) || list[0] || null;
+}
+if (speakSupported()) window.speechSynthesis.getVoices(); // some browsers load the list on first ask
 function speakStop() {
   if (!speakSupported()) return;
   window.speechSynthesis.cancel();
@@ -194,6 +241,7 @@ function speakUi() {
     b.setAttribute("aria-pressed", String(on));
     b.setAttribute("aria-label", on ? "Stop reading" : b.getAttribute("data-speak-label") || "Read aloud");
   });
+  wakeUi(); // the hands-free button shows when Jarvis is talking (wake.js)
 }
 function speakBtnHtml(key, action, attrs, label) {
   if (!speakSupported()) return "";

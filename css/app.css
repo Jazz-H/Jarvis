@@ -8775,13 +8775,13 @@ details[open] > .wb-fold {
   margin-top: 8px;
 }
 
-/* Hey Jarvis (wake.js): the hands-free switch beside the greeting */
+/* Hey Jarvis (wake.js): the hands-free button beside the greeting, and the line under it.
+   off: outline · idle: soft fill, bars at rest · command: solid, bars moving · speaking: solid, stop square */
 .jv-hello-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: nowrap;
-  gap: 8px 12px;
+  gap: 12px;
 }
 .jv-wake {
   flex: none;
@@ -8791,30 +8791,78 @@ details[open] > .wb-fold {
   height: 44px;
   border-radius: 50%;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: transparent;
   color: var(--text-dim);
   cursor: pointer;
   padding: 0;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
 }
-.jv-wake.busy {
+.jv-wake-starting {
   opacity: 0.6;
 }
-.jv-wake.on {
-  border-color: var(--olive);
+.jv-wake-idle {
+  border-color: color-mix(in srgb, var(--olive) 45%, transparent);
+  background: color-mix(in srgb, var(--olive) 14%, transparent);
   color: var(--olive);
-  box-shadow: 0 0 0 0 var(--olive);
-  animation: jv-wake-ring 1.8s ease-out infinite;
 }
-@keyframes jv-wake-ring {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--olive) 55%, transparent);
-  }
+.jv-wake-command,
+.jv-wake-speaking {
+  border-color: var(--olive);
+  background: var(--olive);
+  color: var(--bg);
+}
+.jv-wake-bars path {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.jv-wake-idle .jv-wake-bars path {
+  animation: jv-wake-breathe 2.4s ease-in-out infinite;
+}
+.jv-wake-command .jv-wake-bars path {
+  animation: jv-wake-talk 0.7s ease-in-out infinite;
+}
+.jv-wake-bars path:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.jv-wake-bars path:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.jv-wake-bars path:nth-child(4) {
+  animation-delay: 0.45s;
+}
+@keyframes jv-wake-breathe {
+  0%,
   100% {
-    box-shadow: 0 0 0 12px transparent;
+    transform: scaleY(0.7);
+    opacity: 0.75;
   }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+@keyframes jv-wake-talk {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1.1);
+  }
+}
+.jv-wake-hint {
+  margin: 2px 2px 0;
+  font-size: 13px;
+  color: var(--olive);
+}
+.jv-wake-hint:empty {
+  display: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .jv-wake.on {
-    animation: none;
+  .jv-wake-bars path {
+    animation: none !important;
   }
 }
