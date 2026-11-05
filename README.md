@@ -1102,3 +1102,8 @@ devices so iOS doesn't zoom.
 
 ## Working style
 Make judgment calls and show finished output; expect targeted corrections rather than full rewrites.
+
+## License
+The app's own code is MIT (`LICENSE`). Files in `vendor/wake/` keep their own licenses
+(`vendor/wake/NOTICE.md`): the "hey jarvis" wake-word models are CC BY-NC-SA 4.0, non-commercial use
+only, so they don't become MIT by being in this repo.
