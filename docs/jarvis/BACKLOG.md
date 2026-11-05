@@ -20,6 +20,9 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
   models against the Oct 31 baseline (12/12).
 
 ## Done
+- [x] **Home redesign (Nov 5):** the briefing, Tomorrow, Outfit and News fold to one line with pills;
+  the briefing folds from 5 PM; Systems comes before Your day, and Outfit and News moved under the
+  Planner as **Once a day** (phone; big screens unchanged).
 - [x] **Ask: credits only** (Nov 3): no question counts or daily budget; the $20 a month is the only
   limit that stops a question, and the Console pill shows spending only.
 - [x] **Free-to-read news** (Nov 3): a list of usually paywalled sites (`config.ts` `news.paywalled`) is

@@ -69,7 +69,19 @@ const isoInWeek = (n) => (new Date().getDay() + n <= 6 ? isoOffset(n) : isoOffse
 // A fresh browser profile seeded with localStorage, plus a JS-error collector. Home changes with the
 // hour (from 5 PM it adds tomorrow's card, with its own summary list), so a test reading Home's summary
 // passes the hour it means. That freezes the page's clock at that time today, so only use it where needed.
-async function openApp({ seed = {}, phone = true, query = "", route, setup, hour } = {}) {
+// Home's cards fold by the hour (the briefing folds from 5 PM; Tomorrow, Outfit and News start folded).
+// Tests open them all, so what they read and tap doesn't depend on when the suite runs; the fold
+// tests pass folds: false to see the app's own defaults. Survives reloads.
+async function openAllFolds(ctx) {
+  await ctx.addInitScript(() =>
+    window.addEventListener("DOMContentLoaded", () => {
+      if (typeof dashFoldIsOpen !== "function") return;
+      window.dashFoldIsOpen = () => true;
+      if (document.body.dataset.tab === "home") renderHome();
+    }),
+  );
+}
+async function openApp({ seed = {}, phone = true, query = "", route, setup, hour, folds = true } = {}) {
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
@@ -80,6 +92,7 @@ async function openApp({ seed = {}, phone = true, query = "", route, setup, hour
   }
   if (route) await ctx.route("https://api.github.com/**", route);
   if (setup) await setup(ctx); // e.g. routes that must be in place before the page loads
+  if (folds) await openAllFolds(ctx);
   // NWS alerts (the Weather detail checks them for a saved location): none, unless a test routes its own
   await ctx.route("https://api.weather.gov/**", (r) =>
     r.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({ features: [] }) }),
@@ -9714,18 +9727,21 @@ await section("home polish: open details keep the same 12px gap as every Home ca
       },
       [a, b],
     );
-  check("Your day → Outfit: 12px", (await gap(".jv-day", ".jv-outfit")) === 12, await gap(".jv-day", ".jv-outfit"));
+  check(
+    "Once a day: Outfit → News 12px",
+    (await gap(".jv-outfit", "#jarvis-news")) === 12,
+    await gap(".jv-outfit", "#jarvis-news"),
+  );
   for (const go of ["calendar", "deliveries"]) {
     await page.tap(`.jv-label [data-go="${go}"]`);
     const above = await gap(".jv-day", `#jv-detail-${go}`);
-    const below = await gap(`#jv-detail-${go}`, ".jv-outfit");
-    check(`${go} detail: 12px from Your day and 12px above Outfit`, above === 12 && below === 12, { above, below });
+    check(`${go} detail: 12px from Your day`, above === 12, { above });
     await page.tap(`.jv-label [data-go="${go}"]`);
   }
   check(
-    "News has a section label like Systems, 10px above its card",
-    (await gap(".jv-news-label", "#jarvis-news")) === 10,
-    await gap(".jv-news-label", "#jarvis-news"),
+    "Once a day has a section label like Systems, 10px above its first card",
+    (await gap(".jv-once-label", ".jv-outfit")) === 10,
+    await gap(".jv-once-label", ".jv-outfit"),
   );
   await page.tap('.jv-tile[data-go="money"]');
   const t = await page.evaluate(() => {
@@ -9769,6 +9785,135 @@ await section("home polish: the outfit title is spaced from its pieces", async (
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
+
+await section(
+  "home folds: briefing folds from 5 PM; Tomorrow, Outfit and News fold; Once a day under the Planner",
+  async () => {
+    for (const hour of [9, 19]) {
+      const { ctx, page, errors } = await openApp({ seed: homePolishSeed(), hour, folds: false });
+      const read = () =>
+        page.evaluate(() => {
+          const q = (s) => document.querySelector("#panel-home " + s);
+          const open = (s) => (q(s + " .jv-fold-head") ? q(s + " .jv-fold-head").getAttribute("aria-expanded") : null);
+          const order = [
+            ".jv-hero",
+            ".jv-tomorrow",
+            ".jv-tiles",
+            ".jv-day",
+            ".jv-planner-label",
+            ".jv-once-label",
+            ".jv-outfit",
+            "#jarvis-news",
+          ]
+            .map((s) => q(s))
+            .filter(Boolean)
+            .map((e) => e.getBoundingClientRect().top);
+          return {
+            order,
+            inOrder: order.every((t, i) => i === 0 || t > order[i - 1]),
+            hero: open(".jv-hero"),
+            heroPeek: q(".jv-hero .jv-fold-peek") ? q(".jv-hero .jv-fold-peek").textContent : "",
+            heroPills: [...document.querySelectorAll("#panel-home .jv-hero .jv-kicker > span")].map(
+              (e) => e.textContent,
+            ),
+            heroRows: !!q(".jv-hero .jv-summary") && q(".jv-hero .jv-summary").getBoundingClientRect().height > 0,
+            tomorrow: open(".jv-tomorrow"),
+            tomorrowPeek: q(".jv-tomorrow .jv-fold-peek") ? q(".jv-tomorrow .jv-fold-peek").textContent : "",
+            outfit: open(".jv-outfit"),
+            outfitPill: q(".jv-outfit .jv-fold-pill") ? q(".jv-outfit .jv-fold-pill").textContent : "",
+            outfitPeek: q(".jv-outfit .jv-fold-peek") ? q(".jv-outfit .jv-fold-peek").textContent : "",
+            pieces: [...document.querySelectorAll("#panel-home .jv-outfit .jv-piece b")]
+              .map((b) => b.textContent)
+              .join(", "),
+            news: open("#jarvis-news"),
+            newsPill: q("#jarvis-news .jv-fold-pill") ? q("#jarvis-news .jv-fold-pill").textContent : "",
+            newsPeek: q("#jarvis-news .jv-fold-peek") ? q("#jarvis-news .jv-fold-peek").textContent : "",
+            oldNewsLabel: !!q(".jv-news-label"),
+            pwned: !!window.__pwned,
+          };
+        });
+      const r = await read();
+      const when = hour < 17 ? "morning" : "evening";
+      check(
+        `${when}: Today, Tomorrow, Systems, Your day, Planner, then Once a day (Outfit, News)`,
+        r.inOrder && r.order.length === (hour < 17 ? 7 : 8),
+        r,
+      );
+      check(`${when}: the briefing card shows its item count`, r.heroPills.includes("3 items"), r.heroPills);
+      if (hour < 17) {
+        check(
+          "morning: the briefing is open, its rows show, no Tomorrow card",
+          r.hero === "true" && r.heroRows && r.tomorrow === null,
+          r,
+        );
+      } else {
+        check(
+          "evening: the briefing folds to its headline, as text",
+          r.hero === "false" && !r.heroRows && r.heroPeek.startsWith("Rain by noon <img"),
+          r,
+        );
+        check("evening: Tomorrow folds to one line", r.tomorrow === "false" && r.tomorrowPeek.length > 0, r);
+      }
+      check(
+        `${when}: Outfit folds to its pieces and Workday/Weekend`,
+        r.outfit === "false" &&
+          /^(Workday|Weekend)$/.test(r.outfitPill) &&
+          r.outfitPeek === r.pieces &&
+          r.pieces.length > 0,
+        r,
+      );
+      check(
+        `${when}: News folds to its count and first title, no separate NEWS label`,
+        r.news === "false" && r.newsPill === "3 stories" && r.newsPeek === "Safe story" && !r.oldNewsLabel,
+        r,
+      );
+      check(`${when}: nothing from the briefing runs`, !r.pwned);
+      if (hour >= 17) {
+        // a tap opens a fold and keeps focus on its head; Enter closes it again
+        await page.tap("#panel-home .jv-hero .jv-fold-head");
+        const o = await page.evaluate(() => ({
+          open: document.querySelector("#panel-home .jv-hero .jv-fold-head").getAttribute("aria-expanded"),
+          rows: document.querySelector("#panel-home .jv-hero .jv-summary").getBoundingClientRect().height > 0,
+          peek: !!document.querySelector("#panel-home .jv-hero .jv-fold-peek"),
+          focus: document.activeElement && document.activeElement.matches(".jv-hero .jv-fold-head"),
+        }));
+        check(
+          "tapping the briefing opens it: rows show, the one-line peek goes, focus stays",
+          o.open === "true" && o.rows && !o.peek && o.focus,
+          o,
+        );
+        await page.keyboard.press("Enter");
+        check(
+          "Enter on the focused head folds it again",
+          (await page.getAttribute("#panel-home .jv-hero .jv-fold-head", "aria-expanded")) === "false",
+        );
+        await page.tap("#panel-home .jv-outfit .jv-fold-head");
+        check(
+          "Outfit opens with its Swap button",
+          await page.isVisible('#panel-home .jv-outfit [data-action="jv-outfit-swap"]'),
+        );
+        await page.evaluate(() => dashDrill("news"));
+        check(
+          "a News drill opens the News fold",
+          (await page.getAttribute("#jarvis-news .jv-fold-head", "aria-expanded")) === "true" &&
+            (await page.isVisible("#jarvis-news .jv-story-read")),
+        );
+      }
+      check("no JS errors", errors.length === 0, errors);
+      await ctx.close();
+    }
+    // big screens keep News as its own labeled card in the first column
+    const d = await openApp({ seed: homePolishSeed(), phone: false, folds: false });
+    const w = await d.page.evaluate(() => ({
+      label: !!document.querySelector("#panel-home .jv-news-label"),
+      fold: document.getElementById("jarvis-news").classList.contains("jv-fold"),
+      once: !!document.querySelector("#panel-home .jv-once"),
+    }));
+    check("desktop: News stays an open labeled card, no Once a day section", w.label && !w.fold && !w.once, w);
+    check("no JS errors (desktop)", d.errors.length === 0, d.errors);
+    await d.ctx.close();
+  },
+);
 
 await section("home polish: news shows 'topic · source' and one safe Read link per story", async () => {
   const { ctx, page, errors } = await openApp({ seed: homePolishSeed() });
@@ -11432,6 +11577,7 @@ async function openAsk({ seed = {}, query = "?tab=console", route, speech = "fak
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
+  await openAllFolds(ctx); // Home's cards open, as in openApp
   if (route) await ctx.route("https://api.github.com/**", route);
   await ctx.addInitScript((mode) => {
     delete window.SpeechRecognition;

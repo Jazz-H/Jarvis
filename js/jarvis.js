@@ -493,13 +493,8 @@ function jvRainWindow(hours) {
 // News: a headline list. Each story: "TOPIC · Source" with a Read link on the right, then the
 // title and a short summary. The Read link is the one tap target (the title is plain text), and
 // unsafe links get no Read link at all.
-function jarvisNewsCard(c) {
-  if (!c) return "";
-  // a section label like Systems (NEWS ─── count), then the stories in a plain card
-  const section = (count, body) =>
-    `<div class="jv-label jv-news-label"><span>News</span><i></i><span class="jv-label-count">${count}</span></div>
-    <section class="card jv-card jv-news" id="jarvis-news" aria-label="News">${body}</section>`;
-  if (c.status !== "ok") return section("Unavailable", jvErrorBody(c));
+// The stories as a list, for the News card (big screens) and the News fold (phone)
+function jarvisStoriesHtml(c) {
   const rows = c.data.stories
     .map((s) => {
       const meta = [
@@ -518,8 +513,33 @@ function jarvisNewsCard(c) {
       return `<li class="jv-story">${head}<span class="jv-story-title">${escapeHtml(s.title)}</span>${s.summary ? `<p>${escapeHtml(s.summary)}</p>` : ""}</li>`;
     })
     .join("");
-  const n = c.data.stories.length;
-  return section(`${n} stor${n === 1 ? "y" : "ies"}`, `<ul class="jv-stories">${rows}</ul>${jvMeta(c)}`);
+  return `<ul class="jv-stories">${rows}</ul>${jvMeta(c)}`;
+}
+const jvStoryCount = (n) => `${n} stor${n === 1 ? "y" : "ies"}`;
+function jarvisNewsCard(c) {
+  if (!c) return "";
+  // a section label like Systems (NEWS ─── count), then the stories in a plain card
+  const section = (count, body) =>
+    `<div class="jv-label jv-news-label"><span>News</span><i></i><span class="jv-label-count">${count}</span></div>
+    <section class="card jv-card jv-news" id="jarvis-news" aria-label="News">${body}</section>`;
+  if (c.status !== "ok") return section("Unavailable", jvErrorBody(c));
+  return section(jvStoryCount(c.data.stories.length), jarvisStoriesHtml(c));
+}
+// Phone: News folds to its story count and the first title
+function jarvisNewsFoldHtml(c) {
+  if (!c) return "";
+  const ok = c.status === "ok";
+  return dashFoldHtml({
+    key: "news",
+    cls: "jv-news",
+    id: "jarvis-news",
+    label: "News",
+    kicker: "News",
+    pills: [ok ? jvStoryCount(c.data.stories.length) : "Unavailable"],
+    peek: ok && c.data.stories.length ? c.data.stories[0].title : "",
+    open: false,
+    body: ok ? jarvisStoriesHtml(c) : jvErrorBody(c),
+  });
 }
 
 // The briefing (layout 1): headline, then the tagged summary. Weather and News lines drill into
@@ -589,9 +609,19 @@ function jarvisHeroHtml(b) {
     ? `<details class="jv-notes"><summary>${b.notes.length} note${b.notes.length === 1 ? "" : "s"}</summary><ul>${b.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul></details>`
     : "";
   markBriefingSeen(b);
-  return `<section class="card jv-card jv-hero${b.date === today ? "" : " jv-stale"}">
-      <div class="jv-kicker">Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}</div>
-      ${((p) => (b.headline ? `<h2 class="jv-headline">${escapeHtml(p.title)}</h2>${p.sub ? `<p class="jv-headsub">${escapeHtml(p.sub)}</p>` : ""}` : ""))(briefingHeadParts(b.headline || ""))}
+  const head = briefingHeadParts(b.headline || "");
+  const n = b.summary.length;
+  // open in the morning and afternoon; from 5 PM (when Tomorrow shows) it folds to its headline
+  return dashFoldHtml({
+    key: `today:${b.id.replace(/[^\w:.-]/g, "-")}`,
+    cls: `jv-hero${b.date === today ? "" : " jv-stale"}`,
+    label: "Today in 60 seconds",
+    kicker: "Today in 60 seconds",
+    pillsHtml: isNew ? '<span class="jv-pill">New</span>' : "",
+    pills: n ? [`${n} item${n === 1 ? "" : "s"}`] : [],
+    peek: head.title || (n ? b.summary[0].text : ""),
+    open: new Date().getHours() < DASH_EVENING_HOUR,
+    body: `${b.headline ? `<h2 class="jv-headline">${escapeHtml(head.title)}</h2>${head.sub ? `<p class="jv-headsub">${escapeHtml(head.sub)}</p>` : ""}` : ""}
       ${b.date === today ? "" : briefingLateHtml(b)}
       <ul class="jv-summary">${reviewHomeRowHtml()}${items}</ul>
       ${briefingTop3Html(b)}
@@ -599,8 +629,8 @@ function jarvisHeroHtml(b) {
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${b.date === today && b.refreshedAt ? `<div class="jv-meta">Cards updated ${escapeHtml(jvTime(b.refreshedAt))}</div>` : ""}
       <div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}<span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
-      ${notes}
-    </section>`;
+      ${notes}`,
+  });
 }
 
 // Suggested to-dos under the summary: tap to add (with its due date), Undo in the toast.

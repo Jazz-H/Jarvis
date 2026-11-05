@@ -338,6 +338,7 @@ const SHELL_CLICK = {
   // Jarvis dashboard: tiles and briefing lines drill into details; links go to a tab (and a Jazz 3.0 card).
   // Both only accept their own section names and card ids.
   "jv-drill": (el) => dashDrill(el.getAttribute("data-go")),
+  "jv-fold": (el) => dashFoldToggle(el), // Home's folding cards (briefing, Tomorrow, Outfit, News)
   "jv-quick-add": () => dashQuickAdd(),
   "jv-wash-move": () => dashWashMove(), // re-checks the suggestion before changing anything
   "jv-wash-keep": () => dashWashKeep(),

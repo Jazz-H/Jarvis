@@ -19,8 +19,15 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
   stays ready for the next one. Sync waits while you're typing there. The **mic** next to + fills
   the box by voice (see Console's voice input); nothing is added until you tap +.
-- **Tomorrow (from 5 PM):** tomorrow at a glance above the briefing: its forecast, to-dos,
-  bills, wash day and workouts. **Plan tomorrow** opens tomorrow in the Planner. Under it,
+- **Folding cards (phone):** Today in 60 seconds, Tomorrow, Outfit and News fold to their label,
+  small pills ("3 items", "Fri, Nov 6", "Workday", "3 stories") and one line; the chevron (or a
+  tap anywhere on the head) opens the rest. The briefing is open in the morning and afternoon and
+  folds to its headline from 5 PM, when Tomorrow shows; the others start folded. What you open
+  stays open until the app reloads (a new briefing starts from its default). The phone order is
+  the briefing, Tomorrow, Systems, Your day, the Planner, then **Once a day** (Outfit and News).
+  Big screens keep the three columns with every card open.
+- **Tomorrow (from 5 PM):** tomorrow at a glance under the briefing: its forecast, to-dos,
+  bills, wash day and workouts (folded, it lists their tags, or "Nothing planned yet"). **Plan tomorrow** opens tomorrow in the Planner. Under it,
   **Next 14 days** lists upcoming birthdays, car maintenance, appointments and
   trips from your to-do types, plus a gift idea from Shopping (an item with "gift" in it) when
   a birthday is coming.

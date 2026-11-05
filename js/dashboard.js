@@ -29,9 +29,12 @@ function dashDrill(key) {
     return;
   }
   if (key === "news") {
+    dashFolds.news = true; // the phone's News fold opens
     renderHome();
-    // land on the NEWS section label, so the card shows under its header
-    const el = document.querySelector("#panel-home .jv-news-label") || document.getElementById("jarvis-news");
+    // land on the section label above the card (NEWS, or Once a day on a phone)
+    const el =
+      document.querySelector("#panel-home .jv-news-label, #panel-home .jv-once-label") ||
+      document.getElementById("jarvis-news");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -395,27 +398,26 @@ function dashboardHtml(planner = "", wide = false) {
     shop: dashShopData(),
   };
   updateAppBadge(dashBadgeCount(d.todo));
-  const tiles = dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d),
-    news = b ? jarvisNewsCard(b.news) : "";
-  if (wide)
+  const tiles = dashTilesHtml(b, homeDayTotals(addDaysIso(0)), d);
+  if (wide) {
+    const news = b ? jarvisNewsCard(b.news) : "";
     return `<div class="jv-wrap home-desk">
       <div class="hd-head">${dashGreetingHtml(b)}</div>
       <div class="hd-col">${jarvisHeroHtml(b)}${dashTomorrowHtml(b)}${dashWashSwapHtml(b, d)}${pushCardHtml()}${news}</div>
       <div class="hd-col">${dashTimelineHtml(b, d)}${planner}</div>
       <div class="hd-col">${tiles}${dashOutfitHtml(b)}</div>
     </div>`;
+  }
   return `<div class="jv-wrap">
       ${dashGreetingHtml(b)}
       ${dashQuickHtml()}
-      ${dashTomorrowHtml(b)}
       ${jarvisHeroHtml(b)}
+      ${dashTomorrowHtml(b)}
       ${dashWashSwapHtml(b, d)}
       ${pushCardHtml()}
-      ${dashTimelineHtml(b, d)}
-      ${dashOutfitHtml(b)}
       ${tiles}
-      ${news}
-    </div>${planner}`;
+      ${dashTimelineHtml(b, d)}
+    </div>${planner}${dashOnceADayHtml(b)}`;
 }
 
 // ---- quick add: one line on Home, "call mom tomorrow" style (same parsing as the + sheet) ----
@@ -507,12 +509,51 @@ function dashTomorrowHtml(b, now = new Date()) {
           .join(", "),
       )}</span></li>`,
     );
-  const label = noonOf(iso).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-  return `<section class="card jv-card jv-tomorrow" aria-label="Tomorrow">
-      <div class="jv-kicker">Tomorrow · ${escapeHtml(label)}</div>
-      ${lines.length ? `<ul class="jv-summary">${lines.join("")}</ul>` : `<p class="jv-empty-line">Nothing planned yet.</p>`}
+  const label = noonOf(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  // folded: the tags of what's planned ("Weather · To-Do · Bills"), or that nothing is
+  const tags = lines.map((l) => l.match(/<span class="jv-src[^"]*">([^<]*)<\/span>/)[1]);
+  return dashFoldHtml({
+    key: "tomorrow",
+    cls: "jv-tomorrow",
+    label: "Tomorrow",
+    kicker: "Tomorrow",
+    pills: [label],
+    peek: tags.length ? tags.join(" · ") : "Nothing planned yet",
+    open: false,
+    body: `${lines.length ? `<ul class="jv-summary">${lines.join("")}</ul>` : `<p class="jv-empty-line">Nothing planned yet.</p>`}
       ${dashComingUpHtml()}
-      <button class="jv-open" data-action="jv-drill" data-go="tomorrow">Plan tomorrow →</button>
+      <button class="jv-open" data-action="jv-drill" data-go="tomorrow">Plan tomorrow →</button>`,
+  });
+}
+
+// ---- Home folds: Today in 60 seconds, Tomorrow, Outfit and News fold to their label, small pills
+// and one line; the chevron opens the rest. Taps are remembered until the page reloads, per key
+// (the briefing's key carries its id, so a new briefing opens with its own default).
+const dashFolds = {};
+function dashFoldIsOpen(key, byDefault) {
+  return key in dashFolds ? dashFolds[key] : byDefault;
+}
+function dashFoldToggle(el) {
+  const key = el.getAttribute("data-fold") || "";
+  if (!/^[a-z]+(:[\w:.-]+)?$/.test(key)) return;
+  dashFolds[key] = el.getAttribute("aria-expanded") !== "true";
+  renderHome();
+  const head = document.querySelector(`#panel-home .jv-fold-head[data-fold="${CSS.escape(key)}"]`);
+  if (head) {
+    head.focus({ preventScroll: true });
+    if (dashFolds[key]) dashReveal(head.closest(".jv-fold"));
+  }
+}
+// pills: plain strings (escaped here); pillsHtml: markup already built (the briefing's New pill)
+function dashFoldHtml({ key, cls = "", id = "", label, kicker, pills = [], pillsHtml = "", peek = "", body, open }) {
+  open = dashFoldIsOpen(key, open);
+  const pillRow = pillsHtml + pills.map((p) => `<span class="jv-fold-pill">${escapeHtml(p)}</span>`).join("");
+  return `<section class="card jv-card jv-fold ${cls}${open ? " open" : ""}"${id ? ` id="${id}"` : ""} aria-label="${escapeAttr(label)}">
+      <button type="button" class="jv-fold-head" data-action="jv-fold" data-fold="${escapeAttr(key)}" aria-expanded="${open}">
+        <span class="jv-fold-top"><span class="jv-kicker">${escapeHtml(kicker)}${pillRow}</span><span class="jv-fold-cue" aria-hidden="true">${CHEVRON_DOWN}</span></span>
+        ${!open && peek ? `<span class="jv-fold-peek">${escapeHtml(peek)}</span>` : ""}
+      </button>
+      <div class="jv-fold-body"${open ? "" : " hidden"}>${body}</div>
     </section>`;
 }
 
@@ -1061,7 +1102,7 @@ const DASH_PIECES = {
 const DASH_PIECE_SVG = (paths) =>
   `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const SWAP_ICON = DASH_PIECE_SVG('<path d="M7 4 4 7l3 3M4 7h13M17 20l3-3-3-3M20 17H7"/>');
-function dashOutfitHtml(b) {
+function dashOutfitHtml(b, folded = false) {
   const o = dashOutfit(b);
   if (!o) return "";
   const chips = [
@@ -1076,15 +1117,35 @@ function dashOutfitHtml(b) {
   const missing = o.needsLayer
     ? `<li class="jv-piece jv-piece-missing"><button data-action="jv-go" data-go="shop">${DASH_PIECE_SVG(DASH_PIECES.Outerwear.icon)}<span class="jv-mini">Layer</span><b>No ${o.rain ? "rain layer" : "coat"} yet</b><span>Add one in Shopping&nbsp;›</span></button></li>`
     : "";
+  const swap = `<button class="jv-outfit-swap" data-action="jv-outfit-swap" aria-label="Swap for another outfit">${SWAP_ICON}</button>`;
+  const rest = `<h2 class="jv-headline">${escapeHtml(o.title)}</h2>
+      <div class="jv-ctx">${chips.map((c) => `<span>${escapeHtml(c)}</span>`).join("")}</div>
+      <ul class="jv-outfit-grid">${o.items.map(tile).join("")}${missing}</ul>`;
+  if (folded)
+    return dashFoldHtml({
+      key: "outfit",
+      cls: "jv-outfit",
+      label: "Outfit",
+      kicker: "Outfit",
+      pills: [o.workday ? "Workday" : "Weekend"],
+      peek: o.items.map((i) => i.title).join(", "),
+      open: false,
+      body: `<div class="jv-outfit-head jv-fold-tools">${swap}</div>${rest}`,
+    });
   return `<section class="card jv-card jv-outfit" aria-label="Outfit">
       <div class="jv-outfit-head">
         <div class="jv-kicker">Outfit</div>
-        <button class="jv-outfit-swap" data-action="jv-outfit-swap" aria-label="Swap for another outfit">${SWAP_ICON}</button>
+        ${swap}
       </div>
-      <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
-      <div class="jv-ctx">${chips.map((c) => `<span>${escapeHtml(c)}</span>`).join("")}</div>
-      <ul class="jv-outfit-grid">${o.items.map(tile).join("")}${missing}</ul>
+      ${rest}
     </section>`;
+}
+// ---- once a day (phone, under the Planner): Outfit and News, folded ----
+function dashOnceADayHtml(b) {
+  const parts = dashOutfitHtml(b, true) + (b ? jarvisNewsFoldHtml(b.news) : "");
+  return parts
+    ? `<div class="jv-wrap jv-once"><div class="jv-label jv-once-label"><span>Once a day</span><i></i></div>${parts}</div>`
+    : "";
 }
 function dashOutfitSwap() {
   try {

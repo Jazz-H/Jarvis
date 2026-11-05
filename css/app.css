@@ -6464,6 +6464,83 @@ body.todo-dragging {
     max-height: 86vh;
   }
 }
+/* Home folds (dashFoldHtml): the label row with small pills and a chevron, one line under it
+   while folded, the rest once opened. The whole head is the button. */
+.jv-fold-head {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.jv-fold-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 24px;
+}
+.jv-fold .jv-kicker {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+.jv-fold-pill {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--olive) 10%, transparent);
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.jv-fold-cue {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-dim);
+}
+.jv-fold-cue svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s;
+}
+.jv-fold.open .jv-fold-cue svg {
+  transform: rotate(180deg);
+}
+.jv-fold-peek {
+  font-size: 15.5px;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.jv-tomorrow .jv-fold-peek {
+  color: var(--text-dim);
+}
+.jv-fold-body {
+  margin-top: 2px;
+}
+.jv-tomorrow .jv-fold-body .jv-summary {
+  margin-top: 10px;
+}
+.jv-outfit-head.jv-fold-tools {
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+/* Once a day: Outfit and News under the Planner (phone) */
+.jv-once {
+  margin-top: 18px;
+}
 /* Evening: tomorrow at a glance */
 .jv-tomorrow {
   border-color: var(--olive-dim);
