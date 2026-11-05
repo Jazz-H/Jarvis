@@ -8782,6 +8782,10 @@ details[open] > .wb-fold {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin: 10px 0 2px; /* the greeting's own gap, so the button sits clear of the status line */
+}
+.jv-hello-row .jv-hello {
+  margin: 0;
 }
 .jv-wake {
   flex: none;
@@ -8803,10 +8807,34 @@ details[open] > .wb-fold {
 .jv-wake-starting {
   opacity: 0.6;
 }
+/* on: a solid accent ring (steady, no glow), so it's clear at a glance that it's listening */
 .jv-wake-idle {
-  border-color: color-mix(in srgb, var(--olive) 45%, transparent);
-  background: color-mix(in srgb, var(--olive) 14%, transparent);
+  border: 2px solid var(--olive);
+  background: color-mix(in srgb, var(--olive) 12%, transparent);
   color: var(--olive);
+}
+/* and the glow: a soft halo that breathes out from the ring while it's on */
+.jv-wake-idle,
+.jv-wake-command,
+.jv-wake-speaking {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--olive) 45%, transparent);
+  animation: jv-wake-glow 1.8s ease-out infinite;
+}
+@keyframes jv-wake-glow {
+  0% {
+    box-shadow:
+      0 0 14px color-mix(in srgb, var(--olive) 45%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--olive) 55%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 14px color-mix(in srgb, var(--olive) 45%, transparent),
+      0 0 0 12px transparent;
+  }
+}
+.jv-wake-command,
+.jv-wake-speaking {
+  border-width: 2px;
 }
 .jv-wake-command,
 .jv-wake-speaking {
@@ -8862,7 +8890,8 @@ details[open] > .wb-fold {
   display: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .jv-wake-bars path {
+  .jv-wake-bars path,
+  .jv-wake {
     animation: none !important;
   }
 }
