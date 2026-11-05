@@ -788,6 +788,7 @@ const SHELL_CLICK = {
   "ask-token-remove": () => askTokenRemove(),
   // Voice input (voice.js): the mic in Console's box and Home's quick add
   "voice-toggle": (el) => voiceToggle(el.getAttribute("data-target")),
+  "wake-toggle": () => wakeToggle(),
   // Weekly Review (review.js): the Console card / row and Home's line open it; the sheet's arrows,
   // links and suggestion chips. Ids, directions, stat keys and indexes are all re-checked.
   "review-open": (el) => openReview(el.getAttribute("data-review-id")),

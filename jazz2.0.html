@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://icons.duckduckgo.com; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://api.weather.gov; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://icons.duckduckgo.com; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://api.weather.gov; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>Jarvis</title>
 
@@ -389,6 +389,7 @@
     <script src="js/ask.js"></script>
     <script src="js/brain.js"></script>
     <script src="js/voice.js"></script>
+    <script src="js/wake.js"></script>
     <script src="js/shell.js"></script>
     <script src="js/gestures.js"></script>
     <script src="js/drag-reorder.js"></script>

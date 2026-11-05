@@ -143,6 +143,7 @@ function speakSupported() {
   return typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function";
 }
 // Reads the text aloud, or stops if this same thing is already being read. Returns true if it started.
+// A list is read one part after another (the browser queues them), so long readings aren't cut off.
 function speakText(text, key) {
   if (!speakSupported()) return false;
   const synth = window.speechSynthesis;
@@ -150,23 +151,32 @@ function speakText(text, key) {
   synth.cancel();
   speakingKey = null;
   speakUi();
-  const t = String(text || "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (same || !t) return false;
-  const u = new SpeechSynthesisUtterance(t.slice(0, 3000));
-  u.lang = "en-US";
-  u.rate = 1.02;
+  const parts = (Array.isArray(text) ? text : [text])
+    .map((p) =>
+      String(p || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 3000),
+    )
+    .filter(Boolean);
+  if (same || !parts.length) return false;
   const v = synth
     .getVoices()
     .find((x) => /^en(-|_)US/i.test(x.lang) && /natural|premium|enhanced|google/i.test(x.name));
-  if (v) u.voice = v;
-  u.onend = u.onerror = () => {
-    if (speakingKey === key) speakingKey = null;
-    speakUi();
-  };
   speakingKey = key;
-  synth.speak(u);
+  parts.forEach((t, i) => {
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = "en-US";
+    u.rate = 1.02;
+    if (v) u.voice = v;
+    const last = i === parts.length - 1;
+    u.onend = u.onerror = (e) => {
+      if (!last && !(e && e.error)) return; // the next part follows
+      if (speakingKey === key) speakingKey = null;
+      speakUi();
+    };
+    synth.speak(u);
+  });
   speakUi();
   return true;
 }

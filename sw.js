@@ -1,5 +1,7 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v188`;
+const CACHE_NAME = `${CACHE_PREFIX}v189`;
+// vendor/wake (ONNX Runtime and the "hey jarvis" models, ~15 MB) isn't precached: the fetch handler
+// caches each file the first time hands-free is turned on (js/wake.js)
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -34,6 +36,7 @@ const ASSETS = [
   "./js/ask.js",
   "./js/brain.js",
   "./js/voice.js",
+  "./js/wake.js",
   "./js/shell.js",
   "./js/gestures.js",
   "./js/drag-reorder.js",

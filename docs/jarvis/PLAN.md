@@ -41,6 +41,10 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 
 - [x] Card refresh (Nov 4): Weather, Calendar, Inbox, Deliveries and Bill Guard are redone at about
   12:30pm and 5pm (9pm added Nov 5); the morning's summary stays (`agents/jarvis.ts` `runRefresh`).
+- [x] Hey Jarvis (Nov 5): hands-free voice while the app is open (`js/wake.js`). The wake word runs on
+  the device (openWakeWord, `vendor/wake`); one command goes through the browser's speech recognition
+  and is matched by code, no model. Tested on the owner's Android phone first (`spike/wake`, removed).
+  Not built: listening with the app closed (needs a native Android app), sending questions to Ask by voice.
 
 ## My preferences
 - Location: Springfield, IL

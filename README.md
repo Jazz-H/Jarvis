@@ -25,6 +25,22 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   waiting in it. A briefing line about News opens the News card.
 - **Status:** Jarvis's state (Online / Standing by / Local mode), when it last briefed you,
   and a greeting ("Good morning, Jazz."). The date is in the header.
+- **Hey Jarvis (hands-free):** the round sound-wave button beside the greeting. Tap it (a tap is
+  needed: browsers won't start the mic by themselves) and, while the app is open and on screen, say
+  "Hey Jarvis", wait for the chime, then a command. It answers out loud:
+  - "read my briefing" (or just "Hey Jarvis"): the headline, each line and your Top 3;
+  - "read everything": the whole of Home (briefing, weather, your day, inbox, tomorrow after 5 PM, news);
+  - "weather" (or "…tomorrow"), "my day" / "calendar", "top 3", "inbox", "tomorrow", "news";
+  - "add call mom tomorrow" / "remind me to buy milk": added like Quick add, read back, with Undo;
+  - "stop" (or "Hey Jarvis, stop" while it's talking). Anything else gets the list of commands.
+  - **Privacy:** "Hey Jarvis" is heard on the phone by openWakeWord's model (`vendor/wake`, ONNX
+    Runtime Web): no audio leaves the device for it. Only the one command after the chime goes to the
+    browser's speech service (Google's in Chrome), like Console's mic. Commands are matched by code
+    (`wakeMatch`), answered from this device's data, and never sent to Jarvis: no model, no cost.
+    Inbox reads counts and senders, never the mail.
+  - **When it's on:** the button pulses and the screen stays on. It turns off when the app goes to the
+    background (a web app can't listen there; coming back says so) and after 15 minutes without
+    "Hey Jarvis". The first time, it loads about 15 MB of model files, then they come from the cache.
 - **Quick add:** one line under the greeting ("Add a to-do"). Type "call mom tomorrow" (or "…friday", "…today")
   and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
   stays ready for the next one. Sync waits while you're typing there. The **mic** next to + fills
@@ -712,7 +728,8 @@ only turning sync off still asks first.
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
    | `brain.js` | Jarvis's brain: memory, ratings, settings and check-ins (`normalizeJarvisBrain`, `brainRemember`, `brainRate`, `brainCardHtml`) |
    | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), Earlier and Clear history (`askShowEarlier`, `askClearHistory`), Jarvis's actions (`askApplyActions`), the usage chip, chips / Follow up, the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
-   | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends |
+   | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends; reading aloud (`speakText`, a list is read part by part) |
+   | `wake.js` | Hey Jarvis: the hands-free button (`wakeChipHtml`, `wakeToggle`), the on-device wake word (`wakeScore`, models in `vendor/wake`), one command by speech recognition (`wakeListen`), matched by code (`wakeMatch`, `wakeHandle`) and answered aloud (`wakeSay*`) |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
    | `calendar.js` | Google Calendar history on the Planner: `ingestCalendarFile` (sync's pull), `normalizeCalendar`, `calendarEventsOn` (null outside the imported range), the day's events section (`homeEventsHtml`); Home's strip and hero read it |
    | `shell.js` | Tab switching and the delegated `SHELL_CLICK` / `SHELL_KEYDOWN` / `SHELL_INPUT` / `SHELL_CHANGE` tables |
@@ -1066,6 +1083,7 @@ devices so iOS doesn't zoom.
   it doesn't know about until it updates.
 - **Content Security Policy.** `jazz2.0.html` only lets the app load from itself and call GitHub, the
   gist file host and the weather service. A feature that calls a new host must add it there first.
+  `'wasm-unsafe-eval'` lets the Hey Jarvis model (WebAssembly, served from the app itself) run.
 - **Ask Jarvis answers in about a minute, not instantly.** A GitHub runner has to start each
   time; answers use this morning's briefing (no live calendar or inbox). The key-expiry warning
   depends on GitHub exposing its expiration header to the browser; if it doesn't, there's no

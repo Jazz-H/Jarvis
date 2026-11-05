@@ -17,6 +17,8 @@ const TYPES = {
   ".html": "text/html",
   ".css": "text/css",
   ".js": "text/javascript",
+  ".mjs": "text/javascript", // vendor/wake: GitHub Pages serves these as JavaScript too
+  ".wasm": "application/wasm",
   ".json": "application/json",
   ".png": "image/png",
   ".woff2": "font/woff2",
@@ -9219,7 +9221,9 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
   ];
   const b = briefingFixture();
   Object.assign(b.cards.weather.data, { highF: 69, rainChanceMax: 60 });
-  const { ctx, page, errors } = await openApp({ seed: { "jarvis-briefing": b, "capsule-content": cap, "home-cards": HOME_CARDS_OPEN } });
+  const { ctx, page, errors } = await openApp({
+    seed: { "jarvis-briefing": b, "capsule-content": cap, "home-cards": HOME_CARDS_OPEN },
+  });
   const pick = (dayOfWeek, high, rain) =>
     page.evaluate(
       ([dow, hi, r]) => {
@@ -9718,7 +9722,11 @@ await section("home polish: open details keep the same 12px gap as every Home ca
       },
       [a, b],
     );
-  check("Outfit → News: 12px", (await gap(".jv-outfit", "#jarvis-news")) === 12, await gap(".jv-outfit", "#jarvis-news"));
+  check(
+    "Outfit → News: 12px",
+    (await gap(".jv-outfit", "#jarvis-news")) === 12,
+    await gap(".jv-outfit", "#jarvis-news"),
+  );
   for (const go of ["calendar", "deliveries"]) {
     await page.tap(`.jv-label [data-go="${go}"]`);
     const above = await gap(".jv-day", `#jv-detail-${go}`);
@@ -17028,15 +17036,27 @@ await section("Home: what you re-check comes first, and once-a-day cards close t
   const outfit = await state("jv-outfit"),
     tomorrow = await state("jv-tomorrow"),
     news = await state("jarvis-news");
-  check("Outfit starts closed and says what to wear", !outfit.open && outfit.peekShows && outfit.peek.length > 3, outfit);
+  check(
+    "Outfit starts closed and says what to wear",
+    !outfit.open && outfit.peekShows && outfit.peek.length > 3,
+    outfit,
+  );
   check("Tomorrow starts closed with the day in a line", !tomorrow.open && tomorrow.peekShows, tomorrow);
-  check("News starts closed with its top headline", !news.open && news.peek.length > 3 && news.expanded === "false", news);
+  check(
+    "News starts closed with its top headline",
+    !news.open && news.peek.length > 3 && news.expanded === "false",
+    news,
+  );
   check("a closed card's contents can't be reached", news.bodyHidden, news);
   const briefing = await state("jv-briefing");
   check("a new briefing starts open", briefing.open && !briefing.peekShows, briefing);
   await page.evaluate(() => document.querySelector("#jarvis-news .coll-head").click());
   const opened = await state("jarvis-news");
-  check("tapping opens it and the peek gives way", opened.open && !opened.peekShows && opened.expanded === "true", opened);
+  check(
+    "tapping opens it and the peek gives way",
+    opened.open && !opened.peekShows && opened.expanded === "true",
+    opened,
+  );
   await page.waitForTimeout(300);
   check("its contents can be reached again", !(await state("jarvis-news")).bodyHidden);
   await page.evaluate(() => renderHome());
@@ -17051,7 +17071,11 @@ await section("Home: what you re-check comes first, and once-a-day cards close t
     renderHome();
   });
   const later = await state("jv-briefing");
-  check("half an hour on, the briefing closes to its headline", !later.open && later.peekShows && later.peek.length > 3, later);
+  check(
+    "half an hour on, the briefing closes to its headline",
+    !later.open && later.peekShows && later.peek.length > 3,
+    later,
+  );
   await page.evaluate(() => document.querySelector("#jv-briefing .coll-head").click());
   await page.evaluate(() => renderHome());
   check("opening it again sticks", (await state("jv-briefing")).open);
@@ -17069,7 +17093,10 @@ await section("Home: what you re-check comes first, and once-a-day cards close t
     localStorage.setItem("home-cards", '{"cards":"junk","briefing":{"id":5}}');
     renderHome();
   });
-  check("a damaged setting falls back to the defaults", (await state("jv-briefing")).open && !(await state("jv-outfit")).open);
+  check(
+    "a damaged setting falls back to the defaults",
+    (await state("jv-briefing")).open && !(await state("jv-outfit")).open,
+  );
   await page.evaluate(() => {
     localStorage.removeItem("home-cards");
     renderHome();
@@ -17080,6 +17107,168 @@ await section("Home: what you re-check comes first, and once-a-day cards close t
     () => !SYNC_KEYS.includes("home-cards") && !JSON.stringify([collectLocal(), liveData()]).includes("home-cards"),
   );
   check("open or closed stays on this device", stays);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Hey Jarvis: hands-free commands are matched and answered on the device", async () => {
+  const b = briefingFixture({});
+  const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });
+  // a fake speechSynthesis that records what it was asked to say
+  await page.evaluate(() => {
+    window.__said = [];
+    const fake = {
+      speaking: false,
+      speak(u) {
+        this.speaking = true;
+        window.__said.push(u.text);
+      },
+      cancel() {
+        this.speaking = false;
+      },
+      getVoices: () => [],
+    };
+    Object.defineProperty(window, "speechSynthesis", { value: fake, configurable: true });
+    window.SpeechSynthesisUtterance = function (t) {
+      this.text = t;
+    };
+  });
+  check("the switch sits beside the greeting", !!(await page.$(".jv-hello-row #jv-wake")));
+  const row = await page.evaluate(() => {
+    const h = document.querySelector(".jv-hello").getBoundingClientRect(),
+      w = document.getElementById("jv-wake").getBoundingClientRect();
+    return { same: Math.abs(h.top + h.height / 2 - (w.top + w.height / 2)) < 12, w: w.width, h: w.height };
+  });
+  check("on the same line as the greeting, 44px", row.same && row.w >= 44 && row.h >= 44, row);
+  const kinds = await page.evaluate(() =>
+    [
+      "",
+      "read my briefing",
+      "daily briefing",
+      "read everything",
+      "home briefing",
+      "what's the weather",
+      "will it rain tomorrow",
+      "what's on my calendar today",
+      "top 3",
+      "read the news",
+      "check my email",
+      "what's tomorrow look like",
+      "stop",
+      "add call mom tomorrow",
+      "remind me to buy milk",
+      "sing me a song",
+    ].map((t) => {
+      const m = wakeMatch(t);
+      return m.kind + (m.tomorrow ? "+" : "") + (m.rest ? ":" + m.rest : "");
+    }),
+  );
+  check(
+    "phrases map to commands",
+    JSON.stringify(kinds) ===
+      JSON.stringify([
+        "briefing",
+        "briefing",
+        "briefing",
+        "home",
+        "home",
+        "weather",
+        "weather+",
+        "day",
+        "top3",
+        "news",
+        "inbox",
+        "tomorrow",
+        "stop",
+        "add:call mom tomorrow",
+        "add:buy milk",
+        "help",
+      ]),
+    kinds,
+  );
+  const said = (cmd) =>
+    page.evaluate((c) => {
+      window.__said = [];
+      wakeHandle(c);
+      return window.__said;
+    }, cmd);
+  const brief = await said("read my briefing");
+  check(
+    "the briefing is read: headline, then each line",
+    brief[0] === b.headline.replace(/[.]?$/, ".") &&
+      b.summary.every((x) => brief.some((p) => p.startsWith(x.text.slice(0, 20)))),
+    brief,
+  );
+  check("it's read as separate parts, not one long block", brief.length >= 1 + b.summary.length, brief.length);
+  check("and shows what it heard", (await page.textContent("#toast")).includes("read my briefing"));
+  const wx = (await said("what's the weather")).join(" ");
+  check("weather is said in words", /degrees/.test(wx) && !/°/.test(wx), wx);
+  const help = (await said("sing me a song")).join(" ");
+  check(
+    "anything else gets the list of commands",
+    help.startsWith("Sorry, I didn't catch that.") && help.includes("read my briefing"),
+    help,
+  );
+  await said("read everything");
+  check(
+    "stop stops it",
+    await page.evaluate(() => (wakeHandle("stop"), speakingKey === null && !speechSynthesis.speaking)),
+  );
+  // a dismissed line isn't read
+  await page.evaluate(() => hideBriefingLine(0));
+  const after = await said("read my briefing");
+  check("a dismissed line isn't read", !after.some((p) => p.startsWith(b.summary[0].text.slice(0, 20))), after);
+  // add a to-do by voice, with Undo
+  const add = await page.evaluate(() => {
+    window.__said = [];
+    wakeHandle("add call mom tomorrow");
+    const t = todoList.find((x) => x.text === "Call mom");
+    return {
+      due: t && t.due,
+      want: addDaysIso(1),
+      said: window.__said[0],
+      toast: document.getElementById("toast").textContent,
+    };
+  });
+  check("adding by voice parses the day like Quick add", add.due === add.want, add);
+  check("and says what it added, with Undo", /^Added Call mom for /.test(add.said) && add.toast.includes("Undo"), add);
+  await page.click("#toast .toast-undo");
+  check("Undo takes it back", await page.evaluate(() => !todoList.some((x) => x.text === "Call mom")));
+  // starting: the models and the mic can fail, and that's said plainly
+  await page.evaluate(() => {
+    window.wakeLoadModels = async () => ({});
+    navigator.mediaDevices.getUserMedia = () =>
+      Promise.reject(Object.assign(new Error("no"), { name: "NotAllowedError" }));
+  });
+  await page.click("#jv-wake");
+  await page.waitForFunction(() => !wakeStarting);
+  const blocked = await page.evaluate(() => ({
+    toast: document.getElementById("toast").textContent,
+    on: !!wake,
+    chip: document.getElementById("jv-wake").getAttribute("aria-pressed"),
+  }));
+  check(
+    "a blocked mic says so and leaves it off",
+    blocked.toast.includes("Microphone blocked") && !blocked.on && blocked.chip === "false",
+    blocked,
+  );
+  // the app going to the background turns it off, and coming back says so
+  const away = await page.evaluate(() => {
+    wake = { ctx: { close() {} }, node: null, queue: [], raw: [], mel: [], embs: [] };
+    wakeUi();
+    const on = document.getElementById("jv-wake").getAttribute("aria-pressed");
+    const set = (v) => {
+      Object.defineProperty(document, "visibilityState", { get: () => v, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    set("hidden");
+    const off = !wake && document.getElementById("jv-wake").getAttribute("aria-pressed") === "false";
+    set("visible");
+    return { on, off, toast: document.getElementById("toast").textContent };
+  });
+  check("on shows as pressed", away.on === "true", away);
+  check("the background turns it off", away.off, away);
+  check("and coming back says it's off", away.toast.includes("turned off while the app was closed"), away);
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

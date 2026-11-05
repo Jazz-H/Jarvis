@@ -1,6 +1,7 @@
-# Wake word test: third-party files
+# Hey Jarvis: third-party files
 
-A throwaway test page for Phase 0 of the voice plan. It is not part of the app, and the service worker doesn't cache it.
+Used by `js/wake.js` (hands-free voice on Home). Loaded only when hands-free is turned on; the service worker
+then keeps them in its cache. `worklet.js` is the app's own (it hands the model 80 ms of 16 kHz audio at a time).
 
 - `models/melspectrogram.onnx`, `models/embedding_model.onnx`, `models/hey_jarvis_v0.1.onnx`: from
   [openWakeWord](https://github.com/dscripka/openWakeWord) v0.5.1 by David Scripka. The pre-trained models are licensed

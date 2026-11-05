@@ -8774,3 +8774,47 @@ details[open] > .wb-fold {
 .jv-later {
   margin-top: 8px;
 }
+
+/* Hey Jarvis (wake.js): the hands-free switch beside the greeting */
+.jv-hello-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px 12px;
+}
+.jv-wake {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+}
+.jv-wake.busy {
+  opacity: 0.6;
+}
+.jv-wake.on {
+  border-color: var(--olive);
+  color: var(--olive);
+  box-shadow: 0 0 0 0 var(--olive);
+  animation: jv-wake-ring 1.8s ease-out infinite;
+}
+@keyframes jv-wake-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--olive) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jv-wake.on {
+    animation: none;
+  }
+}
