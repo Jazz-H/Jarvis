@@ -917,7 +917,7 @@ Everything lives in `localStorage` on the device:
 
 **Gist files written only by the Jarvis Action** (the app never writes them): `jazz2-briefing.json`
 (the morning briefing), `jazz2-reviews.json` (the Weekly Reviews, `{version: 1, reviews}`, last 12), `jazz2-calendar.json`
-(the morning run's Google Calendar import for the Planner, 90 days back and 60 ahead),
+(the morning run's and card refreshes' Google Calendar import for the Planner, 90 days back and 60 ahead),
 `jazz2-week.json` (a small digest of each morning's briefing, last 8 days, which the Sunday review
 reads; the app doesn't use it) and `jazz2-answers.json` (Ask Jarvis's answers, `{version: 1,
 answers: [{id, askedAt, answeredAt, status, text, bullets, sources, chips, by}], usage}`). Sync reads
@@ -1036,7 +1036,17 @@ title and its list are split by a thin rule (the briefing, Outfit).
 devices so iOS doesn't zoom.
 
 ## Known limitations and ideas
-- **Notifications come only from Jarvis's morning run.** The app can't wake itself up, so
+- **Card refresh:** at about 12:30pm and 5pm the backend redoes Weather, Calendar, Inbox, Deliveries and
+  Bill Guard in today's briefing, and the Planner's calendar file. The summary, Top 3, suggestions and
+  News stay as the morning wrote them, so Home shows no "New" badge, only "Cards updated 12:30 PM", and
+  a dismissed line can't come back reworded. A card that fails keeps the morning's version. No phone
+  notification unless it found something new that can't wait: a Severe or Extreme weather alert, urgent
+  email from a new sender, or a package now arriving today. What the Weekly Review saw that morning is
+  added to, not replaced. The alarm clock starts these runs, with a GitHub schedule as a backup; "Run
+  workflow" in mode `refresh` does one by hand. A run is capped at $0.25 and refreshes at $8 a month
+  (`jazz2-refresh.json` holds the count; over it they stop until next month, and the morning briefing
+  doesn't). Like every sync, new cards reach the app the next time it's opened or brought back up.
+- **Notifications come only from Jarvis's scheduled runs.** The app can't wake itself up, so
   phone notifications are sent by the GitHub Action (headline, bills, deliveries). There are no
   per-to-do reminders; an idea is "Add to calendar" on dated to-dos (an `.ics` file with an
   alarm). On iPhone, notifications need the app on the Home Screen (iOS 16.4+).

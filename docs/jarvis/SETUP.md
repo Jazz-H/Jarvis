@@ -187,6 +187,10 @@ To stop it, delete the trigger (or the project). If the token expires, the execu
 "GitHub said 401": make a new one and replace the property.
 
 ## When it runs
+- **Card refreshes** at about **12:30pm and 5pm Eastern** redo today's Weather, Calendar, Inbox,
+  Deliveries and Bill Guard cards. They come from the alarm clock, so after updating to this version
+  paste the new `docs/jarvis/alarm-clock.gs` into your script again (section 9, step 3, and save);
+  the 15-minute trigger stays as it is. To try one by hand: Actions → Jarvis → Run workflow → `refresh`.
 - Every morning so it's there by about **7:00am Eastern**: the alarm clock (section 9) starts it at
   6:45am. GitHub's own cron lines (6:45am EDT and EST, plus a try every 15 minutes) are a fallback;
   GitHub often runs them hours late or not at all. Whatever starts first in the 6:30am–7pm window

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  dueRefresh,
   localTime,
   shouldDeliver,
   shouldDeliverReview,
@@ -54,6 +55,8 @@ describe("schedule", () => {
     expect(gs).toContain(`const BRIEFING = "${hhmm(CONFIG.briefingTime, CONFIG.briefingLeadMinutes)}"`);
     expect(gs).toContain(`const REVIEW = "${hhmm(CONFIG.reviewTime, CONFIG.reviewLeadMinutes)}"`);
     expect(gs).toContain(`const TZ = "${CONFIG.timezone}"`);
+    const windows = CONFIG.refresh.times.map((t) => `["${t}", "${hhmm(t, -CONFIG.refresh.windowMinutes)}"]`);
+    expect(gs).toContain(`const REFRESHES = [${windows.join(", ")}]`);
     expect(CONFIG.reviewDay).toBe(0); // the script checks for Sunday
     for (const mode of ["alarm", "alarm-review"]) {
       expect(gs).toContain(`mode: "${mode}"`);
@@ -84,7 +87,8 @@ describe("schedule", () => {
     const briefing = utcCronLines(CONFIG.briefingTime, CONFIG.briefingLeadMinutes, [-4, -5]);
     const review = utcCronLines(CONFIG.reviewTime, CONFIG.reviewLeadMinutes, [-4, -5], CONFIG.reviewDay);
     // plus one backup briefing line (GitHub skips scheduled runs), still gated by shouldDeliver
-    expect(lines).toEqual([...briefing, "5,20,35,50 11-17 * * *", ...review]);
+    // and one for the 5pm card refresh, in its window in both EDT and EST
+    expect(lines).toEqual([...briefing, "5,20,35,50 11-17 * * *", "15 21,22 * * *", ...review]);
     expect(utcCronLines("07:00", 15, [-4, -5])).toEqual(["45 10 * * *", "45 11 * * *"]);
     expect(review).toEqual(["45 21 * * 0", "45 22 * * 0"]);
     // the review lines are routed to the review job and kept away from the briefing job
@@ -104,6 +108,37 @@ describe("schedule", () => {
   it("weekday() reads dates without a time zone", () => {
     expect(weekday("2026-11-01")).toBe(0);
     expect(weekday("2026-10-26")).toBe(1);
+  });
+});
+
+describe("card refresh schedule", () => {
+  const due = (iso: string, lastUpdate: string) =>
+    dueRefresh({ now: new Date(iso), timeZone: TZ, times: ["12:30", "17:00"], windowMinutes: 240, lastUpdate }).refresh;
+  const MORNING = "2026-07-01T11:00:00Z"; // 7:00 EDT
+
+  it("runs from each time through its window, in EDT and EST", () => {
+    expect(due("2026-07-01T16:20:00Z", MORNING)).toBe(false); // 12:20 EDT
+    expect(due("2026-07-01T16:35:00Z", MORNING)).toBe(true); // 12:35 EDT
+    expect(due("2026-12-01T17:35:00Z", "2026-12-01T12:00:00Z")).toBe(true); // 12:35 EST
+    expect(due("2026-07-01T20:40:00Z", MORNING)).toBe(false); // 4:40 EDT: between the two
+    expect(due("2026-07-01T21:15:00Z", MORNING)).toBe(true); // 5:15 EDT
+    expect(due("2026-07-02T01:05:00Z", MORNING)).toBe(false); // 9:05pm EDT: past the window
+  });
+
+  it("each time gets one run: a retry or a late GitHub run changes nothing", () => {
+    const midday = "2026-07-01T16:35:00Z";
+    expect(due("2026-07-01T17:20:00Z", midday)).toBe(false);
+    expect(due("2026-07-01T21:15:00Z", midday)).toBe(true); // the next time still runs
+    expect(due("2026-07-01T21:45:00Z", "2026-07-01T21:15:00Z")).toBe(false);
+  });
+
+  it("a briefing that landed late fills the time it passed", () => {
+    expect(due("2026-07-01T17:00:00Z", "2026-07-01T16:45:00Z")).toBe(false); // briefing at 12:45, now 1:00
+  });
+
+  it("a last update from another day or that can't be read doesn't count", () => {
+    expect(due("2026-07-01T16:35:00Z", "2026-06-30T21:15:00Z")).toBe(true);
+    expect(due("2026-07-01T16:35:00Z", "junk")).toBe(true);
   });
 });
 

@@ -10,12 +10,21 @@ export const CONFIG = {
   briefingLeadMinutes: 15,
   // The Weekly Review (review.ts) lands on reviewDay around reviewTime, covering Monday to Sunday.
   // Its two Sunday cron lines in jarvis.yml start reviewLeadMinutes early; the same test checks them.
+  // Card refresh (jarvis.ts runRefresh): after the morning briefing, Weather, Calendar, Inbox, Deliveries
+  // and Bill Guard are redone at these local times; the summary, Top 3, suggestions and News stay as
+  // the morning wrote them. docs/jarvis/alarm-clock.gs starts them; a test keeps its times in step.
+  refresh: {
+    times: ["12:30", "17:00"],
+    windowMinutes: 240, // a start later than this after its time waits for the next one
+    maxRunCostUsd: 0.25, // about $0.10 at the estimates below
+    monthlyBudgetUsd: 8, // over this, refreshes stop until next month; the morning briefing never does
+  },
   reviewDay: 0, // Sunday (0 = Sunday … 6 = Saturday, like Date.getDay)
   reviewTime: "18:00",
   reviewLeadMinutes: 15,
   reviewsKept: 12,
   digestDaysKept: 8, // daily Inbox/Deliveries/Calendar digests kept in jazz2-week.json
-  // jazz2-calendar.json (morning run, when GOOGLE_CALENDAR_ICS_URL is set): New York local dates
+  // jazz2-calendar.json (morning run and card refreshes, when GOOGLE_CALENDAR_ICS_URL is set): New York local dates
   // from today - daysBack to today + daysAhead, for the app's Planner and for Ask.
   calendarHistory: {
     daysBack: 90,
@@ -125,8 +134,8 @@ export const CONFIG = {
   },
   agentTimeoutMs: 120_000,
   // Each gist file has one writer. The app writes data, push and ask; the orchestrator writes
-  // briefing and week (morning run), reviews (Sunday run) and answers (Ask runs, and the morning
-  // and Sunday runs for queued questions) and calendar (morning run), and prunes revoked phones
+  // briefing and week (morning run, card refreshes), reviews (Sunday run) and answers (Ask runs, and the morning
+  // and Sunday runs for queued questions) and calendar (morning run, card refreshes), and prunes revoked phones
   // from push.
   gistFiles: {
     data: "jazz2-data.json",
@@ -138,6 +147,7 @@ export const CONFIG = {
     answers: "jazz2-answers.json",
     calendar: "jazz2-calendar.json",
     prices: "jazz2-prices.json", // the Price watcher's last check (this Action's own file)
+    refresh: "jazz2-refresh.json", // what card refreshes spent this month (this Action's own file)
   },
   // Price watcher: Shopping items with a saved price, checked once a week in the morning run
   prices: { maxItems: 8, everyDays: 7 },

@@ -388,6 +388,12 @@ function normalizeBriefing(b) {
     id: str(b.id, 40),
     date: b.date,
     generatedAt: isoTime(b.generatedAt),
+    // a card refresh redid the cards; the summary is the morning's. Only the backend's exact form: it's
+    // compared as text, and Date.parse takes nearly anything
+    refreshedAt:
+      typeof b.refreshedAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(b.refreshedAt)
+        ? isoTime(b.refreshedAt)
+        : "",
     headline: str(b.headline, 100),
     summary: arr(b.summary)
       .filter(isObj)
@@ -437,10 +443,12 @@ async function ingestBriefingFile(file) {
     const b = normalizeBriefing(JSON.parse(text));
     if (!b) return;
     const prev = loadBriefing();
-    if (prev && (prev.id === b.id || prev.generatedAt > b.generatedAt)) return; // same one, or older
+    if (prev && prev.generatedAt > b.generatedAt) return; // an older one
+    if (prev && prev.id === b.id && !(b.refreshedAt > prev.refreshedAt)) return; // the same, no newer cards
     writeQuietly(BRIEFING_KEY, JSON.parse(text));
     renderHome();
-    if (b.id !== localStorage.getItem(BRIEFING_SEEN_KEY)) announceBriefing(b);
+    // refreshed cards aren't a new briefing, so they come in quietly
+    if (!(prev && prev.id === b.id) && b.id !== localStorage.getItem(BRIEFING_SEEN_KEY)) announceBriefing(b);
   } catch (e) {
     console.warn("briefing not loaded", e);
   }
@@ -589,6 +597,7 @@ function jarvisHeroHtml(b) {
       ${briefingTop3Html(b)}
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
+      ${b.date === today && b.refreshedAt ? `<div class="jv-meta">Cards updated ${escapeHtml(jvTime(b.refreshedAt))}</div>` : ""}
       <div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}<span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
       ${notes}
     </section>`;

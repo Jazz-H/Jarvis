@@ -16929,6 +16929,72 @@ await section("Dates: the shared short date", async () => {
   await ctx.close();
 });
 
+await section("Jarvis: refreshed cards come in quietly under the morning's briefing", async () => {
+  const b = briefingFixture();
+  const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });
+  const ingest = (o) =>
+    page.evaluate(async (x) => {
+      document.getElementById("toast").textContent = "";
+      await ingestBriefingFile({ content: JSON.stringify(x) });
+      return {
+        stored: JSON.parse(localStorage.getItem("jarvis-briefing")),
+        toast: document.getElementById("toast").textContent,
+        pill: !!document.querySelector(".jv-pill"),
+        meta: [...document.querySelectorAll(".jv-hero .jv-meta")].map((m) => m.textContent).join(" "),
+      };
+    }, o);
+  const seen = await page.evaluate(() => loadBriefing().refreshedAt);
+  check("a morning briefing has no refresh time", seen === "", seen);
+  const before = await page.evaluate(() => document.querySelector(".jv-hero .jv-headline").textContent);
+  const at = new Date(Date.now() - 60_000).toISOString();
+  const refreshed = {
+    ...b,
+    refreshedAt: at,
+    headline: "A headline a refresh would never change",
+    cards: { ...b.cards, weather: { ...b.cards.weather, updatedAt: at } },
+  };
+  const r = await ingest(refreshed);
+  check("newer cards are taken under the same id", r.stored.refreshedAt === at, r.stored.refreshedAt);
+  check("no toast and no New pill for them", r.toast === "" && !r.pill, r);
+  check("Home says when the cards were updated", /Cards updated \d/.test(r.meta), r.meta);
+  const older = await ingest({ ...b, refreshedAt: new Date(Date.now() - 3_600_000).toISOString() });
+  check("an older refresh doesn't replace a newer one", older.stored.refreshedAt === at, older.stored.refreshedAt);
+  const same = await ingest({ ...b });
+  check("the morning's own copy doesn't undo a refresh", same.stored.refreshedAt === at, same.stored.refreshedAt);
+  const junk = await ingest({ ...refreshed, refreshedAt: "<img src=x onerror=window.__pwned=1>", headline: "junk" });
+  check("a bad time is ignored", junk.stored.refreshedAt === at, junk.stored.refreshedAt);
+  const meta = await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("jarvis-briefing"));
+    raw.refreshedAt = "<img src=x onerror=window.__pwned=1>";
+    return normalizeBriefing(raw).refreshedAt;
+  });
+  check("a bad time never reaches the page", meta === "", meta);
+  // Off Home the toast is how a new briefing shows up, so it's where staying quiet matters
+  await page.evaluate(() => activateTab("todo"));
+  const later = new Date(Date.now() - 30_000).toISOString();
+  const offHome = await ingest({ ...refreshed, refreshedAt: later });
+  const dot = () =>
+    page.evaluate(() => document.querySelector('nav.tabbar button[data-tab="home"]').classList.contains("jv-new"));
+  check(
+    "refreshed cards stay quiet off Home too",
+    offHome.stored.refreshedAt === later && offHome.toast === "",
+    offHome,
+  );
+  check("and put no dot on the tab", !(await dot()));
+  const fresh = await ingest({
+    ...b,
+    id: "tomorrow-briefing",
+    generatedAt: new Date(Date.now() + 1000).toISOString(),
+    headline: "A new briefing",
+  });
+  check("a new briefing is still announced", fresh.toast.includes("A new briefing") && (await dot()), fresh.toast);
+  check("and carries no refresh time from the last one", !fresh.stored.refreshedAt, fresh.stored.refreshedAt);
+  check("the page wasn't touched by the junk", (await page.evaluate(() => window.__pwned || 0)) === 0);
+  check("the headline test started from the fixture", before.length > 0, before);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

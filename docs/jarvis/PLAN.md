@@ -39,9 +39,13 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 - [x] After Phase 4 (Nov 1): Top 3 today in the briefing, a model per Ask question (`askTier`), the
   Notebook, and dismissing notifications on Home and by Jarvis (see BACKLOG.md Done).
 
+- [x] Card refresh (Nov 4): Weather, Calendar, Inbox, Deliveries and Bill Guard are redone at about
+  12:30pm and 5pm; the morning's summary stays (`agents/jarvis.ts` `runRefresh`).
+
 ## My preferences
 - Location: Springfield, IL
 - Time zone: America/New_York
+- Card refresh: about 12:30pm and 5pm ET, phone notifications only for something new and urgent.
 - Briefing time: around 7:00am ET. Schedule the cron a little early so GitHub's delay still
   lands it near 7, and convert to UTC for both EST and EDT.
 - News topics: AI, tech, cars, trending. Sources: Jarvis picks reputable RSS feeds for these

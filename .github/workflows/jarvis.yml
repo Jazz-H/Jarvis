@@ -5,7 +5,8 @@ name: Jarvis
 # whether its output already exists, so only one delivers (agents/lib/schedule.ts). A test keeps
 # these lines, and the review job's `if`, in step with agents/config.ts.
 # GitHub only picks up schedule changes from a push to main that touches this file.
-# "Run workflow" delivers right away: mode "briefing" (default) or "review".
+# "Run workflow" delivers right away: mode "briefing" (default), "review", or "refresh" (redo the
+# cards of today's briefing). Once today's briefing exists, gated runs in a refresh window redo its cards.
 on:
   schedule:
     - cron: "45 10 * * *" # briefing, 6:45am EDT
@@ -14,6 +15,7 @@ on:
     # from the alarm clock (docs/jarvis/alarm-clock.gs, mode "alarm"). These lines are a fallback;
     # the first run in the window (until 7pm) delivers, the rest stop in seconds
     - cron: "5,20,35,50 11-17 * * *"
+    - cron: "15 21,22 * * *" # backup for the 5pm card refresh (EDT, EST)
     - cron: "45 21 * * 0" # weekly review, Sunday 5:45pm EDT
     - cron: "45 22 * * 0" # weekly review, Sunday 5:45pm EST
   workflow_dispatch:
@@ -24,6 +26,7 @@ on:
         options:
           - briefing
           - review
+          - refresh
           # the alarm clock: like a scheduled run (delivers once, in its window)
           - alarm
           - alarm-review
@@ -57,6 +60,7 @@ jobs:
       - run: npm run brief
         env:
           JARVIS_GATED: ${{ inputs.mode == 'alarm' || inputs.mode == 'alarm-review' }} # alarm clock runs are gated like scheduled ones
+          JARVIS_FORCE_REFRESH: ${{ inputs.mode == 'refresh' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           JARVIS_GIST_ID: ${{ secrets.JARVIS_GIST_ID }}
           JARVIS_GIST_TOKEN: ${{ secrets.JARVIS_GIST_TOKEN }}

@@ -3,7 +3,8 @@
 // day digest in jazz2-week.json for Sunday's Weekly Review, review.ts, and when the calendar is
 // connected jazz2-calendar.json, 90 days back to 60 ahead, for the Planner and Ask). Afterwards it
 // answers any Ask questions still waiting in jazz2-ask.json (ask.ts, option B), which can never
-// fail the run.
+// fail the run. Later in the day runRefresh redoes the cards that go stale and leaves the morning's
+// summary alone.
 // Only this file holds the Gist client. Sub-agents get public fetch + their own model, nothing else.
 //
 //   npm run brief                 (scheduled behaviour: delivers only in the briefing window)
@@ -22,6 +23,7 @@ import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CONFIG, type SubagentName } from "./config.ts";
+import { z } from "zod";
 import { Briefing, JarvisOutput, type Top3 } from "./schemas/briefing.ts";
 import type { WeatherCard } from "./schemas/weather.ts";
 import type { NewsCard } from "./schemas/news.ts";
@@ -39,9 +41,9 @@ import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
 import { notifyPhones } from "./lib/notify.ts";
 import { answerPendingQuietly, askLimits, type AskLimits } from "./ask.ts";
 import { buildJazzContext, emptyContext, addDays, type JazzContext } from "./lib/jazz-context.ts";
-import { shouldDeliver, localTime, startedByHand } from "./lib/schedule.ts";
+import { dueRefresh, shouldDeliver, localTime, startedByHand } from "./lib/schedule.ts";
 import { CostLedger } from "./lib/cost.ts";
-import { buildDayDigest, mergeDigest, readWeekFile } from "./lib/day-digest.ts";
+import { buildDayDigest, combineDigests, mergeDigest, readWeekFile } from "./lib/day-digest.ts";
 import { Trace } from "./lib/trace.ts";
 import { runAgent, dataBlock, type AgentSpec, type QueryFn } from "./lib/run-agent.ts";
 import { runWeather } from "./subagents/weather.ts";
@@ -140,11 +142,12 @@ export interface JarvisDeps {
   // Ask fallback (option B): after the briefing, answer questions still waiting in jazz2-ask.json
   // under Ask's own limits and usage counts. Off when left out.
   ask?: AskLimits | null;
+  forceRefresh?: boolean; // "Run workflow" in refresh mode: redo the cards now, if today's briefing exists
 }
 
 export type RunOutcome =
   | { status: "skipped"; reason: string }
-  | { status: "delivered"; briefing: Briefing; cost: ReturnType<CostLedger["summary"]> };
+  | { status: "delivered" | "refreshed"; briefing: Briefing; cost: ReturnType<CostLedger["summary"]> };
 
 const AGENT_LABEL: Record<SubagentName, string> = {
   weather: "Weather",
@@ -155,29 +158,260 @@ const AGENT_LABEL: Record<SubagentName, string> = {
   prices: "Price watcher",
 };
 
-async function readPrevious(gist: GistClient, trace: Trace): Promise<string | null> {
+async function readPrevious(gist: GistClient, trace: Trace): Promise<{ date: string | null; raw: unknown }> {
   try {
     const raw = await gist.readFile(CONFIG.gistFiles.briefing);
     const p = raw ? JSON.parse(raw) : null;
-    return typeof p?.date === "string" ? p.date : null;
+    return { date: typeof p?.date === "string" ? p.date : null, raw: p };
   } catch (e) {
     trace.log("jarvis", "previous briefing unreadable", { error: trace.publicError(e) });
-    return null;
+    return { date: null, raw: null };
   }
+}
+
+type Settled = { name: SubagentName; ok: true; data: unknown } | { name: SubagentName; ok: false; error: string };
+
+// Runs each sub-agent that fits under the run's cost cap, side by side. One failing stops only itself.
+async function runCards(
+  tasks: Partial<Record<SubagentName, () => Promise<unknown>>>,
+  ledger: CostLedger,
+  trace: Trace,
+): Promise<Settled[]> {
+  return Promise.all(
+    (Object.keys(tasks) as SubagentName[]).map(async (name): Promise<Settled> => {
+      if (!ledger.reserve(name, CONFIG.costEstimateUsd[name])) {
+        trace.log(name, "skipped", { reason: "cost cap" });
+        return { name, ok: false, error: "Skipped to stay under the run's cost cap." };
+      }
+      try {
+        const data = await tasks[name]!();
+        trace.log(name, "ok");
+        return { name, ok: true, data };
+      } catch (e) {
+        const error = trace.publicError(e);
+        trace.log(name, "failed", { error });
+        return { name, ok: false, error: `${AGENT_LABEL[name]} didn't finish: ${error}` };
+      } finally {
+        ledger.release(name);
+      }
+    }),
+  );
+}
+
+const cardOf = (r: Settled, updatedAt: string) =>
+  r.ok
+    ? {
+        status: "ok" as const,
+        data: r.data as any,
+        agent: AGENT_LABEL[r.name],
+        model: CONFIG.models[r.name],
+        updatedAt,
+      }
+    : {
+        status: "error" as const,
+        error: r.error,
+        agent: AGENT_LABEL[r.name],
+        model: CONFIG.models[r.name],
+        updatedAt,
+      };
+
+// What card refreshes have spent this month (jazz2-refresh.json). A file it can't read stops the
+// refresh rather than starting the count over; the morning briefing doesn't depend on it.
+const RefreshUsage = z.object({ version: z.literal(1), month: z.string(), costUsd: z.number().min(0) });
+function refreshSpent(raw: string | null, month: string): number {
+  if (raw == null) return 0;
+  const u = RefreshUsage.parse(JSON.parse(raw));
+  return u.month === month ? u.costUsd : 0;
+}
+
+// Later in the day: redo what goes stale, keep what the owner already read. The summary, Top 3,
+// suggestions, News and the briefing's id stay as they are, so nothing is announced as new and no
+// dismissed line comes back reworded. A card that fails keeps the morning's version.
+async function runRefresh(deps: JarvisDeps, prev: Briefing): Promise<RunOutcome> {
+  const { gist, trace } = deps;
+  const today = prev.date;
+  const month = today.slice(0, 7);
+  const skip = (reason: string): RunOutcome => {
+    trace.log("jarvis", "refresh skipped", { reason });
+    return { status: "skipped", reason };
+  };
+  let spent: number;
+  try {
+    spent = refreshSpent(await gist.readFile(CONFIG.gistFiles.refresh), month);
+  } catch (e) {
+    trace.log("jarvis", "refresh usage unreadable", { error: trace.publicError(e) });
+    return skip("refresh usage unreadable");
+  }
+  const left = CONFIG.refresh.monthlyBudgetUsd - spent;
+  if (left <= 0) return skip("this month's refresh budget is used");
+  // Inbox and Deliveries check against Budget and Shopping: without them it would only make the cards worse
+  let jazzRaw: string | null;
+  let context: JazzContext;
+  try {
+    jazzRaw = await gist.readFile(CONFIG.gistFiles.data);
+    context = buildJazzContext(jazzRaw, today);
+  } catch (e) {
+    trace.log("jarvis", "jazz data unreadable", { error: trace.publicError(e) });
+    return skip("jazz data unreadable");
+  }
+  if (!context.available) return skip("no jazz data");
+  let brain: Brain = emptyBrain();
+  try {
+    brain = readBrain(jazzRaw ? JSON.parse(jazzRaw)?.data : null);
+  } catch {
+    brain = emptyBrain();
+  }
+
+  const ledger = new CostLedger(Math.min(deps.maxRunCostUsd, CONFIG.refresh.maxRunCostUsd, left));
+  const sub: SubagentDeps = {
+    fetchImpl: deps.fetchImpl,
+    run: <T>(spec: AgentSpec<T>) => runAgent(spec, ledger, trace, deps.queryFn),
+    trace,
+  };
+  const calendarUrl = deps.sources?.calendarUrl || null;
+  let icsOnce: Promise<string> | null = null;
+  const ics = calendarUrl ? () => (icsOnce ??= fetchIcs(calendarUrl, deps.fetchImpl)) : null;
+  const impl = deps.subagents ?? defaultSubagents(deps.sources ?? {}, deps.now, ics);
+  const tasks: Partial<Record<SubagentName, () => Promise<unknown>>> = {
+    weather: () => impl.weather(sub, context.washDay, brain.location),
+  };
+  if (impl.calendar) tasks.calendar = () => impl.calendar!(sub);
+  if (impl.inbox) tasks.inbox = () => impl.inbox!(sub, context);
+  if (impl.deliveries) tasks.deliveries = () => impl.deliveries!(sub, context);
+  const updatedAt = deps.now.toISOString();
+  const done = (await runCards(tasks, ledger, trace)).filter((r) => r.ok);
+  const saveSpent = async () => {
+    if (!ledger.spentUsd) return;
+    try {
+      const costUsd = Math.round((spent + ledger.spentUsd) * 10_000) / 10_000;
+      await gist.writeFile(
+        CONFIG.gistFiles.refresh,
+        JSON.stringify(RefreshUsage.parse({ version: 1, month, costUsd })),
+      );
+    } catch (e) {
+      trace.log("jarvis", "refresh usage not saved", { error: trace.publicError(e) });
+    }
+  };
+  if (!done.length) {
+    await saveSpent();
+    return skip("no card could be refreshed");
+  }
+  const cards: Record<string, unknown> = {};
+  for (const r of done) {
+    if (r.name === "deliveries") {
+      const d = r.data as DeliveryCard;
+      d.packages = withoutHidden(d.packages, brain.hiddenPackages);
+    }
+    cards[r.name] = cardOf(r, updatedAt);
+  }
+  // Bill Guard: code over Budget and the newest Inbox card there is
+  try {
+    const inbox = (cards.inbox ?? prev.cards.inbox) as { status: string; data?: InboxCard } | undefined;
+    const money = buildMoneyCard(jazzRaw, today, inbox?.status === "ok" ? (inbox.data ?? null) : null);
+    if (money) cards.money = { status: "ok", data: money, agent: "Bill Guard", model: "code", updatedAt };
+  } catch (e) {
+    trace.log("money", "failed", { error: trace.publicError(e) });
+  }
+  const redone = done.map((r) => `${AGENT_LABEL[r.name]} didn't finish`);
+  const briefing = Briefing.parse({
+    ...prev,
+    refreshedAt: updatedAt,
+    cards: { ...prev.cards, ...cards },
+    notes: prev.notes.filter((n) => !redone.some((x) => n.startsWith(x))), // that problem is over
+  });
+  try {
+    await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
+  } finally {
+    await saveSpent();
+  }
+  trace.log("jarvis", "cards refreshed", { cards: done.length, costUsd: Number(ledger.spentUsd.toFixed(4)) });
+  if (deps.push) {
+    const messages = refreshPushMessages(prev, briefing);
+    if (messages.length) await notifyPhones(gist, deps.push, messages, trace);
+  }
+  await appendDayDigest(gist, briefing, trace, true);
+  if (ics) await writeCalendarHistory(gist, ics, deps.now, trace);
+  if (deps.ask)
+    await answerPendingQuietly({
+      gist,
+      now: deps.now,
+      trigger: "briefing",
+      limits: deps.ask,
+      trace,
+      queryFn: deps.queryFn,
+      push: deps.push,
+    });
+  return { status: "refreshed", briefing, cost: ledger.summary() };
+}
+
+// A refresh stays quiet unless it found something new that can't wait for the next look at the app:
+// a severe weather alert, urgent email from someone new, or a package now arriving today.
+export function refreshPushMessages(prev: Briefing, next: Briefing): PushMessage[] {
+  const url = CONFIG.push.url;
+  const data = <T>(c: { status: string; data?: unknown } | undefined) => (c?.status === "ok" ? (c.data as T) : null);
+  const out: PushMessage[] = [];
+  const severe = (w: WeatherCard | null) =>
+    (w?.alerts ?? []).filter((a) => a.severity === "Severe" || a.severity === "Extreme");
+  const hadAlerts = new Set(severe(data<WeatherCard>(prev.cards.weather)).map((a) => a.event));
+  const alerts = severe(data<WeatherCard>(next.cards.weather)).filter((a) => !hadAlerts.has(a.event));
+  if (alerts.length)
+    out.push({ title: "Weather alert", body: lines(alerts.slice(0, 2).map((a) => a.event)), url, tag: "weather" });
+  const senders = (i: InboxCard | null) => (i?.urgent ?? []).map((u) => u.from);
+  const hadUrgent = new Set(senders(data<InboxCard>(prev.cards.inbox)));
+  const urgent = senders(data<InboxCard>(next.cards.inbox)).filter((from) => !hadUrgent.has(from));
+  if (urgent.length)
+    out.push({
+      title: "Urgent email",
+      body: lines(urgent.slice(0, 3).map((from) => `From ${from}`)),
+      url,
+      tag: "urgent",
+    });
+  const arriving = (d: DeliveryCard | null) =>
+    (d?.packages ?? []).filter((p) => p.status === "out" || (p.eta === next.date && p.status !== "delivered"));
+  const hadPackages = arriving(data<DeliveryCard>(prev.cards.deliveries)).map((p) => p.item.toLowerCase());
+  const packages = arriving(data<DeliveryCard>(next.cards.deliveries)).filter(
+    (p) => !hadPackages.includes(p.item.toLowerCase()) && !mentionsHidden(p.item, hadPackages, "deliveries"),
+  );
+  if (packages.length)
+    out.push({
+      title: "Arriving today",
+      body: lines(packages.slice(0, 3).map((p) => p.item + (p.etaText ? ` (${p.etaText})` : ""))),
+      url,
+      tag: "delivery",
+    });
+  return out.slice(0, 2);
 }
 
 export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   const { trace, gist } = deps;
   const today = localTime(deps.now, CONFIG.timezone).date;
-  if (deps.trigger === "schedule") {
-    const lastDate = await readPrevious(gist, trace);
+  if (deps.trigger === "schedule" || deps.forceRefresh) {
+    const last = await readPrevious(gist, trace);
     const gate = shouldDeliver({
       now: deps.now,
       timeZone: CONFIG.timezone,
       briefingTime: CONFIG.briefingTime,
-      lastBriefingDate: lastDate,
+      lastBriefingDate: last.date,
     });
     trace.log("jarvis", "schedule check", { deliver: gate.deliver, reason: gate.reason });
+    // Today's briefing is there: this run may be a card refresh instead
+    if (last.date === today) {
+      const prev = Briefing.safeParse(last.raw);
+      const due = !prev.success
+        ? { refresh: false, reason: "today's briefing can't be read" }
+        : deps.forceRefresh
+          ? { refresh: true, reason: "started by hand" }
+          : dueRefresh({
+              now: deps.now,
+              timeZone: CONFIG.timezone,
+              times: CONFIG.refresh.times,
+              windowMinutes: CONFIG.refresh.windowMinutes,
+              lastUpdate: prev.data.refreshedAt ?? prev.data.generatedAt,
+            });
+      trace.log("jarvis", "refresh check", { refresh: due.refresh, reason: due.reason });
+      if (due.refresh && prev.success) return runRefresh(deps, prev.data);
+    }
+    if (deps.forceRefresh) return { status: "skipped", reason: "there's no briefing from today to refresh" };
     if (!gate.deliver) return { status: "skipped", reason: gate.reason };
   }
 
@@ -236,46 +470,9 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
   const pricesDue =
     watch.length > 0 && (!lastPrices || lastPrices.checkedAt <= addDays(today, -CONFIG.prices.everyDays));
   if (impl.prices && pricesDue) tasks.prices = () => impl.prices!(sub, watch, today);
-  const names = Object.keys(tasks) as SubagentName[];
-  const settled = await Promise.all(
-    names.map(async (name) => {
-      if (!ledger.reserve(name, CONFIG.costEstimateUsd[name])) {
-        trace.log(name, "skipped", { reason: "cost cap" });
-        return { name, ok: false as const, error: "Skipped to stay under the run's cost cap." };
-      }
-      try {
-        const data = await tasks[name]!();
-        trace.log(name, "ok");
-        return { name, ok: true as const, data };
-      } catch (e) {
-        const error = trace.publicError(e);
-        trace.log(name, "failed", { error });
-        return { name, ok: false as const, error: `${AGENT_LABEL[name]} didn't finish: ${error}` };
-      } finally {
-        ledger.release(name);
-      }
-    }),
-  );
-
-  const card = (r: (typeof settled)[number]) =>
-    r.ok
-      ? {
-          status: "ok" as const,
-          data: r.data as any,
-          agent: AGENT_LABEL[r.name],
-          model: CONFIG.models[r.name],
-          updatedAt,
-        }
-      : {
-          status: "error" as const,
-          error: r.error,
-          agent: AGENT_LABEL[r.name],
-          model: CONFIG.models[r.name],
-          updatedAt,
-        };
-  const results = Object.fromEntries(settled.map((r) => [r.name, r])) as Partial<
-    Record<SubagentName, (typeof settled)[number]>
-  >;
+  const settled = await runCards(tasks, ledger, trace);
+  const card = (r: Settled) => cardOf(r, updatedAt);
+  const results = Object.fromEntries(settled.map((r) => [r.name, r])) as Partial<Record<SubagentName, Settled>>;
   const okData = <T>(name: SubagentName) => {
     const r = results[name];
     return r && r.ok ? (r.data as T) : null;
@@ -398,12 +595,13 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
 
 // Adds today's digest of the validated Inbox, Deliveries and Calendar cards to jazz2-week.json
 // for Sunday's Weekly Review. Never fails the briefing.
-export async function appendDayDigest(gist: GistClient, briefing: Briefing, trace: Trace) {
+export async function appendDayDigest(gist: GistClient, briefing: Briefing, trace: Trace, addToDay = false) {
   try {
     const digest = buildDayDigest(briefing);
     if (!digest) return;
     const days = readWeekFile(await gist.readFile(CONFIG.gistFiles.week));
-    const file = mergeDigest(days, digest, CONFIG.digestDaysKept);
+    const earlier = addToDay ? days.find((d) => d.date === digest.date) : null;
+    const file = mergeDigest(days, earlier ? combineDigests(earlier, digest) : digest, CONFIG.digestDaysKept);
     await gist.writeFile(CONFIG.gistFiles.week, JSON.stringify(file));
     trace.log("jarvis", "day digest written", { days: file.days.length });
   } catch (e) {
@@ -697,6 +895,7 @@ async function main() {
         ? vapidSender(CONFIG.push.publicKey, env.VAPID_PRIVATE_KEY, CONFIG.push.subject)
         : null,
       ask: askLimits(env),
+      forceRefresh: env.JARVIS_FORCE_REFRESH === "true",
       sources: {
         calendarUrl,
         gmail: google ? async () => gmailClient(await googleAccessToken(google)) : null,
@@ -705,7 +904,11 @@ async function main() {
     if (outcome.status === "skipped") console.log(`Skipped: ${outcome.reason}`);
     else {
       // the repo's logs are public: never the headline or anything else from the briefing
-      console.log(`Delivered briefing ${outcome.briefing.date} (${outcome.briefing.summaryBy})`);
+      console.log(
+        outcome.status === "refreshed"
+          ? `Refreshed the cards of briefing ${outcome.briefing.date}`
+          : `Delivered briefing ${outcome.briefing.date} (${outcome.briefing.summaryBy})`,
+      );
       writeFileSync(path.join(outDir, "cost.json"), JSON.stringify(outcome.cost, null, 2));
     }
   } catch (e) {

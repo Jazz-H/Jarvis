@@ -29,7 +29,7 @@ export const CalendarCard = CalendarFacts.extend(CalendarRead.shape);
 export type CalendarCard = z.infer<typeof CalendarCard>;
 
 // jazz2-calendar.json: the owner's calendar from 90 days back to 60 days ahead, written only by the
-// morning briefing run (jarvis.ts writeCalendarHistory) and read by the app's Planner and by Ask.
+// morning briefing and card refresh runs (jarvis.ts writeCalendarHistory), read by the Planner and Ask.
 // Titles and places only: never descriptions, attendees, URLs or organizer emails.
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const CalendarHistoryEvent = z.object({

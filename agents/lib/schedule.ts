@@ -55,6 +55,28 @@ export function shouldDeliver(opts: {
   return { deliver: true, reason: "in the briefing window", date };
 }
 
+// A card refresh: once today's briefing exists, each refresh time gets one run, from that time until
+// windowMinutes later. Whatever last updated the cards counts, so a briefing that landed late fills
+// the time it passed, and a retry or a late GitHub run changes nothing.
+export function dueRefresh(opts: {
+  now: Date;
+  timeZone: string;
+  times: string[];
+  windowMinutes: number;
+  lastUpdate: string;
+}): { refresh: boolean; reason: string } {
+  const { date, minutes } = localTime(opts.now, opts.timeZone);
+  const slot = opts.times
+    .map(toMinutes)
+    .filter((t) => t <= minutes && minutes < t + opts.windowMinutes)
+    .pop();
+  if (slot == null) return { refresh: false, reason: "not a refresh time" };
+  const at = new Date(opts.lastUpdate);
+  const last = isNaN(at.getTime()) ? null : localTime(at, opts.timeZone);
+  if (last && last.date === date && last.minutes >= slot) return { refresh: false, reason: "already refreshed" };
+  return { refresh: true, reason: "refresh time" };
+}
+
 // Day of the week (0 = Sunday) of a YYYY-MM-DD date, independent of any time zone
 export const weekday = (iso: string) => new Date(iso + "T12:00:00Z").getUTCDay();
 

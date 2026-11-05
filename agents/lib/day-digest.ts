@@ -48,6 +48,51 @@ export function buildDayDigest(b: Briefing): DayDigest | null {
   return DayDigest.parse(d);
 }
 
+// A later run the same day adds to what the morning saw, so nothing leaves the week's record because
+// the owner has read the email by then (Inbox only looks at unread mail) or a package left the list.
+// The calendar is simply its latest view: an event that's gone was cancelled.
+export function combineDigests(old: DayDigest, next: DayDigest): DayDigest {
+  const by = <T>(key: (x: T) => string, first: T[], then: T[]) => {
+    const seen = new Set<string>();
+    return [...first, ...then].filter((x) => !seen.has(key(x)) && seen.add(key(x)));
+  };
+  const low = (s: string) => s.toLowerCase();
+  const inbox =
+    old.inbox && next.inbox
+      ? {
+          unread: Math.max(old.inbox.unread, next.inbox.unread),
+          urgent: Math.max(old.inbox.urgent, next.inbox.urgent),
+          needsReply: by(
+            (p: { from: string; summary: string }) => low(p.from),
+            old.inbox.needsReply,
+            next.inbox.needsReply,
+          ).slice(0, 5),
+          bills: by(
+            (b: NonNullable<DayDigest["inbox"]>["bills"][number]) => low(b.payee),
+            next.inbox.bills,
+            old.inbox.bills,
+          ).slice(0, 5),
+        }
+      : (next.inbox ?? old.inbox);
+  const deliveries =
+    old.deliveries && next.deliveries
+      ? {
+          packages: by(
+            (p: NonNullable<DayDigest["deliveries"]>["packages"][number]) => low(p.item),
+            next.deliveries.packages,
+            old.deliveries.packages,
+          ).slice(0, 5),
+        }
+      : (next.deliveries ?? old.deliveries);
+  const calendar = next.calendar ?? old.calendar;
+  return DayDigest.parse({
+    date: next.date,
+    ...(inbox ? { inbox } : {}),
+    ...(deliveries ? { deliveries } : {}),
+    ...(calendar ? { calendar } : {}),
+  });
+}
+
 // The valid days in jazz2-week.json; anything malformed is dropped (the file is ours to rebuild)
 export function readWeekFile(raw: string | null): DayDigest[] {
   if (!raw) return [];

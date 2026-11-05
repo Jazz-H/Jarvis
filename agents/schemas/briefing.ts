@@ -51,6 +51,7 @@ export const Briefing = z.object({
   id: z.string(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   generatedAt: z.string(),
+  refreshedAt: z.string().optional(), // when a card refresh last redid the cards (jarvis.ts runRefresh)
   trigger: z.enum(["schedule", "manual"]),
   headline: z.string().max(100),
   summary: JarvisOutput.shape.summary,
