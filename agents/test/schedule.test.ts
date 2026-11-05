@@ -49,7 +49,7 @@ describe("schedule", () => {
     const gs = readFileSync(new URL("../../docs/jarvis/alarm-clock.gs", import.meta.url), "utf8");
     const yml = readFileSync(new URL("../../.github/workflows/jarvis.yml", import.meta.url), "utf8");
     const hhmm = (t: string, lead: number) => {
-      const m = toMinutes(t) - lead;
+      const m = Math.min(toMinutes(t) - lead, 24 * 60); // a refresh window stops at midnight
       return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     };
     expect(gs).toContain(`const BRIEFING = "${hhmm(CONFIG.briefingTime, CONFIG.briefingLeadMinutes)}"`);
@@ -87,8 +87,10 @@ describe("schedule", () => {
     const briefing = utcCronLines(CONFIG.briefingTime, CONFIG.briefingLeadMinutes, [-4, -5]);
     const review = utcCronLines(CONFIG.reviewTime, CONFIG.reviewLeadMinutes, [-4, -5], CONFIG.reviewDay);
     // plus one backup briefing line (GitHub skips scheduled runs), still gated by shouldDeliver
-    // and one for the 5pm card refresh, in its window in both EDT and EST
-    expect(lines).toEqual([...briefing, "5,20,35,50 11-17 * * *", "15 21,22 * * *", ...review]);
+    // and one each for the 5pm and 9pm card refreshes, in their windows in both EDT and EST
+    expect(lines).toEqual([...briefing, "5,20,35,50 10-17 * * *", "15 21,22 * * *", "15 1,2 * * *", ...review]);
+    expect(CONFIG.refresh.times).toEqual(["12:30", "17:00", "21:00"]);
+    expect(utcCronLines("21:00", -15, [-4, -5])).toEqual(["15 1 * * *", "15 2 * * *"]);
     expect(utcCronLines("07:00", 15, [-4, -5])).toEqual(["45 10 * * *", "45 11 * * *"]);
     expect(review).toEqual(["45 21 * * 0", "45 22 * * 0"]);
     // the review lines are routed to the review job and kept away from the briefing job
@@ -134,6 +136,18 @@ describe("card refresh schedule", () => {
 
   it("a briefing that landed late fills the time it passed", () => {
     expect(due("2026-07-01T17:00:00Z", "2026-07-01T16:45:00Z")).toBe(false); // briefing at 12:45, now 1:00
+  });
+
+  it("the 9pm refresh runs until midnight, never into the next day", () => {
+    const at = (iso: string, last: string) =>
+      dueRefresh({ now: new Date(iso), timeZone: TZ, times: CONFIG.refresh.times, windowMinutes: CONFIG.refresh.windowMinutes, lastUpdate: last }).refresh;
+    const five = "2026-07-01T21:15:00Z"; // the 5pm refresh ran at 5:15 EDT
+    expect(at("2026-07-02T00:40:00Z", five)).toBe(false); // 8:40pm EDT: the 5pm one already ran
+    expect(at("2026-07-02T01:05:00Z", five)).toBe(true); // 9:05pm EDT
+    expect(at("2026-12-02T02:05:00Z", "2026-12-01T22:15:00Z")).toBe(true); // 9:05pm EST
+    expect(at("2026-07-02T03:55:00Z", five)).toBe(true); // 11:55pm EDT: still in its window
+    expect(at("2026-07-02T03:55:00Z", "2026-07-02T01:05:00Z")).toBe(false); // it ran at 9:05
+    expect(at("2026-07-02T04:30:00Z", five)).toBe(false); // 12:30am: a new day, no refresh time
   });
 
   it("a last update from another day or that can't be read doesn't count", () => {

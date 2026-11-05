@@ -164,7 +164,7 @@ https://github.com/settings/personal-access-tokens; nothing else needs changing.
 GitHub runs this repo's scheduled workflows only every few hours (in Nov 2026 the hourly check-in
 line ran 3–4 times a day, and the 6:45am briefing lines were missed or started 5–7 hours late).
 The alarm clock is a small Google Apps Script, in your Google account, that asks GitHub to start
-the briefing at about 6:45am (once more about 45 minutes later, in case), the Weekly Review on
+the briefing at about 5:45am (once more about 45 minutes later, in case), the Weekly Review on
 Sundays at about 5:45pm, and check-ins hourly. Its starts are gated like scheduled runs, so it
 never delivers twice.
 
@@ -187,13 +187,13 @@ To stop it, delete the trigger (or the project). If the token expires, the execu
 "GitHub said 401": make a new one and replace the property.
 
 ## When it runs
-- **Card refreshes** at about **12:30pm and 5pm Eastern** redo today's Weather, Calendar, Inbox,
+- **Card refreshes** at about **12:30pm, 5pm and 9pm Eastern** redo today's Weather, Calendar, Inbox,
   Deliveries and Bill Guard cards. They come from the alarm clock, so after updating to this version
   paste the new `docs/jarvis/alarm-clock.gs` into your script again (section 9, step 3, and save);
   the 15-minute trigger stays as it is. To try one by hand: Actions → Jarvis → Run workflow → `refresh`.
-- Every morning so it's there by about **7:00am Eastern**: the alarm clock (section 9) starts it at
-  6:45am. GitHub's own cron lines (6:45am EDT and EST, plus a try every 15 minutes) are a fallback;
-  GitHub often runs them hours late or not at all. Whatever starts first in the 6:30am–7pm window
+- Every morning so it's there by about **6:00am Eastern**: the alarm clock (section 9) starts it at
+  5:45am. GitHub's own cron lines (5:45am EDT and EST, plus a try every 15 minutes) are a fallback;
+  GitHub often runs them hours late or not at all. Whatever starts first in the 5:30am–6pm window
   delivers; every later run that day sees today's briefing and stops.
 - Scheduled workflows only run from the default branch (`main`), and GitHub pauses them after 60
   days without repo activity; re-enable from the Actions tab if that happens.

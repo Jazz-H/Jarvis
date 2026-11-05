@@ -210,7 +210,7 @@ function askKeyFieldHtml() {
       <p class="modal-note">Lets this device start Jarvis right away, so answers come back in about a minute.
         It's a fine-grained GitHub token for this one repo with only <b>Actions: read and write</b>. It stays
         on this device; your question itself only goes to your private gist. Without it, questions wait
-        for Jarvis's next run (~7am). How to make one: <a href="${ASK_SETUP_URL}" target="_blank" rel="noopener noreferrer">setup guide, section 8</a>.</p>
+        for Jarvis's next run (~6am). How to make one: <a href="${ASK_SETUP_URL}" target="_blank" rel="noopener noreferrer">setup guide, section 8</a>.</p>
       <label class="modal-field ak-key-input"><span>${has ? "Key saved here · paste a new one to replace it" : "Key (starts with github_pat_)"}</span>
         <input id="modal-askToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${has ? "••••••••  saved" : "github_pat_…"}" /></label>
       ${has ? '<button type="button" class="backup-btn ak-key-remove" data-action="ask-token-remove">Remove Ask Jarvis key</button>' : ""}
@@ -885,7 +885,7 @@ function askUsagePopHtml() {
   return `${t ? `<p>${escapeHtml(t)}.</p>` : ""}<p>Limit: $${ASK_MONTH_BUDGET} a month, however many questions that is. Web answers cost a little more.</p>`;
 }
 function askNextRunText(now = new Date()) {
-  return `Queued — Jarvis will answer on the next run (${now.getHours() < 7 ? "today" : "tomorrow"} ~7am)`;
+  return `Queued — Jarvis will answer on the next run (${now.getHours() < 6 ? "today" : "tomorrow"} ~6am)`;
 }
 function askStatusHtml(q) {
   if (askSending.has(q.id))
@@ -1024,7 +1024,7 @@ function askHint() {
   if (!askSyncOn()) return ASK_NEEDS_SYNC;
   if (askGet(ASK_TOKEN_BAD_KEY) && askToken()) return ASK_KEY_BROKEN + ". Questions wait for the next run.";
   if (!askToken())
-    return "Questions wait for Jarvis's next run (~7am). Add an Ask Jarvis key in Sync for answers in about a minute.";
+    return "Questions wait for Jarvis's next run (~6am). Add an Ask Jarvis key in Sync for answers in about a minute.";
   return "";
 }
 function askNoteHtml(mode) {

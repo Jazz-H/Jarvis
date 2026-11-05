@@ -178,8 +178,8 @@ describe("Jarvis orchestrator", () => {
       expect(g.writes).toHaveLength(0);
     });
 
-    it("skip outside the window (the EST line in summer)", async () => {
-      const r = await runBriefing(deps({ trigger: "schedule", now: new Date("2026-07-01T09:45:00Z") }));
+    it("skip outside the window (4:45am EDT, too early)", async () => {
+      const r = await runBriefing(deps({ trigger: "schedule", now: new Date("2026-07-01T08:45:00Z") }));
       expect(r.status).toBe("skipped");
     });
 

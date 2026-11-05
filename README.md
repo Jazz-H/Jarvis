@@ -42,7 +42,7 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   into its detail (the › on the right): Budget opens Money, To-do the Planner, and so on. The
   **×** at the end of a row dismisses it for the day (Undo in the toast).
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
-  older day's briefing is dimmed and labeled "From <date>"; from 8 AM on, it says in amber
+  older day's briefing is dimmed and labeled "From <date>"; from 7 AM on, it says in amber
   "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed
   under "notes".
 - **Top 3 today:** its own card under the summary, the three open to-dos that matter most today, picked by
@@ -269,7 +269,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     workflow on GitHub with only the question's id; the text never goes anywhere else. The feed
     shows the question and a pulsing **"Jarvis is on it · usually about a minute"**. Without a
     key, or if starting the workflow fails, it says **"Queued — Jarvis will answer on the next
-    run (tomorrow ~7am)"**. A key GitHub refuses shows "Ask Jarvis key isn't working — check it
+    run (tomorrow ~6am)"**. A key GitHub refuses shows "Ask Jarvis key isn't working — check it
     in Sync" and the question is queued. If GitHub says the key expires within 14 days, a
     gentle note under the hint says so.
   - **Waiting:** while Console is on screen the app checks the gist every 10 seconds for up to 3
@@ -734,7 +734,7 @@ Jarvis is the AI layer, built in phases (`docs/jarvis/PLAN.md`). Phases 1 and 2 
 briefing with Weather and News, plus Calendar, Inbox and Deliveries once Google is connected.
 Setup: `docs/jarvis/SETUP.md`.
 
-- **Where it runs:** `.github/workflows/jarvis.yml`, started about 6:45am Eastern daily by the
+- **Where it runs:** `.github/workflows/jarvis.yml`, started about 5:45am Eastern daily (for a 6am briefing) by the
   **alarm clock** (`docs/jarvis/alarm-clock.gs`, a Google Apps Script; SETUP section 9), because
   GitHub runs this repo's own cron lines only every few hours. Those lines (EDT, EST and a try every
   15 minutes) stay as a fallback; the first run from 6:30am to 7pm delivers, once a day. Or on
@@ -1046,14 +1046,14 @@ title and its list are split by a thin rule (the briefing, Outfit).
 devices so iOS doesn't zoom.
 
 ## Known limitations and ideas
-- **Card refresh:** at about 12:30pm and 5pm the backend redoes Weather, Calendar, Inbox, Deliveries and
+- **Card refresh:** at about 12:30pm, 5pm and 9pm the backend redoes Weather, Calendar, Inbox, Deliveries and
   Bill Guard in today's briefing, and the Planner's calendar file. The summary, Top 3, suggestions and
   News stay as the morning wrote them, so Home shows no "New" badge, only "Cards updated 12:30 PM", and
   a dismissed line can't come back reworded. A card that fails keeps the morning's version. No phone
   notification unless it found something new that can't wait: a Severe or Extreme weather alert, urgent
   email from a new sender, or a package now arriving today. What the Weekly Review saw that morning is
   added to, not replaced. The alarm clock starts these runs, with a GitHub schedule as a backup; "Run
-  workflow" in mode `refresh` does one by hand. A run is capped at $0.25 and refreshes at $8 a month
+  workflow" in mode `refresh` does one by hand. A run is capped at $0.25 and refreshes at $12 a month
   (`jazz2-refresh.json` holds the count; over it they stop until next month, and the morning briefing
   doesn't). Like every sync, new cards reach the app the next time it's opened or brought back up.
 - **Notifications come only from Jarvis's scheduled runs.** The app can't wake itself up, so

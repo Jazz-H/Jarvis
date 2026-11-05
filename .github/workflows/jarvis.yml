@@ -9,13 +9,14 @@ name: Jarvis
 # cards of today's briefing). Once today's briefing exists, gated runs in a refresh window redo its cards.
 on:
   schedule:
-    - cron: "45 10 * * *" # briefing, 6:45am EDT
-    - cron: "45 11 * * *" # briefing, 6:45am EST
+    - cron: "45 9 * * *" # briefing, 5:45am EDT
+    - cron: "45 10 * * *" # briefing, 5:45am EST
     # backup: GitHub runs this repo's schedules only every few hours, so the on-time start comes
     # from the alarm clock (docs/jarvis/alarm-clock.gs, mode "alarm"). These lines are a fallback;
-    # the first run in the window (until 7pm) delivers, the rest stop in seconds
-    - cron: "5,20,35,50 11-17 * * *"
+    # the first run in the window (5:30am to 6pm) delivers, the rest stop in seconds
+    - cron: "5,20,35,50 10-17 * * *"
     - cron: "15 21,22 * * *" # backup for the 5pm card refresh (EDT, EST)
+    - cron: "15 1,2 * * *" # backup for the 9pm card refresh (EDT, EST: the next day in UTC)
     - cron: "45 21 * * 0" # weekly review, Sunday 5:45pm EDT
     - cron: "45 22 * * 0" # weekly review, Sunday 5:45pm EST
   workflow_dispatch:

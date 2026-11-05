@@ -1,9 +1,9 @@
 // Jarvis alarm clock: a Google Apps Script that starts the briefing on time.
 //
-// GitHub runs this repo's scheduled workflows only every few hours, so the 6:45am cron is often
+// GitHub runs this repo's scheduled workflows only every few hours, so the 5:45am cron is often
 // missed. This script runs every 15 minutes in your Google account and asks GitHub to start:
-//   - the briefing (jarvis.yml, mode "alarm") at about 6:45am, retried once about 45 minutes later
-//   - the card refreshes (mode "alarm") at about 12:30pm and 5pm, retried the same way
+//   - the briefing (jarvis.yml, mode "alarm") at about 5:45am, retried once about 45 minutes later
+//   - the card refreshes (mode "alarm") at about 12:30pm, 5pm and 9pm, retried the same way
 //   - the Weekly Review (mode "alarm-review") on Sundays at about 5:45pm, retried the same way
 //   - check-ins (jarvis-ask.yml) once an hour; a run with nothing due stops in seconds
 // Alarm runs are gated like scheduled ones (agents/lib/schedule.ts), so a retry or a late GitHub
@@ -14,11 +14,11 @@
 
 const REPO = "Jazz-H/Jazz2.0";
 const TZ = "America/New_York";
-const BRIEFING = "06:45"; // agents/config.ts briefingTime minus briefingLeadMinutes
+const BRIEFING = "05:45"; // agents/config.ts briefingTime minus briefingLeadMinutes
 const REVIEW = "17:45"; // reviewTime minus reviewLeadMinutes, on Sundays
 const RETRY_MINUTES = 45;
 const GIVE_UP = "12:00"; // no briefing start after this (the next GitHub cron run may still deliver)
-const REFRESHES = [["12:30", "16:30"], ["17:00", "21:00"]]; // agents/config.ts refresh: each time and its window
+const REFRESHES = [["12:30", "16:30"], ["17:00", "21:00"], ["21:00", "24:00"]]; // agents/config.ts refresh: each time and its window (to midnight at most)
 
 // Run once by hand after pasting: makes the 15-minute trigger (and removes old ones)
 function setup() {

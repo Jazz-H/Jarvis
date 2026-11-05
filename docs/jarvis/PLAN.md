@@ -40,14 +40,14 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
   Notebook, and dismissing notifications on Home and by Jarvis (see BACKLOG.md Done).
 
 - [x] Card refresh (Nov 4): Weather, Calendar, Inbox, Deliveries and Bill Guard are redone at about
-  12:30pm and 5pm; the morning's summary stays (`agents/jarvis.ts` `runRefresh`).
+  12:30pm and 5pm (9pm added Nov 5); the morning's summary stays (`agents/jarvis.ts` `runRefresh`).
 
 ## My preferences
 - Location: Springfield, IL
 - Time zone: America/New_York
-- Card refresh: about 12:30pm and 5pm ET, phone notifications only for something new and urgent.
-- Briefing time: around 7:00am ET. Schedule the cron a little early so GitHub's delay still
-  lands it near 7, and convert to UTC for both EST and EDT.
+- Card refresh: about 12:30pm, 5pm and 9pm ET, phone notifications only for something new and urgent.
+- Briefing time: around 6:00am ET (moved from 7:00, Nov 5). Schedule the cron a little early so GitHub's delay still
+  lands it near 6, and convert to UTC for both EST and EDT.
 - News topics: AI, tech, cars, trending. Sources: Jarvis picks reputable RSS feeds for these
   topics. Blocked keywords: none yet.
 - Jarvis placement: Jarvis is the app itself. Its view is the main screen and pulls in the

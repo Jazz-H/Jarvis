@@ -725,8 +725,8 @@ function priceCheckFor(wantId) {
   return c ? c.items.find((x) => x.id === wantId) || null : null;
 }
 
-// An older briefing on screen: after 8 AM, today's is late (the run usually lands by 7), so say so
-const BRIEFING_LATE_HOUR = 8;
+// An older briefing on screen: after 7 AM, today's is late (the run usually lands by 6), so say so
+const BRIEFING_LATE_HOUR = 7;
 function briefingLateHtml(b, now = new Date()) {
   const from = noonOf(b.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   return b.date < isoDate(now) && now.getHours() >= BRIEFING_LATE_HOUR

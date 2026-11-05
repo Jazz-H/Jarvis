@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 import { runBriefing, refreshPushMessages, type JarvisDeps, type Subagents } from "../jarvis.ts";
 import { combineDigests } from "../lib/day-digest.ts";
+import { CONFIG } from "../config.ts";
 import { Briefing } from "../schemas/briefing.ts";
 import { Trace } from "../lib/trace.ts";
 import type { GistClient } from "../tools/gist.ts";
@@ -227,7 +228,7 @@ describe("card refresh", () => {
     });
 
     it("over the month's budget it stops, and the morning briefing doesn't", async () => {
-      const m = await morning({ "jazz2-refresh.json": JSON.stringify({ version: 1, month: "2026-10", costUsd: 8 }) });
+      const m = await morning({ "jazz2-refresh.json": JSON.stringify({ version: 1, month: "2026-10", costUsd: CONFIG.refresh.monthlyBudgetUsd }) });
       const { subagents, ran } = stubs();
       expect(await runBriefing(deps(m.gist, { subagents }))).toMatchObject({
         status: "skipped",

@@ -6,7 +6,7 @@ export const CONFIG = {
   timezone: "America/New_York",
   // The briefing should land around this local time. jarvis.yml's two cron lines start the
   // run BRIEFING_LEAD_MINUTES early (one line for EDT, one for EST); a test keeps them in step.
-  briefingTime: "07:00",
+  briefingTime: "06:00", // moved from 7:00 (Nov 5)
   briefingLeadMinutes: 15,
   // The Weekly Review (review.ts) lands on reviewDay around reviewTime, covering Monday to Sunday.
   // Its two Sunday cron lines in jarvis.yml start reviewLeadMinutes early; the same test checks them.
@@ -14,10 +14,10 @@ export const CONFIG = {
   // and Bill Guard are redone at these local times; the summary, Top 3, suggestions and News stay as
   // the morning wrote them. docs/jarvis/alarm-clock.gs starts them; a test keeps its times in step.
   refresh: {
-    times: ["12:30", "17:00"],
-    windowMinutes: 240, // a start later than this after its time waits for the next one
+    times: ["12:30", "17:00", "21:00"],
+    windowMinutes: 240, // a start later than this after its time waits for the next one; no window runs past midnight
     maxRunCostUsd: 0.25, // about $0.10 at the estimates below
-    monthlyBudgetUsd: 8, // over this, refreshes stop until next month; the morning briefing never does
+    monthlyBudgetUsd: 12, // 3 a day at most ~$9; over this, refreshes stop until next month; the morning briefing never does
   },
   reviewDay: 0, // Sunday (0 = Sunday … 6 = Saturday, like Date.getDay)
   reviewTime: "18:00",

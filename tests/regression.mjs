@@ -8349,14 +8349,14 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
     fallback: document.querySelector(".jv-hero .jv-meta").textContent,
   }));
   check(
-    "yesterday's briefing is labeled and dimmed (or flagged late after 8 AM)",
-    (new Date().getHours() >= 8
+    "yesterday's briefing is labeled and dimmed (or flagged late after 7 AM)",
+    (new Date().getHours() >= 7
       ? r.when.startsWith("Today's briefing hasn't arrived. Showing ")
       : r.when.startsWith("From ")) && r.stale,
     r,
   );
   check(
-    "the late notice turns on at 8 AM",
+    "the late notice turns on at 7 AM",
     await page.evaluate(() => {
       const b = { date: addDaysIso(-1) };
       const at = (h) => {
@@ -8365,9 +8365,9 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
         return briefingLateHtml(b, d);
       };
       return (
-        at(7).includes("From ") &&
-        !at(7).includes("jv-late") &&
-        at(8).includes("jv-late") &&
+        at(6).includes("From ") &&
+        !at(6).includes("jv-late") &&
+        at(7).includes("jv-late") &&
         !briefingLateHtml({ date: addDaysIso(0) }).includes("jv-late")
       );
     }),
@@ -12382,7 +12382,7 @@ await section("ask: without a key it's queued; a refused key warns and queues; e
     "no key: written to the gist, not dispatched, shown as queued",
     gh.log.some((r) => r.method === "PATCH") &&
       !gh.log.some((r) => r.path === DISPATCH_PATH) &&
-      /Queued — Jarvis will answer on the next run \((today|tomorrow) ~7am\)/.test(q.feed) &&
+      /Queued — Jarvis will answer on the next run \((today|tomorrow) ~6am\)/.test(q.feed) &&
       q.state === "queued",
     q,
   );
