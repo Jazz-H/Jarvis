@@ -73,13 +73,19 @@ const isoInWeek = (n) => (new Date().getDay() + n <= 6 ? isoOffset(n) : isoOffse
 // Tests open them all, so what they read and tap doesn't depend on when the suite runs; the fold
 // tests pass folds: false to see the app's own defaults. Survives reloads.
 async function openAllFolds(ctx) {
-  await ctx.addInitScript(() =>
+  await ctx.addInitScript(() => {
+    const seenBefore = localStorage.getItem("jarvis-briefing-seen");
     window.addEventListener("DOMContentLoaded", () => {
       if (typeof dashFoldIsOpen !== "function") return;
       window.dashFoldIsOpen = () => true;
-      if (document.body.dataset.tab === "home") renderHome();
-    }),
-  );
+      if (document.body.dataset.tab !== "home") return;
+      // this second render mustn't count as a second look at the briefing (its New pill)
+      const seen = "jarvis-briefing-seen";
+      if (seenBefore == null) localStorage.removeItem(seen);
+      else localStorage.setItem(seen, seenBefore);
+      renderHome();
+    });
+  });
 }
 async function openApp({ seed = {}, phone = true, query = "", route, setup, hour, folds = true } = {}) {
   const ctx = await browser.newContext(
@@ -92,7 +98,6 @@ async function openApp({ seed = {}, phone = true, query = "", route, setup, hour
   }
   if (route) await ctx.route("https://api.github.com/**", route);
   if (setup) await setup(ctx); // e.g. routes that must be in place before the page loads
-  if (folds) await openAllFolds(ctx);
   // NWS alerts (the Weather detail checks them for a saved location): none, unless a test routes its own
   await ctx.route("https://api.weather.gov/**", (r) =>
     r.fulfill({ status: 200, contentType: "application/geo+json", body: JSON.stringify({ features: [] }) }),
@@ -102,6 +107,7 @@ async function openApp({ seed = {}, phone = true, query = "", route, setup, hour
     sessionStorage.setItem("seeded", "1");
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
   }, seed);
+  if (folds) await openAllFolds(ctx); // after the seed, so it sees a seeded "seen" briefing
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -8352,10 +8358,10 @@ await section("jarvis: error cards, stale briefing and junk data", async () => {
     when: document.querySelector(".jv-when").textContent,
     stale: document.querySelector(".jv-hero").classList.contains("jv-stale"),
     newsErr: document.querySelector("#jarvis-news .jv-error").textContent,
-    newsInsight: document.querySelector(".jv-news-label .jv-label-count").textContent,
+    newsInsight: document.querySelector("#jarvis-news .jv-fold-pill").textContent, // the phone's News fold
     weatherErr: document.querySelector("#jarvis-weather .jv-error")?.textContent || "",
     notes: document.querySelector(".jv-notes summary").textContent,
-    fallback: document.querySelector(".jv-card > .jv-meta").textContent,
+    fallback: document.querySelector(".jv-hero .jv-fold-body > .jv-meta").textContent,
   }));
   check(
     "yesterday's briefing is labeled and dimmed (or flagged late after 8 AM)",
@@ -9822,7 +9828,7 @@ await section(
             outfit: open(".jv-outfit"),
             outfitPill: q(".jv-outfit .jv-fold-pill") ? q(".jv-outfit .jv-fold-pill").textContent : "",
             outfitPeek: q(".jv-outfit .jv-fold-peek") ? q(".jv-outfit .jv-fold-peek").textContent : "",
-            pieces: [...document.querySelectorAll("#panel-home .jv-outfit .jv-piece b")]
+            pieces: [...document.querySelectorAll("#panel-home .jv-outfit .jv-piece:not(.jv-piece-missing) b")]
               .map((b) => b.textContent)
               .join(", "),
             news: open("#jarvis-news"),
@@ -11577,7 +11583,6 @@ async function openAsk({ seed = {}, query = "?tab=console", route, speech = "fak
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
-  await openAllFolds(ctx); // Home's cards open, as in openApp
   if (route) await ctx.route("https://api.github.com/**", route);
   await ctx.addInitScript((mode) => {
     delete window.SpeechRecognition;
@@ -11614,6 +11619,7 @@ async function openAsk({ seed = {}, query = "?tab=console", route, speech = "fak
     sessionStorage.setItem("seeded", "1");
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
   }, seed);
+  await openAllFolds(ctx); // Home's cards open, as in openApp
   const page = await ctx.newPage();
   const errors = [],
     logs = [];
