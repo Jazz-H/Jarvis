@@ -306,7 +306,7 @@ function wakeListen() {
 
 // ---- commands: matched by code, answered from this device's data ----
 const WAKE_HELP =
-  "You can say: read my briefing, read everything, weather, my day, top 3, inbox, tomorrow, news, add a to-do, or stop. Anything else, I can send to Jarvis as a question.";
+  "You can say: read my briefing, read everything, weather, my day, top 3, inbox, tomorrow, news, what bills are due, add a to-do, add something to shopping, mark a to-do done, or stop. Anything else, I can send to Jarvis as a question.";
 const WAKE_YES = /\b(yes|yeah|yep|yup|sure|send( it)?|do it|go ahead|ok|okay|please)\b/i;
 const WAKE_NO = /\b(no|nope|don't|do not|cancel|stop|never ?mind|wait)\b/i;
 function wakeMatch(said) {
@@ -319,6 +319,15 @@ function wakeMatch(said) {
     .replace(/^(please|can you|could you|would you)\s+/, "");
   if (!t) return { kind: "briefing" }; // just "Hey Jarvis"
   if (/^(stop|cancel|quiet|be quiet|shut up|never ?mind|that's all|that is all)\b/.test(t)) return { kind: "stop" };
+  // Shopping first: "add milk to shopping" would otherwise be a to-do called "milk to shopping"
+  const shop =
+    /^(?:add|put)\s+(.+?)\s+(?:to|on)\s+(?:my\s+|the\s+)?(?:shopping|grocery|groceries)(?:\s+list)?$/.exec(t) ||
+    /^(?:i need to buy|we need to buy|we're out of|we are out of|i'm out of|i am out of)\s+(.+)$/.exec(t);
+  if (shop) return { kind: "shop", rest: shop[1].trim() };
+  const done =
+    /^(?:mark|tick|check off|cross off)\s+(.+?)(?:\s+(?:as\s+)?(?:done|complete|completed|finished))?$/.exec(t) ||
+    /^(?:i finished|i did|i've done|i have done|done with|finished|complete)\s+(.+)$/.exec(t);
+  if (done) return { kind: "done", rest: done[1].replace(/^(?:the|my)\s+/, "").trim() };
   const add =
     /^(?:add|put|new|create)(?: an?)?(?: to ?-?do| task| reminder)?(?: to my list)?(?: to| that)?[:\s]+(.+)$|^remind me to (.+)$|^to ?-?do[:\s]+(.+)$/.exec(
       t,
@@ -331,6 +340,7 @@ function wakeMatch(said) {
   if (/\btomorrow\b/.test(t)) return { kind: "tomorrow" };
   if (/\b(news|headlines?|stories)\b/.test(t)) return { kind: "news" };
   if (/\b(inbox|emails?|e mails?|mail)\b/.test(t)) return { kind: "inbox" };
+  if (/\bbills?\b|what'?s due|what is due|anything due/.test(t)) return { kind: "bills" };
   if (/\b(brief|briefing|summary|morning|update)\b/.test(t)) return { kind: "briefing" };
   if (/\b(my day|schedule|calendar|agenda|today|plans?|to ?-?dos?)\b/.test(t)) return { kind: "day" };
   if (/^(help|what can you do|what can i say|commands)\b/.test(t)) return { kind: "help" };
@@ -347,6 +357,14 @@ function wakeHandle(said) {
   }
   if (cmd.kind === "add") {
     wakeAddTodo(cmd.rest);
+    return cmd;
+  }
+  if (cmd.kind === "shop") {
+    wakeAddShopping(cmd.rest);
+    return cmd;
+  }
+  if (cmd.kind === "done") {
+    wakeTickTodo(cmd.rest);
     return cmd;
   }
   if (cmd.kind === "ask") {
@@ -366,6 +384,7 @@ function wakeHandle(said) {
     tomorrow: wakeSayTomorrow,
     news: wakeSayNews,
     inbox: wakeSayInbox,
+    bills: wakeSayBills,
     day: wakeSayDay,
     help: () => [said ? `Sorry, I didn't catch that. ${WAKE_HELP}` : WAKE_HELP],
   }[cmd.kind];
@@ -444,7 +463,10 @@ function wakeSayTop3(quietIfNone = false) {
   if (!picks.length) return quietIfNone ? [] : ["There's no Top 3 for today."];
   const open = picks.filter((t) => !t.done);
   if (!open.length) return ["Your Top 3 are all done."];
-  return [`Your top ${open.length === 1 ? "one" : open.length}: ${wakeList(open.map((t) => t.text))}.`];
+  const doneN = picks.length - open.length;
+  return [
+    `${doneN ? `${doneN} of ${picks.length} done. Next: ` : `Your top ${open.length === 1 ? "one" : open.length}: `}${wakeList(open.map((t) => t.text))}.`,
+  ];
 }
 function wakeSayWeather(tomorrow = false) {
   const b = loadBriefing();
@@ -518,6 +540,62 @@ function wakeSayHome() {
   return out;
 }
 
+// "What bills are due?": this week's, from Budget (a share of a joint bill is yours)
+function wakeSayBills() {
+  const { dueSoon } = dashMoneyData();
+  if (!dueSoon.length) return ["No bills are due this week."];
+  const today = addDaysIso(0);
+  const when = (b) =>
+    b.due < today
+      ? "overdue"
+      : b.due === today
+        ? "today"
+        : "on " + noonOf(b.due).toLocaleDateString("en-US", { weekday: "long" });
+  return [
+    `${dueSoon.length} bill${dueSoon.length === 1 ? "" : "s"} due this week.`,
+    ...dueSoon
+      .slice(0, 6)
+      .map((b) => `${b.name}, ${moneyShort(billShare(b))}, ${when(b)}${b.autopay ? ", on autopay" : ""}.`),
+  ];
+}
+// "Add milk to shopping": onto the Shopping list (General), read back, with Undo
+function wakeAddShopping(said) {
+  const name = String(said || "")
+    .trim()
+    .slice(0, TODO_MAX_LEN);
+  if (!name) return wakeSpeak(["What should I add to Shopping?"]);
+  const text = name.charAt(0).toUpperCase() + name.slice(1);
+  const { before, after } = jarvisChipAdd({ kind: "shop", text });
+  showUndoToast(`Added to Shopping: ${text}`, () => {
+    undoTo(before, after);
+    renderHome();
+    renderWants();
+  });
+  wakeSpeak([`Added ${text} to Shopping.`]);
+}
+// "Mark call mom done": ticks the one open to-do it matches (Undo in the toast). Two or more
+// matches are named back instead of guessing.
+function wakeTickTodo(said) {
+  const norm = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const q = norm(said);
+  if (!q) return wakeSpeak(["Which to-do? Say Hey Jarvis, mark, then its name, then done."]);
+  const words = q.split(" ").filter((w) => w.length > 2 || q.length <= 3);
+  const open = todoList.filter((t) => !t.done);
+  const exact = open.filter((t) => norm(t.text) === q);
+  const found = exact.length ? exact : open.filter((t) => words.every((w) => norm(t.text).includes(w)));
+  if (!found.length) return wakeSpeak([`I couldn't find an open to-do called ${said}.`]);
+  if (found.length > 1)
+    return wakeSpeak([
+      `I found ${found.length}: ${wakeList(found.slice(0, 3).map((t) => t.text))}. Say the full name to pick one.`,
+    ]);
+  completeTodo(found[0].id);
+  wakeSpeak([`Done: ${found[0].text}.`]);
+}
 // "Hey Jarvis, add call mom tomorrow": the same parsing as Quick add, read back, with Undo
 function wakeAddTodo(said) {
   const raw = String(said || "")

@@ -32,8 +32,13 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   "Hey Jarvis", wait for the chime, then a command. It answers out loud:
   - "read my briefing" (or just "Hey Jarvis"): the headline, each line and your Top 3;
   - "read everything": the whole of Home (briefing, weather, your day, inbox, tomorrow after 5 PM, news);
-  - "weather" (or "…tomorrow"), "my day" / "calendar", "top 3", "inbox", "tomorrow", "news";
+  - "weather" (or "…tomorrow"), "my day" / "calendar", "inbox", "tomorrow", "news";
+  - "top 3": what's left, and how many are done ("1 of 3 done. Next: …");
+  - "what bills are due": this week's from Budget, with amount, day and autopay;
   - "add call mom tomorrow" / "remind me to buy milk": added like Quick add, read back, with Undo;
+  - "add milk to shopping" / "we're out of coffee" / "I need to buy batteries": onto Shopping, with Undo;
+  - "mark call mom done" / "I finished the laundry": ticks the one open to-do that matches (Undo);
+    two or more matches are named back instead of guessing;
   - "stop" (or "Hey Jarvis, stop" while it's talking); "what can you do" lists the commands.
   - **Anything else is a question for Jarvis** ("ask Jarvis …" says so outright): it's read back
     ("Should I send this to Jarvis? …") and sent through Ask only after a spoken "yes" ("no" or
@@ -51,7 +56,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
     first tap stops the reading and leaves hands-free on, the next turns it off.
   - **When it's on:** the screen stays on. It turns off when the app goes to the
     background (a web app can't listen there; coming back says so) and after 15 minutes without
-    "Hey Jarvis". The first time, it loads about 15 MB of model files, then they come from the cache.
+    "Hey Jarvis". The first time, it loads about 15 MB of model files into their own cache
+    (`jazz2-wake-v1` in `sw.js`), kept across app updates, so they're never downloaded again.
 - **Quick add:** one line under the greeting ("Add a to-do"). Type "call mom tomorrow" (or "…friday", "…today")
   and press Enter or +: it's added with that date, the same parsing as the + sheet, and the box
   stays ready for the next one. Sync waits while you're typing there. The **mic** next to + fills
@@ -713,6 +719,7 @@ only turning sync off still asks first.
 | `icon.svg`, `jarvis-icon-192.png`, `jarvis-icon-512.png` | App icon source and its rendered PNGs (`npm run icons`). See *Design system*. |
 | `badge.svg`, `jarvis-badge-96.png` | Notification badge (Android's status-bar icon): white on transparent (`npm run icons`). |
 | `tests/regression.mjs` | Regression suite (see *Development*). |
+| `tests/run.mjs` | Runs the suite in parallel processes (`npm test`) and adds up their results. |
 | `scripts/check.mjs` | Dependency-free quality check (`npm run check`). |
 | `package.json` | Holds the `check`/`test` scripts and the test dependency (Playwright). The app itself needs no install. |
 | `.github/workflows/test.yml` | Runs the suite (and the `agents/` tests) on every PR and every push to `main`. |
@@ -875,7 +882,10 @@ npm test
 ```
 
 The suite drives the real app in headless Chromium against a tiny built-in
-server. It covers:
+server. `npm test` (`tests/run.mjs`) runs it as several processes at once, each with its own browser
+taking every n-th section (`TEST_SHARD=i/n`), and adds up the results: about 1.5 minutes here instead
+of 20. `TEST_SHARDS=n` sets how many (default: CPUs less two, at most 6); `npm run test:serial` runs
+it in one process. It covers:
 - every tab on phone and desktop;
 - the external stylesheet loads and the app stays styled offline after a service-worker controlled reload;
 - service-worker activation and hard refresh preserve unrelated origin caches;

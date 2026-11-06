@@ -7,7 +7,8 @@
     "check": "node scripts/check.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node tests/regression.mjs",
+    "test": "node tests/run.mjs",
+    "test:serial": "node tests/regression.mjs",
     "icons": "node scripts/render-icons.mjs"
   },
   "devDependencies": {

@@ -1,7 +1,10 @@
 const CACHE_PREFIX = "jazz2-cache-";
-const CACHE_NAME = `${CACHE_PREFIX}v198`;
-// vendor/wake (ONNX Runtime and the "hey jarvis" models, ~15 MB) isn't precached: the fetch handler
-// caches each file the first time hands-free is turned on (js/wake.js)
+const CACHE_NAME = `${CACHE_PREFIX}v200`;
+// vendor/wake (ONNX Runtime and the "hey jarvis" models, ~15 MB, js/wake.js) isn't precached. It has
+// its own cache, kept across app versions (a new CACHE_NAME doesn't empty it): each file is fetched the
+// first time hands-free is turned on, then always served from here. The files only change with a new
+// WAKE_CACHE name, so it never asks the network again.
+const WAKE_CACHE = "jazz2-wake-v1";
 const ASSETS = [
   "./index.html",
   "./jazz2.0.html",
@@ -83,7 +86,14 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k))),
+        Promise.all(
+          keys
+            .filter(
+              (k) =>
+                (k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME) || (k.startsWith("jazz2-wake-") && k !== WAKE_CACHE),
+            )
+            .map((k) => caches.delete(k)),
+        ),
       ),
   );
   self.clients.claim();
@@ -103,6 +113,18 @@ self.addEventListener("fetch", (event) => {
   // sync) — the cache-first branch below would serve stale sync data forever.
   if (new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).pathname.includes("/vendor/wake/")) {
+    event.respondWith(
+      caches.open(WAKE_CACHE).then(async (cache) => {
+        const hit = await cache.match(event.request);
+        if (hit) return hit;
+        const res = await fetch(event.request);
+        if (res && res.ok) await cache.put(event.request, res.clone());
+        return res;
+      }),
+    );
+    return;
+  }
   if (isAppShellRequest(event.request)) {
     // Network-first for the HTML shell so a normal reload always picks up the
     // latest deploy instead of getting stuck on whatever was cached at install.
