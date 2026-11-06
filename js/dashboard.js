@@ -675,8 +675,10 @@ function dashDayRows(b, d) {
         rows.push({
           sort: 24 * 60 + 1,
           time: p.etaText || "Today",
-          title: `${p.item} arrives`,
-          sub: p.shoppingMatch ? "On your Shopping list" : p.carrier || "Package",
+          title: `${pkgLabel(p.item).name} arrives`,
+          sub: [p.shoppingMatch ? "On your Shopping list" : p.carrier || "Package", pkgLabel(p.item).ref]
+            .filter(Boolean)
+            .join(" · "),
           tone: "pink",
           go: "deliveries",
           track: p.track || null,
@@ -756,6 +758,15 @@ function dashTimelineHtml(b, d) {
     <section class="card jv-day" aria-label="Your day">${list}${connect}</section>${detail}`;
 }
 
+// A package's name as shown: a trailing reference ("Amazon package (…5538)", "…, order #5240864417")
+// moves to the line under it as "ending 5538", so the name fits beside Track. Display only: the full
+// name is still what Got it hides and matches by.
+function pkgLabel(item) {
+  const s = String(item || "");
+  const m =
+    /^(.*?)[\s,]*\((?:…|\.\.\.)\s*(\w{3,6})\)\s*$/.exec(s) || /^(.*?),?\s+(?:order\s+)?#\s*(\w*\d\w*)\s*$/i.exec(s);
+  return m && m[1].trim() ? { name: m[1].trim(), ref: `ending ${m[2].slice(-4)}` } : { name: s, ref: "" };
+}
 // Calendar detail (layout 1): today and tomorrow as an agenda list
 function dashCalendarDetail(c) {
   if (!c) return `<p class="jv-line">${escapeHtml(DASH_SETUP.calendar)}</p>`;
@@ -841,7 +852,7 @@ function dashDeliveriesDetail(c) {
           ? `${p.eta === today ? "Today" : noonOf(p.eta).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}${p.etaText ? ` · ${p.etaText}` : ""}`
           : DASH_PKG_LABEL[p.status];
     return `<div class="jv-pkg">
-        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(p.item)}</b><span>${escapeHtml([p.carrier, eta].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span><span class="jv-pkg-acts">${
+        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(pkgLabel(p.item).name)}</b><span>${escapeHtml([p.carrier, eta, pkgLabel(p.item).ref].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span><span class="jv-pkg-acts">${
           w
             ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
             : ""

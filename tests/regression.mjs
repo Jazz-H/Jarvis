@@ -17907,6 +17907,27 @@ await section(
       !day.inButton && day.underline === "none",
       day,
     );
+    const labels = await page.evaluate(() =>
+      [
+        "Amazon package (…5538)",
+        "Amazon package (...5538)",
+        "Busy Bone Stufd dog treats, Chewy order #5240864417",
+        "Desk lamp",
+        "Rain jacket (size M)",
+      ].map((x) => pkgLabel(x)),
+    );
+    check(
+      "a package's reference moves under its name as 'ending …'; other names stay whole",
+      JSON.stringify(labels) ===
+        JSON.stringify([
+          { name: "Amazon package", ref: "ending 5538" },
+          { name: "Amazon package", ref: "ending 5538" },
+          { name: "Busy Bone Stufd dog treats, Chewy", ref: "ending 4417" },
+          { name: "Desk lamp", ref: "" },
+          { name: "Rain jacket (size M)", ref: "" },
+        ]),
+      labels,
+    );
     await page.evaluate(() => dashDrill("deliveries"));
     const d = await page.evaluate(() => {
       const box = document.getElementById("jv-detail-deliveries");
