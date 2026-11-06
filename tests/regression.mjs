@@ -17887,6 +17887,26 @@ await section(
         "jarvis-settings": { hiddenPackages: [{ item: "Busy Bone dog treats", at: today }] },
       },
     });
+    const day = await page.evaluate(() => {
+      const line = document.querySelector(".jv-day .jv-day-line");
+      const a = line && line.querySelector("a.jv-track");
+      return {
+        text: line ? line.textContent.replace(/\s+/g, " ") : "",
+        href: a && a.getAttribute("href"),
+        inButton: !!document.querySelector(".jv-day-row a"),
+        underline: a ? getComputedStyle(a).textDecorationLine : "",
+      };
+    });
+    check(
+      "Your day: a package arriving today has Track beside its row, without opening Deliveries",
+      /Desk lamp arrives/.test(day.text) && day.href === "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+      day,
+    );
+    check(
+      "the link sits beside the row's button, not inside it, and looks like a chip",
+      !day.inButton && day.underline === "none",
+      day,
+    );
     await page.evaluate(() => dashDrill("deliveries"));
     const d = await page.evaluate(() => {
       const box = document.getElementById("jv-detail-deliveries");

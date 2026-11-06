@@ -78,11 +78,12 @@ const pkgWords = (s) =>
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
 const pkgIds = (s) => pkgWords(s).filter((w) => w.length >= 5 && /\d/.test(w));
-// The same package renamed by a later run: every word of the shorter name is in the longer, two at
-// least (agents/lib/brain.ts samePackage matches this)
+// The same package renamed by a later run: every word of the shorter name is in the longer (two at
+// least), or 3+ shared words make up 80% of it (agents/lib/brain.ts samePackage matches this)
 function samePackage(a, b) {
   const [x, y] = [new Set(pkgWords(a)), new Set(pkgWords(b))].sort((p, q) => p.size - q.size);
-  return x.size >= 2 && [...x].every((w) => y.has(w));
+  const shared = [...x].filter((w) => y.has(w)).length;
+  return x.size >= 2 && (shared === x.size || (shared >= 3 && shared / x.size >= 0.8));
 }
 function mentionsPackage(text, items, source = null) {
   if (!items.length) return false;

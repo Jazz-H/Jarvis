@@ -679,6 +679,8 @@ function dashDayRows(b, d) {
           sub: p.shoppingMatch ? "On your Shopping list" : p.carrier || "Package",
           tone: "pink",
           go: "deliveries",
+          track: p.track || null,
+          item: p.item,
         }),
       );
   if (d.todo.left)
@@ -713,13 +715,22 @@ function dashTimelineHtml(b, d) {
   const calConnected = !!(b && b.calendar);
   const list = rows.length
     ? rows
-        .map(
-          (r, i) => `<button class="jv-day-row ${r.tone}" data-action="jv-drill" data-go="${r.go}">
+        .map((r, i) => {
+          const row = `<button class="jv-day-row ${r.tone}" data-action="jv-drill" data-go="${r.go}">
           <span class="jv-day-time">${escapeHtml(r.time)}</span>
           <span class="jv-day-dot${i === 0 ? " first" : ""}${i === rows.length - 1 ? " last" : ""}" aria-hidden="true"><i></i></span>
           <span class="jv-day-text"><b>${escapeHtml(r.title)}</b>${r.sub ? `<span>${escapeHtml(r.sub)}</span>` : ""}</span>
-        </button>`,
-        )
+        </button>`;
+          // a package arriving today can be tracked right from here
+          const track = r.track
+            ? linkHtml(
+                r.track,
+                `class="jv-chip-sm jv-track" aria-label="Track ${escapeAttr(r.item || r.title)} (opens the carrier's site)"`,
+                `Track${EXTERNAL_ICON}`,
+              )
+            : "";
+          return track ? `<div class="jv-day-line">${row}${track}</div>` : row;
+        })
         .join("")
     : `<div class="empty">Nothing scheduled today.</div>`;
   const connect = calConnected
@@ -834,7 +845,7 @@ function dashDeliveriesDetail(c) {
           w
             ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
             : ""
-        }${linkHtml(p.track, `class="jv-chip-sm jv-track" aria-label="Track ${escapeAttr(p.item)} (opens the carrier's site)"`, `Track ${EXTERNAL_ICON}`)}<button class="jv-chip-sm" data-action="pkg-hide" data-item="${escapeAttr(p.item)}" aria-label="Got it: hide ${escapeAttr(p.item)}">Got it</button></span></div>
+        }${linkHtml(p.track, `class="jv-chip-sm jv-track" aria-label="Track ${escapeAttr(p.item)} (opens the carrier's site)"`, `Track${EXTERNAL_ICON}`)}<button class="jv-chip-sm" data-action="pkg-hide" data-item="${escapeAttr(p.item)}" aria-label="Got it: hide ${escapeAttr(p.item)}">Got it</button></span></div>
         <div class="jv-pkg-steps" aria-label="${escapeAttr(DASH_PKG_LABEL[p.status])}">${DASH_PKG_STEPS.map(
           (s, i) =>
             `<span class="${i <= at ? "on" : ""}"><i></i>${["Ordered", "Shipped", "Out", "Delivered"][i]}</span>`,

@@ -110,9 +110,11 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   number (UPS, USPS; FedEx and DHL only from their own emails next to "tracking") or an Amazon order
   number in the package's emails and builds the link itself (`agents/lib/tracking.ts`), never using a
   link from an email; the app shows only https links on those carriers' sites. USPS daily-digest
-  packages (which keep only the last 4 digits) link to the Informed Delivery dashboard. Got it hides
-  a package that came but never said so (also when a later run renames it, as long as every word of
-  the shorter name is in the longer, `samePackage`), with its timeline row, count, any briefing line about it (from any source: its name, two of its words like "Acme Glow", or its order number like "#48151"), a headline about it (the next line takes its place) and suggested to-dos about it, for 14 days, with Undo; the next briefings leave those out too), to-dos go to the Planner, rain to Weather. Until the calendar is connected
+  packages (which keep only the last 4 digits) link to the Informed Delivery dashboard. A package
+  arriving today also has **Track** beside its Your day row, so it can be tracked without opening
+  Deliveries. Got it hides a package that came but never said so (also when a later run renames it:
+  every word of the shorter name in the longer, or 3+ shared words making up 80% of it, `samePackage`;
+  "Milk-Bone dog treats" against "Busy Bone dog treats" still shows), with its timeline row, count, any briefing line about it (from any source: its name, two of its words like "Acme Glow", or its order number like "#48151"), a headline about it (the next line takes its place) and suggested to-dos about it, for 14 days, with Undo; the next briefings leave those out too), to-dos go to the Planner, rain to Weather. Until the calendar is connected
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
   a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a

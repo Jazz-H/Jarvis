@@ -54,6 +54,10 @@ describe("a dismissed package stays hidden when a later run renames it", () => {
     expect(samePackage("Busy Bone Stufd variety pack dog treats", "Busy Bone dog treats")).toBe(true);
     expect(samePackage("Milk-Bone dog treats", "Busy Bone dog treats")).toBe(false);
     expect(samePackage("Treats", "Busy Bone dog treats")).toBe(false); // one word isn't enough
+    // what happened on Nov 5: dismissed under one name, renamed by the 9 PM refresh
+    expect(
+      samePackage("Busy Bone Stufd dog treats, Chewy order #5240864417", "Busy Bone Stufd variety pack dog treats"),
+    ).toBe(true);
   });
   it("withoutHidden uses it", () => {
     const pkgs = [{ item: "Busy Bone Stufd variety pack dog treats" }, { item: "Milk-Bone dog treats" }];

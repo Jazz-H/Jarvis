@@ -154,11 +154,14 @@ export function withoutHidden<T extends { item: string }>(packages: T[], hidden:
   );
 }
 // The same package named a little differently by a later run ("Busy Bone dog treats" and "Busy Bone
-// Stufd variety pack dog treats"): every word of the shorter name is in the longer, two words at
-// least, so "Milk-Bone dog treats" (another order) still shows. js/jarvis.js samePackage matches this.
+// Stufd variety pack dog treats"): every word of the shorter name is in the longer (two words at
+// least), or three words or more make up 80% of it ("Busy Bone Stufd dog treats, Chewy order #…" and
+// "Busy Bone Stufd variety pack dog treats"). "Milk-Bone dog treats" (another order, 3 of 4 words)
+// still shows. js/jarvis.js samePackage matches this.
 export function samePackage(a: string, b: string): boolean {
   const [x, y] = [new Set(pkgWords(a)), new Set(pkgWords(b))].sort((p, q) => p.size - q.size);
-  return x.size >= 2 && [...x].every((w) => y.has(w));
+  const shared = [...x].filter((w) => y.has(w)).length;
+  return x.size >= 2 && (shared === x.size || (shared >= 3 && shared / x.size >= 0.8));
 }
 // Is this line or suggestion about a package the owner said came? Its whole name, or two of its
 // words ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or

@@ -9011,3 +9011,29 @@ details[open] > .wb-fold {
   font-size: 12px;
   color: var(--text-dim);
 }
+
+/* Deliveries: Track, a chip like Got it (not an underlined link); in Your day it sits beside the row */
+a.jv-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.jv-track svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.jv-day-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.jv-day-line > .jv-day-row {
+  flex: 1;
+  min-width: 0;
+}
+.jv-day-line > .jv-track {
+  flex: none;
+}
