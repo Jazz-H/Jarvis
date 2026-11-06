@@ -7033,7 +7033,7 @@ a.jv-gmail {
   justify-content: center;
   width: 44px;
   height: 44px;
-  margin: -6px -6px -6px 0;
+  margin: 0 -6px 0 0; /* no pull upward: the card's body clips anything above its top */
   border: none;
   background: none;
   color: var(--text-dim);
@@ -7046,7 +7046,7 @@ a.jv-gmail {
   border: 1px solid var(--line);
   border-radius: 999px;
 }
-.jv-outfit-swap:active svg {
+.jv-outfit-swap[data-action="jv-outfit-swap"]:active svg {
   transform: rotate(180deg);
   transition: transform 0.25s;
 }
