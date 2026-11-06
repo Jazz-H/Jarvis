@@ -834,7 +834,7 @@ function dashDeliveriesDetail(c) {
           w
             ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
             : ""
-        }<button class="jv-chip-sm" data-action="pkg-hide" data-item="${escapeAttr(p.item)}" aria-label="Got it: hide ${escapeAttr(p.item)}">Got it</button></span></div>
+        }${linkHtml(p.track, `class="jv-chip-sm jv-track" aria-label="Track ${escapeAttr(p.item)} (opens the carrier's site)"`, `Track ${EXTERNAL_ICON}`)}<button class="jv-chip-sm" data-action="pkg-hide" data-item="${escapeAttr(p.item)}" aria-label="Got it: hide ${escapeAttr(p.item)}">Got it</button></span></div>
         <div class="jv-pkg-steps" aria-label="${escapeAttr(DASH_PKG_LABEL[p.status])}">${DASH_PKG_STEPS.map(
           (s, i) =>
             `<span class="${i <= at ? "on" : ""}"><i></i>${["Ordered", "Shipped", "Out", "Delivered"][i]}</span>`,
@@ -842,10 +842,12 @@ function dashDeliveriesDetail(c) {
       </div>`;
   };
   const today_ = pkgs.filter(arrivingToday),
-    later = pkgs.filter((p) => !arrivingToday(p));
+    later = pkgs.filter((p) => !arrivingToday(p) && p.status !== "delivered"),
+    came = pkgs.filter((p) => p.status === "delivered");
   return (
     (today_.length ? `<div class="jv-sub-label">Arriving today</div>${today_.map(row).join("")}` : "") +
     (later.length ? `<div class="jv-sub-label">On the way</div>${later.map(row).join("")}` : "") +
+    (came.length ? `<div class="jv-sub-label">Delivered</div>${came.map(row).join("")}` : "") +
     jvMeta(c)
   );
 }

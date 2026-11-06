@@ -32,6 +32,7 @@ export const DeliveryCard = z.object({
         etaText: z.string().nullable(),
         shoppingMatch: z.string().nullable(), // the Shopping item it matches (from code)
         carrier: z.string().max(30).nullable().optional(), // UPS, FedEx, USPS, DHL, Amazon or the store (from code)
+        track: z.string().url().max(300).nullable().optional(), // the carrier's tracking page (from code: lib/tracking.ts)
       }),
     )
     .max(8),

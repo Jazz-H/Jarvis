@@ -17820,6 +17820,113 @@ await section("Hey Jarvis: shopping, bills, ticking a to-do and Top 3 progress",
   await ctx.close();
 });
 
+await section(
+  "Deliveries: Track links (carrier sites only), Delivered on its own, a renamed dismissed package stays hidden",
+  async () => {
+    const today = isoOffset(0);
+    const b = briefingFixture({});
+    b.cards.deliveries = {
+      status: "ok",
+      agent: "Deliveries",
+      model: "claude-haiku-5-5",
+      updatedAt: b.generatedAt,
+      data: {
+        packages: [
+          {
+            item: "Desk lamp",
+            status: "out",
+            eta: today,
+            etaText: null,
+            shoppingMatch: null,
+            carrier: "UPS",
+            track: "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+          },
+          {
+            item: "Rain jacket",
+            status: "shipped",
+            eta: null,
+            etaText: null,
+            shoppingMatch: null,
+            carrier: "Acme",
+            track: "https://evil.example/track",
+          },
+          {
+            item: "Phone case",
+            status: "shipped",
+            eta: null,
+            etaText: null,
+            shoppingMatch: null,
+            carrier: "USPS",
+            track: "javascript:alert(1)",
+          },
+          {
+            item: "Busy Bone Stufd variety pack dog treats",
+            status: "delivered",
+            eta: null,
+            etaText: null,
+            shoppingMatch: null,
+            carrier: "Chewy.com",
+            track: null,
+          },
+          {
+            item: "Milk-Bone dog treats",
+            status: "delivered",
+            eta: null,
+            etaText: null,
+            shoppingMatch: null,
+            carrier: "Chewy.com",
+            track: null,
+          },
+        ],
+      },
+    };
+    const { ctx, page, errors } = await openApp({
+      hour: 9,
+      seed: {
+        "jarvis-briefing": b,
+        "jarvis-settings": { hiddenPackages: [{ item: "Busy Bone dog treats", at: today }] },
+      },
+    });
+    await page.evaluate(() => dashDrill("deliveries"));
+    const d = await page.evaluate(() => {
+      const box = document.getElementById("jv-detail-deliveries");
+      const groups = [...box.querySelectorAll(".jv-sub-label")].map((l) => l.textContent);
+      const links = [...box.querySelectorAll("a.jv-track")].map((a) => ({
+        href: a.getAttribute("href"),
+        rel: a.getAttribute("rel"),
+        target: a.getAttribute("target"),
+      }));
+      const names = [...box.querySelectorAll(".jv-pkg-what b")].map((x) => x.textContent);
+      return { groups, links, names };
+    });
+    check(
+      "a carrier's https link shows as Track, opening a new tab safely",
+      d.links.length === 1 &&
+        d.links[0].href === "https://www.ups.com/track?tracknum=1Z999AA10123456784" &&
+        d.links[0].rel === "noopener noreferrer" &&
+        d.links[0].target === "_blank",
+      d,
+    );
+    check(
+      "a link to any other site, or not https, gets no Track",
+      !d.links.some((l) => /evil|javascript/.test(l.href)),
+      d,
+    );
+    check(
+      "delivered packages have their own group, not On the way",
+      JSON.stringify(d.groups) === '["Arriving today","On the way","Delivered"]',
+      d,
+    );
+    check(
+      "a package dismissed under a shorter name stays hidden; a different order with similar words doesn't",
+      !d.names.includes("Busy Bone Stufd variety pack dog treats") && d.names.includes("Milk-Bone dog treats"),
+      d,
+    );
+    check("no errors", errors.length === 0, errors);
+    await ctx.close();
+  },
+);
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

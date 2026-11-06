@@ -146,7 +146,19 @@ export function readBrain(data: unknown): Brain {
 export function withoutHidden<T extends { item: string }>(packages: T[], hidden: string[]): T[] {
   if (!hidden.length) return packages;
   const ids = new Set(hidden.flatMap(pkgIds));
-  return packages.filter((p) => !hidden.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)));
+  return packages.filter(
+    (p) =>
+      !hidden.includes(p.item.toLowerCase()) &&
+      !pkgIds(p.item).some((w) => ids.has(w)) &&
+      !hidden.some((h) => samePackage(h, p.item)),
+  );
+}
+// The same package named a little differently by a later run ("Busy Bone dog treats" and "Busy Bone
+// Stufd variety pack dog treats"): every word of the shorter name is in the longer, two words at
+// least, so "Milk-Bone dog treats" (another order) still shows. js/jarvis.js samePackage matches this.
+export function samePackage(a: string, b: string): boolean {
+  const [x, y] = [new Set(pkgWords(a)), new Set(pkgWords(b))].sort((p, q) => p.size - q.size);
+  return x.size >= 2 && [...x].every((w) => y.has(w));
 }
 // Is this line or suggestion about a package the owner said came? Its whole name, or two of its
 // words ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or

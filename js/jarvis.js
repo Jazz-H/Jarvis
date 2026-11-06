@@ -38,7 +38,10 @@ function hideDismissed(b) {
   const ids = new Set(pk.flatMap(pkgIds));
   if (d)
     d.packages = d.packages.filter(
-      (p) => !pk.includes(p.item.toLowerCase()) && !pkgIds(p.item).some((w) => ids.has(w)),
+      (p) =>
+        !pk.includes(p.item.toLowerCase()) &&
+        !pkgIds(p.item).some((w) => ids.has(w)) &&
+        !pk.some((h) => samePackage(h, p.item)),
     );
   b.summary = b.summary.filter((s) => !lines.has(lineKey(s.text)) && !mentionsPackage(s.text, pk, s.source));
   b.suggestions = b.suggestions.filter((t) => !sugg.has(lineKey(t.text)) && !mentionsPackage(t.text, pk));
@@ -75,6 +78,12 @@ const pkgWords = (s) =>
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length >= 3 && !PKG_SKIP.has(w));
 const pkgIds = (s) => pkgWords(s).filter((w) => w.length >= 5 && /\d/.test(w));
+// The same package renamed by a later run: every word of the shorter name is in the longer, two at
+// least (agents/lib/brain.ts samePackage matches this)
+function samePackage(a, b) {
+  const [x, y] = [new Set(pkgWords(a)), new Set(pkgWords(b))].sort((p, q) => p.size - q.size);
+  return x.size >= 2 && [...x].every((w) => y.has(w));
+}
 function mentionsPackage(text, items, source = null) {
   if (!items.length) return false;
   const t = String(text || "").toLowerCase();
@@ -330,6 +339,7 @@ function normalizeBriefing(b) {
               etaText: str(x.etaText, 40),
               shoppingMatch: str(x.shoppingMatch, 60),
               carrier: str(x.carrier, 30),
+              track: trackUrl(x.track),
             }))
             .filter((x) => x.item),
         }
@@ -429,6 +439,24 @@ function loadBriefing() {
   return hideDismissed(normalizeBriefing(loadContent(BRIEFING_KEY, null)));
 }
 
+// A package's tracking link (built by the backend, agents/lib/tracking.ts): https on a carrier's own site only
+const TRACK_HOSTS = [
+  "www.ups.com",
+  "tools.usps.com",
+  "www.fedex.com",
+  "www.dhl.com",
+  "www.amazon.com",
+  "informeddelivery.usps.com",
+];
+function trackUrl(u) {
+  if (typeof u !== "string" || u.length > 300) return null;
+  try {
+    const url = new URL(u);
+    return url.protocol === "https:" && TRACK_HOSTS.includes(url.hostname) ? url.href : null;
+  } catch (e) {
+    return null;
+  }
+}
 // Called by sync's pull with the gist's briefing file entry (or undefined)
 async function ingestBriefingFile(file) {
   if (!file || typeof file !== "object") return;

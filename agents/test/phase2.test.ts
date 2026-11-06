@@ -248,6 +248,7 @@ describe("shopper sub-agent", () => {
         etaText: "by 8 PM",
         shoppingMatch: "Rain jacket",
         carrier: "Amazon",
+        track: "https://www.amazon.com/gp/css/order-history", // no order number in these emails
       },
       {
         item: "Desk lamp",
@@ -256,6 +257,7 @@ describe("shopper sub-agent", () => {
         etaText: null,
         shoppingMatch: null,
         carrier: "Amazon",
+        track: "https://www.amazon.com/gp/css/order-history",
       },
     ]);
     expect(d.specs[0].model).toBe("claude-haiku-5-5");

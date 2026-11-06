@@ -2,6 +2,7 @@
 // carriers (UPS, FedEx, USPS, DHL) and any store, and trims each body (orderExcerpt); the model
 // groups them into packages with a status and ETA; code names the carrier from the senders, reads
 // USPS's Daily Digest itself (tools/usps-digest.ts) and matches each package to the Shopping list.
+import { trackingLink, USPS_DASHBOARD } from "../lib/tracking.ts";
 import { z } from "zod";
 import { CONFIG } from "../config.ts";
 import { DeliveryCard, DeliveryRead } from "../schemas/deliveries.ts";
@@ -141,6 +142,7 @@ export function digestPackages(
       etaText: p.bucket === "soon" ? "in 1-2 days" : p.bucket === "awaiting" ? "USPS is waiting on the sender" : null,
       shoppingMatch: null,
       carrier: "USPS",
+      track: USPS_DASHBOARD, // only the last 4 digits are kept, so the dashboard lists it
     }));
 }
 
@@ -181,32 +183,40 @@ export async function runShopper(
 ): Promise<DeliveryCard> {
   const raw = await gmail.searchWithText(CONFIG.deliveries.query, CONFIG.deliveries.max);
   const usps = digestPackages(raw.find(isDigest), today); // Gmail lists the newest first
-  const items = raw
-    .filter((m) => !isDigest(m))
-    .map(({ text, address: _address, ...m }, i) =>
-      // the subject and Gmail's snippet can hold the address as well as the body can
-      ShopperMail.parse({
-        id: `m${i + 1}`,
-        ...m,
-        subject: orderLine(m.subject),
-        snippet: orderLine(m.snippet),
-        excerpt: orderExcerpt(text),
-      }),
-    );
+  const mails = raw.filter((m) => !isDigest(m));
+  // each email's whole text, for tracking numbers only (code reads it; it never goes to the model)
+  const fullText = new Map(mails.map((m, i) => [`m${i + 1}`, [m.subject, m.snippet, m.text].join("\n")]));
+  const items = mails.map(({ text, address: _address, ...m }, i) =>
+    // the subject and Gmail's snippet can hold the address as well as the body can
+    ShopperMail.parse({
+      id: `m${i + 1}`,
+      ...m,
+      subject: orderLine(m.subject),
+      snippet: orderLine(m.snippet),
+      excerpt: orderExcerpt(text),
+    }),
+  );
   deps.trace.log("deliveries", "fetched", { emails: items.length, usps: usps.length });
   if (!items.length) return DeliveryCard.parse({ packages: usps });
   const read = await deps.run(shopperSpec(items, today));
   const byId = new Map(items.map((m) => [m.id, m]));
   const packages = read.packages
     .filter((p) => p.ids.some((id) => byId.has(id)))
-    .map((p) => ({
-      item: p.item,
-      status: p.status,
-      eta: p.eta,
-      etaText: p.etaText,
-      shoppingMatch: shoppingItems.find((s) => sameName(s, p.item)) ?? null,
-      carrier: carrierOf(p.ids.map((id) => byId.get(id)?.from ?? "")),
-    }));
+    .map((p) => {
+      const carrier = carrierOf(p.ids.map((id) => byId.get(id)?.from ?? ""));
+      return {
+        item: p.item,
+        status: p.status,
+        eta: p.eta,
+        etaText: p.etaText,
+        shoppingMatch: shoppingItems.find((s) => sameName(s, p.item)) ?? null,
+        carrier,
+        track: trackingLink(
+          p.ids.map((id) => fullText.get(id) ?? ""),
+          carrier,
+        ),
+      };
+    });
   // a store's own emails name the package better than USPS can, so its digest row only fills a gap
   const first = (s: string) => s.toLowerCase().split(/[\s.]/)[0];
   const only = usps.filter(
