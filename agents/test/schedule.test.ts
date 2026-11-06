@@ -140,7 +140,13 @@ describe("card refresh schedule", () => {
 
   it("the 9pm refresh runs until midnight, never into the next day", () => {
     const at = (iso: string, last: string) =>
-      dueRefresh({ now: new Date(iso), timeZone: TZ, times: CONFIG.refresh.times, windowMinutes: CONFIG.refresh.windowMinutes, lastUpdate: last }).refresh;
+      dueRefresh({
+        now: new Date(iso),
+        timeZone: TZ,
+        times: CONFIG.refresh.times,
+        windowMinutes: CONFIG.refresh.windowMinutes,
+        lastUpdate: last,
+      }).refresh;
     const five = "2026-07-01T21:15:00Z"; // the 5pm refresh ran at 5:15 EDT
     expect(at("2026-07-02T00:40:00Z", five)).toBe(false); // 8:40pm EDT: the 5pm one already ran
     expect(at("2026-07-02T01:05:00Z", five)).toBe(true); // 9:05pm EDT
