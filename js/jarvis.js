@@ -621,7 +621,11 @@ function jarvisHeroHtml(b) {
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${b.date === today && b.refreshedAt ? `<div class="jv-meta">Cards updated ${escapeHtml(jvTime(b.refreshedAt))}</div>` : ""}
-      <div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}<span>Was this briefing useful?</span>${brainRateHtml("briefing", b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}</div>
+      ${((ref) =>
+        // once rated (on any device: ratings sync), the question goes; 🔊 stays
+        `<div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}${
+          brainVote("briefing", ref) ? "" : `<span>Was this briefing useful?</span>${brainRateHtml("briefing", ref)}`
+        }</div>`)(b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}
       ${notes}`,
   });
 }

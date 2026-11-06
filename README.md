@@ -25,14 +25,20 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   waiting in it. A briefing line about News opens the News card.
 - **Status:** Jarvis's state (Online / Standing by / Local mode), when it last briefed you,
   and a greeting ("Good morning, Jazz."). The date is in the header.
-- **Hey Jarvis (hands-free):** the round sound-wave button beside the greeting. Tap it (a tap is
+- **Hey Jarvis (hands-free):** the round sound-wave button beside the greeting, and the same button
+  in Console (under the box, beside the usage pill; one switch, both follow it). Tap it (a tap is
   needed: browsers won't start the mic by themselves) and, while the app is open and on screen, say
   "Hey Jarvis", wait for the chime, then a command. It answers out loud:
   - "read my briefing" (or just "Hey Jarvis"): the headline, each line and your Top 3;
   - "read everything": the whole of Home (briefing, weather, your day, inbox, tomorrow after 5 PM, news);
   - "weather" (or "…tomorrow"), "my day" / "calendar", "top 3", "inbox", "tomorrow", "news";
   - "add call mom tomorrow" / "remind me to buy milk": added like Quick add, read back, with Undo;
-  - "stop" (or "Hey Jarvis, stop" while it's talking). Anything else gets the list of commands.
+  - "stop" (or "Hey Jarvis, stop" while it's talking); "what can you do" lists the commands.
+  - **Anything else is a question for Jarvis** ("ask Jarvis …" says so outright): it's read back
+    ("Should I send this to Jarvis? …") and sent through Ask only after a spoken "yes" ("no" or
+    silence sends nothing), so the TV or someone nearby can't spend the Ask budget. It goes as a
+    question asked by voice, so the answer is read aloud when it arrives (about a minute with the Ask
+    key). It needs sync, like typed questions.
   - **Privacy:** "Hey Jarvis" is heard on the phone by openWakeWord's model (`vendor/wake`, ONNX
     Runtime Web): no audio leaves the device for it. Only the one command after the chime goes to the
     browser's speech service (Google's in Chrome), like Console's mic. Commands are matched by code
@@ -387,8 +393,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     (names with Natural, Neural or Online first). Kept on this device only (`speak-voice`), since
     each phone has its own voices; more can be added in the phone's text-to-speech settings.
   - **Ratings:** 👍 / 👎 on every answer and under the morning briefing ("Was this briefing
-    useful?"); tap again to take it back. Jarvis gets your 15 latest as guidance: more of what you
-    liked, less of what you didn't.
+    useful?"); tap again to take it back. Once a briefing is rated, its question and buttons go (on
+    every device: ratings sync) and 🔊 stays; the thanks has Undo. Jarvis gets your 15 latest as
+    guidance: more of what you liked, less of what you didn't.
 - **Weekly Review:** Jarvis's Sunday-evening look back at the week (Mon–Sun), under the hint
   line. From the review's Sunday through Tuesday, and any time it hasn't been opened yet, it's a
   card: "Week in review · Oct 26 – Nov 1" with a **New** pill until opened, the headline, one
@@ -675,7 +682,9 @@ only turning sync off still asks first.
 - **Once:** the first time the tab bar is used on a device, a notice says "Budget and Jazz 3.0
   are back: Wallet and Glow".
 - **Pull to sync:** pull down from the top of a tab to sync (which also brings in a new Jarvis
-  briefing) and redraw. Without sync it just redraws.
+  briefing) and redraw. Without sync it just redraws. On desktop, scroll up past the top with the
+  trackpad or mouse wheel ("Scroll up to sync"); only a scroll that starts at the top counts, so a
+  flick up to the top doesn't sync by itself, and the full reload stays on the refresh button.
 - **Hard refresh:** pull all the way down ("Release to reload the app"), or use the refresh
   button on desktop. It clears Jazz's service worker caches, unregisters Jazz's worker, and
   reloads back onto the same tab and scroll position. Other apps' caches and workers on the

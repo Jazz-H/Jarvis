@@ -269,8 +269,9 @@ function consoleShellHtml() {
         <button type="button" class="cn-seg" data-action="console-mode" data-mode="ask" aria-pressed="false">Jarvis</button>
         <button type="button" class="cn-seg" data-action="console-mode" data-mode="capture" aria-pressed="false" aria-label="Quick list">List</button>
       </div>
-      <button type="button" class="cn-usage" id="cn-usage" data-action="ask-usage" aria-expanded="false" aria-controls="cn-usage-pop" aria-label="Ask Jarvis usage and limits"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V3a9 9 0 0 1 9 9z"/></svg><span id="cn-usage-text"></span></button>
+      <span class="cn-under-end"><button type="button" class="cn-usage" id="cn-usage" data-action="ask-usage" aria-expanded="false" aria-controls="cn-usage-pop" aria-label="Ask Jarvis usage and limits"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12V3a9 9 0 0 1 9 9z"/></svg><span id="cn-usage-text"></span></button>${wakeChipHtml("console")}</span>
     </div>
+    ${wakeHintHtml("console")}
     <div class="cn-usage-pop" id="cn-usage-pop" hidden></div>
     <div class="cn-chips" id="cn-chips" role="group" aria-label="Suggestions"></div>
     <p class="cn-hint" id="cn-hint"></p>

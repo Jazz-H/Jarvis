@@ -124,4 +124,58 @@
     },
     { passive: true },
   );
+
+  // Desktop (trackpad or mouse wheel): scrolling up past the top is the same pull. Only a scroll
+  // that starts at the top counts, so momentum from flicking up to the top never syncs by itself.
+  // It only syncs; the full reload stays on the header's refresh button.
+  const WHEEL_SYNC = 160; // px of scroll past the top
+  let wheelPull = 0,
+    wheelFromTop = false,
+    wheelIdle = 0,
+    wheelBusy = false;
+  const wheelReset = () => {
+    wheelPull = 0;
+    if (!wheelBusy) {
+      indicator.classList.add("animated");
+      indicator.classList.remove("ready");
+      indicator.style.height = "0px";
+    }
+  };
+  mainEl.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.ctrlKey || wheelBusy) return; // pinch-zoom; a sync already running
+      const fresh = !wheelIdle; // the first event of this scroll
+      clearTimeout(wheelIdle);
+      wheelIdle = setTimeout(() => {
+        wheelIdle = 0;
+        wheelFromTop = false;
+        wheelReset();
+      }, 220);
+      if (fresh) wheelFromTop = mainEl.scrollTop <= 0 && e.deltaY < 0;
+      if (!wheelFromTop || mainEl.scrollTop > 0) return;
+      if (e.deltaY > 0) {
+        wheelReset();
+        return;
+      }
+      wheelPull += -e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+      const pull = Math.min(wheelPull * 0.45, THRESHOLD);
+      indicator.classList.remove("animated");
+      indicator.style.height = pull + "px";
+      label.textContent = "Scroll up to sync";
+      if (wheelPull < WHEEL_SYNC) return;
+      wheelBusy = true;
+      wheelFromTop = false; // one sync per scroll: the rest of this one is ignored
+      indicator.classList.add("animated", "ready", "refreshing");
+      indicator.style.height = THRESHOLD + "px";
+      label.textContent = "Syncing…";
+      Promise.resolve(refreshData()).finally(() => {
+        wheelBusy = false;
+        wheelPull = 0;
+        indicator.classList.remove("refreshing", "ready");
+        indicator.style.height = "0px";
+      });
+    },
+    { passive: true },
+  );
 })();

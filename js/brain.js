@@ -375,7 +375,10 @@ function brainRate(kind, ref, vote) {
   saveContent("jarvis-feedback", jarvisFeedback, { toast: false });
   renderConsole();
   renderHome();
-  showToast(!old || old.vote !== vote ? "Thanks: Jarvis will take that into account" : "Rating removed");
+  // the briefing's question goes once it's rated, so the thanks carries Undo to bring it back
+  if ((!old || old.vote !== vote) && kind === "briefing")
+    showUndoToast("Thanks: Jarvis will take that into account", () => brainRate(kind, ref, vote));
+  else showToast(!old || old.vote !== vote ? "Thanks: Jarvis will take that into account" : "Rating removed");
 }
 function brainAnswerItem(id) {
   const e = typeof askEntryById === "function" ? askEntryById(id) : null;

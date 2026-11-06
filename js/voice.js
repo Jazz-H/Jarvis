@@ -149,7 +149,8 @@ function speakSupported() {
 }
 // Reads the text aloud, or stops if this same thing is already being read. Returns true if it started.
 // A list is read one part after another (the browser queues them), so long readings aren't cut off.
-function speakText(text, key) {
+// onDone(finished): after the last part, with false when it was stopped or failed.
+function speakText(text, key, onDone) {
   if (!speakSupported()) return false;
   const synth = window.speechSynthesis;
   const same = speakingKey === key && synth.speaking;
@@ -172,6 +173,11 @@ function speakText(text, key) {
       if (!last && !(e && e.error)) return; // the next part follows
       if (speakingKey === key) speakingKey = null;
       speakUi();
+      if (onDone) {
+        const cb = onDone;
+        onDone = null; // once, whichever part ends it
+        cb(!(e && e.error));
+      }
     };
     synth.speak(u);
   });

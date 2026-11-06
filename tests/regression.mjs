@@ -11969,24 +11969,35 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
       );
     }),
   );
-  // ratings: the briefing, once; tap again to take it back
+  // ratings: the briefing, once; then the question goes (🔊 stays), and Undo brings it back
   await page.evaluate(() => activateTab("home"));
   await page.click('.jv-rate-row [data-action="jv-rate"][data-vote="1"]');
   const rated = await page.evaluate(() => ({
     fb: jarvisFeedback,
-    on: document.querySelector('.jv-rate-row [data-vote="1"]').getAttribute("aria-pressed"),
+    asks: !!document.querySelector(".jv-rate-row .jv-rates"),
+    text: document.querySelector(".jv-rate-row").textContent,
+    speak: !!document.querySelector('.jv-rate-row [data-action="jv-speak-briefing"]'),
+    toast: document.getElementById("toast").textContent,
   }));
   check(
     "rating the briefing stores its headline as the item",
     rated.fb.length === 1 &&
       rated.fb[0].kind === "briefing" &&
       rated.fb[0].vote === 1 &&
-      rated.fb[0].item.startsWith("Rain by noon") &&
-      rated.on === "true",
+      rated.fb[0].item.startsWith("Rain by noon"),
     rated,
   );
-  await page.click('.jv-rate-row [data-action="jv-rate"][data-vote="1"]');
-  check("tapping it again takes the rating back", await page.evaluate(() => jarvisFeedback.length === 0));
+  check(
+    "once rated, the question and its buttons go; read aloud stays",
+    !rated.asks && !rated.text.includes("useful") && rated.speak,
+    rated,
+  );
+  check("the thanks carries Undo", rated.toast.includes("Undo"), rated.toast);
+  await page.click("#toast .toast-undo");
+  check(
+    "Undo takes the rating back and the question returns",
+    await page.evaluate(() => jarvisFeedback.length === 0 && !!document.querySelector(".jv-rate-row .jv-rates")),
+  );
   // synced data goes through the same checks
   await page.evaluate(() =>
     applyRemote({
@@ -17158,9 +17169,11 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
       "add call mom tomorrow",
       "remind me to buy milk",
       "sing me a song",
+      "what can you do",
+      "ask Jarvis how much is left on my car loan",
     ].map((t) => {
       const m = wakeMatch(t);
-      return m.kind + (m.tomorrow ? "+" : "") + (m.rest ? ":" + m.rest : "");
+      return m.kind + (m.tomorrow ? "+" : "") + (m.rest ? ":" + m.rest : "") + (m.text ? ":" + m.text : "");
     }),
   );
   check(
@@ -17182,7 +17195,9 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
         "stop",
         "add:call mom tomorrow",
         "add:buy milk",
+        "ask:sing me a song",
         "help",
+        "ask:how much is left on my car loan",
       ]),
     kinds,
   );
@@ -17204,12 +17219,14 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
   check("and shows what it heard", (await page.textContent("#toast")).includes("read my briefing"));
   const wx = (await said("what's the weather")).join(" ");
   check("weather is said in words", /degrees/.test(wx) && !/°/.test(wx), wx);
-  const help = (await said("sing me a song")).join(" ");
+  const help = (await said("what can you do")).join(" ");
   check(
-    "anything else gets the list of commands",
-    help.startsWith("Sorry, I didn't catch that.") && help.includes("read my briefing"),
+    "“what can you do” gets the list of commands",
+    help.includes("read my briefing") && help.includes("send to Jarvis"),
     help,
   );
+  const noSync = (await said("how much is left on my car loan")).join(" ");
+  check("a question without sync says sync is needed, and nothing is sent", /needs sync/.test(noSync), noSync);
   await said("read everything");
   check(
     "stop stops it",
@@ -17348,6 +17365,84 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
     voice,
   );
   check("the voice stays on this device", !voice.synced, voice);
+  // a question by voice: read back, sent only after "yes", marked as spoken so its answer is read aloud
+  const ask = await page.evaluate(async () => {
+    localStorage.setItem("sync-token", "test-token");
+    wake = { ctx: { close() {} }, node: null, queue: [], raw: [], mel: [], embs: [] };
+    window.wakeOpenMic = async () => {};
+    window.__sent = [];
+    window.askSend = (t) => (window.__sent.push({ t, spoken: voiceSaid === t }), true);
+    // the fake voice finishes each part right away
+    const fake = window.speechSynthesis;
+    fake.speak = function (u) {
+      this.speaking = true;
+      window.__said.push(u.text);
+      setTimeout(() => u.onend && u.onend({}), 0);
+    };
+    const run = async (question, reply) => {
+      window.__said = [];
+      window.wakeListen = async () => reply;
+      wakeHandle(question);
+      await new Promise((r) => setTimeout(r, 450));
+      return { said: window.__said.slice(), hint: document.getElementById("jv-wake-hint").textContent };
+    };
+    const yes = await run("Hey Jarvis, how much is left on my car loan", "yes send it");
+    const no = await run("what should I cook tonight", "no thanks");
+    const quiet = await run("what should I cook tonight", "");
+    const sent = window.__sent.slice();
+    localStorage.removeItem("sync-token");
+    wakeStop();
+    return { yes, no, quiet, sent };
+  });
+  check(
+    "a question is read back before anything is sent",
+    ask.yes.said[0] === "Should I send this to Jarvis? how much is left on my car loan",
+    ask.yes.said,
+  );
+  check(
+    "“yes” sends it, as spoken, without “Hey Jarvis” in front",
+    ask.sent.length === 1 && ask.sent[0].t === "how much is left on my car loan" && ask.sent[0].spoken,
+    ask.sent,
+  );
+  check(
+    "and says the answer will be read",
+    ask.yes.said.some((p) => /I'll read you the answer/.test(p)),
+    ask.yes.said,
+  );
+  check(
+    "“no” sends nothing",
+    ask.no.said.some((p) => /won't send it/.test(p)),
+    ask.no.said,
+  );
+  check(
+    "silence sends nothing",
+    ask.quiet.said.some((p) => /didn't hear a yes/.test(p)),
+    ask.quiet.said,
+  );
+  // Console has the same button and line, and both follow the state
+  await page.evaluate(() => activateTab("console"));
+  const both = await page.evaluate(() => {
+    wake = { ctx: { close() {} }, node: null, queue: [], raw: [], mel: [], embs: [] };
+    wakeUi();
+    const out = {
+      console: !!document.getElementById("jv-wake-console"),
+      home: document.getElementById("jv-wake").className,
+      cn: document.getElementById("jv-wake-console").className,
+      hint: document.getElementById("jv-wake-hint-console").textContent,
+    };
+    wakeStop();
+    out.off = document.getElementById("jv-wake-console").className;
+    return out;
+  });
+  check("Console has the hands-free button too", both.console, both);
+  check(
+    "both buttons and lines follow the same state",
+    /jv-wake-idle/.test(both.home) &&
+      /jv-wake-idle/.test(both.cn) &&
+      both.hint === "Say “Hey Jarvis”" &&
+      /jv-wake-off/.test(both.off),
+    both,
+  );
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -17416,6 +17511,62 @@ await section("Desktop: Beauty and Jazz 3.0 use two columns; the command bar has
   );
   check("no errors", a.errors.length === 0, a.errors);
   await a.ctx.close();
+});
+
+await section("Desktop: scrolling up past the top syncs, like pulling down on a phone", async () => {
+  const { ctx, page, errors } = await openApp({ phone: false, query: "?tab=todo" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(300);
+  const run = (steps, startScrolled = false) =>
+    page.evaluate(
+      async ([steps, startScrolled]) => {
+        window.__synced = 0;
+        window.refreshData = () => (window.__synced++, Promise.resolve());
+        const main = document.querySelector("main");
+        // room to scroll, so a flick can start below the top
+        let pad = document.getElementById("__pad");
+        if (!pad) {
+          pad = document.createElement("div");
+          pad.id = "__pad";
+          pad.style.height = "3000px";
+          document.getElementById("panel-todo").appendChild(pad);
+        }
+        main.scrollTop = startScrolled ? 400 : 0;
+        const heights = [];
+        for (const [dy, opts] of steps) {
+          if (startScrolled && main.scrollTop > 0 && dy < 0) main.scrollTop = Math.max(0, main.scrollTop + dy);
+          main.dispatchEvent(new WheelEvent("wheel", { deltaY: dy, bubbles: true, cancelable: true, ...(opts || {}) }));
+          heights.push(parseFloat(document.getElementById("pull-indicator").style.height) || 0);
+          await new Promise((r) => setTimeout(r, 20));
+        }
+        await new Promise((r) => setTimeout(r, 400)); // the scroll ends
+        return {
+          synced: window.__synced,
+          heights,
+          label: document.querySelector("#pull-indicator .pull-label").textContent,
+        };
+      },
+      [steps, startScrolled],
+    );
+  const up = await run(Array.from({ length: 8 }, () => [-40]));
+  check("a scroll up from the top shows the pull, then syncs once", up.synced === 1 && up.heights[1] > 0, up);
+  const flick = await run(
+    Array.from({ length: 20 }, () => [-60]),
+    true,
+  );
+  check("a flick that starts below the top doesn't sync when it reaches the top", flick.synced === 0, flick);
+  const down = await run(Array.from({ length: 8 }, () => [40]));
+  check("scrolling down never syncs", down.synced === 0 && down.heights.every((h) => h === 0), down);
+  const zoom = await run(Array.from({ length: 8 }, () => [-40, { ctrlKey: true }]));
+  check("pinch-zoom (ctrl + wheel) never syncs", zoom.synced === 0, zoom);
+  const small = await run([[-30], [-30]]);
+  check("a small nudge at the top doesn't sync, and the pull goes away", small.synced === 0, small);
+  check(
+    "the pull is gone after the scroll ends",
+    (await page.evaluate(() => parseFloat(document.getElementById("pull-indicator").style.height) || 0)) === 0,
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
 });
 
 await section("Budget: + Bills due adds the line to the paycheck", async () => {

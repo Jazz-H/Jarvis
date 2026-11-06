@@ -31,7 +31,9 @@ function wakeSupported() {
 // The round button beside the greeting, and a line under the greeting that says what to do next.
 // One look per state: off (outline), starting, waiting for "Hey Jarvis" (soft fill, bars at rest),
 // hearing a command (solid, bars moving), talking (solid, a stop square: a tap stops the reading).
-let wakePhase = "idle"; // idle (waiting for the phrase) | command (listening for one) | speaking
+// The same button and line sit on Home (beside the greeting) and in Console (under the box).
+let wakePhase = "idle"; // idle (waiting for the phrase) | command (listening for one) | confirm (yes or no) | speaking
+let wakePending = null; // a question waiting for "yes" before it goes to Jarvis
 const WAKE_BARS =
   '<svg class="jv-wake-bars" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 10v4"/><path d="M9.5 7v10"/><path d="M14.5 5v14"/><path d="M19 9v6"/></svg>';
 const WAKE_STOP =
@@ -39,7 +41,7 @@ const WAKE_STOP =
 function wakeState() {
   if (wakeStarting) return "starting";
   if (!wake) return "off";
-  if (wakePhase === "command") return "command";
+  if (wakePhase === "command" || wakePhase === "confirm") return wakePhase;
   return speakingKey === "wake" ? "speaking" : "idle";
 }
 const WAKE_STATES = {
@@ -47,25 +49,25 @@ const WAKE_STATES = {
   starting: { label: "Starting hands-free", hint: "Starting…" },
   idle: { label: "Hands-free is on. Tap to turn it off", hint: "Say “Hey Jarvis”" },
   command: { label: "Listening for a command", hint: "Listening… try “read my briefing”" },
+  confirm: { label: "Listening for yes or no", hint: "Say “yes” to send it to Jarvis, or “no”" },
   speaking: { label: "Stop reading", hint: "Speaking · tap ■ to stop" },
 };
-function wakeChipHtml() {
+const wakeId = (base, where) => (where === "home" ? base : `${base}-${where}`);
+function wakeChipHtml(where = "home") {
   if (!wakeSupported()) return "";
   const s = wakeState();
-  return `<button type="button" class="jv-wake jv-wake-${s}" id="jv-wake" data-action="wake-toggle" aria-pressed="${s !== "off" && s !== "starting"}" aria-label="${WAKE_STATES[s].label}">${s === "speaking" ? WAKE_STOP : WAKE_BARS}</button>`;
+  return `<button type="button" class="jv-wake jv-wake-${s}" id="${wakeId("jv-wake", where)}" data-where="${where}" data-action="wake-toggle" aria-pressed="${s !== "off" && s !== "starting"}" aria-label="${WAKE_STATES[s].label}">${s === "speaking" ? WAKE_STOP : WAKE_BARS}</button>`;
 }
-function wakeHintHtml() {
+function wakeHintHtml(where = "home") {
   if (!wakeSupported()) return "";
-  return `<div class="jv-wake-hint" id="jv-wake-hint" aria-live="polite">${WAKE_STATES[wakeState()].hint}</div>`;
+  return `<div class="jv-wake-hint" id="${wakeId("jv-wake-hint", where)}" aria-live="polite">${WAKE_STATES[wakeState()].hint}</div>`;
 }
 function wakeUi() {
-  const el = document.getElementById("jv-wake");
-  if (el) {
-    const s = wakeState();
-    if (!el.classList.contains("jv-wake-" + s)) el.outerHTML = wakeChipHtml();
-  }
-  const hint = document.getElementById("jv-wake-hint");
-  if (hint) hint.textContent = WAKE_STATES[wakeState()].hint;
+  const s = wakeState();
+  document.querySelectorAll(".jv-wake").forEach((el) => {
+    if (!el.classList.contains("jv-wake-" + s)) el.outerHTML = wakeChipHtml(el.getAttribute("data-where") || "home");
+  });
+  document.querySelectorAll(".jv-wake-hint").forEach((h) => (h.textContent = WAKE_STATES[s].hint));
 }
 
 function wakeToggle() {
@@ -167,6 +169,7 @@ function wakeStop() {
   const w = wake;
   wake = null;
   wakePhase = "idle";
+  wakePending = null;
   wakeRelease(w);
   wakeUi();
 }
@@ -240,26 +243,36 @@ async function wakeHeard() {
   if (!w) return;
   speakStop();
   wakeIdle();
-  w.paused = true;
+  wakePending = null; // a new "Hey Jarvis" drops a question still waiting for yes
   wakeChime();
-  wakeCloseMic(w); // Android lets one listener have the mic at a time
-  wakePhase = "command";
+  const heard = await wakeWithMic("command", wakeListen);
+  if (wake !== w) return;
+  wakeHandle(heard);
+}
+// Hands the mic to speech recognition for one listen (Android lets one listener have it at a time),
+// then takes it back for the wake phrase. Returns what was heard ("" when nothing).
+async function wakeWithMic(phase, listen) {
+  const w = wake;
+  if (!w) return "";
+  w.paused = true;
+  wakeCloseMic(w);
+  wakePhase = phase;
   wakeUi();
-  await new Promise((r) => setTimeout(r, 300)); // the chime
-  const heard = await wakeListen();
+  await new Promise((r) => setTimeout(r, 300)); // the chime, or the end of what was said
+  const heard = await listen();
   wakePhase = "idle";
   wakeUi();
-  if (wake !== w) return;
+  if (wake !== w) return heard;
   try {
     await wakeOpenMic(w);
   } catch (e) {
     wakeStop();
     showToast("Hands-free stopped: the microphone wasn't available", true);
-    return;
+    return heard;
   }
   w.queue.length = w.raw.length = w.mel.length = w.embs.length = 0;
   w.paused = false;
-  wakeHandle(heard);
+  return heard;
 }
 // One command through the browser's speech recognition; "" when nothing was understood
 function wakeListen() {
@@ -293,7 +306,9 @@ function wakeListen() {
 
 // ---- commands: matched by code, answered from this device's data ----
 const WAKE_HELP =
-  "You can say: read my briefing, read everything, weather, my day, top 3, inbox, tomorrow, news, add a to-do, or stop.";
+  "You can say: read my briefing, read everything, weather, my day, top 3, inbox, tomorrow, news, add a to-do, or stop. Anything else, I can send to Jarvis as a question.";
+const WAKE_YES = /\b(yes|yeah|yep|yup|sure|send( it)?|do it|go ahead|ok|okay|please)\b/i;
+const WAKE_NO = /\b(no|nope|don't|do not|cancel|stop|never ?mind|wait)\b/i;
 function wakeMatch(said) {
   let t = String(said || "")
     .toLowerCase()
@@ -318,7 +333,10 @@ function wakeMatch(said) {
   if (/\b(inbox|emails?|e mails?|mail)\b/.test(t)) return { kind: "inbox" };
   if (/\b(brief|briefing|summary|morning|update)\b/.test(t)) return { kind: "briefing" };
   if (/\b(my day|schedule|calendar|agenda|today|plans?|to ?-?dos?)\b/.test(t)) return { kind: "day" };
-  return { kind: "help" };
+  if (/^(help|what can you do|what can i say|commands)\b/.test(t)) return { kind: "help" };
+  // anything else is a question for Jarvis ("ask Jarvis …" says so outright); it's sent only after a yes
+  const ask = /^(?:ask(?: jarvis)?|question)[:\s]+(.+)$/.exec(t);
+  return { kind: "ask", text: ask ? ask[1] : t };
 }
 function wakeHandle(said) {
   const cmd = wakeMatch(said);
@@ -329,6 +347,15 @@ function wakeHandle(said) {
   }
   if (cmd.kind === "add") {
     wakeAddTodo(cmd.rest);
+    return cmd;
+  }
+  if (cmd.kind === "ask") {
+    // the words as heard (not lower-cased), without "Hey Jarvis" or "ask Jarvis" in front
+    const q = String(said || "")
+      .trim()
+      .replace(/^(hey\s+)?jarvis[,\s]*/i, "")
+      .replace(/^(ask(\s+jarvis)?|question)[:,\s]+/i, "");
+    wakeConfirmAsk(q || cmd.text);
     return cmd;
   }
   const say = {
@@ -345,10 +372,39 @@ function wakeHandle(said) {
   wakeSpeak(say());
   return cmd;
 }
-function wakeSpeak(parts) {
+function wakeSpeak(parts, onDone) {
   const list = parts.flat().map(wakeClean).filter(Boolean);
   speakStop(); // a new answer replaces what's being read (speakText alone would treat it as "stop")
-  if (list.length) speakText(list, "wake");
+  if (list.length) speakText(list, "wake", onDone);
+}
+// A question for Jarvis: read back, then sent only on a spoken "yes" (so the TV or someone else
+// can't spend the Ask budget). The answer comes back in about a minute and is read aloud, like any
+// question asked by voice (askSpeakFresh).
+function wakeConfirmAsk(text) {
+  const q = String(text || "")
+    .trim()
+    .slice(0, CONSOLE_TEXT_MAX);
+  if (!q) return;
+  if (!askSyncOn()) {
+    wakeSpeak(["Asking Jarvis needs sync. Turn it on with the cloud button."]);
+    return;
+  }
+  wakePending = q;
+  showToast(`Send to Jarvis: “${q.slice(0, 80)}”? Say yes or no`);
+  wakeSpeak([`Should I send this to Jarvis? ${q}`], async (finished) => {
+    if (!finished || !wake || wakePending !== q) return; // stopped, turned off or replaced
+    const reply = await wakeWithMic("confirm", wakeListen);
+    if (wakePending !== q) return;
+    wakePending = null;
+    if (!wake) return;
+    if (WAKE_YES.test(reply) && !WAKE_NO.test(reply)) wakeSendAsk(q);
+    else wakeSpeak([reply ? "Okay, I won't send it." : "I didn't hear a yes, so I didn't send it."]);
+  });
+}
+function wakeSendAsk(q) {
+  voiceSaid = q; // marks it as asked by voice: the answer is read aloud when it arrives
+  if (askSend(q)) wakeSpeak(["Sent. I'll read you the answer when it's ready."]);
+  else wakeSpeak(["I couldn't send it. The message on screen says why."]);
 }
 // Times, degrees and symbols the way they're said
 function wakeClean(s) {

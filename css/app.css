@@ -8957,3 +8957,16 @@ details[open] > .wb-fold {
     animation: none !important;
   }
 }
+
+/* Hey Jarvis in Console: the button beside the usage pill, its line under the switch */
+.cn-under-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.cn-main > .jv-wake-hint {
+  margin: 6px 2px 0;
+}
+.cn-main > .jv-wake-hint:empty {
+  display: none;
+}
