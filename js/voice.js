@@ -1,4 +1,4 @@
-// voice.js - Speak instead of typing: a mic in Console's box and in Home's quick add.
+// voice.js - Speak instead of typing: a mic in Console's box, Home's quick add and the desktop command bar.
 // Classic script: shares one global scope with the other js/*.js files (load order is in jazz2.0.html).
 
 // ---------- VOICE INPUT ----------
@@ -14,6 +14,7 @@ const VOICE_TARGETS = {
       dashQuickText = el.value; // kept across Home re-renders
     },
   },
+  desk: { input: "desk-cmd", changed: () => {} }, // big screens' command bar (Enter sends, as when typed)
 };
 const VOICE_ERRORS = {
   "not-allowed": "Microphone blocked: allow it in your browser settings",
@@ -57,6 +58,10 @@ function voiceUi(target) {
   if (target === "quick") {
     const input = document.getElementById("jv-quick");
     if (input) input.placeholder = on ? "Listening…" : "Add a to-do";
+  }
+  if (target === "desk") {
+    const input = document.getElementById("desk-cmd");
+    if (input) input.placeholder = on ? "Listening…" : "Ask Jarvis or add a to-do…";
   }
 }
 function voiceToggle(target) {
@@ -263,6 +268,11 @@ function voiceCancel() {
   } catch (e) {}
   voiceUi(v.target);
 }
+// Big screens: the same mic in the header's command bar (its box is in jazz2.0.html)
+(function () {
+  const box = document.getElementById("desk-cmd");
+  if (box && !document.getElementById("vc-mic-desk")) box.insertAdjacentHTML("afterend", voiceMicHtml("desk"));
+})();
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") speakStop(); // never keeps talking in the background
   if (document.visibilityState !== "visible") voiceCancel();

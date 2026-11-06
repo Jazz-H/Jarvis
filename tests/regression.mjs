@@ -17352,6 +17352,72 @@ await section("Hey Jarvis: hands-free commands are matched and answered on the d
   await ctx.close();
 });
 
+await section("Desktop: Beauty and Jazz 3.0 use two columns; the command bar has the mic", async () => {
+  const a = await openAsk({ phone: false, query: "?tab=skin", seed: homePolishSeed() });
+  await a.page.setViewportSize({ width: 1440, height: 900 });
+  await a.page.waitForTimeout(300);
+  const skin = await a.page.evaluate(() => {
+    const [am, pm] = [...document.querySelectorAll("#panel-skin .routine-today .routine-band")].map((b) =>
+      b.getBoundingClientRect(),
+    );
+    return { side: !!am && !!pm && Math.abs(am.top - pm.top) < 2 && pm.left > am.right };
+  });
+  check("Beauty: today's AM and PM sit side by side", skin.side, skin);
+  await a.page.evaluate(() => activateTab("jazz3"));
+  await a.page.waitForTimeout(200);
+  const j3 = await a.page.evaluate(() => {
+    const r = (s) => document.querySelector(s)?.getBoundingClientRect();
+    const hero = r("#panel-jazz3 .j3-hero"),
+      today = r("#j3-today"),
+      weight = r("#weight-card"),
+      cards = [...document.querySelectorAll("#panel-jazz3 > .pinned")].map((c) => c.getBoundingClientRect());
+    return {
+      heroFull: hero && weight && hero.right >= weight.right - 1,
+      weightBeside: today && weight && Math.abs(today.top - weight.top) < 2 && weight.left > today.right,
+      areas: cards.length >= 2 && Math.abs(cards[0].top - cards[1].top) < 2,
+    };
+  });
+  check("Jazz 3.0: the banner runs across", j3.heroFull, j3);
+  check("Jazz 3.0: Weight sits beside Today", j3.weightBeside, j3);
+  check("Jazz 3.0: goal areas come two to a row", j3.areas, j3);
+  // the command bar's mic: what's said fills the bar; nothing is sent or added by itself
+  await a.page.evaluate(() => activateTab("todo"));
+  const mic = await a.page.$(".desk-cmd #vc-mic-desk");
+  check("the command bar has a mic", !!mic);
+  const before = await a.page.evaluate(() => todoList.length);
+  await a.page.click("#vc-mic-desk");
+  const listening = await a.page.evaluate(() => ({
+    pressed: document.getElementById("vc-mic-desk").getAttribute("aria-pressed"),
+    ph: document.getElementById("desk-cmd").placeholder,
+  }));
+  check("tapping it listens", listening.pressed === "true" && listening.ph === "Listening…", listening);
+  await a.page.evaluate(() => {
+    window.__say("call the dentist tomorrow");
+    window.__rec().onend();
+  });
+  const after = await a.page.evaluate(() => ({
+    box: document.getElementById("desk-cmd").value,
+    added: todoList.length,
+    pressed: document.getElementById("vc-mic-desk").getAttribute("aria-pressed"),
+  }));
+  check(
+    "what's said fills the bar, and nothing is added until Enter",
+    after.box === "call the dentist tomorrow" && after.added === before && after.pressed === "false",
+    after,
+  );
+  await a.page.press("#desk-cmd", "Enter");
+  check(
+    "Enter adds it like a typed one",
+    await a.page.evaluate(
+      (n) =>
+        todoList.length === n + 1 && todoList.some((t) => /call the dentist/i.test(t.text) && t.due === addDaysIso(1)),
+      before,
+    ),
+  );
+  check("no errors", a.errors.length === 0, a.errors);
+  await a.ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

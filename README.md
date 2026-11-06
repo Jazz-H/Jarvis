@@ -649,11 +649,12 @@ only turning sync off still asks first.
   everything kept, questions and answers alike, Esc clears; the days with something in them,
   click one to jump there, older ones load as needed; how much is kept and Clear history, the only one on big screens) | the box
   and the conversation | the weekly review, usage and Jarvis's brain (both side columns stay in
-  view while you scroll).
+  view while you scroll). **Beauty:** today's AM | PM side by side, then the other cards two to a
+  row. **Jazz 3.0:** the banner across, Today and the last 4 weeks | Weight, then goal areas two to a row.
   The header gets a **command bar** ("Ask Jarvis or add a to-do…", **/** jumps to it from
   anywhere but a text box): a question (ending in ?, or starting with what/how/should…) or
   "Hey Jarvis …" goes to Console; anything else is added as a to-do with the same date words
-  as quick add. It's hidden on Console, which has its own box. A **status line** at the bottom
+  as quick add. Its **mic** fills the bar by voice, like quick add's; nothing is sent until Enter. It's hidden on Console, which has its own box. A **status line** at the bottom
   shows sync (Synced 2 min ago / Syncing / failed / this device only), when Jarvis last briefed,
   and the / shortcut. Crossing 1200px redraws Home in the layout that fits.
 - **Tabs:** Home, To-Do, Console (the orb), **Wallet** and **Glow** (`TAB_ORDER`). Wallet and Glow

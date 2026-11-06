@@ -8251,6 +8251,59 @@ details[open] > .wb-fold {
   .cn-side > #cn-brain {
     margin-top: 0;
   }
+  /* the command bar's mic: small, inside the bar */
+  .desk-cmd .vc-mic {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+  }
+  .desk-cmd .vc-mic svg {
+    width: 16px;
+    height: 16px;
+  }
+  /* Beauty: today's AM and PM side by side; the other cards in two columns */
+  #panel-skin.active {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 20px;
+    align-items: start;
+  }
+  #panel-skin > .routine-today {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 32px;
+    align-items: start;
+  }
+  #panel-skin > .routine-today > .glance-head {
+    grid-column: 1 / -1;
+  }
+  #panel-skin > .routine-today > .routine-band + .routine-band {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 6px;
+  }
+  /* Jazz 3.0: the banner across; today and the last 4 weeks | weight; goal areas in two columns */
+  #panel-jazz3.active {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 20px;
+    align-items: start;
+  }
+  #panel-jazz3 > .j3-hero,
+  #panel-jazz3 > .j3-areas,
+  #panel-jazz3 > .p3-new {
+    grid-column: 1 / -1;
+  }
+  #panel-jazz3 > .j3-today,
+  #panel-jazz3 > .j3-grid {
+    grid-column: 1;
+  }
+  #panel-jazz3 > .j3-weight {
+    grid-column: 2;
+    grid-row: span 2;
+  }
   /* the hands-free button stays beside the greeting instead of at the far edge */
   .home-desk .jv-hello-row {
     justify-content: flex-start;
