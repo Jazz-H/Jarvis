@@ -405,7 +405,7 @@ function wakeConfirmAsk(text) {
     .slice(0, CONSOLE_TEXT_MAX);
   if (!q) return;
   if (!askSyncOn()) {
-    wakeSpeak(["Asking Jarvis needs sync. Turn it on with the cloud button."]);
+    wakeSpeak(["Asking Jarvis needs sync. Turn it on in Settings."]);
     return;
   }
   wakePending = q;

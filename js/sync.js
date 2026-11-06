@@ -6,7 +6,7 @@
 // JSON file with every content/state key plus an updatedAt stamp; conflicts are
 // merged per list (see syncNow). Requires a classic PAT with only the `gist`
 // scope (fine-grained tokens can't use the Gist API), pasted once per device
-// via the cloud button in the header. Token + gist id live in localStorage and
+// via Settings (the gear in the header). Token + gist id live in localStorage and
 // are never synced themselves.
 const SYNC_KEYS = [
   "skin-rules-content",
@@ -42,10 +42,14 @@ function markDataChanged() {
 let syncOkAt = 0; // last good sync this session, for the desktop status bar
 // notNew: putting the button back without saying a sync just worked
 function setSyncStatus(state, notNew = false) {
-  const btn = document.getElementById("sync-btn");
-  if (btn) btn.dataset.state = state;
+  const btn = document.getElementById("settings-btn");
+  if (btn) {
+    btn.dataset.state = state;
+    btn.setAttribute("aria-label", state === "error" ? "Settings: sync failed" : "Settings");
+  }
   if (state === "ok" && !notNew) syncOkAt = Date.now();
   renderDeskFooter();
+  if (typeof currentTab !== "undefined" && currentTab === "settings") renderSettings();
 }
 async function gistApi(path, opts = {}) {
   const res = await fetch("https://api.github.com" + path, {
@@ -384,7 +388,7 @@ async function syncNow() {
   }
   syncBusy = true;
   const epoch = syncEpoch;
-  const wasState = (document.getElementById("sync-btn") || { dataset: {} }).dataset.state;
+  const wasState = (document.getElementById("settings-btn") || { dataset: {} }).dataset.state;
   setSyncStatus("busy");
   try {
     const { gistId, remote } = await withGist(async (id) => ({ gistId: id, remote: await fetchRemote(id) }));

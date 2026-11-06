@@ -13,6 +13,7 @@ const HEADLINES = {
   // tab-bar groups (shell.js TAB_GROUPS): the header shows the group, its switch the view
   wallet: "Wallet",
   glow: "Glow",
+  settings: "Settings",
 };
 const DROPLET_ICON =
   '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 7-12 7-12z"/></svg>';

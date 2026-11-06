@@ -281,7 +281,6 @@ function consoleShellHtml() {
     </div>
     <div class="cn-side">
     <div class="cn-review" id="cn-review"></div>
-    <div id="cn-brain"></div>
     </div>
   </div>`;
 }
@@ -471,7 +470,8 @@ function consoleEntryHtml(e) {
               `<button type="button" class="cn-link" data-action="console-go" data-go="${go}">${label} →</button>`,
           )
           .join("");
-    reply = `<span class="${e.undone ? "cn-undone" : ""}">${escapeHtml(consoleAddedText(e.todos, e.shop))}${e.undone ? " · Undone" : ""}</span>${links ? `<span class="cn-links">${links}</span>` : ""}`;
+    // one line: what was added, then where it went
+    reply = `<span class="cn-added${e.undone ? " cn-undone" : ""}">${escapeHtml(consoleAddedText(e.todos, e.shop))}${e.undone ? " · Undone" : ""}${links ? `<span class="cn-links">${links}</span>` : ""}</span>`;
   }
   return `<li class="cn-entry">
     <span class="cn-who">You</span><p class="cn-said">${escapeHtml(e.text)} <time class="cn-time">${escapeHtml(when)}</time></p>
@@ -498,7 +498,8 @@ function consoleFeedHtml() {
   const q = consoleSearch.trim().toLowerCase();
   if (q) return consoleSearchHtml(q);
   const all = [
-    ...consoleFeed.map((e) => ({ at: e.at, n: 1, html: () => consoleEntryHtml(e) })),
+    // a capture that was undone changed nothing, so it leaves the conversation
+    ...consoleFeed.filter((e) => !e.undone).map((e) => ({ at: e.at, n: 1, html: () => consoleEntryHtml(e) })),
     ...askChains(askFeedEntries()),
   ].sort((a, b) => b.at - a.at);
   const count = all.reduce((n, e) => n + e.n, 0);
@@ -630,7 +631,9 @@ function renderConsole() {
   consoleRefreshBox();
   document.getElementById("cn-preview").innerHTML = consolePreviewHtml();
   document.getElementById("cn-review").innerHTML = consoleReviewHtml();
-  document.getElementById("cn-brain").innerHTML = brainCardHtml();
+  // Jarvis's brain lives on the Settings page now; everything that changes it redraws it from here
+  const brain = document.getElementById("set-brain");
+  if (brain) brain.innerHTML = brainCardHtml();
   document.getElementById("cn-feed").innerHTML = consoleFeedHtml();
   document.getElementById("cn-hist-days").innerHTML = consoleHistHtml();
   askPollEnsure(); // waiting for an answer: check the gist while Console is on screen

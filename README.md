@@ -255,6 +255,16 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 - **Completed.** Finished items sit behind a "N completed" toggle with Restore, Duplicate,
   Delete, and Clear completed. They're archived after 7 days.
 
+**Settings** is the gear in the header (it replaced the cloud and theme buttons). It's a page of
+its own, off the tab bar: the gear, tapped again, or **‹ Back** returns to the tab you were on.
+- **Sync & backup:** where sync stands ("Synced 2 min ago", "Off: this device only") and **Open**
+  for the Sync & backup dialog (tokens, backup, restore). A failed sync puts a red dot on the gear.
+- **Appearance:** System, Light or Dark.
+- **Notifications:** on or off (Turn on, once sync is on).
+- **Jarvis:** Jarvis's brain (memory, the Notebook, how it writes, read aloud, reading voice, news
+  topics, about you, check-ins), open by default here.
+- **App:** **Reload** fetches the newest version (your data is kept).
+
 **Console** is the raised orb in the middle of the tab bar: the place where you talk to Jarvis
 (Home is where Jarvis talks to you). Top to bottom:
 - **The box** comes first: one line with the mic and send buttons inside it ("Ask Jarvis…" / "To-dos,
@@ -274,6 +284,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   A question Ask isn't reading
   (past the newest 20, or of a kind it doesn't know) keeps its file. Any run that gets as far as Ask (a new question, the morning briefing) checks for
   any left behind, so a failed delete or a cleared question's file goes then, at the latest the next morning.
+- **Order on a phone:** the box, the switch and hint, last week's review, then the conversation.
+  A capture that was undone changed nothing, so it leaves the conversation; a capture's reply
+  reads on one line ("Added 1 to-do · To-Do →").
 - **Under the box:** a small **Jarvis | List** switch, guessed from what you type (a
   question word first or a "?" at the end means Jarvis; several items, or anything else, means
   Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
@@ -383,7 +396,7 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
     **Clear history** sits at the very end: it hides them all on this device at once and tells
     the gist (`clearBefore`), so Jarvis's next run deletes them there and your other devices
     clear too.
-- **Jarvis's brain** (a card at the bottom of Console): what makes Jarvis yours. Every briefing,
+- **Jarvis's brain** (on the Settings page, under Jarvis): what makes Jarvis yours. Every briefing,
   answer, check-in and Weekly Review reads it.
   - **Remembers:** up to 60 facts ("I don't eat pork", "Payday moves early in December"). Add one
     here, or say "remember …" in a chat (Jarvis saves it, marked "from a chat"); × forgets it, or
@@ -770,6 +783,7 @@ only turning sync off still asks first.
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
    | `brain.js` | Jarvis's brain: memory, ratings, settings and check-ins (`normalizeJarvisBrain`, `brainRemember`, `brainRate`, `brainCardHtml`) |
    | `ask.js` | Ask Jarvis: `askSend` / `askDeliver` (gist write + `askDispatch`), `askWriteFile` (re-read, prune, cap, PATCH `jazz2-ask.json` only), `ingestAnswersFile` / `normalizeAnswers` and `ingestAskFile` (sync's pull), polling (`askPollEnsure`), the feed rows (`askEntryHtml`), Earlier and Clear history (`askShowEarlier`, `askClearHistory`), Jarvis's actions (`askApplyActions`), the usage chip, chips / Follow up, the Sync dialog's key field (`askKeyFieldHtml`, `askKeySave`) and the `?ask=` link (`askDeepLink`) |
+   | `settings.js` | The Settings page (the gear): sync and backup, theme, notifications, Jarvis's brain, reload (`settingsHtml`, `settingsToggle`); the gear carries the sync state |
    | `voice.js` | Voice input: the mic in Console's box and Home's quick add (`voiceMicHtml`, `voiceToggle`), Web Speech API, never sends; reading aloud (`speakText`, a list is read part by part) |
    | `wake.js` | Hey Jarvis: the hands-free button (`wakeChipHtml`, `wakeToggle`), the on-device wake word (`wakeScore`, models in `vendor/wake`), one command by speech recognition (`wakeListen`), matched by code (`wakeMatch`, `wakeHandle`) and answered aloud (`wakeSay*`) |
    | `review.js` | Weekly Review: `ingestReviewFile` (sync's pull), `normalizeReviews`, the Console card / row (`consoleReviewHtml`), the review sheet (`openReview`, `reviewStep`, `reviewGo`, `reviewAddChip`), Home's line (`reviewHomeRowHtml`) and the `?review=` link (`reviewDeepLink`) |
@@ -1016,7 +1030,7 @@ Lists still on their built-in defaults have no key until first edited.
   `wardrobeCat`, via `migrateWardrobeNeeds()`.
 - **Escaped text:** HTML entities (`&amp;`) in stored text → plain text.
 
-**Sync (opt-in).** Tap the cloud button, paste a **classic** GitHub token with only the
+**Sync (opt-in).** Open Settings (the gear in the header) → Sync → Open, paste a **classic** GitHub token with only the
 `gist` scope, and do this on each device. Fine-grained tokens can't use the Gist API.
 - **Storage:** all lists live as one JSON file in a private gist.
 - **Timing:** the app pushes about 1.5s after each edit, and pulls on load and whenever
@@ -1062,7 +1076,7 @@ Lists still on their built-in defaults have no key until first edited.
 
 **Theme.** "Reactor", a Jarvis HUD look: a near-black ground with a faint grid, electric cyan
 for the accent, amber for warnings and overdue items, soft blue for AM and pink for PM.
-- **Light and dark:** the header's theme button cycles **System → Light → Dark**. System
+- **Light and dark:** Settings → Appearance: **System**, **Light** or **Dark**. System
   follows the phone or computer, including when it switches. The choice is stored on this
   device only (`theme-pref`); it isn't synced or backed up. `js/theme.js` sets
   `<html data-theme="light|dark">` and the browser's `theme-color` before the first paint.

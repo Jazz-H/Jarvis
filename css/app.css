@@ -9051,3 +9051,97 @@ a.jv-track-icon svg {
   width: 16px;
   height: 16px;
 }
+
+/* Settings (js/settings.js) */
+.settings-btn[aria-pressed="true"] {
+  border-color: var(--olive);
+  color: var(--olive);
+}
+.settings-btn[data-state="error"]::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--bg);
+}
+.settings-btn {
+  position: relative;
+}
+.set-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.set-back {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--olive);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.set-card {
+  padding: 4px 16px;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+}
+.set-row + .set-row {
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.set-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.set-text span {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.set-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.set-theme {
+  display: flex;
+  margin: 12px 0 8px;
+}
+.set-theme .cn-seg {
+  flex: 1;
+}
+/* Console on a phone: last week's review sits above the conversation, not after it */
+@media (max-width: 1199px) {
+  #cn-review {
+    order: 1;
+  }
+  #cn-feed {
+    order: 2;
+  }
+}
+/* a capture's reply on one line: what was added, then where it went */
+.cn-added {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 14px;
+}
+.cn-added .cn-links {
+  display: contents;
+}
+/* a 44px tap target that takes no more room than the text line */
+.cn-added .cn-link {
+  margin: -10px 0;
+}

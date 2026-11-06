@@ -73,7 +73,7 @@ async function pushCheck() {
 }
 async function enablePush() {
   if (!localStorage.getItem("sync-token")) {
-    showToast("Turn on sync first (the cloud button)", true);
+    showToast("Turn on sync first (Settings, the gear)", true);
     return;
   }
   try {

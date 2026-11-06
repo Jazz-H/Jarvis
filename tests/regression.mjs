@@ -5244,22 +5244,26 @@ await section("shell: static handlers are delegated (sync, refresh, FAB, compose
       ).length,
   );
   check("no inline on* attributes remain in the static shell", staticInline === 0, staticInline);
-  await page.click("#sync-btn");
+  await page.click("#settings-btn");
+  check("the gear opens Settings", await page.evaluate(() => currentTab === "settings"));
+  await page.click('#panel-settings [data-action="open-sync"]');
   check(
-    "sync button opens the Sync modal",
+    "Settings' Sync row opens the Sync modal",
     (await isOpen("modal-backdrop")) && (await page.textContent("#modal-heading")).includes("Sync"),
   );
   await page.click("#modal-heading");
   check("clicking inside the modal doesn't close it", await isOpen("modal-backdrop"));
   await page.click("#modal-backdrop .modal-x");
   check("modal close button closes it", !(await isOpen("modal-backdrop")));
-  await page.click("#sync-btn");
+  await page.click('#panel-settings [data-action="open-sync"]');
   await page.mouse.click(2, 2);
   check("clicking the modal backdrop closes it", !(await isOpen("modal-backdrop")));
-  await page.focus("#sync-btn");
+  await page.focus('#panel-settings [data-action="open-sync"]');
   await page.keyboard.press("Enter");
-  check("Enter on the sync button opens the modal (native button keyboard)", await isOpen("modal-backdrop"));
+  check("Enter on the Sync button opens the modal (native button keyboard)", await isOpen("modal-backdrop"));
   await page.keyboard.press("Escape");
+  await page.click("#settings-btn"); // the gear again: back to where Settings was opened from
+  check("the gear again goes back", await page.evaluate(() => currentTab === "home"));
   await showFab(page);
   await page.focus("#fab");
   await page.keyboard.press("Space");
@@ -8490,16 +8494,17 @@ await section("jarvis: sync pulls the briefing from the gist, notifies in-app, a
   await ctx.close();
 });
 
-await section("theme: follows the system, cycles system → light → dark, stays on this device", async () => {
+await section("theme: follows the system, or Light / Dark picked in Settings, on this device only", async () => {
   const { ctx, page, errors } = await openApp();
   const state = () =>
     page.evaluate(() => ({
       theme: document.documentElement.dataset.theme,
-      pref: document.getElementById("theme-btn").dataset.pref,
-      label: document.getElementById("theme-btn").getAttribute("aria-label"),
+      pref: themePref(),
+      on: document.querySelector('#panel-settings [data-action="theme-set"][aria-pressed="true"]')?.textContent || "",
       meta: document.querySelector('meta[name="theme-color"]').getAttribute("content"),
       bg: getComputedStyle(document.body).backgroundColor,
     }));
+  await page.tap("#settings-btn");
   await page.emulateMedia({ colorScheme: "light" });
   let s = await state();
   check("system light → light theme", s.theme === "light" && s.pref === "system" && s.meta === "#eef4f8", s);
@@ -8507,18 +8512,19 @@ await section("theme: follows the system, cycles system → light → dark, stay
   await page.waitForTimeout(100);
   s = await state();
   check("system change is followed live", s.theme === "dark" && s.meta === "#02060b", s);
-  await page.tap("#theme-btn");
+  await page.tap('#panel-settings [data-action="theme-set"][data-pref="light"]');
   s = await state();
-  check("first tap pins light", s.theme === "light" && s.pref === "light" && s.label === "Theme: light", s);
+  check("Light pins light, and shows as picked", s.theme === "light" && s.pref === "light" && s.on === "Light", s);
   check("light ground is light", s.bg === "rgb(238, 244, 248)", s.bg);
-  await page.tap("#theme-btn");
-  check("second tap pins dark", (await state()).theme === "dark");
+  await page.tap('#panel-settings [data-action="theme-set"][data-pref="dark"]');
+  check("Dark pins dark", (await state()).theme === "dark");
   await page.reload();
   await page.waitForTimeout(400);
   s = await state();
   check("choice survives a reload", s.theme === "dark" && s.pref === "dark" && s.bg === "rgb(2, 6, 11)", s);
-  await page.tap("#theme-btn");
-  check("third tap goes back to the system", (await state()).pref === "system");
+  await page.tap("#settings-btn");
+  await page.tap('#panel-settings [data-action="theme-set"][data-pref="system"]');
+  check("System goes back to following the device", (await state()).pref === "system");
   check(
     "theme choice is not synced or backed up",
     await page.evaluate(
@@ -10074,7 +10080,7 @@ await section("Console: tab order, the orb opens Console, one-time tabs-back not
       JSON.stringify(r.nav) === JSON.stringify(r.order),
     r,
   );
-  check("no tab is hidden any more", r.hidden.length === 0, r.hidden);
+  check("the only page off the tab bar is Settings (the gear)", JSON.stringify(r.hidden) === '["settings"]', r.hidden);
   await page.tap('nav.tabbar button[data-tab="console"]');
   const opened = await page.evaluate(() => ({
     tab: currentTab,
@@ -10502,7 +10508,11 @@ await section("Console: preview, type cycling, Add with one Undo, expense chip o
     html: document.getElementById("cn-feed").textContent,
   }));
   check("Undo removes all of them", undone.n === base && undone.stored === base, undone);
-  check("the feed marks the capture undone", undone.entry.undone === true && /Undone/.test(undone.html), undone);
+  check(
+    "the capture is marked undone and leaves the conversation (it changed nothing)",
+    undone.entry.undone === true && !undone.html.includes("dentist fri"),
+    undone,
+  );
   // feed link goes to the tab
   await page.fill("#console-input", "");
   await page.fill("#console-input", "buy eggs");
@@ -11922,6 +11932,7 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
   });
   await page.evaluate(() => {
     openPinned.add("cn-brain-card");
+    activateTab("settings"); // Jarvis's brain lives in Settings
     renderConsole();
   });
   const r = await page.evaluate(() => ({
@@ -12406,7 +12417,7 @@ await section("ask: without a key it's queued; a refused key warns and queues; e
   const hint0 = await a.page.textContent("#cn-hint");
   check(
     "without a key the hint says questions wait for the next run",
-    /next run/.test(hint0) && /Ask Jarvis key in Sync/.test(hint0),
+    /next run/.test(hint0) && /Ask Jarvis key in Settings → Sync/.test(hint0),
     hint0,
   );
   await a.page.fill("#console-input", "What should I focus on tomorrow?");
@@ -13911,7 +13922,10 @@ await section("tab bar: Home, To-Do, Console, Wallet, You (icons, labels, nothin
   }));
   check(
     "no hidden tabs: every panel is in the bar or a group",
-    hid.hidden === 0 && hid.panels.every((p) => hid.reach.includes(p)) && hid.reach.length === hid.panels.length,
+    // Settings is reached from the gear instead
+    hid.hidden === 1 &&
+      hid.panels.filter((p) => p !== "settings").every((p) => hid.reach.includes(p)) &&
+      hid.reach.length === hid.panels.length - 1,
     hid,
   );
   check("Home shows no group switch", !(await page.isVisible("#tab-switch")));
@@ -15356,6 +15370,7 @@ await section("Top 3 today in the briefing, and the evening recap check-in", asy
   await page.evaluate(() => {
     activateTab("console");
     openPinned.add("cn-brain-card");
+    activateTab("settings"); // Jarvis's brain lives in Settings
     renderConsole();
   });
   await page.click('[data-action="brain-checkin"][data-preset="top3"]');
@@ -15403,6 +15418,7 @@ await section("the Notebook: notes by hand and by Jarvis, Note it after a to-do 
   });
   await page.evaluate(() => {
     openPinned.add("cn-brain-card");
+    activateTab("settings"); // Jarvis's brain lives in Settings
     renderConsole();
   });
   const list = await page.evaluate(() => ({
@@ -15801,7 +15817,7 @@ const openSynced = async ({ seed = {}, files = {}, raw = null, gists = [], hasGi
   const state = await a.page.evaluate(() => ({
     id: localStorage.getItem("sync-gist-id"),
     base: localStorage.getItem("sync-base"),
-    status: document.getElementById("sync-btn").dataset.state,
+    status: document.getElementById("settings-btn").dataset.state,
   }));
   return { ...a, calls, ...state };
 };
@@ -16133,7 +16149,7 @@ await section(
         () =>
           localStorage.getItem("sync-token") === "rotated-token" &&
           !syncBusy &&
-          document.getElementById("sync-btn").dataset.state === "ok",
+          document.getElementById("settings-btn").dataset.state === "ok",
       );
       await s.page.waitForTimeout(2500); // the retry that waits for the dialog to close
       const r = await s.page.evaluate(() => todoList.map((t) => t.id).sort());
@@ -16219,7 +16235,7 @@ await section(
       await page.click('#modal-backdrop [data-action="modal-save"]');
     };
     const settled = (page) =>
-      page.waitForFunction(() => !syncBusy && document.getElementById("sync-btn").dataset.state !== "busy");
+      page.waitForFunction(() => !syncBusy && document.getElementById("settings-btn").dataset.state !== "busy");
 
     // a typo: nothing about the working connection changes, and no false "Sync is on"
     const open = [{ id: "shared", text: "Item", done: false }];
@@ -16494,7 +16510,7 @@ await section(
     const end = await a.page.evaluate(async () => {
       await window.__sync;
       return {
-        state: document.getElementById("sync-btn").dataset.state,
+        state: document.getElementById("settings-btn").dataset.state,
         ids: todoList.map((t) => t.id),
         busy: syncBusy,
       };
@@ -16803,7 +16819,7 @@ await section("sync: an edit form opened while a sync is on its way isn't swappe
       ids: todoList.map((t) => t.id),
       base: localStorage.getItem("sync-base"),
       open: document.getElementById("modal-backdrop").classList.contains("open"),
-      state: document.getElementById("sync-btn").dataset.state,
+      state: document.getElementById("settings-btn").dataset.state,
     };
   });
   check("the data isn't replaced while the form is open", during.ids.join() === "mine" && during.open, during);
@@ -18103,6 +18119,102 @@ await section("To-Do: repeating to-dos stay out of Later (the Recurring card lis
       edge.recurring.includes("Change contacts"),
     edge,
   );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Settings: the gear opens sync, appearance, notifications, Jarvis's brain and the app", async () => {
+  const { ctx, page, errors } = await openApp({ query: "?tab=todo" });
+  const header = await page.evaluate(() => ({
+    gear: !!document.getElementById("settings-btn"),
+    cloud: !!document.getElementById("sync-btn"),
+    theme: !!document.getElementById("theme-btn"),
+  }));
+  check(
+    "the header has the gear instead of the cloud and theme buttons",
+    header.gear && !header.cloud && !header.theme,
+    header,
+  );
+  await page.tap("#settings-btn");
+  const s = await page.evaluate(() => ({
+    tab: currentTab,
+    title: document.getElementById("headline").textContent,
+    pressed: document.getElementById("settings-btn").getAttribute("aria-pressed"),
+    sections: [...document.querySelectorAll("#panel-settings .jv-label span:first-child")].map((x) => x.textContent),
+    brain: !!document.querySelector("#panel-settings #cn-brain-card.open"),
+    voice: !!document.querySelector('#panel-settings [data-action="brain-voice"]'),
+    sync: document.querySelector("#panel-settings .set-row .set-text span")?.textContent,
+    consoleBrain: !!document.querySelector("#panel-console #cn-brain-card"),
+  }));
+  check(
+    "it's a page of its own, titled Settings",
+    s.tab === "settings" && s.title === "Settings" && s.pressed === "true",
+    s,
+  );
+  check(
+    "sections in order: Sync & backup, Appearance, Notifications, Jarvis, App",
+    JSON.stringify(s.sections) === JSON.stringify(["Sync & backup", "Appearance", "Notifications", "Jarvis", "App"]),
+    s.sections,
+  );
+  check(
+    "Jarvis's brain is here, open, with the reading voice; Console no longer has it",
+    s.brain && s.voice && !s.consoleBrain,
+    s,
+  );
+  check("sync says where it stands", s.sync === "Off: this device only", s);
+  await page.tap('#panel-settings [data-action="settings-back"]');
+  check("Back returns to the tab it was opened from", await page.evaluate(() => currentTab === "todo"));
+  // a failed sync shows on the gear (and in Settings)
+  const err = await page.evaluate(() => {
+    setSyncStatus("error");
+    const g = document.getElementById("settings-btn");
+    const dot = getComputedStyle(g, "::after").content;
+    activateTab("settings");
+    const line = document.querySelector("#panel-settings .set-row .set-text span").textContent;
+    const out = { state: g.dataset.state, label: g.getAttribute("aria-label"), dot, line };
+    setSyncStatus("off");
+    return out;
+  });
+  check(
+    "a failed sync puts a dot on the gear and says so in Settings",
+    err.dot !== "none" && /sync failed/i.test(err.label) && /Sync failed/.test(err.line),
+    err,
+  );
+  // a brain change made elsewhere (Console, an answer) redraws it here
+  const redraw = await page.evaluate(() => {
+    jarvisMemory = [{ id: "m1", text: "Prefers short answers", at: addDaysIso(0), by: "you" }];
+    renderConsole();
+    return document.querySelector("#panel-settings #cn-brain-card").textContent.includes("Prefers short answers");
+  });
+  check("a change to the brain shows in Settings", redraw);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Console: last week's review above the conversation on a phone; undone captures leave it", async () => {
+  const now = Date.now();
+  const feed = [
+    { id: "c1", at: now - 60e3, kind: "capture", text: "buy dog food", todos: 0, shop: 1 },
+    { id: "c2", at: now - 120e3, kind: "capture", text: "what's my next payday", todos: 1, shop: 0, undone: true },
+  ];
+  const { ctx, page, errors } = await openApp({ query: "?tab=console", seed: { "console-feed": feed } });
+  const r = await page.evaluate(() => {
+    const feedEl = document.getElementById("cn-feed"),
+      review = document.getElementById("cn-review");
+    review.innerHTML = '<div class="card" style="height:40px">review</div>'; // stand-in content
+    return {
+      above: review.getBoundingClientRect().top < feedEl.getBoundingClientRect().top,
+      text: feedEl.textContent.replace(/\s+/g, " "),
+      oneLine: (() => {
+        const added = feedEl.querySelector(".cn-added");
+        const link = added && added.querySelector(".cn-link");
+        return !!link && added.getBoundingClientRect().height <= 48; // one line (the link is a 44px tap target)
+      })(),
+    };
+  });
+  check("the review comes before the conversation", r.above, r);
+  check("an undone capture isn't shown", r.text.includes("buy dog food") && !r.text.includes("next payday"), r.text);
+  check("a capture's reply and its link share one line", r.oneLine, r);
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

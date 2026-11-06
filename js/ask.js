@@ -137,7 +137,7 @@ function askAttachHtml() {
   return `<div class="cn-attached"><span aria-hidden="true">📎</span><span class="cn-attached-name">${escapeHtml(askAttachment.name)}</span><small>${kb >= 1024 ? (kb / 1024).toFixed(1) + " MB" : kb + " KB"}</small><button type="button" class="br-x" data-action="ask-attach-clear" aria-label="Remove the attachment">&times;</button></div>`;
 }
 const ASK_KEY_BROKEN = "Ask Jarvis key isn't working — check it in Sync";
-const ASK_NEEDS_SYNC = "Jarvis needs sync: turn it on with the cloud button. Quick lists work without it.";
+const ASK_NEEDS_SYNC = "Jarvis needs sync: turn it on in Settings (the gear). Quick lists work without it.";
 let askBusy = false; // a question is being saved / sent
 let askLastSend = 0;
 let askThread = null; // the first question's id while a follow-up is being written
@@ -1024,7 +1024,7 @@ function askHint() {
   if (!askSyncOn()) return ASK_NEEDS_SYNC;
   if (askGet(ASK_TOKEN_BAD_KEY) && askToken()) return ASK_KEY_BROKEN + ". Questions wait for the next run.";
   if (!askToken())
-    return "Questions wait for Jarvis's next run (~6am). Add an Ask Jarvis key in Sync for answers in about a minute.";
+    return "Questions wait for Jarvis's next run (~6am). Add an Ask Jarvis key in Settings → Sync for answers in about a minute.";
   return "";
 }
 function askNoteHtml(mode) {

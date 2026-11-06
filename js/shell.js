@@ -8,8 +8,8 @@ const TAB_ORDER = ["home", "todo", "console", "wallet", "glow"]; // the tab bar,
 // jazz3), never the group, so per-panel CSS and the + button work as before.
 const TAB_GROUPS = { wallet: ["budget", "wants"], glow: ["skin", "jazz3"] };
 const TAB_GROUP_LAST_KEY = "tab-group-last"; // this device only: {wallet, glow} = the last sub-view of each
-// Tabs kept but not in the bar (none now; the mechanism stays for links to a future hidden tab)
-const HIDDEN_TABS = [];
+// Tabs kept but not in the bar: Settings opens from the gear in the header (js/settings.js)
+const HIDDEN_TABS = ["settings"];
 const tabGroupOf = (tab) => Object.keys(TAB_GROUPS).find((g) => TAB_GROUPS[g].includes(tab)) || "";
 const navItemOf = (tab) => tabGroupOf(tab) || tab; // the bar button that lights up for a panel
 const isTab = (tab) =>
@@ -83,6 +83,7 @@ function activateTab(tab) {
   if (fabCfg) document.getElementById("fab").setAttribute("aria-label", fabCfg.fab);
   if (tab === "home") renderHome(); // picks up whatever changed on other tabs
   if (tab === "console") renderConsole(); // day labels in the feed
+  if (tab === "settings") renderSettings();
   const nav = navItemOf(tab);
   document.querySelectorAll("nav.tabbar button").forEach((b) => {
     const active = b.dataset.tab === nav;
@@ -93,6 +94,8 @@ function activateTab(tab) {
   document.querySelectorAll(".tabpanel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + tab));
   renderTabSwitch(group);
   document.getElementById("headline").textContent = HEADLINES[nav];
+  const gear = document.getElementById("settings-btn");
+  if (gear) gear.setAttribute("aria-pressed", String(tab === "settings"));
   document.querySelector("main").scrollTop = 0;
 }
 
@@ -172,6 +175,9 @@ function subitemAddFrom(el) {
 }
 const SHELL_CLICK = {
   "open-sync": () => openSyncModal(),
+  "open-settings": () => settingsToggle(),
+  "settings-back": () => settingsBack(),
+  "theme-set": (el) => settingsSetTheme(el.getAttribute("data-pref")),
   "hard-refresh": (el) => {
     el.classList.add("spinning");
     hardRefresh();
@@ -913,13 +919,13 @@ document.addEventListener("keydown", (e) => {
 function renderDeskFooter() {
   const el = document.getElementById("desk-foot");
   if (!el) return;
-  const state = (document.getElementById("sync-btn") || { dataset: {} }).dataset.state || "off";
+  const state = (document.getElementById("settings-btn") || { dataset: {} }).dataset.state || "off";
   const mins = syncOkAt ? Math.round((Date.now() - syncOkAt) / 60000) : null;
   const sync =
     state === "busy"
       ? "Syncing…"
       : state === "error"
-        ? "Sync failed · tap the cloud to retry"
+        ? "Sync failed · open Settings to retry"
         : state === "ok" && mins != null
           ? `Synced ${mins < 1 ? "just now" : `${mins} min ago`}`
           : localStorage.getItem("sync-token")
