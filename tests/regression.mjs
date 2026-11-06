@@ -11389,7 +11389,7 @@ await section("briefing headline: a crammed two-part headline is split for displ
 
 // ---------- Ask Jarvis (js/ask.js) and voice input (js/voice.js) ----------
 const ASK_KEY = "github_pat_" + "A1b2C3d4".repeat(6);
-const DISPATCH_PATH = "/repos/Jazz-H/Jazz2.0/actions/workflows/jarvis-ask.yml/dispatches";
+const DISPATCH_PATH = "/repos/Jazz-H/Jarvis/actions/workflows/jarvis-ask.yml/dispatches";
 // A mocked GitHub: the gist (GET/PATCH) and the workflow dispatch, with a log of every request
 function askGitHub({ files = {}, dispatch = 204, dispatchDelay = 0, expires = null } = {}) {
   const gist = {

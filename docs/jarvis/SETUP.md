@@ -141,7 +141,7 @@ including paid briefing runs, so if a key is lost, delete it right away. A month
 Anthropic console is the ceiling over all of this.
 1. Open https://github.com/settings/personal-access-tokens/new (a **fine-grained** token).
 2. **Token name:** `Jarvis Ask`. **Expiration:** custom, 1 year (the app warns you 2 weeks before).
-3. **Repository access:** *Only select repositories* → **Jazz2.0**.
+3. **Repository access:** *Only select repositories* → **Jarvis** (named Jazz2.0 before Nov 5, 2026; a key made then still works).
 4. **Permissions** → **Repository permissions** → **Actions: Read and write**. (Metadata: Read is
    added automatically.) Leave everything else as *No access*.
 5. **Generate token** and copy it (it starts with `github_pat_`).

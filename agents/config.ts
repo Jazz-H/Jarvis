@@ -155,7 +155,7 @@ export const CONFIG = {
   // VAPID_PRIVATE_KEY secret.
   push: {
     publicKey: "BF54qprNwJg833P74vJhM1ABNGzHJYmWsgq26TZi9ik7JLLmK_F_tMAuKGpkC_S7fO4-_Ci5anNk7T2jinq4YtQ",
-    subject: "https://jazz-h.github.io/Jazz2.0/",
+    subject: "https://jazz-h.github.io/Jarvis/",
     url: "./jazz2.0.html?tab=jarvis",
     reviewUrl: "./jazz2.0.html?tab=console&review=", // + the review id
     askUrl: "./jazz2.0.html?tab=console&ask=", // + the first answered question's id

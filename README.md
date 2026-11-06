@@ -7,7 +7,8 @@ Actions, writes a morning briefing that leads Home (see *Jarvis* below and `docs
 Clothes to buy live on the Shopping list under the Wardrobe category. (The old closet view
 was removed; its data is still loaded, synced and backed up, just not shown.)
 
-Live at **https://jazz-h.github.io/Jazz2.0/** (GitHub Pages, deployed from `main`).
+Live at **https://jazz-h.github.io/Jarvis/** (GitHub Pages, deployed from `main`). The repo was
+`Jazz-H/Jazz2.0` until Nov 5, 2026; the app at the old address cleans up after itself (`js/pwa.js`).
 
 ## Using the app
 

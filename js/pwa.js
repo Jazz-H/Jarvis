@@ -63,6 +63,28 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
       .register("sw.js", { updateViaCache: "none" })
       .catch((err) => console.log("SW registration skipped:", err));
   });
+  // The repo was renamed (Jazz2.0 → Jarvis, Nov 5 2026), which moved the app to /Jarvis/. The copy
+  // installed at the old address left a worker there that would keep showing notifications that open
+  // a page that's gone: drop its notification sign-up and the worker. Same site, so data and tokens stay.
+  const OLD_SCOPES = ["/Jazz2.0/"];
+  if (navigator.serviceWorker.getRegistrations)
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) =>
+        regs
+          .filter(
+            (r) =>
+              OLD_SCOPES.includes(new URL(r.scope).pathname) &&
+              !location.pathname.startsWith(new URL(r.scope).pathname),
+          )
+          .forEach((r) =>
+            (r.pushManager ? r.pushManager.getSubscription() : Promise.resolve(null))
+              .then((sub) => sub && sub.unsubscribe())
+              .catch(() => {})
+              .finally(() => r.unregister()),
+          ),
+      )
+      .catch(() => {});
   // An installed app that's switched back to resumes without loading, so the browser never looks
   // for a new version. Look when it comes back to the screen (at most every 10 minutes); a new
   // worker then takes over and the reload below picks up the deploy.

@@ -43,7 +43,7 @@ directly.
 - Agents run with no tools, no MCP, no settings and only the Anthropic key, and their output is zod-checked (`lib/run-agent.ts`).
 - The app writes `jazz2-data.json` (sync) and `jazz2-push.json` (its own file).
 - Sync's `fetchRemote` already pulls every gist file in one GET, so new output files come along on every sync for free (as `ingestBriefingFile` does).
-- **The repo (`Jazz-H/Jazz2.0`) is public.** Pages on a free plan requires that. So workflow logs, run inputs and uploaded artifacts can be seen by anyone. This shapes the Ask design below.
+- **The repo (`Jazz-H/Jarvis`, formerly `Jazz-H/Jazz2.0`) is public.** Pages on a free plan requires that. So workflow logs, run inputs and uploaded artifacts can be seen by anyone. This shapes the Ask design below.
 
 ## 3. Information architecture for the new tab
 
@@ -251,7 +251,7 @@ repo. (Check this against GitHub's docs again at build time.)
 ### Options
 
 **A. Dispatch on demand.**
-- The app adds the question to `jazz2-ask.json` in the gist, then calls `POST /repos/Jazz-H/Jazz2.0/actions/workflows/jarvis-ask.yml/dispatches` with only an opaque `{id}` as input.
+- The app adds the question to `jazz2-ask.json` in the gist, then calls `POST /repos/Jazz-H/Jarvis/actions/workflows/jarvis-ask.yml/dispatches` with only an opaque `{id}` as input.
 - The new workflow `jarvis-ask.yml` reads the pending questions from the gist and answers them all in one run. It writes `jazz2-answers.json` and sends a Web Push (tag `ask`).
 - While the Console is open, the app polls the gist every 10 s for up to 3 minutes. After that, the next sync or the push brings the answer.
 

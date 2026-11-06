@@ -12,7 +12,7 @@
 // Setup: docs/jarvis/SETUP.md section 9. The only secret is GITHUB_TOKEN in Script Properties: a
 // fine-grained token for this repo only with Actions read/write. It is never logged.
 
-const REPO = "Jazz-H/Jazz2.0";
+const REPO = "Jazz-H/Jarvis";
 const TZ = "America/New_York";
 const BRIEFING = "05:45"; // agents/config.ts briefingTime minus briefingLeadMinutes
 const REVIEW = "17:45"; // reviewTime minus reviewLeadMinutes, on Sundays
