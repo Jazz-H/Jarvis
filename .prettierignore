@@ -1,3 +1,23 @@
 node_modules
 .claude
 package-lock.json
+
+# Third-party, vendored verbatim — ONNX Runtime Web and the openWakeWord
+# models. Formatting a 49 KB minified bundle would be destructive and
+# pointless, and these keep their own licenses (see vendor/wake/NOTICE.md).
+# Previously only the explicit globs in the "format" script kept Prettier out
+# of here, so a bare `npx prettier --write .` would have rewritten them.
+vendor
+
+# Markdown is written by hand and not formatted. Prettier re-indents
+# continuation lines under list items, which reflows the prose rather than
+# normalising it — README.md alone would change 226 of its 1,125 lines.
+*.md
+
+# Captured API responses, kept byte-for-byte as the upstream service returned
+# them. Prettifying a fixture makes it no longer a faithful capture.
+agents/test/fixtures
+
+# Doc artifacts rather than project source: alarm-clock.gs is pasted into the
+# Google Apps Script editor as-is.
+docs

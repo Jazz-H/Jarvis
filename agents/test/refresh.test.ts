@@ -228,7 +228,13 @@ describe("card refresh", () => {
     });
 
     it("over the month's budget it stops, and the morning briefing doesn't", async () => {
-      const m = await morning({ "jazz2-refresh.json": JSON.stringify({ version: 1, month: "2026-10", costUsd: CONFIG.refresh.monthlyBudgetUsd }) });
+      const m = await morning({
+        "jazz2-refresh.json": JSON.stringify({
+          version: 1,
+          month: "2026-10",
+          costUsd: CONFIG.refresh.monthlyBudgetUsd,
+        }),
+      });
       const { subagents, ran } = stubs();
       expect(await runBriefing(deps(m.gist, { subagents }))).toMatchObject({
         status: "skipped",
