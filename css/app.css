@@ -8247,6 +8247,15 @@ details[open] > .wb-fold {
     position: sticky;
     top: 0;
   }
+  /* the side column starts level with the others (its own gap spaces the cards) */
+  .cn-side > #cn-brain {
+    margin-top: 0;
+  }
+  /* the hands-free button stays beside the greeting instead of at the far edge */
+  .home-desk .jv-hello-row {
+    justify-content: flex-start;
+    gap: 20px;
+  }
 }
 @media (max-width: 1199px) {
   .cn-main,
