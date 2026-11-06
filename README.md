@@ -243,7 +243,8 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   - The "Add a to-do" home-screen shortcut opens the form directly. To-dos are capped at
     200 characters.
 - **Groups.** Overdue (red), Today, Anytime (no date), Tomorrow, the next five weekdays, and
-  Later.
+  Later. A repeating to-do shows on its day within the week; Later leaves it out, since the
+  Recurring card lists it with its next date.
 - **Completing.** Only the left checkbox completes an item, and an 8-second Undo follows.
   Tapping the text opens the edit form: title, a date picker, and "add sub-items, one per
   line".

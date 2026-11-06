@@ -18037,6 +18037,57 @@ await section("Top 3: a repeating to-do ticked today counts as done; one moved t
   await ctx.close();
 });
 
+await section("To-Do: repeating to-dos stay out of Later (the Recurring card lists them)", async () => {
+  const row = (id, text, due, repeat) => ({
+    id,
+    text,
+    done: false,
+    due,
+    starred: false,
+    subitems: [],
+    completedAt: null,
+    ...(repeat ? { repeat } : {}),
+  });
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=todo",
+    seed: {
+      "todo-content": [
+        row("r1", "Change contacts", isoOffset(20), "monthly"),
+        row("r2", "Creatine", isoOffset(1), "daily"),
+        row("t1", "Renew passport", isoOffset(30)),
+      ],
+    },
+  });
+  const r = await page.evaluate(() => {
+    const groups = {};
+    let cur = null;
+    document.querySelectorAll("#todo-list > *").forEach((el) => {
+      if (el.classList.contains("cat-title")) cur = groups[el.textContent.trim()] = [];
+      else if (cur && el.textContent.trim()) cur.push(el.textContent.replace(/\s+/g, " "));
+    });
+    const recurring = document.getElementById("todo-recurring")?.textContent || "";
+    return { groups, recurring };
+  });
+  const later = (r.groups.Later || []).join(" | ");
+  check(
+    "Later keeps one-off to-dos but leaves repeating ones out",
+    later.includes("Renew passport") && !later.includes("Change contacts"),
+    r.groups,
+  );
+  check(
+    "a repeating one due this week still shows on its day",
+    (r.groups.Tomorrow || []).join(" ").includes("Creatine"),
+    r.groups,
+  );
+  check(
+    "and the Recurring card still lists both",
+    r.recurring.includes("Change contacts") && r.recurring.includes("Creatine"),
+    r.recurring,
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

@@ -629,7 +629,9 @@ function renderTodoPanel() {
     html += `<div id="todo-list">`;
     let firstGroup = true;
     todoGroups().forEach((g) => {
-      let items = todoList.filter((t) => !t.done && todoGroup(t) === g.key);
+      // A repeating to-do shows in the coming week when it's due; further out, the Recurring card
+      // (below) already lists it with its next date, so Later leaves it out
+      let items = todoList.filter((t) => !t.done && todoGroup(t) === g.key && !(g.key === "later" && t.repeat));
       if (g.key === "overdue" || g.key === "later")
         items = items.slice().sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
       const washIso = washGroups.get(g.key),
@@ -643,6 +645,9 @@ function renderTodoPanel() {
         html += todoRow(t);
       });
     });
+    // only repeating to-dos further out than a week: they're all under Recurring
+    if (firstGroup)
+      html += `<div class="empty">Nothing due this week. Your repeating to-dos are under Recurring.</div>`;
     html += `</div>`;
   }
 
