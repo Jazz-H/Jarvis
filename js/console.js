@@ -489,7 +489,12 @@ function askChains(entries) {
   });
   return [...chains.values()].map((list) => {
     list.sort((a, b) => a.at - b.at);
-    return { at: list[list.length - 1].at, n: list.length, html: () => list.map((q) => askEntryHtml(q)).join("") };
+    return {
+      at: list[list.length - 1].at,
+      n: list.length,
+      text: list[0].text,
+      html: () => list.map((q) => askEntryHtml(q)).join(""),
+    };
   });
 }
 // Captures from this week, and questions to Jarvis from today and yesterday (ask.js), newest first
@@ -499,7 +504,9 @@ function consoleFeedHtml() {
   if (q) return consoleSearchHtml(q);
   const all = [
     // a capture that was undone changed nothing, so it leaves the conversation
-    ...consoleFeed.filter((e) => !e.undone).map((e) => ({ at: e.at, n: 1, html: () => consoleEntryHtml(e) })),
+    ...consoleFeed
+      .filter((e) => !e.undone)
+      .map((e) => ({ at: e.at, n: 1, text: e.text, html: () => consoleEntryHtml(e) })),
     ...askChains(askFeedEntries()),
   ].sort((a, b) => b.at - a.at);
   const count = all.reduce((n, e) => n + e.n, 0);
@@ -521,11 +528,25 @@ function consoleFeedHtml() {
       ? `<span class="ak-on ak-thinking cn-fold-wait">Thinking<span class="ak-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`
       : ""
   }<button type="button" class="jv-chip-sm" data-action="console-feed-toggle" aria-expanded="${open}" aria-controls="cn-feed-body">${open ? "Hide" : "Show"} · ${count}</button></div>`;
+  // Today reads in full; each earlier day folds into one thread row (the day, how it started, how
+  // many messages) that opens in place
+  const today = addDaysIso(0);
   const body = days
-    .map(
-      (d) =>
-        `<div class="cn-day" data-day="${d.iso}">${escapeHtml(consoleDayLabel(d.iso))}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`,
-    )
+    .map((d) => {
+      const label = escapeHtml(consoleDayLabel(d.iso));
+      if (d.iso === today)
+        return `<div class="cn-day" data-day="${d.iso}">${label}</div><ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>`;
+      const isOpen = consoleDaysOpen.has(d.iso);
+      const n = d.list.reduce((k, e) => k + e.n, 0);
+      // the day's first message, as the thread's subject
+      const first = d.list[d.list.length - 1].text || "";
+      const row = `<button type="button" class="cn-thread${isOpen ? " open" : ""}" data-action="console-day-toggle" data-date="${d.iso}" aria-expanded="${isOpen}">
+          <span class="cn-thread-text"><b>${label}</b><span>${escapeHtml(first)}</span></span>
+          <span class="cn-thread-n">${n}</span>${CHEVRON_DOWN}</button>`;
+      return `<div class="cn-day-thread" data-day="${d.iso}">${row}${
+        isOpen ? `<ul class="cn-feed">${d.list.map((e) => e.html()).join("")}</ul>` : ""
+      }</div>`;
+    })
     .join("");
   // older questions load in place; once they're all showing, Clear history sits at the end
   const earlier = askEarlierCount();
@@ -535,6 +556,14 @@ function consoleFeedHtml() {
       ? `<button type="button" class="cn-link cn-clear" data-action="ask-clear">Clear history</button>`
       : "";
   return `${head}<div id="cn-feed-body"${open ? "" : " hidden"}>${body}${foot}</div>`;
+}
+// Earlier days opened this session (they start folded each time the app opens)
+const consoleDaysOpen = new Set();
+function consoleDayToggle(iso) {
+  if (consoleDaysOpen.has(iso)) consoleDaysOpen.delete(iso);
+  else consoleDaysOpen.add(iso);
+  const feed = document.getElementById("cn-feed");
+  if (feed) feed.innerHTML = consoleFeedHtml();
 }
 // ---- history column (big screens): search, the days with something in them, how much is kept ----
 let consoleSearch = "";
@@ -591,13 +620,14 @@ function consoleGoDay(iso) {
   const input = document.getElementById("cn-search");
   if (input) input.value = "";
   if (noonOf(iso).getTime() < noonOf(addDaysIso(-1)).getTime()) askShowAll = true;
+  consoleDaysOpen.add(iso); // a day picked in the history column opens
   if (!consoleFeedOpen()) {
     try {
       localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1");
     } catch (e) {}
   }
   renderConsole();
-  const day = document.querySelector(`#cn-feed .cn-day[data-day="${iso}"]`);
+  const day = document.querySelector(`#cn-feed [data-day="${iso}"]`);
   if (day) day.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 

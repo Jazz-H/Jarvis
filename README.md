@@ -230,6 +230,9 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
   not overdue until the last). **Repeat:** Never, Daily, Weekdays, Weekly, 2 weeks, Monthly,
   Yearly, or **Custom** (an "every N weeks | months" stepper). A line underneath reads the choice
   back; sub-items fold away behind **+ Add sub-items**.
+- **Skip:** a repeating to-do has a skip icon (⏭) on its row, on Home and To-Do, and **Skip this
+  one · it moves to …** in its edit sheet (**Skip** beside Done in the desktop Details pane). It moves
+  the to-do to its next date without counting it done (nothing goes to Completed). Undo is in the toast.
 - **Types:** each to-do shows a small colored icon for its type, guessed from its words
   (health, appointment, fitness, birthday, social, travel, car, pet, work, call, errand,
   chores; a time like "@ 9am" reads as an appointment). Edit's **Type** row shows the
@@ -292,6 +295,10 @@ its own, off the tab bar: the gear, tapped again, or **‹ Back** returns to the
 - **Order on a phone:** the box, the switch and hint, last week's review, then the conversation.
   A capture that was undone changed nothing, so it leaves the conversation; a capture's reply
   reads on one line ("Added 1 to-do · To-Do →").
+- **Earlier days fold up:** today reads in full; each earlier day is one thread row (the day, its
+  first message, how many) that opens in place with a tap and folds again with another. They start
+  folded each time the app opens; a day picked in the history column, or an answer opened from a
+  notification, opens its day.
 - **Under the box:** a small **Jarvis | List** switch, guessed from what you type (a
   question word first or a "?" at the end means Jarvis; several items, or anything else, means
   Quick list) and labelled "Switched by what you typed"; tapping it locks the choice until the
@@ -691,7 +698,7 @@ only turning sync off still asks first.
   Recurring and Workouts: clicking a to-do selects it (highlighted) and opens it in the Details
   pane instead of the Edit dialog: the title (saves on Enter or when you click away), the same
   When / Repeat / Type chips (each tap saves), the star, **Steps** (sub-items: tick, delete, add
-  with Enter), **Done**, **Ask Jarvis** (hands "Help me with this to-do: …" to Console) and
+  with Enter), **Done**, **Skip** (repeating ones), **Ask Jarvis** (hands "Help me with this to-do: …" to Console) and
   Delete. The selection lasts until you reload. **Console:** a **history** column (search
   everything kept, questions and answers alike, Esc clears; the days with something in them,
   click one to jump there, older ones load as needed; how much is kept and Clear history, the only one on big screens) | the box

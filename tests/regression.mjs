@@ -10736,12 +10736,42 @@ await section("Console: feed normalizer drops junk, caps 7 days / 50 entries, su
       { kind: "ask", at: Date.now() - 3 * 864e5, text: "earlier" },
     ]);
     renderConsole();
-    return [...document.querySelectorAll("#cn-feed .cn-day")].map((l) => l.textContent);
+    return [...document.querySelectorAll("#cn-feed .cn-day, #cn-feed .cn-thread-text b")].map((l) => l.textContent);
   });
   check(
     "feed is grouped Today, Yesterday, then earlier days",
     days.length === 3 && days[0] === "Today" && days[1] === "Yesterday",
     days,
+  );
+  // earlier days fold into one thread row each: the day, how it started, a count; a tap opens it
+  const fold = await page.evaluate(() => {
+    const feed = document.getElementById("cn-feed");
+    const shown = () => [...feed.querySelectorAll(".cn-entry .cn-said")].map((p) => p.firstChild.textContent.trim());
+    const rows = [...feed.querySelectorAll(".cn-thread")].map((b) => ({
+      text: b.querySelector(".cn-thread-text span").textContent,
+      n: b.querySelector(".cn-thread-n").textContent,
+      expanded: b.getAttribute("aria-expanded"),
+    }));
+    const before = shown();
+    feed.querySelector('.cn-thread[data-date="' + addDaysIso(-1) + '"]').click();
+    const opened = shown();
+    const again = feed.querySelector('.cn-thread[data-date="' + addDaysIso(-1) + '"]').getAttribute("aria-expanded");
+    feed.querySelector('.cn-thread[data-date="' + addDaysIso(-1) + '"]').click();
+    return { rows, before, opened, again, after: shown() };
+  });
+  check(
+    "earlier days are folded threads with their first message and a count",
+    fold.rows.length === 2 &&
+      fold.rows[0].text === "yesterday" &&
+      fold.rows[0].n === "1" &&
+      fold.rows.every((x) => x.expanded === "false") &&
+      JSON.stringify(fold.before) === '["today"]',
+    fold,
+  );
+  check(
+    "a tap opens that day in place, another folds it again",
+    JSON.stringify(fold.opened) === '["today","yesterday"]' && fold.again === "true" && fold.after.length === 1,
+    fold,
   );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
@@ -13072,12 +13102,13 @@ await section("ask: the conversation keeps today and yesterday; Earlier shows th
   });
   const { ctx, page, errors } = await openAsk({ route: gh.route, seed: askSync({ "ask-questions": qs }) });
   const feed = await page.evaluate(() => {
+    for (let b; (b = document.querySelector('#cn-feed .cn-thread[aria-expanded="false"]'));) b.click(); // each tap redraws
     const ats = [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) =>
       e.getAttribute("data-ask-entry"),
     );
     return {
       n: ats.length,
-      labels: [...document.querySelectorAll("#cn-feed .cn-day")].map((l) => l.textContent),
+      labels: [...document.querySelectorAll("#cn-feed .cn-day, #cn-feed .cn-thread-text b")].map((l) => l.textContent),
     };
   });
   check(
@@ -13086,6 +13117,9 @@ await section("ask: the conversation keeps today and yesterday; Earlier shows th
     feed,
   );
   await page.tap('[data-action="ask-earlier"]');
+  await page.evaluate(() => {
+    for (let b; (b = document.querySelector('#cn-feed .cn-thread[aria-expanded="false"]'));) b.click(); // each tap redraws
+  });
   const h = await page.evaluate(() => ({
     ids: [...document.querySelectorAll("#cn-feed [data-ask-entry]")].map((e) => e.getAttribute("data-ask-entry")),
     earlier: !!document.querySelector('[data-action="ask-earlier"]'),
@@ -15674,7 +15708,11 @@ await section("desktop: Console history column", async () => {
   check(
     "Escape clears the search",
     (await page.inputValue("#cn-search")) === "" &&
-      (await page.evaluate(() => document.querySelectorAll("#cn-feed .cn-entry").length)) === 2,
+      (await page.evaluate(
+        () =>
+          document.querySelectorAll("#cn-feed .cn-entry").length +
+          document.querySelectorAll("#cn-feed .cn-thread").length,
+      )) === 2,
     "",
   );
   await page.click(".cn-hist-day >> nth=1");
@@ -15682,9 +15720,10 @@ await section("desktop: Console history column", async () => {
   check(
     "a day jumps to it in the conversation",
     await page.evaluate(() => {
-      const d = document.querySelectorAll("#cn-feed .cn-day")[1];
+      const d = document.querySelectorAll("#cn-feed [data-day]")[1];
       const r = d && d.getBoundingClientRect();
-      return !!r && r.top >= 0 && r.bottom <= innerHeight;
+      // and the picked day opens
+      return !!r && r.top >= 0 && r.top <= innerHeight && !!d.querySelector(".cn-entry");
     }),
     "",
   );
@@ -18280,6 +18319,57 @@ await section("Console: last week's review above the conversation on a phone; un
   check("the review comes before the conversation", r.above, r);
   check("an undone capture isn't shown", r.text.includes("buy dog food") && !r.text.includes("next payday"), r.text);
   check("a capture's reply and its link share one line", r.oneLine, r);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("To-do Skip: a repeating to-do moves to its next date without counting as done", async () => {
+  const today = new Date().toLocaleDateString("en-CA");
+  const seed = {
+    "todo-content": [
+      { id: "t-trash", text: "Take out trash", done: false, due: today, repeat: "weekly" },
+      { id: "t-once", text: "Call mom", done: false, due: today },
+    ],
+  };
+  const { ctx, page, errors } = await openApp({ seed });
+  const week = await page.evaluate(() => addDaysIso(7));
+  const state = () =>
+    page.evaluate(() => {
+      const t = todoList.find((x) => x.id === "t-trash");
+      return { due: t.due, done: t.done, copies: todoList.filter((x) => x.seriesId === "t-trash").length };
+    });
+  const rows = await page.evaluate(() => ({
+    trash: !!document.querySelector('#panel-home [data-action="todo-skip"][data-todo-id="t-trash"]'),
+    once: !!document.querySelector('#panel-home [data-action="todo-skip"][data-todo-id="t-once"]'),
+  }));
+  check("Home's row of a repeating to-do has Skip; a one-off doesn't", rows.trash && !rows.once, rows);
+  await page.tap('#panel-home [data-action="todo-skip"][data-todo-id="t-trash"]');
+  const a = await state();
+  const toast = await page.evaluate(() => document.getElementById("toast").textContent);
+  check("Skip moves it a week on, with nothing marked done", a.due === week && !a.done && a.copies === 0, a);
+  check("the toast says so, with Undo", /Skipped · next/.test(toast) && /Undo/.test(toast), toast);
+  await page.tap("#toast .toast-undo");
+  check("Undo puts today back", (await state()).due === today);
+  // the edit sheet: Skip names the date it moves to, closes the sheet and skips
+  await page.tap('#panel-home [data-action="home-todo-edit"][data-todo-id="t-trash"]');
+  const sheet = await page.evaluate(() => document.querySelector("#modal-body .tde-skip")?.textContent || "");
+  check("the edit sheet offers Skip, naming the next date", /Skip this one · it moves to/.test(sheet), sheet);
+  await page.tap("#modal-body .tde-skip");
+  const b = await state();
+  const open = await page.evaluate(() => !document.getElementById("modal-backdrop").hasAttribute("inert"));
+  check("Skip from the sheet closes it and skips", !open && b.due === week && b.copies === 0, { open, b });
+  // To-Do's list has it too (back on today, inside the coming week)
+  await page.evaluate(() => {
+    todoList.find((x) => x.id === "t-trash").due = addDaysIso(0);
+    renderHome();
+    activateTab("todo");
+  });
+  check(
+    "To-Do's row has Skip as well",
+    await page.evaluate(
+      () => !!document.querySelector('#panel-todo [data-action="todo-skip"][data-todo-id="t-trash"]'),
+    ),
+  );
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

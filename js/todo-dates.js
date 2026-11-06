@@ -188,6 +188,43 @@ function occursOn(t, iso) {
   }
   return false;
 }
+// Skip: a repeating to-do moves on to its next date without counting as done (nothing goes to
+// Completed, the checklist stays as it is). Undo puts the date back.
+function skipRepeating(id) {
+  const t = todoList.find((x) => x.id === id);
+  if (!t || !t.repeat || t.done) return;
+  const prev = t.due;
+  if ((t.repeat === "monthly" || t.repeat === "months" || t.repeat === "yearly") && !t.repeatDay)
+    t.repeatDay = todoRepeatDay(t); // pin it before the first clamp, as completing does
+  const next = skipNextIso(t);
+  t.due = next;
+  saveContent("todo-content", todoList, { toast: false });
+  renderHome();
+  showUndoToast(`Skipped · next ${dueLabel(next)}`, () => {
+    const cur = todoList.find((x) => x.id === id); // a sync may have replaced the object
+    if (!cur) return;
+    cur.due = prev;
+    saveContent("todo-content", todoList);
+    renderHome();
+  });
+}
+// The date a skip (or a tick) moves a repeating to-do to: the one after this time, and after today
+function skipNextIso(t) {
+  const today = addDaysIso(0);
+  const occurrence = t.due || today;
+  const monthly = t.repeat === "monthly" || t.repeat === "months" || t.repeat === "yearly";
+  const pinned = monthly && !t.repeatDay ? { ...t, repeatDay: todoRepeatDay(t) } : t;
+  let next = todoNext(occurrence, pinned);
+  if (occurrence <= today) while (next <= today) next = todoNext(next, pinned);
+  return next;
+}
+const SKIP_ICON =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 5 8 7-8 7z"/><path d="M18 5v14"/></svg>';
+function skipBtnHtml(t) {
+  return t.repeat && !t.done
+    ? `<button class="todo-icon-btn todo-skip" style="order:3;" data-action="todo-skip" data-todo-id="${t.id}" aria-label="Skip this one: ${escapeAttr(t.text)}" title="Skip to the next date">${SKIP_ICON}</button>`
+    : "";
+}
 function completeRepeating(t) {
   const today = addDaysIso(0);
   const occurrence = t.due || today;

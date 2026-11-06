@@ -209,6 +209,13 @@ const SHELL_CLICK = {
     const t = homeRowTodo(el);
     if (t && !t.done) completeTodo(t.id);
   },
+  // Skip a repeating to-do to its next date (row icon, details pane, or the edit sheet, which closes)
+  "todo-skip": (el) => {
+    const t = homeRowTodo(el);
+    if (!t || t.done || !t.repeat) return;
+    if (el.getAttribute("data-close")) closeModal();
+    skipRepeating(t.id);
+  },
   "home-todo-toggle": (el) => {
     const t = homeRowTodo(el);
     if (t && t.done) toggleTodo(t.id);
@@ -228,6 +235,11 @@ const SHELL_CLICK = {
     if (isIsoDate(iso)) consoleGoDay(iso);
   },
   "console-search-clear": () => consoleSearchClear(),
+  // an earlier day's folded thread (consoleFeedHtml): a real date only
+  "console-day-toggle": (el) => {
+    const iso = el.getAttribute("data-date");
+    if (isIsoDate(iso)) consoleDayToggle(iso);
+  },
   "tdp-ask": (el) => {
     const t = homeRowTodo(el);
     if (t) consoleHandOff(`Help me with this to-do: ${t.text}`);

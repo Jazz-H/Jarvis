@@ -1135,14 +1135,24 @@ function askAgain(id) {
 function askFocusEntry(id) {
   const inFeed = document.querySelector(`#cn-feed [data-ask-entry="${CSS.escape(id)}"]`);
   let el = inFeed;
-  if (!el && loadAskEntries().some((e) => e.id === id)) {
-    // an older question: show the whole conversation and open it
-    askShowAll = true;
+  const entries = loadAskEntries();
+  const entry = entries.find((e) => e.id === id);
+  if (!el && entry) {
+    // an earlier day's question: open its day's thread (placed by the chain's newest message), and
+    // if it's older than the conversation shows, the whole conversation too
+    const root = entry.thread || entry.id;
+    const newest = Math.max(...entries.filter((e) => (e.thread || e.id) === root).map((e) => e.at));
+    consoleDaysOpen.add(isoDate(new Date(newest)));
     try {
       localStorage.setItem(CONSOLE_FEED_OPEN_KEY, "1");
     } catch (e) {}
     renderConsole();
     el = document.querySelector(`#cn-feed [data-ask-entry="${CSS.escape(id)}"]`);
+    if (!el) {
+      askShowAll = true;
+      renderConsole();
+      el = document.querySelector(`#cn-feed [data-ask-entry="${CSS.escape(id)}"]`);
+    }
   }
   if (!el) return false;
   el.classList.add("ak-hit");

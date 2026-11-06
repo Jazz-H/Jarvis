@@ -259,6 +259,7 @@ function homeRowHtml(t, meta = []) {
   return `<div class="todo-wrap" data-todo-id="${t.id}"><div class="item ${t.done ? "checked" : ""}">
       <button class="todo-check" role="checkbox" ${check}><span class="box">${BOX_CHECK_SVG}</span></button>
       <div class="body" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}${t.starred && !t.done ? `<span class="home-star" aria-label="Starred">${STAR_FILLED_ICON}</span>` : ""}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
+      ${skipBtnHtml(t)}
     </div></div>`;
 }
 function homeRingHtml(done, total) {

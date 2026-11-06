@@ -288,6 +288,15 @@ function editTodo(id) {
         label: `<button type="button" class="tde-subs-toggle" data-action="tde-open-subs">${SMALL_PLUS_ICON} Add sub-items</button>`,
       },
       { key: "subs", label: "Sub-items — one per line", type: "textarea" },
+      // a repeating to-do can skip this time: it moves on to its next date (nothing else changes)
+      ...(t.repeat && !t.done
+        ? [
+            {
+              type: "html",
+              label: `<button type="button" class="tde-skip" data-action="todo-skip" data-todo-id="${t.id}" data-close="1">${SKIP_ICON}Skip this one · it moves to ${escapeHtml(dueLabel(skipNextIso(t)))}</button>`,
+            },
+          ]
+        : []),
     ],
     { text: t.text },
     (v) => {
@@ -437,6 +446,7 @@ function todoDetailsHtml() {
       </div>
       <div class="modal-actions tdp-actions">
         <button class="modal-btn primary" data-action="home-todo-complete" data-todo-id="${t.id}">Done</button>
+        ${t.repeat && !t.done ? `<button class="modal-btn" data-action="todo-skip" data-todo-id="${t.id}">Skip</button>` : ""}
         <button class="modal-btn tdp-ask" data-action="tdp-ask" data-todo-id="${t.id}">Ask Jarvis</button>
       </div>
       <button class="tdp-del" data-action="todo-delete" data-todo-id="${t.id}">Delete to-do</button>
@@ -592,6 +602,7 @@ function renderTodoPanel() {
         <div class="item ${t.done ? "checked" : ""}${sel ? " sel" : ""}"${sel ? ' aria-current="true"' : ""}>
           <button class="todo-check" role="checkbox" aria-checked="${t.done}" aria-label="Complete: ${escapeAttr(t.text)}" data-action="home-todo-complete" data-todo-id="${t.id}"><span class="box">${BOX_CHECK_SVG}</span></button>
           <div class="body" role="button" tabindex="0" data-action="home-todo-edit" data-todo-id="${t.id}"><div class="title">${kindIconHtml(t)}${escapeHtml(t.text)}</div>${meta.length ? `<div class="todo-meta">${meta.join(" · ")}</div>` : ""}</div>
+          ${skipBtnHtml(t)}
           <button class="todo-icon-btn ${t.starred ? "starred" : ""}" style="order:3;" data-action="todo-star" data-todo-id="${t.id}" aria-label="${t.starred ? "Unstar" : "Star"} to-do">${t.starred ? STAR_FILLED_ICON : STAR_ICON}</button>
           ${subs.length ? `<button class="todo-icon-btn ${expanded ? "active" : ""}" style="order:4;" data-action="todo-expand" data-todo-id="${t.id}" aria-label="${expanded ? "Hide" : "Show"} sub-items" aria-expanded="${expanded}">${SUBLIST_ICON}</button>` : ""}
         </div>
