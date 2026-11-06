@@ -17976,6 +17976,67 @@ await section(
   },
 );
 
+await section("Top 3: a repeating to-do ticked today counts as done; one moved to a later day drops out", async () => {
+  const today = isoOffset(0);
+  const b = briefingFixture({});
+  b.top3 = [
+    { id: "r1", text: "Creatine (morning)", why: "Before the office" },
+    { id: "t2", text: "Call mom", why: "" },
+    { id: "t3", text: "Pay rent", why: "" },
+  ];
+  const { ctx, page, errors } = await openApp({
+    hour: 21,
+    seed: {
+      "jarvis-briefing": b,
+      "home-cards": HOME_CARDS_OPEN,
+      "todo-content": [
+        {
+          id: "r1",
+          text: "Creatine (morning)",
+          done: false,
+          due: today,
+          repeat: "daily",
+          starred: false,
+          subitems: [],
+          completedAt: null,
+        },
+        { id: "t2", text: "Call mom", done: false, due: today, starred: false, subitems: [], completedAt: null },
+        { id: "t3", text: "Pay rent", done: false, due: isoOffset(2), starred: false, subitems: [], completedAt: null },
+      ],
+    },
+  });
+  const card = () =>
+    page.evaluate(() => ({
+      count: document.getElementById("jv-top3-count")?.textContent,
+      rows: [...document.querySelectorAll("#jv-top3 .jv-top3 .todo-wrap, #jv-top3 .jv-top3 > *")].length,
+      text: document.querySelector("#jv-top3")?.textContent.replace(/\s+/g, " ") || "",
+    }));
+  const before = await card();
+  check(
+    "a pick moved to a later day isn't in today's Top 3",
+    !before.text.includes("Pay rent") && before.count === "0 of 2 done",
+    before,
+  );
+  await page.evaluate(() => completeRepeating(todoList.find((t) => t.id === "r1")));
+  const after = await card();
+  check(
+    "ticking the daily one: it stays in Top 3 as done today, not as tomorrow's",
+    after.count === "1 of 2 done" && after.text.includes("Creatine (morning)"),
+    after,
+  );
+  const said = await page.evaluate(() => wakeSayTop3()[0]);
+  check("voice agrees", said === "1 of 2 done. Next: Call mom.", said);
+  check(
+    "the series itself moved on to tomorrow, untouched",
+    await page.evaluate(
+      (d) => todoList.find((t) => t.id === "r1").due === d && !todoList.find((t) => t.id === "r1").done,
+      isoOffset(1),
+    ),
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

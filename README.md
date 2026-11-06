@@ -82,7 +82,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   Jarvis from today's, overdue and undated ones (deadlines, money, how long it's been overdue,
   stars, today's plans), each with its reason ("Before payday"). They're your own to-do rows:
   tick one (Undo) or tap it to edit; "1 of 3 done" keeps score, a deleted one drops out and an
-  old briefing's aren't shown. Code checks every pick against your to-dos (the text is always
+  old briefing's aren't shown. A repeating to-do ticked today stays as done (today's done copy), not
+  as its next day's; one moved to a later day drops out (`briefingTop3Todos`, voice too). Code checks every pick against your to-dos (the text is always
   yours) and picks them itself when the model doesn't (overdue oldest first, then today's
   starred, today's, starred undated ones). Ask sees them with whether each is done, so the
   **Evening Top 3 recap** check-in (one tap in Jarvis's brain) can tell you how the day went.

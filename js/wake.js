@@ -458,8 +458,7 @@ function wakeSayBriefing() {
 }
 function wakeSayTop3(quietIfNone = false) {
   const b = loadBriefing();
-  const picks =
-    b && b.date === addDaysIso(0) ? b.top3.map((x) => todoList.find((t) => t.id === x.id)).filter(Boolean) : [];
+  const picks = briefingTop3Todos(b).map((p) => p.t); // the same rules as Home's card
   if (!picks.length) return quietIfNone ? [] : ["There's no Top 3 for today."];
   const open = picks.filter((t) => !t.done);
   if (!open.length) return ["Your Top 3 are all done."];

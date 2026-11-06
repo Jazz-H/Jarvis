@@ -670,18 +670,28 @@ function briefingSpeak() {
 }
 // Today's Top 3 as Home's own to-do rows (tick, tap to edit), with Jarvis's reason underneath.
 // A to-do that's since been deleted drops out; a done one stays, ticked, so the three read as a score.
-function briefingTop3Html(b) {
-  if (b.date !== addDaysIso(0) || !b.top3.length) return "";
-  const rows = b.top3
+// Today's Top 3 as live to-dos, each {t, why}. A repeating to-do ticked today has already moved on to
+// its next day, so today's done copy (completeRepeating: seriesId, due today) stands in for it; one
+// that's been moved to a later day isn't today's any more and drops out. Shared with voice (wake.js).
+function briefingTop3Todos(b) {
+  const today = addDaysIso(0);
+  if (!b || b.date !== today) return [];
+  return b.top3
     .map((x) => {
       const t = todoList.find((y) => y.id === x.id);
-      return t ? homeRowHtml(t, x.why ? [escapeHtml(x.why)] : []) : "";
+      const doneToday = todoList.find((y) => y.seriesId === x.id && y.done && y.due === today);
+      const live = t && (t.done || !t.due || t.due <= today) ? t : doneToday || null;
+      return live ? { t: live, why: x.why } : null;
     })
     .filter(Boolean);
-  if (!rows.length) return "";
-  const done = b.top3.filter((x) => todoList.some((y) => y.id === x.id && y.done)).length;
+}
+function briefingTop3Html(b) {
+  const picks = briefingTop3Todos(b);
+  if (!picks.length) return "";
+  const rows = picks.map(({ t, why }) => homeRowHtml(t, why ? [escapeHtml(why)] : []));
+  const done = picks.filter(({ t }) => t.done).length;
   // closed, it names the next one to do
-  const next = b.top3.map((x) => todoList.find((y) => y.id === x.id)).find((t) => t && !t.done);
+  const next = (picks.find(({ t }) => !t.done) || {}).t;
   return collapsibleCard({
     id: "jv-top3",
     cls: "home-card jv-card",
