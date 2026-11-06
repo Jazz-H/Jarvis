@@ -68,6 +68,17 @@ function settingsHtml() {
       <div class="cn-switch set-theme" role="group" aria-label="Theme">${theme}</div>
       <p class="set-note">System follows your phone's light or dark setting.</p>
     </section>
+    <div class="jv-label"><span>Your week</span><i></i></div>
+    <section class="card set-card">
+      <div class="set-text"><b>Work from home</b><span>${escapeHtml(settingsHomeDaysText())}</span></div>
+      <div class="cn-switch set-days" role="group" aria-label="Days you work from home">${SETTINGS_WEEKDAYS.map(
+        ([d, short, name]) => {
+          const on = jarvisSettings.homeDays.includes(d);
+          return `<button type="button" class="cn-seg${on ? " on" : ""}" data-action="home-day-toggle" data-day="${d}" aria-pressed="${on}" aria-label="${name}">${short}</button>`;
+        },
+      ).join("")}</div>
+      <p class="set-note">On these days the outfit is comfortable instead of business casual. Synced to your other devices.</p>
+    </section>
     <div class="jv-label"><span>Notifications</span><i></i></div>
     <section class="card set-card">
       ${row("Phone notifications", escapeHtml(SETTINGS_PUSH[push] || "Off"), pushBtn)}
@@ -80,6 +91,30 @@ function settingsHtml() {
       ${row("Reload the app", "Fetches the newest version; your data is kept", `<button type="button" class="jv-chip-sm" data-action="hard-refresh">Reload</button>`)}
     </section>
   </div>`;
+}
+const SETTINGS_WEEKDAYS = [
+  [1, "Mon", "Monday"],
+  [2, "Tue", "Tuesday"],
+  [3, "Wed", "Wednesday"],
+  [4, "Thu", "Thursday"],
+  [5, "Fri", "Friday"],
+];
+function settingsHomeDaysText() {
+  const names = SETTINGS_WEEKDAYS.filter(([d]) => jarvisSettings.homeDays.includes(d)).map(([, , n]) => n + "s");
+  if (!names.length) return "Never: every weekday at the office";
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+// A weekday on or off as a home day; the outfit on Home follows at once
+function settingsToggleHomeDay(day) {
+  const d = Number(day);
+  if (!SETTINGS_WEEKDAYS.some(([x]) => x === d)) return;
+  const set = new Set(jarvisSettings.homeDays);
+  if (set.has(d)) set.delete(d);
+  else set.add(d);
+  jarvisSettings.homeDays = [...set].sort();
+  saveBrain("jarvis-settings");
+  renderSettings();
+  renderHome();
 }
 function renderSettings() {
   const el = document.getElementById("panel-settings");

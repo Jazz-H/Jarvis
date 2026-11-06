@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { runCalendar, calendarSpec } from "../subagents/calendar.ts";
+import { runCalendar, calendarSpec, clipSummary } from "../subagents/calendar.ts";
 import { runInbox, inboxSpec, checkBills, sameName } from "../subagents/inbox.ts";
 import { runShopper, carrierOf, digestPackages, orderExcerpt, orderLine } from "../subagents/shopper.ts";
 import { runBriefing, defaultSubagents, type Subagents } from "../jarvis.ts";
@@ -58,6 +58,29 @@ describe("calendar sub-agent", () => {
     expect(d.specs[0].prompt).toContain('<untrusted_data source="calendar">');
     expect(card.summary).toBe("Busy middle of the day; free after 4.");
     expect(card.events).toHaveLength(7);
+  });
+
+  it("a line that runs long is clipped in code, not thrown away with the card", async () => {
+    const url = "https://calendar.google.com/x/basic.ics";
+    const long = `Busy day: standup first, then lunch. ${"Free stretch after that ".repeat(12)}until dinner.`;
+    const d = deps({ summary: long }, [[url, () => text(ICS)]]);
+    const card = await runCalendar(d, url, NOW);
+    expect(card.summary).toBe("Busy day: standup first, then lunch.");
+    expect(card.events).toHaveLength(7);
+    expect(clipSummary("word ".repeat(80)).endsWith("…")).toBe(true);
+    expect(clipSummary("word ".repeat(80)).length).toBeLessThanOrEqual(200);
+  });
+
+  it("when the model fails, code writes the line and the events stay", async () => {
+    const url = "https://calendar.google.com/x/basic.ics";
+    const d = deps({}, [[url, () => text(ICS)]]);
+    d.run = async () => {
+      throw new Error("output didn't match its schema");
+    };
+    const card = await runCalendar(d, url, NOW);
+    expect(card.events).toHaveLength(7);
+    expect(card.summary).toMatch(/^\d+ events? today/);
+    expect(d.trace.events.some((e) => e.event === "summary by code")).toBe(true);
   });
 
   it("skips the model on an empty day", async () => {

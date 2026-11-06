@@ -9115,12 +9115,17 @@ a.jv-track-icon svg {
   font-size: 13px;
   color: var(--text-dim);
 }
-.set-theme {
+.set-theme,
+.set-days {
   display: flex;
   margin: 12px 0 8px;
 }
-.set-theme .cn-seg {
+.set-theme .cn-seg,
+.set-days .cn-seg {
   flex: 1;
+}
+.set-card > .set-text:first-child {
+  padding-top: 12px;
 }
 /* Console on a phone: last week's review sits above the conversation, not after it */
 @media (max-width: 1199px) {

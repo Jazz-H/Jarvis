@@ -118,9 +118,10 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   "Milk-Bone dog treats" against "Busy Bone dog treats" still shows), with its timeline row, count, any briefing line about it (from any source: its name, two of its words like "Acme Glow", or its order number like "#48151"), a headline about it (the next line takes its place) and suggested to-dos about it, for 14 days, with Undo; the next briefings leave those out too), to-dos go to the Planner, rain to Weather. Until the calendar is connected
   the timeline offers **Connect your calendar** with the setup steps.
 - **Outfit:** today's outfit from your saved wardrobe (owned items only): top, bottom, shoes, and
-  a layer when it's rainy or under 60°F. Weekdays lean business casual; rain favors boots and a
-  jacket. It's plain rules, no AI. Under its title, chips give the day's context (high, rain,
-  Workday/Weekend), then each piece is a tile with its icon (Top, Bottom, Shoes, Layer), two
+  a layer when it's rainy or under 60°F. Office weekdays lean business casual; a work-from-home day
+  (Settings → Your week, Friday by default) dresses like the weekend, titled "Comfortable, at home";
+  rain favors boots and a jacket. It's plain rules, no AI. Under its title, chips give the day's context (high, rain,
+  Workday, Home day or Weekend), then each piece is a tile with its icon (Top, Bottom, Shoes, Layer), two
   across. A missing rain layer or coat is a dashed tile that opens Shopping. The round swap
   button (top right) shows another good option. Without at least a top and a bottom saved, the card
   says so instead of picking.
@@ -260,6 +261,8 @@ its own, off the tab bar: the gear, tapped again, or **‹ Back** returns to the
 - **Sync & backup:** where sync stands ("Synced 2 min ago", "Off: this device only") and **Open**
   for the Sync & backup dialog (tokens, backup, restore). A failed sync puts a red dot on the gear.
 - **Appearance:** System, Light or Dark.
+- **Your week:** the weekdays you work from home (Friday by default), synced. The outfit dresses
+  down on those days.
 - **Notifications:** on or off (Turn on, once sync is on).
 - **Jarvis:** Jarvis's brain (memory, the Notebook, how it writes, read aloud, reading voice, news
   topics, about you, check-ins), open by default here.
@@ -827,7 +830,8 @@ Setup: `docs/jarvis/SETUP.md`.
     logged or put in a prompt. Times in briefings and answers are written
     the 12-hour way, in Eastern time ("7:30 PM").
   - **News:** `claude-sonnet-5-5`, with data from Google News RSS.
-  - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only).
+  - **Calendar:** `claude-haiku-5-5`, from the calendar's secret iCal address (read-only). Code reads the events; the model only writes the one-line summary, which code clips to
+    200 characters. If the model fails, code writes the line itself, so the card (and Your day's events) stay.
   - **Inbox:** `claude-sonnet-5-5`, from Gmail (read-only; headers and snippets of unread Primary mail from the last 36 hours only).
   - **Deliveries (Package Tracker):** `claude-haiku-5-5`, from order and shipping emails in
     Gmail: Amazon, UPS, FedEx, USPS, DHL and any store's shipped, on-the-way, out-for-delivery and

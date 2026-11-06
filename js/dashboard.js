@@ -1105,9 +1105,12 @@ function dashOutfit(b, now = new Date()) {
   const w = b && b.date === addDaysIso(0) ? dashToday(b.weather) : null;
   const high = w ? w.highF : 70,
     rain = !!w && w.rainChanceMax >= 50;
+  const dow = now.getDay();
+  // a weekday worked from home (Settings → Your week) dresses like the weekend, labelled "Home day"
+  const homeDay = dow >= 1 && dow <= 5 && (jarvisSettings.homeDays || []).includes(dow);
   const hot = high >= 80,
     cold = high < 60,
-    workday = now.getDay() >= 1 && now.getDay() <= 5;
+    workday = dow >= 1 && dow <= 5 && !homeDay;
   const t = (i, re) => re.test(i.title);
   const score = {
     Tops: (i) =>
@@ -1145,12 +1148,13 @@ function dashOutfit(b, now = new Date()) {
   if (!top || !bottom) return null; // not enough of a wardrobe saved
   const layer = rain || cold ? pickFrom("Outerwear") : null;
   return {
-    title: `${workday ? "Business casual" : "Weekend"}${rain ? ", rain-ready" : hot ? ", warm day" : cold ? ", layered up" : ""}`,
+    title: `${workday ? "Business casual" : homeDay ? "Comfortable, at home" : "Weekend"}${rain ? ", rain-ready" : hot ? ", warm day" : cold ? ", layered up" : ""}`,
     items: [top, bottom, pickFrom("Shoes"), layer].filter(Boolean),
     needsLayer: (rain || cold) && !layer,
     rain,
     wx: w ? { high: w.highF, rain: w.rainChanceMax } : null,
     workday,
+    day: workday ? "Workday" : homeDay ? "Home day" : "Weekend",
   };
 }
 // Outfit card: the day's context as chips, then one tile per piece (2 × 2) with a line icon;
@@ -1188,7 +1192,7 @@ function dashOutfitHtml(b) {
   const chips = [
     o.wx ? `${Math.round(o.wx.high)}° high` : "",
     o.wx && o.wx.rain >= 20 ? `${o.wx.rain}% rain` : "",
-    o.workday ? "Workday" : "Weekend",
+    o.day,
   ].filter(Boolean);
   const tile = (i) => {
     const p = DASH_PIECES[i.cat] || { label: "", icon: "" };
@@ -1201,7 +1205,7 @@ function dashOutfitHtml(b) {
     id: "jv-outfit",
     cls: "home-card jv-card jv-outfit",
     title: "Outfit",
-    insight: escapeHtml(o.workday ? "Workday" : "Weekend"),
+    insight: escapeHtml(o.day),
     // closed, what to put on
     peek: escapeHtml(o.items.map((i) => i.title).join(", ")),
     body: `<div class="jv-outfit-head">

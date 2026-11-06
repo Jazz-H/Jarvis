@@ -9265,6 +9265,17 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
     hotWeekend,
   );
   check("pending items are never picked", !JSON.stringify(hotWeekend).includes("p1"));
+  // Friday is a work-from-home day unless Settings says otherwise
+  const homeFri = await pick(5, 72, 0);
+  check(
+    "a home Friday dresses down (sneakers, not boots)",
+    homeFri.title === "Comfortable, at home" && homeFri.items.includes("s1"),
+    homeFri,
+  );
+  await page.evaluate(() => (jarvisSettings.homeDays = []));
+  const officeFri = await pick(5, 72, 0);
+  check("with no home days, Friday is business casual again", officeFri.title === "Business casual", officeFri);
+  await page.evaluate(() => (jarvisSettings.homeDays = [5]));
   const card = await page.$(".jv-outfit");
   check("the outfit card is on Home", !!card);
   if (card) {
@@ -18152,8 +18163,9 @@ await section("Settings: the gear opens sync, appearance, notifications, Jarvis'
     s,
   );
   check(
-    "sections in order: Sync & backup, Appearance, Notifications, Jarvis, App",
-    JSON.stringify(s.sections) === JSON.stringify(["Sync & backup", "Appearance", "Notifications", "Jarvis", "App"]),
+    "sections in order: Sync & backup, Appearance, Your week, Notifications, Jarvis, App",
+    JSON.stringify(s.sections) ===
+      JSON.stringify(["Sync & backup", "Appearance", "Your week", "Notifications", "Jarvis", "App"]),
     s.sections,
   );
   check(
@@ -18162,6 +18174,25 @@ await section("Settings: the gear opens sync, appearance, notifications, Jarvis'
     s,
   );
   check("sync says where it stands", s.sync === "Off: this device only", s);
+  // Your week: Friday is a home day by default; a tap changes it and it's saved in the synced settings
+  const fri = () =>
+    page.evaluate(() => ({
+      on: document
+        .querySelector('#panel-settings [data-action="home-day-toggle"][data-day="5"]')
+        .getAttribute("aria-pressed"),
+      text: document.querySelector("#panel-settings .set-days").previousElementSibling.textContent,
+      saved: JSON.parse(localStorage.getItem("jarvis-settings") || "{}").homeDays,
+    }));
+  const f0 = await fri();
+  check("Friday starts as a home day", f0.on === "true" && /Fridays/.test(f0.text), f0);
+  await page.tap('#panel-settings [data-action="home-day-toggle"][data-day="5"]');
+  await page.tap('#panel-settings [data-action="home-day-toggle"][data-day="1"]');
+  const f1 = await fri();
+  check(
+    "tapping days changes them, and they're saved to sync",
+    f1.on === "false" && /Mondays/.test(f1.text) && JSON.stringify(f1.saved) === "[1]",
+    f1,
+  );
   await page.tap('#panel-settings [data-action="settings-back"]');
   check("Back returns to the tab it was opened from", await page.evaluate(() => currentTab === "todo"));
   // a failed sync shows on the gear (and in Settings)

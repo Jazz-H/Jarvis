@@ -10,6 +10,7 @@
 //   jarvis-feedback: [{id, at: ms, kind: "answer" | "briefing", ref, item, vote: 1 | -1}]   newest 60
 //   jarvis-settings: {tone: "brief" | "normal" | "detailed", newsTopics: [..6], about,
 //                     speak: "voice" | "always" | "never",
+//                     homeDays: [1-5]   weekdays worked from home (the outfit dresses down), Friday by default,
 //                     checkins: [{id, name, prompt, days: [0-6], time: "HH:MM", on}]   at most 8,
 //                     hiddenPackages: [{item, at: "YYYY-MM-DD"}]   newest first, 20, gone after 14 days,
 //                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days
@@ -38,6 +39,7 @@ let jarvisSettings = {
   newsTopics: [],
   about: "",
   speak: "voice",
+  homeDays: [5],
   checkins: [],
   hiddenPackages: [],
   hiddenLines: [],
@@ -101,6 +103,10 @@ function normalizeJarvisBrain() {
       .slice(0, BRAIN_MAX.topics),
     about: str(s.about, 600),
     speak: BRAIN_SPEAK[s.speak] ? s.speak : "voice",
+    // never saved yet: Friday (the owner's home day); an empty list means every weekday at the office
+    homeDays: Array.isArray(s.homeDays)
+      ? [...new Set(s.homeDays.map(Number))].filter((d) => Number.isInteger(d) && d >= 1 && d <= 5).sort()
+      : [5],
     checkins: (Array.isArray(s.checkins) ? s.checkins : [])
       .filter((c) => isObj(c) && str(c.prompt, 300))
       .slice(0, BRAIN_MAX.checkins)

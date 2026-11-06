@@ -178,6 +178,7 @@ const SHELL_CLICK = {
   "open-settings": () => settingsToggle(),
   "settings-back": () => settingsBack(),
   "theme-set": (el) => settingsSetTheme(el.getAttribute("data-pref")),
+  "home-day-toggle": (el) => settingsToggleHomeDay(el.getAttribute("data-day")),
   "hard-refresh": (el) => {
     el.classList.add("spinning");
     hardRefresh();
