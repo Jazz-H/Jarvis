@@ -722,12 +722,13 @@ function dashTimelineHtml(b, d) {
           <span class="jv-day-dot${i === 0 ? " first" : ""}${i === rows.length - 1 ? " last" : ""}" aria-hidden="true"><i></i></span>
           <span class="jv-day-text"><b>${escapeHtml(r.title)}</b>${r.sub ? `<span>${escapeHtml(r.sub)}</span>` : ""}</span>
         </button>`;
-          // a package arriving today can be tracked right from here
+          // a package arriving today can be tracked right from here: a round icon button, so the name
+          // keeps its line even with large text (Deliveries has the labelled one)
           const track = r.track
             ? linkHtml(
                 r.track,
-                `class="jv-chip-sm jv-track" aria-label="Track ${escapeAttr(r.item || r.title)} (opens the carrier's site)"`,
-                `Track${EXTERNAL_ICON}`,
+                `class="jv-track jv-track-icon" title="Track" aria-label="Track ${escapeAttr(r.item || r.title)} (opens the carrier's site)"`,
+                EXTERNAL_ICON,
               )
             : "";
           return track ? `<div class="jv-day-line">${row}${track}</div>` : row;

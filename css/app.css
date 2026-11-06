@@ -6816,7 +6816,7 @@ body.todo-dragging {
 }
 /* Deliveries */
 .jv-pkg-what {
-  flex: 1;
+  flex: 1 1 200px; /* below 200px of room, the buttons move under it instead of squeezing it */
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -6828,9 +6828,10 @@ body.todo-dragging {
 }
 .jv-pkg-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px 10px;
   font-size: 14px;
   margin-bottom: 8px;
 }
@@ -9036,4 +9037,17 @@ a.jv-track svg {
 }
 .jv-day-line > .jv-track {
   flex: none;
+}
+/* Your day's Track: a 36px ring inside a 44px tap area */
+a.jv-track-icon {
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -4px;
+  color: var(--olive);
+  background: radial-gradient(circle, var(--surface) 0 17px, var(--line) 17px 18px, transparent 18px);
+}
+a.jv-track-icon svg {
+  width: 16px;
+  height: 16px;
 }
