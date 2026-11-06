@@ -8903,7 +8903,7 @@ await section("phase 2 on Home: Your day timeline, Calendar, Deliveries and Inbo
   check("overlapping events are flagged", rows.filter((r) => r[3] && r[0] === "calendar").length === 2, rows);
   check(
     "rain and the delivery are on the timeline",
-    rows.some((r) => r[0] === "weather") && rows.some((r) => r[2] === "Columbia rain jacket arrives"),
+    rows.some((r) => r[0] === "weather") && rows.some((r) => r[2] === "Columbia rain jacket"),
     rows,
   );
   check("no 'connect your calendar' once it's connected", !(await page.$(".jv-day-connect")));
@@ -17899,7 +17899,8 @@ await section(
     });
     check(
       "Your day: a package arriving today has Track beside its row, without opening Deliveries",
-      /Desk lamp arrives/.test(day.text) && day.href === "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+      /Desk lamps*Arriving · UPS/.test(day.text) &&
+        day.href === "https://www.ups.com/track?tracknum=1Z999AA10123456784",
       day,
     );
     check(
@@ -17914,7 +17915,12 @@ await section(
         "Busy Bone Stufd dog treats, Chewy order #5240864417",
         "Desk lamp",
         "Rain jacket (size M)",
-      ].map((x) => pkgLabel(x)),
+      ]
+        .map((x) => pkgLabel(x))
+        .concat([
+          pkgLabel("Busy Bone Stufd dog treats, Chewy order #5240864417", "Chewy.com"),
+          pkgLabel("Lamp, Target", "UPS"),
+        ]),
     );
     check(
       "a package's reference moves under its name as 'ending …'; other names stay whole",
@@ -17925,6 +17931,8 @@ await section(
           { name: "Busy Bone Stufd dog treats, Chewy", ref: "ending 4417" },
           { name: "Desk lamp", ref: "" },
           { name: "Rain jacket (size M)", ref: "" },
+          { name: "Busy Bone Stufd dog treats", ref: "ending 4417" }, // ", Chewy" repeats the store
+          { name: "Lamp, Target", ref: "" }, // a different store than the carrier stays
         ]),
       labels,
     );

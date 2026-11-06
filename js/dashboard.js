@@ -675,10 +675,9 @@ function dashDayRows(b, d) {
         rows.push({
           sort: 24 * 60 + 1,
           time: p.etaText || "Today",
-          title: `${pkgLabel(p.item).name} arrives`,
-          sub: [p.shoppingMatch ? "On your Shopping list" : p.carrier || "Package", pkgLabel(p.item).ref]
-            .filter(Boolean)
-            .join(" · "),
+          // the time column already says when; the reference stays in Deliveries, where there's room
+          title: pkgLabel(p.item, p.carrier).name,
+          sub: `Arriving · ${p.shoppingMatch ? "on your Shopping list" : p.carrier || "package"}`,
           tone: "pink",
           go: "deliveries",
           track: p.track || null,
@@ -760,12 +759,16 @@ function dashTimelineHtml(b, d) {
 
 // A package's name as shown: a trailing reference ("Amazon package (…5538)", "…, order #5240864417")
 // moves to the line under it as "ending 5538", so the name fits beside Track. Display only: the full
-// name is still what Got it hides and matches by.
-function pkgLabel(item) {
+// name is still what Got it hides and matches by. A trailing ", Chewy" that repeats the store
+// (carrier "Chewy.com") goes too, since the line under it names the store.
+function pkgLabel(item, carrier = "") {
   const s = String(item || "");
   const m =
     /^(.*?)[\s,]*\((?:…|\.\.\.)\s*(\w{3,6})\)\s*$/.exec(s) || /^(.*?),?\s+(?:order\s+)?#\s*(\w*\d\w*)\s*$/i.exec(s);
-  return m && m[1].trim() ? { name: m[1].trim(), ref: `ending ${m[2].slice(-4)}` } : { name: s, ref: "" };
+  let name = m && m[1].trim() ? m[1].trim() : s;
+  const store = /^(.+?),\s*([A-Za-z][\w.&' -]{1,30})$/.exec(name);
+  if (store && carrier && String(carrier).toLowerCase().includes(store[2].trim().toLowerCase())) name = store[1].trim();
+  return { name, ref: m && m[1].trim() ? `ending ${m[2].slice(-4)}` : "" };
 }
 // Calendar detail (layout 1): today and tomorrow as an agenda list
 function dashCalendarDetail(c) {
@@ -852,7 +855,7 @@ function dashDeliveriesDetail(c) {
           ? `${p.eta === today ? "Today" : noonOf(p.eta).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}${p.etaText ? ` · ${p.etaText}` : ""}`
           : DASH_PKG_LABEL[p.status];
     return `<div class="jv-pkg">
-        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(pkgLabel(p.item).name)}</b><span>${escapeHtml([p.carrier, eta, pkgLabel(p.item).ref].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span><span class="jv-pkg-acts">${
+        <div class="jv-pkg-head"><span class="jv-pkg-what"><b>${escapeHtml(pkgLabel(p.item, p.carrier).name)}</b><span>${escapeHtml([p.carrier, eta, pkgLabel(p.item, p.carrier).ref].filter(Boolean).join(" · "))}${p.shoppingMatch ? " · on your Shopping list" : ""}</span></span><span class="jv-pkg-acts">${
           w
             ? `<button class="jv-chip-sm on" data-action="want-toggle" data-want-id="${escapeAttr(w.id)}">Mark bought</button>`
             : ""
