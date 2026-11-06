@@ -106,8 +106,13 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   jacket. It's plain rules, no AI. Under its title, chips give the day's context (high, rain,
   Workday/Weekend), then each piece is a tile with its icon (Top, Bottom, Shoes, Layer), two
   across. A missing rain layer or coat is a dashed tile that opens Shopping. The round swap
-  button (top right) shows another good option. Hidden until you've saved
-  at least a top and a bottom.
+  button (top right) shows another good option. Without at least a top and a bottom saved, the card
+  says so instead of picking.
+  - **Your wardrobe** (the pencil beside swap): what you own, by type. **Need to buy** moves an item
+    to Shopping as a Wardrobe need (Undo in the toast); tap an item to rename, retype or delete it;
+    **+ Add something you own** for new things. Outfits only use what's here; accessories aren't
+    picked. (Nov 5: the Chambray shirt and the Khaki and Bermuda shorts were moved to Shopping once
+    on each device, `applyWardrobeFix`.)
 - **Systems:** six tiles (Weather, Inbox, Money, Beauty, Jazz 3.0, Shopping), each with
   a headline number, a line of detail and a progress bar. Tap a tile to open its detail right
   under it (one at a time; tap again to close). **Customize** lets you reorder (↑ ↓) or hide

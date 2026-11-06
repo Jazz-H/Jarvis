@@ -52,6 +52,7 @@ function writeQuietly(key, value) {
   styleState = loadState("style-state");
   wantsState = loadState("wants-state");
   migrateWardrobeNeeds();
+  applyWardrobeFix();
   renderBudget();
   renderWants();
   renderFitness();

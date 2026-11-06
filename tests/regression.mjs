@@ -72,6 +72,8 @@ const isoInWeek = (n) => (new Date().getDay() + n <= 6 ? isoOffset(n) : isoOffse
 // hour (from 5 PM it adds tomorrow's card, with its own summary list), so a test reading Home's summary
 // passes the hour it means. That freezes the page's clock at that time today, so only use it where needed.
 async function openApp({ seed = {}, phone = true, query = "", route, setup, hour } = {}) {
+  seed = { "wardrobe-fix-2026-11-05": "1", ...seed }; // the one-time wardrobe fix only runs where a test asks ("")
+
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
@@ -9274,7 +9276,17 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
     capsule = capsule.filter((i) => i.cat !== "Bottoms");
     renderHome();
   });
-  check("no card without at least a top and a bottom", !(await page.$(".jv-outfit")));
+  const bare = await page.evaluate(() => ({
+    card: !!document.querySelector(".jv-outfit"),
+    pieces: document.querySelectorAll(".jv-outfit-grid .jv-piece").length,
+    pencil: !!document.querySelector('.jv-outfit [data-action="wardrobe-toggle"]'),
+    text: document.querySelector(".jv-outfit")?.textContent || "",
+  }));
+  check(
+    "without a top and a bottom: no outfit, but the card stays with the pencil to add them",
+    bare.card && bare.pieces === 0 && bare.pencil && /Add a top and a bottom/.test(bare.text),
+    bare,
+  );
   check("no JS errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -11435,6 +11447,8 @@ function askGitHub({ files = {}, dispatch = 204, dispatchDelay = 0, expires = nu
 }
 // openApp plus an init script (a fake SpeechRecognition, or none) and the browser console log
 async function openAsk({ seed = {}, query = "?tab=console", route, speech = "fake", phone = true } = {}) {
+  seed = { "wardrobe-fix-2026-11-05": "1", ...seed }; // the one-time wardrobe fix only runs where a test asks ("")
+
   const ctx = await browser.newContext(
     phone ? { ...devices["iPhone 13"] } : { viewport: { width: 1280, height: 800 } },
   );
@@ -17565,6 +17579,101 @@ await section("Desktop: scrolling up past the top syncs, like pulling down on a 
     "the pull is gone after the scroll ends",
     (await page.evaluate(() => parseFloat(document.getElementById("pull-indicator").style.height) || 0)) === 0,
   );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Outfit: the pencil edits your wardrobe; Need to buy moves an item to Shopping", async () => {
+  // "" leaves the one-time fix to run, as on a device that hasn't had it yet
+  const { ctx, page, errors } = await openApp({
+    hour: 9,
+    seed: { "wardrobe-fix-2026-11-05": "", "home-cards": HOME_CARDS_OPEN },
+  });
+  const fixed = await page.evaluate(() => {
+    const owned = (id) => capsule.some((i) => i.id === id && (!i.state || i.state === "owned"));
+    const want = (id) => wantsList.find((w) => w.id === "w-" + id);
+    return {
+      gone: ["chambray", "shorts-khaki", "shorts-bermuda"].every((id) => !owned(id)),
+      toBuy: ["chambray", "shorts-khaki", "shorts-bermuda"].map((id) => want(id) && want(id).wardrobeCat),
+      kept: owned("jeans-dark") && owned("button-white"),
+      flag: localStorage.getItem("wardrobe-fix-2026-11-05"),
+    };
+  });
+  check("the three items left the wardrobe", fixed.gone, fixed);
+  check("and are on Shopping as wardrobe needs", JSON.stringify(fixed.toBuy) === '["Tops","Bottoms","Bottoms"]', fixed);
+  check("everything else stays, and it runs once", fixed.kept && fixed.flag === "1", fixed);
+  const again = await page.evaluate(() => {
+    capsule.push({ id: "chambray", title: "Chambray denim shirt", state: "owned", cat: "Tops" });
+    applyWardrobeFix();
+    return capsule.some((i) => i.id === "chambray");
+  });
+  check("bought later and added back, it isn't moved again", again);
+  // the editor
+  await page.click('[data-action="wardrobe-toggle"][aria-label="Edit your wardrobe"]');
+  const open = await page.evaluate(() => ({
+    rows: document.querySelectorAll(".jv-wardrobe .jv-ward-row").length,
+    owned: wardrobeOwned().length,
+    pressed: document.querySelector('[aria-label="Edit your wardrobe"]').getAttribute("aria-expanded"),
+  }));
+  check(
+    "the pencil opens the wardrobe: one row per owned item",
+    open.rows === open.owned && open.rows > 0 && open.pressed === "true",
+    open,
+  );
+  await page.click('.jv-wardrobe [data-action="wardrobe-buy"][data-cap-id="jeans-dark"]');
+  const bought = await page.evaluate(() => ({
+    owned: capsule.some((i) => i.id === "jeans-dark"),
+    want: !!wantsList.find((w) => w.id === "w-jeans-dark" && w.wardrobeCat === "Bottoms"),
+    toast: document.getElementById("toast").textContent,
+    stillOpen: !!document.querySelector(".jv-wardrobe"),
+  }));
+  check(
+    "Need to buy moves it to Shopping, with Undo",
+    !bought.owned && bought.want && bought.toast.includes("Undo"),
+    bought,
+  );
+  check("the editor stays open for the next one", bought.stillOpen, bought);
+  await page.click("#toast .toast-undo");
+  check(
+    "Undo puts it back",
+    await page.evaluate(
+      () => capsule.some((i) => i.id === "jeans-dark") && !wantsList.some((w) => w.id === "w-jeans-dark"),
+    ),
+  );
+  // add, rename, delete
+  await page.click('.jv-wardrobe [data-action="wardrobe-add"]');
+  await page.fill("#modal-title", "Light blue oxford");
+  await page.selectOption("#modal-cat", "Tops");
+  await page.fill("#modal-sub", "Size M");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const added = await page.evaluate(() => capsule.find((i) => i.title === "Light blue oxford"));
+  check(
+    "+ Add saves an owned item",
+    added && added.state === "owned" && added.cat === "Tops" && added.sub === "Size M",
+    added,
+  );
+  check(
+    "the new item can be picked for outfits",
+    await page.evaluate(() => wardrobeOwned().some((i) => i.title === "Light blue oxford")),
+  );
+  await page.click(`.jv-wardrobe [data-action="wardrobe-edit"][data-cap-id="${added.id}"]`);
+  await page.fill("#modal-title", "Light blue oxford shirt");
+  await page.click("#modal-backdrop .modal-btn.primary");
+  check(
+    "tapping an item edits it",
+    await page.evaluate((id) => capsule.find((i) => i.id === id).title === "Light blue oxford shirt", added.id),
+  );
+  await page.click(`.jv-wardrobe [data-action="wardrobe-edit"][data-cap-id="${added.id}"]`);
+  await page.click("#modal-delete-btn");
+  check("and Delete removes it", await page.evaluate((id) => !capsule.some((i) => i.id === id), added.id));
+  // what's stored is untrusted: a title is text, never markup
+  await page.evaluate(() => {
+    capsule.push({ id: "x1", title: '<img src=x onerror="window.__pw=1">', state: "owned", cat: "Tops" });
+    renderHome();
+  });
+  check("an item's name is shown as text", (await page.evaluate(() => window.__pw || 0)) === 0);
+  await page.click('.jv-wardrobe [data-action="wardrobe-toggle"]');
+  check("Done closes it", !(await page.$(".jv-wardrobe")));
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

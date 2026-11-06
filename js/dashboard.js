@@ -427,7 +427,12 @@ function dashboardHtml(planner = "", wide = false) {
 // Default: true open, false closed. Outfit and News are once-a-day cards, so they start closed on a
 // phone; a big screen has the room. The briefing has its own rule (briefingCardSync).
 const HOME_CARDS_KEY = "home-cards"; // {cards: {id: open}, briefing: {id, seenAt, open}}
-const HOME_CARD_DEFAULTS = { "jv-top3": () => true, "jv-tomorrow": () => false, "jv-outfit": (w) => w, "jarvis-news": (w) => w };
+const HOME_CARD_DEFAULTS = {
+  "jv-top3": () => true,
+  "jv-tomorrow": () => false,
+  "jv-outfit": (w) => w,
+  "jarvis-news": (w) => w,
+};
 const HOME_BRIEFING_FRESH_MS = 30 * 60 * 1000; // how long a new briefing stays open after you first see it
 function homeCardsRead() {
   try {
@@ -1139,7 +1144,19 @@ const DASH_PIECE_SVG = (paths) =>
 const SWAP_ICON = DASH_PIECE_SVG('<path d="M7 4 4 7l3 3M4 7h13M17 20l3-3-3-3M20 17H7"/>');
 function dashOutfitHtml(b) {
   const o = dashOutfit(b);
-  if (!o) return "";
+  // not enough saved for an outfit: the card stays, so the wardrobe can still be filled in
+  if (!o)
+    return collapsibleCard({
+      id: "jv-outfit",
+      cls: "home-card jv-card jv-outfit",
+      title: "Outfit",
+      peek: "Add a top and a bottom to get outfits",
+      body: `<div class="jv-outfit-head">
+          <h2 class="jv-headline">Add a top and a bottom</h2>
+          <span class="jv-outfit-btns"><button class="jv-outfit-swap${dashWardrobeOpen ? " on" : ""}" data-action="wardrobe-toggle" aria-expanded="${dashWardrobeOpen}" aria-label="Edit your wardrobe">${PENCIL_ICON}</button></span>
+        </div>
+        ${dashWardrobeOpen ? dashWardrobeHtml() : `<p class="jv-line">Outfits are picked from what you own. Tap the pencil to add it.</p>`}`,
+    });
   const chips = [
     o.wx ? `${Math.round(o.wx.high)}° high` : "",
     o.wx && o.wx.rain >= 20 ? `${o.wx.rain}% rain` : "",
@@ -1161,10 +1178,157 @@ function dashOutfitHtml(b) {
     peek: escapeHtml(o.items.map((i) => i.title).join(", ")),
     body: `<div class="jv-outfit-head">
         <h2 class="jv-headline">${escapeHtml(o.title)}</h2>
-        <button class="jv-outfit-swap" data-action="jv-outfit-swap" aria-label="Swap for another outfit">${SWAP_ICON}</button>
+        <span class="jv-outfit-btns"><button class="jv-outfit-swap${dashWardrobeOpen ? " on" : ""}" data-action="wardrobe-toggle" aria-expanded="${dashWardrobeOpen}" aria-label="Edit your wardrobe">${PENCIL_ICON}</button><button class="jv-outfit-swap" data-action="jv-outfit-swap" aria-label="Swap for another outfit">${SWAP_ICON}</button></span>
       </div>
+      ${dashWardrobeOpen ? dashWardrobeHtml() : ""}
       <div class="jv-ctx">${chips.map((c) => `<span>${escapeHtml(c)}</span>`).join("")}</div>
       <ul class="jv-outfit-grid">${o.items.map(tile).join("")}${missing}</ul>`,
+  });
+}
+
+// ---- your wardrobe (the Outfit card's pencil): what you own, edited in place ----
+// Need to buy moves an item to the Shopping list (Wardrobe, as a need) with Undo; tapping one edits
+// or deletes it; + Add is for something new. Outfits only use what's here.
+let dashWardrobeOpen = false;
+const PENCIL_ICON = DASH_PIECE_SVG('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>');
+const wardrobeOwned = () => capsule.filter((i) => !i.state || i.state === "owned");
+function dashWardrobeHtml() {
+  const owned = wardrobeOwned();
+  const groups = [...CAP_CATS, "Other"]
+    .map((cat) => [cat, owned.filter((i) => (CAP_CATS.includes(i.cat) ? i.cat : "Other") === cat)])
+    .filter(([, list]) => list.length)
+    .map(
+      ([cat, list]) =>
+        `<div class="jv-sub-label">${cat}${cat === "Accessories" ? " · not used in outfits" : ""}</div>${list
+          .map(
+            (i) => `<div class="jv-ward-row">
+        <button type="button" class="jv-ward-name" data-action="wardrobe-edit" data-cap-id="${escapeAttr(i.id)}">${escapeHtml(i.title)}${i.sub ? `<i>${escapeHtml(i.sub)}</i>` : ""}</button>
+        <button type="button" class="jv-chip-sm" data-action="wardrobe-buy" data-cap-id="${escapeAttr(i.id)}" aria-label="Need to buy: ${escapeAttr(i.title)}">Need to buy</button>
+      </div>`,
+          )
+          .join("")}`,
+    )
+    .join("");
+  return `<section class="jv-detail jv-wardrobe" aria-label="Your wardrobe">
+      <div class="jv-mini">What you own · ${owned.length}</div>
+      ${groups || '<p class="jv-line">Nothing saved yet.</p>'}
+      <button type="button" class="add-row" data-action="wardrobe-add">+ Add something you own</button>
+      <button type="button" class="jv-open" data-action="wardrobe-toggle">Done</button>
+    </section>`;
+}
+function dashWardrobeToggle() {
+  dashWardrobeOpen = !dashWardrobeOpen;
+  if (dashWardrobeOpen) homeCardRemember("jv-outfit", true);
+  renderHome();
+}
+// Owned → the Shopping list (Wardrobe, as a need). Same derived id as the old migration ("w-" + id),
+// so two devices doing it agree. quiet: housekeeping (the one-time fix), no toast or Undo.
+function wardrobeToBuy(id, quiet = false) {
+  const item = wardrobeOwned().find((i) => i.id === id);
+  if (!item) return false;
+  const before = quiet ? null : dataSnapshot();
+  capsule = capsule.filter((i) => i !== item);
+  const wid = "w-" + item.id;
+  if (!wantsList.some((w) => w.id === wid))
+    wantsList.push({
+      id: wid,
+      name: item.title,
+      meta: item.sub || "",
+      price: null,
+      link: null,
+      wardrobeCat: item.cat || "Other",
+    });
+  if (quiet) {
+    writeQuietly("capsule-content", capsule);
+    writeQuietly("wants-content", wantsList);
+    return true;
+  }
+  saveContent("capsule-content", capsule, { toast: false });
+  saveContent("wants-content", wantsList, { toast: false });
+  renderHome();
+  renderWants();
+  const after = dataSnapshot();
+  showUndoToast(`${item.title} moved to Shopping`, () => {
+    undoTo(before, after);
+    renderHome();
+    renderWants();
+  });
+  return true;
+}
+const WARDROBE_FIELDS = [
+  { key: "title", label: "Item", maxlength: 120 },
+  { key: "cat", label: "Type", type: "select", options: CAP_CATS },
+  { key: "sub", label: "Note (size, color)", maxlength: 120 },
+];
+function wardrobeAdd() {
+  openModal("Add to your wardrobe", WARDROBE_FIELDS, { cat: "Tops" }, (v) => {
+    const title = String(v.title || "")
+      .trim()
+      .slice(0, 120);
+    if (!title) return;
+    capsule.push({
+      id: genId("cap"),
+      title,
+      sub: String(v.sub || "")
+        .trim()
+        .slice(0, 120),
+      state: "owned",
+      cat: CAP_CATS.includes(v.cat) ? v.cat : "Tops",
+    });
+    saveContent("capsule-content", capsule, { toast: false });
+    renderHome();
+    showToast(`Added ${title}`);
+  });
+}
+function wardrobeEdit(id) {
+  const item = wardrobeOwned().find((i) => i.id === id);
+  if (!item) return;
+  openModal(
+    "Edit wardrobe item",
+    WARDROBE_FIELDS,
+    { title: item.title, cat: CAP_CATS.includes(item.cat) ? item.cat : "Tops", sub: item.sub || "" },
+    (v) => {
+      const title = String(v.title || "")
+        .trim()
+        .slice(0, 120);
+      if (!title) return;
+      Object.assign(item, {
+        title,
+        cat: CAP_CATS.includes(v.cat) ? v.cat : item.cat,
+        sub: String(v.sub || "")
+          .trim()
+          .slice(0, 120),
+      });
+      saveContent("capsule-content", capsule, { toast: false });
+      renderHome();
+    },
+    () => {
+      const before = dataSnapshot();
+      capsule = capsule.filter((i) => i !== item);
+      saveContent("capsule-content", capsule, { toast: false });
+      renderHome();
+      const after = dataSnapshot();
+      showUndoToast(`Removed ${item.title}`, () => {
+        undoTo(before, after);
+        renderHome();
+      });
+    },
+  );
+}
+// Nov 5 2026: the owner doesn't have these after all, so they go to Shopping. Once per device; the
+// derived ids make two devices agree, and an item that's already gone (or renamed and kept) is left alone.
+const WARDROBE_FIX = { key: "wardrobe-fix-2026-11-05", ids: ["chambray", "shorts-khaki", "shorts-bermuda"] };
+function applyWardrobeFix() {
+  try {
+    if (localStorage.getItem(WARDROBE_FIX.key)) return;
+    localStorage.setItem(WARDROBE_FIX.key, "1");
+  } catch (e) {
+    return;
+  }
+  const defaults = new Map(DEFAULT_CAPSULE.map((i) => [i.id, i.title]));
+  WARDROBE_FIX.ids.forEach((id) => {
+    const item = wardrobeOwned().find((i) => i.id === id);
+    if (item && item.title === defaults.get(id)) wardrobeToBuy(id, true);
   });
 }
 function dashOutfitSwap() {
