@@ -9261,7 +9261,7 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
   const hotWeekend = await pick(6, 88, 0);
   check(
     "hot dry weekend: tank, shorts, sneakers",
-    hotWeekend.title === "Weekend, warm day" && JSON.stringify(hotWeekend.items) === '["t2","b2","s1"]',
+    hotWeekend.title === "Weekend casual, warm day" && JSON.stringify(hotWeekend.items) === '["t2","b2","s1"]',
     hotWeekend,
   );
   check("pending items are never picked", !JSON.stringify(hotWeekend).includes("p1"));
@@ -9272,10 +9272,34 @@ await section("outfit: picked from the saved wardrobe by weather and day", async
     homeFri.title === "Comfortable, at home" && homeFri.items.includes("s1"),
     homeFri,
   );
-  await page.evaluate(() => (jarvisSettings.homeDays = []));
+  await page.evaluate(() => (jarvisSettings.week[5] = "office"));
   const officeFri = await pick(5, 72, 0);
-  check("with no home days, Friday is business casual again", officeFri.title === "Business casual", officeFri);
-  await page.evaluate(() => (jarvisSettings.homeDays = [5]));
+  check("Friday set to Office is business casual again", officeFri.title === "Business casual", officeFri);
+  // weekends follow the week too: a Saturday at the office dresses for it; a weekday off is casual
+  await page.evaluate(() => {
+    jarvisSettings.week[6] = "office";
+    jarvisSettings.week[3] = "off";
+  });
+  const officeSat = await pick(6, 72, 0);
+  const offWed = await pick(3, 72, 0);
+  check(
+    "a Saturday at the office is business casual; a Wednesday off is a casual Day off",
+    officeSat.title === "Business casual" &&
+      officeSat.items.includes("t1") &&
+      offWed.title === "Day off" &&
+      offWed.items.includes("s1"),
+    { officeSat, offWed },
+  );
+  await page.evaluate(() => (jarvisSettings.week = WEEK_DEFAULT.slice()));
+  // the earlier homeDays list (weekdays from home) carries over, the weekend off
+  const carried = await page.evaluate(() => {
+    jarvisSettings = { homeDays: [1, 5] };
+    normalizeJarvisBrain();
+    const w = jarvisSettings.week.join(",");
+    jarvisSettings.week = WEEK_DEFAULT.slice();
+    return w;
+  });
+  check("a saved homeDays list becomes the week", carried === "off,home,office,office,office,home,off", carried);
   const card = await page.$(".jv-outfit");
   check("the outfit card is on Home", !!card);
   if (card) {
@@ -18174,24 +18198,34 @@ await section("Settings: the gear opens sync, appearance, notifications, Jarvis'
     s,
   );
   check("sync says where it stands", s.sync === "Off: this device only", s);
-  // Your week: Friday is a home day by default; a tap changes it and it's saved in the synced settings
-  const fri = () =>
+  // Your week: all seven days, Office Mon-Thu, Home Fri, Off on the weekend; a tap moves a day on
+  const wk = () =>
     page.evaluate(() => ({
-      on: document
-        .querySelector('#panel-settings [data-action="home-day-toggle"][data-day="5"]')
-        .getAttribute("aria-pressed"),
+      days: [...document.querySelectorAll("#panel-settings .set-day")].map((b) => b.textContent.trim()),
       text: document.querySelector("#panel-settings .set-days").previousElementSibling.textContent,
-      saved: JSON.parse(localStorage.getItem("jarvis-settings") || "{}").homeDays,
+      saved: (JSON.parse(localStorage.getItem("jarvis-settings") || "{}").week || []).join(","),
+      fits: [...document.querySelectorAll("#panel-settings .set-day")].every(
+        (b) => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().right <= innerWidth,
+      ),
     }));
-  const f0 = await fri();
-  check("Friday starts as a home day", f0.on === "true" && /Fridays/.test(f0.text), f0);
-  await page.tap('#panel-settings [data-action="home-day-toggle"][data-day="5"]');
-  await page.tap('#panel-settings [data-action="home-day-toggle"][data-day="1"]');
-  const f1 = await fri();
+  const w0 = await wk();
   check(
-    "tapping days changes them, and they're saved to sync",
-    f1.on === "false" && /Mondays/.test(f1.text) && JSON.stringify(f1.saved) === "[1]",
-    f1,
+    "seven days, Monday first, with the default week",
+    w0.days.length === 7 &&
+      w0.days[0] === "MonOffice" &&
+      w0.days[4] === "FriHome" &&
+      w0.days[6] === "SunOff" &&
+      w0.fits,
+    w0,
+  );
+  check("the summary reads as ranges", /Office Mon–Thu · Home Fri · Off Sat, Sun/.test(w0.text), w0.text);
+  await page.tap('#panel-settings [data-action="week-day-cycle"][data-day="6"]'); // Off → Office
+  await page.tap('#panel-settings [data-action="week-day-cycle"][data-day="5"]'); // Home → Off
+  const w1 = await wk();
+  check(
+    "a tap cycles Office → Home → Off, and the week is saved to sync",
+    w1.days[5] === "SatOffice" && w1.days[4] === "FriOff" && w1.saved === "off,office,office,office,office,off,office",
+    w1,
   );
   await page.tap('#panel-settings [data-action="settings-back"]');
   check("Back returns to the tab it was opened from", await page.evaluate(() => currentTab === "todo"));

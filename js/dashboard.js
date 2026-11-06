@@ -1106,29 +1106,40 @@ function dashOutfit(b, now = new Date()) {
   const high = w ? w.highF : 70,
     rain = !!w && w.rainChanceMax >= 50;
   const dow = now.getDay();
-  // a weekday worked from home (Settings → Your week) dresses like the weekend, labelled "Home day"
-  const homeDay = dow >= 1 && dow <= 5 && (jarvisSettings.homeDays || []).includes(dow);
+  // how the day is spent (Settings → Your week): the office dresses business casual, home comfortable,
+  // a day off casual for being out
+  const kind = (jarvisSettings.week || [])[dow] || (dow >= 1 && dow <= 5 ? "office" : "off");
+  const office = kind === "office",
+    home = kind === "home",
+    off = kind === "off";
   const hot = high >= 80,
-    cold = high < 60,
-    workday = dow >= 1 && dow <= 5 && !homeDay;
+    cold = high < 60;
   const t = (i, re) => re.test(i.title);
   const score = {
     Tops: (i) =>
-      (workday && t(i, /button|collar|chambray|oxford|polo|blouse|shirt/i) ? 3 : 0) +
-      (workday && t(i, /tank|graphic/i) ? -2 : 0) +
+      (office && t(i, /button|collar|chambray|oxford|polo|blouse|shirt/i) ? 3 : 0) +
+      (office && t(i, /tank|graphic/i) ? -2 : 0) +
+      (home && t(i, /tee|t-shirt|knit|sweater|sweatshirt|hoodie|henley|crew|lounge/i) ? 3 : 0) +
+      (home && t(i, /button|collar|oxford|blouse/i) ? -1 : 0) +
+      (off && t(i, /tee|t-shirt|graphic|polo|henley|chambray|denim/i) ? 2 : 0) +
       (hot && t(i, /tank|tee/i) ? 2 : 0) +
-      (cold && t(i, /button|chambray|long|sweater|knit/i) ? 2 : 0) +
+      (cold && t(i, /button|chambray|long|sweater|knit|hoodie/i) ? 2 : 0) +
       (cold && t(i, /tank/i) ? -3 : 0),
     Bottoms: (i) =>
-      (workday && t(i, /pant|jean|chino|trouser|slack/i) ? 3 : 0) +
-      ((workday || cold) && t(i, /short/i) ? -3 : 0) +
-      (!workday && hot && t(i, /short/i) ? 3 : 0) +
+      (office && t(i, /pant|jean|chino|trouser|slack/i) ? 3 : 0) +
+      (home && t(i, /jogger|sweat|legging|lounge/i) ? 3 : 0) +
+      (home && t(i, /trouser|slack|chino/i) ? -1 : 0) +
+      (off && t(i, /jean|denim/i) ? 2 : 0) +
+      ((office || cold) && t(i, /short/i) ? -3 : 0) +
+      (!office && hot && t(i, /short/i) ? 3 : 0) +
       (rain && t(i, /short/i) ? -1 : 0),
     Shoes: (i) =>
-      (workday && t(i, /loafer|chelsea|oxford|boot|derby/i) ? 2 : 0) +
+      (office && t(i, /loafer|chelsea|oxford|boot|derby/i) ? 2 : 0) +
+      (home && t(i, /slide|slipper|sandal|sneaker|nike|vans|air max/i) ? 2 : 0) +
+      (off && t(i, /vans|nike|air max|sneaker|trainer/i) ? 2 : 0) +
+      (!office && !rain && t(i, /chelsea|oxford|derby|loafer|boot/i) ? -1 : 0) +
       (rain && t(i, /boot|chelsea|timberland/i) ? 3 : 0) +
-      (rain && t(i, /vans|suede|canvas/i) ? -2 : 0) +
-      (!workday && t(i, /vans|nike|air max|sneaker/i) ? 1 : 0),
+      (rain && t(i, /vans|suede|canvas/i) ? -2 : 0),
     Outerwear: (i) =>
       (rain && t(i, /rain|trench|shell|jacket|coat/i) ? 3 : 0) + (cold && t(i, /coat|jacket|fleece/i) ? 2 : 0),
   };
@@ -1148,13 +1159,13 @@ function dashOutfit(b, now = new Date()) {
   if (!top || !bottom) return null; // not enough of a wardrobe saved
   const layer = rain || cold ? pickFrom("Outerwear") : null;
   return {
-    title: `${workday ? "Business casual" : homeDay ? "Comfortable, at home" : "Weekend"}${rain ? ", rain-ready" : hot ? ", warm day" : cold ? ", layered up" : ""}`,
+    title: `${office ? "Business casual" : home ? "Comfortable, at home" : dow === 0 || dow === 6 ? "Weekend casual" : "Day off"}${rain ? ", rain-ready" : hot ? ", warm day" : cold ? ", layered up" : ""}`,
     items: [top, bottom, pickFrom("Shoes"), layer].filter(Boolean),
     needsLayer: (rain || cold) && !layer,
     rain,
     wx: w ? { high: w.highF, rain: w.rainChanceMax } : null,
-    workday,
-    day: workday ? "Workday" : homeDay ? "Home day" : "Weekend",
+    workday: office,
+    day: office ? "Workday" : home ? "Home day" : dow === 0 || dow === 6 ? "Weekend" : "Day off",
   };
 }
 // Outfit card: the day's context as chips, then one tile per piece (2 × 2) with a line icon;

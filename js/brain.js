@@ -10,7 +10,8 @@
 //   jarvis-feedback: [{id, at: ms, kind: "answer" | "briefing", ref, item, vote: 1 | -1}]   newest 60
 //   jarvis-settings: {tone: "brief" | "normal" | "detailed", newsTopics: [..6], about,
 //                     speak: "voice" | "always" | "never",
-//                     homeDays: [1-5]   weekdays worked from home (the outfit dresses down), Friday by default,
+//                     week: ["office" | "home" | "off" × 7]   Sunday first: how each day is spent (the outfit
+//                       dresses for it); Mon-Thu office, Friday home, the weekend off by default,
 //                     checkins: [{id, name, prompt, days: [0-6], time: "HH:MM", on}]   at most 8,
 //                     hiddenPackages: [{item, at: "YYYY-MM-DD"}]   newest first, 20, gone after 14 days,
 //                     hiddenLines: [{text, at: "YYYY-MM-DD"}]   briefing lines dismissed, 10, gone after 2 days
@@ -31,6 +32,8 @@ const BRAIN_MAX = {
 };
 const BRAIN_TONES = { brief: "Brief", normal: "Normal", detailed: "Detailed" };
 const BRAIN_SPEAK = { voice: "When I ask by voice", always: "Always", never: "Never" }; // read answers aloud
+const WEEK_KINDS = { office: "Office", home: "Home", off: "Off" };
+const WEEK_DEFAULT = ["off", "office", "office", "office", "office", "home", "off"];
 let jarvisMemory = [];
 let jarvisNotes = [];
 let jarvisFeedback = [];
@@ -39,7 +42,7 @@ let jarvisSettings = {
   newsTopics: [],
   about: "",
   speak: "voice",
-  homeDays: [5],
+  week: WEEK_DEFAULT.slice(),
   checkins: [],
   hiddenPackages: [],
   hiddenLines: [],
@@ -103,10 +106,7 @@ function normalizeJarvisBrain() {
       .slice(0, BRAIN_MAX.topics),
     about: str(s.about, 600),
     speak: BRAIN_SPEAK[s.speak] ? s.speak : "voice",
-    // never saved yet: Friday (the owner's home day); an empty list means every weekday at the office
-    homeDays: Array.isArray(s.homeDays)
-      ? [...new Set(s.homeDays.map(Number))].filter((d) => Number.isInteger(d) && d >= 1 && d <= 5).sort()
-      : [5],
+    week: normalizeWeek(s.week, s.homeDays),
     checkins: (Array.isArray(s.checkins) ? s.checkins : [])
       .filter((c) => isObj(c) && str(c.prompt, 300))
       .slice(0, BRAIN_MAX.checkins)
@@ -131,6 +131,14 @@ function normalizeJarvisBrain() {
     ),
     location: savedLocation(s.location),
   };
+}
+// How each day of the week is spent, Sunday first. A list saved before there was one (homeDays: the
+// weekdays worked from home, Nov 6 2026) becomes the same week with the weekend off.
+function normalizeWeek(week, homeDays) {
+  if (Array.isArray(week) && week.length === 7 && week.every((d) => WEEK_KINDS[d])) return week.slice();
+  if (Array.isArray(homeDays))
+    return WEEK_DEFAULT.map((k, d) => (d >= 1 && d <= 5 ? (homeDays.map(Number).includes(d) ? "home" : "office") : k));
+  return WEEK_DEFAULT.slice();
 }
 // Where you are, for the weather: {lat, lon} to 3 decimals (about 100 m) and the day it was saved
 function savedLocation(l) {

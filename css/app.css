@@ -9115,14 +9115,57 @@ a.jv-track-icon svg {
   font-size: 13px;
   color: var(--text-dim);
 }
-.set-theme,
-.set-days {
+.set-theme {
   display: flex;
   margin: 12px 0 8px;
 }
-.set-theme .cn-seg,
-.set-days .cn-seg {
+.set-theme .cn-seg {
   flex: 1;
+}
+/* Your week: seven days in a row, each saying how it is spent; a tap moves it on */
+.set-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin: 12px 0 8px;
+}
+.set-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+.set-day b {
+  font-size: min(13px, 3.3vw);
+  color: var(--text);
+}
+.set-day span {
+  font-size: min(11px, 2.7vw);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.set-day.office {
+  background: var(--olive);
+  border-color: var(--olive);
+}
+.set-day.office b,
+.set-day.office span {
+  color: var(--on-accent);
+}
+.set-day.home {
+  border-color: var(--olive);
+}
+.set-day.home span {
+  color: var(--olive);
 }
 .set-card > .set-text:first-child {
   padding-top: 12px;

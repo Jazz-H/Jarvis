@@ -70,14 +70,14 @@ function settingsHtml() {
     </section>
     <div class="jv-label"><span>Your week</span><i></i></div>
     <section class="card set-card">
-      <div class="set-text"><b>Work from home</b><span>${escapeHtml(settingsHomeDaysText())}</span></div>
-      <div class="cn-switch set-days" role="group" aria-label="Days you work from home">${SETTINGS_WEEKDAYS.map(
+      <div class="set-text"><b>Office, home or off</b><span>${escapeHtml(settingsWeekText())}</span></div>
+      <div class="set-days" role="group" aria-label="How you spend each day">${SETTINGS_WEEKDAYS.map(
         ([d, short, name]) => {
-          const on = jarvisSettings.homeDays.includes(d);
-          return `<button type="button" class="cn-seg${on ? " on" : ""}" data-action="home-day-toggle" data-day="${d}" aria-pressed="${on}" aria-label="${name}">${short}</button>`;
+          const k = jarvisSettings.week[d];
+          return `<button type="button" class="set-day ${k}" data-action="week-day-cycle" data-day="${d}" aria-label="${name}: ${WEEK_KINDS[k]}. Tap to change"><b>${short}</b><span>${WEEK_KINDS[k]}</span></button>`;
         },
       ).join("")}</div>
-      <p class="set-note">On these days the outfit is comfortable instead of business casual. Synced to your other devices.</p>
+      <p class="set-note">Tap a day to change it. The outfit dresses for it: business casual at the office, comfortable at home, casual on days off. Synced to your other devices.</p>
     </section>
     <div class="jv-label"><span>Notifications</span><i></i></div>
     <section class="card set-card">
@@ -92,26 +92,35 @@ function settingsHtml() {
     </section>
   </div>`;
 }
+// Monday first on screen; the day numbers are Date's (Sunday 0)
 const SETTINGS_WEEKDAYS = [
   [1, "Mon", "Monday"],
   [2, "Tue", "Tuesday"],
   [3, "Wed", "Wednesday"],
   [4, "Thu", "Thursday"],
   [5, "Fri", "Friday"],
+  [6, "Sat", "Saturday"],
+  [0, "Sun", "Sunday"],
 ];
-function settingsHomeDaysText() {
-  const names = SETTINGS_WEEKDAYS.filter(([d]) => jarvisSettings.homeDays.includes(d)).map(([, , n]) => n + "s");
-  if (!names.length) return "Never: every weekday at the office";
-  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+// "Office Mon–Thu · Home Fri · Off Sat, Sun": runs of days in a row read as a range
+function settingsWeekText() {
+  return Object.keys(WEEK_KINDS)
+    .map((k) => {
+      const days = SETTINGS_WEEKDAYS.filter(([d]) => jarvisSettings.week[d] === k).map(([, s]) => s);
+      if (!days.length) return "";
+      const all = SETTINGS_WEEKDAYS.map(([, s]) => s);
+      const run = days.length > 2 && all.indexOf(days[days.length - 1]) - all.indexOf(days[0]) === days.length - 1;
+      return `${WEEK_KINDS[k]} ${run ? `${days[0]}–${days[days.length - 1]}` : days.join(", ")}`;
+    })
+    .filter(Boolean)
+    .join(" · ");
 }
-// A weekday on or off as a home day; the outfit on Home follows at once
-function settingsToggleHomeDay(day) {
+// Office → Home → Off → Office; the outfit on Home follows at once
+function settingsCycleDay(day) {
   const d = Number(day);
   if (!SETTINGS_WEEKDAYS.some(([x]) => x === d)) return;
-  const set = new Set(jarvisSettings.homeDays);
-  if (set.has(d)) set.delete(d);
-  else set.add(d);
-  jarvisSettings.homeDays = [...set].sort();
+  const order = Object.keys(WEEK_KINDS);
+  jarvisSettings.week[d] = order[(order.indexOf(jarvisSettings.week[d]) + 1) % order.length];
   saveBrain("jarvis-settings");
   renderSettings();
   renderHome();
