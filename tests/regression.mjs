@@ -115,7 +115,12 @@ async function showFab(page) {
 }
 // Home's once-a-day cards start closed: sections that look inside them start with them open
 const HOME_CARDS_OPEN = { cards: { "jv-outfit": true, "jarvis-news": true, "jv-tomorrow": true } };
+// npm test runs this file as several processes at once (tests/run.mjs): TEST_SHARD=i/n runs every
+// n-th section, so each process takes its share. Without it, every section runs.
+const SHARD = /^(\d+)\/(\d+)$/.exec(process.env.TEST_SHARD || "");
+let sectionIndex = 0;
 async function section(name, fn) {
+  if (SHARD && sectionIndex++ % Number(SHARD[2]) !== Number(SHARD[1])) return;
   const before = failures.length;
   try {
     await fn();
@@ -17678,6 +17683,143 @@ await section("Outfit: the pencil edits your wardrobe; Need to buy moves an item
   await ctx.close();
 });
 
+await section("Hey Jarvis: shopping, bills, ticking a to-do and Top 3 progress", async () => {
+  const today = isoOffset(0);
+  const b = briefingFixture({});
+  const { ctx, page, errors } = await openApp({
+    hour: 9,
+    seed: {
+      "jarvis-briefing": b,
+      "todo-content": [
+        { id: "t1", text: "Call mom", done: false, due: today, starred: false, subitems: [], completedAt: null },
+        {
+          id: "t2",
+          text: "Call the dentist",
+          done: false,
+          due: today,
+          starred: false,
+          subitems: [],
+          completedAt: null,
+        },
+        { id: "t3", text: "Fold laundry", done: false, due: today, starred: false, subitems: [], completedAt: null },
+      ],
+      "bills-content": [
+        { id: "b1", name: "Electric", amount: 80.25, due: isoOffset(2), repeat: "monthly", autopay: true },
+      ],
+    },
+  });
+  await page.evaluate(() => {
+    window.__said = [];
+    const fake = {
+      speaking: false,
+      speak(u) {
+        this.speaking = true;
+        window.__said.push(u.text);
+      },
+      cancel() {
+        this.speaking = false;
+      },
+      getVoices: () => [],
+    };
+    Object.defineProperty(window, "speechSynthesis", { value: fake, configurable: true });
+    window.SpeechSynthesisUtterance = function (t) {
+      this.text = t;
+    };
+  });
+  const kinds = await page.evaluate(() =>
+    [
+      "add milk to shopping",
+      "put batteries on my shopping list",
+      "we're out of coffee",
+      "i need to buy a phone charger",
+      "add call mom tomorrow",
+      "what bills are due",
+      "anything due this week",
+      "mark call mom done",
+      "i finished fold laundry",
+      "how much money is left on my car loan",
+    ].map((t) => {
+      const m = wakeMatch(t);
+      return m.kind + (m.rest ? ":" + m.rest : "");
+    }),
+  );
+  check(
+    "new phrases map to the right commands, and a money question still goes to Jarvis",
+    JSON.stringify(kinds) ===
+      JSON.stringify([
+        "shop:milk",
+        "shop:batteries",
+        "shop:coffee",
+        "shop:a phone charger",
+        "add:call mom tomorrow",
+        "bills",
+        "bills",
+        "done:call mom",
+        "done:fold laundry",
+        "ask",
+      ]),
+    kinds,
+  );
+  const said = (cmd) =>
+    page.evaluate((c) => {
+      window.__said = [];
+      wakeHandle(c);
+      return { said: window.__said.slice(), toast: document.getElementById("toast").textContent };
+    }, cmd);
+  const shop = await said("add milk to shopping");
+  check(
+    "Shopping: added, read back, with Undo",
+    (await page.evaluate(() => wantsList.some((w) => w.name === "Milk"))) &&
+      shop.said[0] === "Added Milk to Shopping." &&
+      shop.toast.includes("Undo"),
+    shop,
+  );
+  await page.click("#toast .toast-undo");
+  check("Undo takes it off", await page.evaluate(() => !wantsList.some((w) => w.name === "Milk")));
+  const bills = (await said("what bills are due")).said.join(" ");
+  check(
+    "bills: this week's, with amount and day",
+    /1 bill due this week/.test(bills) && /Electric, \$80/.test(bills) && /autopay/.test(bills),
+    bills,
+  );
+  const two = await said("mark call done");
+  check(
+    "two matches: it names them and ticks neither",
+    /I found 2/.test(two.said[0]) && (await page.evaluate(() => todoList.every((t) => !t.done))),
+    two,
+  );
+  const one = await said("mark call mom done");
+  check(
+    "one match: ticked, with Undo",
+    one.said[0] === "Done: Call mom." &&
+      (await page.evaluate(() => todoList.find((t) => t.id === "t1").done)) &&
+      one.toast.includes("Undo"),
+    one,
+  );
+  const none = await said("mark walk the dog done");
+  check("no match: says so", /couldn't find an open to-do called walk the dog/.test(none.said[0]), none);
+  // Top 3 progress
+  const top = await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("jarvis-briefing"));
+    raw.top3 = [
+      { id: "t1", text: "Call mom", why: "" },
+      { id: "t2", text: "Call the dentist", why: "" },
+      { id: "t3", text: "Fold laundry", why: "" },
+    ];
+    localStorage.setItem("jarvis-briefing", JSON.stringify(raw));
+    window.__said = [];
+    wakeHandle("top 3");
+    return window.__said[0];
+  });
+  check(
+    "Top 3 says how many are done and what's next",
+    top === "1 of 3 done. Next: Call the dentist and Fold laundry.",
+    top,
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {
@@ -17700,6 +17842,65 @@ await section("Budget: + Bills due adds the line to the paycheck", async () => {
   );
   check("no errors", errors.length === 0, errors);
   await ctx.close();
+});
+
+await section("service worker: the Hey Jarvis files keep their own cache across app versions", async () => {
+  const source = await readFile(path.join(ROOT, "sw.js"), "utf8");
+  const listeners = {};
+  const stores = { "jazz2-wake-v1": new Map(), "jazz2-wake-v0": new Map(), "jazz2-cache-v1": new Map() };
+  let fetched = 0;
+  const sandbox = {
+    self: {
+      location: { origin: "https://jazz.example" },
+      addEventListener: (type, fn) => (listeners[type] = fn),
+      clients: { claim() {} },
+      registration: {},
+      skipWaiting() {},
+    },
+    fetch: async () => (fetched++, new Response("model bytes")),
+    caches: {
+      open: async (name) => {
+        const m = (stores[name] = stores[name] || new Map());
+        return { match: async (r) => m.get(r.url), put: async (r, res) => m.set(r.url, res) };
+      },
+      match: async () => undefined,
+      keys: async () => Object.keys(stores),
+      delete: async (k) => delete stores[k],
+    },
+    console: { error() {}, log() {}, warn() {} },
+    URL,
+    Response,
+  };
+  vm.runInNewContext(source, sandbox);
+  const get = async (url) => {
+    let out;
+    listeners.fetch({
+      request: { url, method: "GET", mode: "cors", destination: "" },
+      respondWith: (p) => (out = p),
+      waitUntil() {},
+    });
+    const res = await out;
+    return res && (await res.clone().text());
+  };
+  const url = "https://jazz.example/Jarvis/vendor/wake/models/hey_jarvis_v0.1.onnx";
+  const first = await get(url);
+  const second = await get(url);
+  check("the first load fetches the file and keeps it", first === "model bytes" && fetched === 1, { fetched });
+  check("after that it comes from the cache, without asking the network", second === "model bytes" && fetched === 1, {
+    fetched,
+  });
+  check(
+    "it's kept in its own cache, not the app's",
+    stores["jazz2-wake-v1"].has(url) && !stores[`jazz2-cache-${"v"}1`].has(url),
+  );
+  let done;
+  listeners.activate({ waitUntil: (p) => (done = p) });
+  await done;
+  check(
+    "a new app version clears old app caches and old voice caches, and keeps this one",
+    "jazz2-wake-v1" in stores && !("jazz2-wake-v0" in stores) && !("jazz2-cache-v1" in stores),
+    Object.keys(stores),
+  );
 });
 
 await section("service worker: a page or file fetched fresh also lands in the cache", async () => {
