@@ -15,6 +15,21 @@ branch or commit). Big phases live in `PLAN.md`; this list is the smaller work a
 - [ ] **Top up Claude API credit** (you) when it runs low: briefing, review and Ask stop without it.
 
 ## Build
+- [ ] **Fill in the wardrobe** (Nov 5): the Outfit card's list of what you own (`capsule`, pencil
+  beside Swap) is still mostly the starting list, so outfits miss clothes you have.
+  - **You:** take a few photos of the closet, folded stacks and shoe rack and send them in a Claude
+    Code session; Claude lists every item it can make out (name, type, colour) for you to correct.
+    (Videos only if ffmpeg is installed first to pull frames; ask before installing.)
+  - **Build: Paste a list** in the wardrobe editor: one item per line ("Navy crew tee", "White
+    oxford shirt, size M"); the type is guessed by code from its words (shirt / tee / polo → Tops,
+    jeans / pants / chinos / shorts → Bottoms, boots / sneakers / loafers → Shoes, jacket / coat /
+    blazer → Outerwear, anything else → Accessories), shown as a preview where each type can be
+    changed, then saved in one go with one Undo. On the device, no model, no cost. Titles are
+    untrusted text (escaped, capped at 120 characters); duplicates of an owned name are skipped.
+  - **Build: bought → owned:** ticking a Wardrobe item as bought on Shopping offers "Add to your
+    wardrobe" (Undo), so outfits keep up with what's bought.
+  - Not planned: Jarvis reading a closet photo inside the app (model cost, more mistakes, and a new
+    Ask action type).
 - [ ] **HUD**: a small glance view for a desktop corner (next event, Top 3, safe to spend, latest alert).
 - [ ] **Run the Ask test set** (you: Actions → Jarvis Eval, about $0.30) to check the per-question
   models against the Oct 31 baseline (12/12).
