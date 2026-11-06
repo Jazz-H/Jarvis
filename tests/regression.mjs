@@ -18084,6 +18084,25 @@ await section("To-Do: repeating to-dos stay out of Later (the Recurring card lis
     r.recurring.includes("Change contacts") && r.recurring.includes("Creatine"),
     r.recurring,
   );
+  // edge case: only repeating to-dos further out than a week are left
+  const edge = await page.evaluate(() => {
+    todoList = todoList.filter((t) => t.id === "r1");
+    // no wash day or workout this week either (they have rows of their own)
+    window.isWashDay = () => false;
+    window.workoutsOn = () => [];
+    window.weighInDue = () => false;
+    renderTodoPanel();
+    return {
+      list: document.getElementById("todo-list")?.textContent.replace(/\s+/g, " ").trim(),
+      recurring: document.getElementById("todo-recurring")?.textContent || "",
+    };
+  });
+  check(
+    "only far-off repeating to-dos left: the list says where they are instead of looking empty",
+    edge.list === "Nothing due this week. Your repeating to-dos are under Recurring." &&
+      edge.recurring.includes("Change contacts"),
+    edge,
+  );
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });
