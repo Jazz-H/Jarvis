@@ -63,6 +63,18 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
       .register("sw.js", { updateViaCache: "none" })
       .catch((err) => console.log("SW registration skipped:", err));
   });
+  // An installed app that's switched back to resumes without loading, so the browser never looks
+  // for a new version. Look when it comes back to the screen (at most every 10 minutes); a new
+  // worker then takes over and the reload below picks up the deploy.
+  let swChecked = Date.now();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || Date.now() - swChecked < 10 * 60 * 1000) return;
+    swChecked = Date.now();
+    navigator.serviceWorker
+      .getRegistration()
+      .then((r) => r && r.update())
+      .catch(() => {});
+  });
   // A deploy: the page itself comes from the network but the old worker still serves the old
   // CSS/JS, so new markup can show unstyled. When the new worker takes over, reload once (later,
   // when the app is in the background, if you're typing or in a dialog).
