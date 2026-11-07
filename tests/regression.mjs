@@ -1495,7 +1495,7 @@ await section("budget: tab, old closet links, spending, bills", async () => {
     budget.expenses.push({ id: "exp-big", name: "Big shop", amount: 500, cat: "cat-groceries", date: addDaysIso(0) });
     renderBudget();
   });
-  check("over-limit category is flagged", !!(await page.$(".budget-cat-amt.over")));
+  check("over-limit category is flagged", !!(await page.$(".wb-cat.over")));
   await page.click('.budget-month .cal-nav[aria-label="Next month"]');
   check("next month projects the bill", (await page.textContent("#bills-mine")).includes("Rent"));
   check("no JS errors", errors.length === 0, errors);
@@ -1894,7 +1894,9 @@ await section("budget: long-term goals", async () => {
   });
   check("past paycheck line counts, future one doesn't yet", linked.saved === 1700, linked);
   check("linked paycheck lines are tagged", linked.tag);
-  // composer: To a goal
+  // composer: To a goal (scrolling up brings back the + that Budget tucks away while scrolling down)
+  await page.evaluate(() => document.querySelector("main").scrollBy(0, -200));
+  await page.waitForTimeout(250);
   await showFab(page);
   await page.click("#fab");
   await page.click("#composer-chips .filter-chip >> text=To a goal");
@@ -2079,10 +2081,15 @@ await section("budget: pay periods, copy plans, variable bills, shares, card tot
     }),
   );
   check(
-    "Month at a Glance adds it up",
+    "the month's totals add it up (Month at a Glance is only on the wide sheet now)",
     await page.evaluate(() => {
-      const t = document.querySelector("#glance").textContent;
-      return t.includes("Income") && t.includes("Bills & spending") && t.includes("Left over");
+      const t = document.querySelector(".budget-kpis").textContent;
+      return (
+        t.includes("Income") &&
+        t.includes("Bills & spending") &&
+        t.includes("Left over") &&
+        !document.getElementById("glance")
+      );
     }),
   );
   // reload: joint group, account, share, varies and done all survive
@@ -2731,7 +2738,7 @@ await section("press and drag works across the app; no grip handles", async () =
   check(
     "goals reorder (and the top tile follows)",
     await page.evaluate(
-      () => budget.goals[0].id === "g2" && document.querySelector(".budget-kpi.goal span").textContent === "Second",
+      () => budget.goals[0].id === "g2" && document.querySelector(".wb-goal-text b").textContent === "Second",
     ),
   );
   check("no JS errors", errors.length === 0, errors);
@@ -14643,7 +14650,7 @@ await section("budget top: safe to spend, next 14 days across a month end, spend
       cat("Dining").cls === "wb-cat near" &&
       cat("Fun").cls === "wb-cat over" &&
       cat("Fun").w === "100%" &&
-      cat("Fun").amt === "$60 of $50 · over",
+      cat("Fun").amt === "$60 of $50 · $10 over",
     sp.cats,
   );
   check(
@@ -18546,7 +18553,9 @@ await section("Budget: the bank feed (From your bank list, rules, bills, Spendin
       return {
         rows: sec
           ? [...sec.querySelectorAll(".bank-row")].map((r) =>
-              [...r.querySelectorAll(".wb-bill-text > *, .bank-undo")].map((x) => x.textContent.trim()).join(" | "),
+              [...r.querySelectorAll(".wb-bill-text > *, .bank-tag, .bank-undo")]
+                .map((x) => x.textContent.trim())
+                .join(" | "),
             )
           : [],
         label: sec ? sec.querySelector(".wb-label").textContent : "",
@@ -18560,7 +18569,7 @@ await section("Budget: the bank feed (From your bank list, rules, bills, Spendin
   check(
     "the rule placed Kroger by itself, and the list says so with Undo",
     s.expenses.includes(`Kroger|c-groc|t000000000001|auto`) &&
-      s.rows.some((r) => /^Kroger \| Added by your rule · Groceries \| Undo$/.test(r)),
+      s.rows.some((r) => /^Kroger \| Added by your rule to Groceries \| Undo$/.test(r)),
     s,
   );
   check(
@@ -18575,7 +18584,7 @@ await section("Budget: the bank feed (From your bank list, rules, bills, Spendin
   );
   check(
     "a charge that pays a bill says so",
-    s.rows.some((r) => /^Progressive \| .* \| Pays Moto Insurance$/.test(r)),
+    s.rows.some((r) => /^Progressive \| .* \| Pays Moto Insurance ▾$/.test(r)),
     s.rows,
   );
   check(
@@ -18617,7 +18626,7 @@ await section("Budget: the bank feed (From your bank list, rules, bills, Spendin
     ui.matched,
   );
   check("Spending: Gas shows the new charge, faint", /\+\$41\.02 new/.test(ui.gas) && ui.newSeg === 1, ui);
-  check("Spending's label has the Review chip", /new · Review/.test(ui.review), ui.review);
+  check("no Review chip on Spending's label (From your bank already counts them)", ui.review === "", ui.review);
   // tick Shell: added under Gas
   await page.tap('#bank-sec [data-action="bank-add"][data-bank-id="t000000000002"]');
   s = await state();
@@ -18727,7 +18736,7 @@ await section("Budget: Add N matched adds every charge with a category and pays 
   };
   const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed });
   const btn = await page.textContent('[data-action="bank-add-matched"]');
-  check("the button counts what's ready (not Amazon)", /Add 2 matched/.test(btn), btn);
+  check("the button counts what's ready (not Amazon)", /Add all 2 with a category or bill/.test(btn), btn);
   await page.tap('[data-action="bank-add-matched"]');
   const r = await page.evaluate(() => ({
     exp: budget.expenses.length,

@@ -8,3 +8,6 @@ agents/node_modules/
 .claude/settings.local.json
 .claude/skills/impeccable/
 .claude/agents/impeccable-*.md
+
+# Impeccable critique snapshots (local review history)
+.impeccable/

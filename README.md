@@ -577,22 +577,25 @@ the starting items.
 right now, with the full month folded under it:
 - **Safe to spend:** what's left of the latest paycheck after the bills due before the next
   payday (the same numbers as Home's Money detail), "until payday Fri, Nov 6 · 7 days", a paid
-  vs due bar, and Paid / Due / Paycheck. Without a paycheck it offers **+ Add your paycheck**.
+  vs due bar, and Paid / Due / Paycheck. When it's negative, one line says why ("Bills due before
+  payday come to $1,927.20, more than the $1,785 left of this paycheck"). Without a paycheck it
+  offers **+ Add your paycheck**.
 - **From your bank** (once the bank feed is set up: SETUP.md section 10; above Next 14 days, in
   the left column on a big screen): your banks' charges from the last 45 days that aren't in
   Budget yet, newest first. It shows only when something is waiting.
-  - **Each row:** a tick, the logo, the merchant, "date · account ··last 4", and the amount.
-    Under the name is its category (tap to change) or **Pick a category** in gold, or
-    **Pays <bill>**.
-  - **The tick:** adds it as spending in that category, with Undo. A charge that pays a bill
-    marks that bill paid with it, on the charge's date, so it isn't counted twice. With no
-    category yet, the tick opens the picker.
-  - **The picker:** a category, and **Always put "Kroger" here**, which makes a rule.
-  - **× skips** a charge. Pending charges are faded with no tick until they post.
+  - **Each row:** the logo, the merchant (two lines before "…"), "date · account ··last 4", the
+    amount and × to skip. Under them, its category (a chip: tap to change), **Pick a category**
+    (an outlined chip) or **Pays <bill>** (with a link icon), and the **Add** button (**Mark paid** for a bill).
+  - **Add:** adds it as spending in that category, with Undo. A charge that pays a bill marks
+    that bill paid with it, on the charge's date, so it isn't counted twice. With no category
+    yet, Add opens the picker.
+  - **The picker:** a category, and **Always put "Kroger" here**, which makes a rule. Tapping
+    **Pays <bill>** opens it too, saying "Not it? Put it in a category instead", for a wrong match.
+  - **× skips** a charge. Pending charges are shown in dimmer colours with no Add until they post.
   - **Your rules add by themselves:** a charge a rule matches goes straight into Budget and shows
-    as "Added by your rule · <category>" with **Undo** until the next feed. Undo takes it back
+    as "Added by your rule to <category>" with **Undo** until the next feed. Undo takes it back
     out. A category that comes only from the bank (when it's sure) still waits for your tick.
-  - **Add N matched:** adds every charge that has a category and pays every bill a charge
+  - **Add all N with a category or bill:** adds every charge that has a category and pays every bill a charge
     matched, in one tap, with Undo.
   - **What's left out:** card payments, transfers between your accounts and money coming in. A
     charge for a bill that's already paid (autopay) isn't listed either; Next 14 days says
@@ -602,7 +605,7 @@ right now, with the full month folded under it:
   - **Where it's kept:** the feed is on this device only and read-only. What you do with it
     (added, skipped, your rules) syncs with Budget.
 - **Next 14 days** (folds from its label; remembered on this device): every bill due from today through 14 days out, across month ends (Nov 1
-  shows on Oct 30), with the total still due. Overdue unpaid bills come first, in red. Each row:
+  shows on Oct 30), with the total still due. Overdue unpaid bills come first, in red, saying how late ("2 days late · was due Nov 5"). Each row:
   a tick box (pays it, with Undo), the logo, name, due day and "autopay", or an amber "not on
   autopay" when it's due within 3 days, and the amount (your share for joint bills). Tap the
   row to edit the bill. A **credit card** due in that window that no paycheck plan has yet shows
@@ -610,9 +613,9 @@ right now, with the full month folded under it:
   one-tap "+ $X to the <date> paycheck"; once planned it leaves the list. It isn't in the total,
   since the bills on the card already are.
 - **Spending · <Month>:** spent of the categories' limits, a bar per category with a limit
-  (amber at 90%, red over); categories without a limit as compact chips. Tap one to see its
-  expenses. Bank charges with a category that aren't added yet show faintly on their bar
-  ("+$41.02 new"), and the label gets **N new · Review**, which scrolls to From your bank.
+  (amber at 90%, red over with how much: "$18.20 over"); categories without a limit as compact
+  chips; **+ Add category**. Tap one to see its expenses. Bank charges with a category that
+  aren't added yet show faintly on their bar ("+$41.02 new").
 - **Goal:** the first goal as a ring: saved of target and what a paycheck puts toward it
   (from its plan lines). Tap to edit it.
 - **<Month> in full · bills and paycheck plan:** a folded row that opens the month
@@ -622,15 +625,18 @@ right now, with the full month folded under it:
 The month view is laid out like the budget sheet, one calendar month at a time (‹ › to step months).
 - **Top:** four tiles: **Income** (this month's checks; ~ when some are expected),
   **Bills & spending** (the paycheck plans' lines, less what goes to goals; without plans,
-  bills plus spending), **Left over**, and the first goal (saved, of target, %). Without a
-  paycheck: Bills left, Spent, an Add-your-paycheck tile, and the goal or Left to spend.
+  bills plus spending), **Left over** ("all of November", after what goes to goals) and **Bills
+  left**. Without a paycheck: Bills left, Spent, an Add-your-paycheck tile, and the first goal
+  or Left to spend. The tiles go to one column when the text is large.
 - **My Bills / Joint Bills:** tables like the sheet: Due · Expense (logo, name, and the
   card/bank under it) · Amount · Paid. Paid rows stay, struck through; overdue due days are
-  red; each table ends in a Total. Tap a bill to edit it (or a paid one to fix the payment).
+  red and the row says "Overdue"; each table ends in a Total. Tap a bill to edit it (or a paid one to fix the payment).
 - **Paycheck Plan:** every check this month, its lines (tickable, optionally pointed at a
-  goal) and **Remaining**. Tap the check to set its amount; with pay that varies, its box
+  goal) and **Remaining**. A check with no lines yet still subtracts the bills due in its
+  stretch: **Remaining after bills due** (the same math as the month's totals). Tap the check to set its amount; with pay that varies, its box
   marks it Received. "+ Bills due Oct 15–28 · $X" adds that check's bills as a line.
-- **Month at a Glance:** Income, Bills & spending, To <goal>, Left over.
+- **Month at a Glance** (Sheet view only; on a phone the tiles say the same): Income, Bills &
+  spending, To <goal>, Left over.
 - **Copy plans:** when a month's paydays are empty, one tap copies last month's lines,
   moving month names along ("1/2 of Oct Bills" → "1/2 of Nov Bills").
 - **Bills:** amount, due date, repeat, Monthly or Joint, the card/bank that pays it,
@@ -662,13 +668,16 @@ The month view is laid out like the budget sheet, one calendar month at a time (
   from the check on the 31st; Bill Guard counts that as planned too); then the card says "In the Nov 13 plan". Bills paid from a card still count in Bills
   & spending, as in the sheet.
 - **By account:** the month's bills totalled by the account that pays them.
-- **Spending** by category appears once something's logged (or from Manage).
-- **Sheet view** (screens 1100px wide and up): a **Phone | Sheet** switch lays the month out
+- **Spending** by category appears once something's logged (or from Manage). On a phone it's
+  left out of the current month, whose bars are already at the top.
+- **Sheet view** (screens 1100px wide and up): a **Summary | Sheet** switch lays the month out
   like the spreadsheet: the four tiles across, then My Bills, Joint Bills and By account |
   the Paycheck Plan and Month at a Glance | the first goal's start/deposited/end of month,
   **Goals · in your order** (goals, then debts, with their dates), Debts, Cards and **Coming in
   <next month>**. Every box is open. The choice is remembered on this device; phones always get
   the phone layout.
+- **The + button** tucks away on Budget while you scroll down (it sits over the amounts) and
+  comes back on any scroll up.
 - **Manage** (a quiet "⚙ Manage budget" link at the bottom opens it as a sheet): paychecks, add income, Goals, Debts and Spending until used,
   Cards & banks, **Import bills from a sheet** (paste rows: card/bank, "6th", expense,
   "$120.00" or "-"), **Import paychecks** (date + amount rows set each payday's amount), and

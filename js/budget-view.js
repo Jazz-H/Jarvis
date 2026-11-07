@@ -105,6 +105,7 @@ function billTableRowHtml(r, today, monthStart) {
     acct ? `<span class="acct-tag"><i style="--acct:${accountColor(acct)}"></i>${escapeHtml(acct)}</span>` : "",
     b && b.autopay && !paid ? `<span class="autopay">${AUTOPAY_ICON}Autopay</span>` : "",
     b && b.share && b.group === "joint" ? `${b.share}%` : "",
+    overdue ? `<span class="overdue">Overdue</span>` : "", // said in words, not only the red due day
   ]
     .filter(Boolean)
     .join(" · ");
@@ -113,9 +114,10 @@ function billTableRowHtml(r, today, monthStart) {
     : r.current
       ? `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="Mark paid: ${escapeAttr(r.name)}" data-action="bill-pay" data-bill-id="${b.id}" data-due="${b.due}"><span class="box">${BOX_CHECK_SVG}</span></button>`
       : `<span class="btab-later" aria-hidden="true"></span>`;
+  const open = billBodyAttrs(r, b, paid);
   return `<div class="btab-row ${paid ? "checked" : ""} ${overdue ? "over" : ""}">
       <span class="btab-due">${escapeHtml(due)}</span>
-      <div class="btab-name" ${billBodyAttrs(r, b, paid)}><div class="title">${billLogoHtml(b, r.name)}<span class="btab-text">${escapeHtml(r.name)}</span></div>${sub ? `<div class="todo-meta">${sub}</div>` : ""}</div>
+      <div class="btab-name" ${open ? `role="button" tabindex="0" ${open}` : ""}><div class="title">${billLogoHtml(b, r.name)}<span class="btab-text">${escapeHtml(r.name)}</span></div>${sub ? `<div class="todo-meta">${sub}</div>` : ""}</div>
       <b class="btab-amt">${b && b.varies && !paid ? `<span class="approx" title="Amount varies">~</span>` : ""}${money(r.amount)}</b>
       ${box}
     </div>`;
@@ -232,9 +234,15 @@ function wbHeroHtml(today) {
   const big = p.pay
     ? `<b class="wb-safe ${p.left < 0 ? "neg" : ""}">${p.left < 0 ? "−" : ""}${moneyShort(Math.abs(p.left))}</b>`
     : `<b class="wb-safe">—</b>`;
+  // short: say why, in the same numbers the keys below use (this paycheck, not the month)
+  const why =
+    p.pay && p.left < 0
+      ? `<p class="wb-why">Bills due before payday come to ${moneyShort(p.due)}, more than the ${moneyShort(Math.max(0, Math.round((p.pay - p.paid) * 100) / 100))} left of this paycheck.</p>`
+      : "";
   return `<section class="wb-hero" aria-label="Safe to spend">
-      <div class="wb-kicker">Safe to spend</div>
+      <div class="wb-kicker">Safe to spend · this paycheck</div>
       <div class="wb-hero-row">${big}<span>until payday ${escapeHtml(wbDay(p.end))} · ${n} day${n === 1 ? "" : "s"}</span></div>
+      ${why}
       <div class="wb-bar2" aria-hidden="true"><span class="paid" style="width:${dashPct(p.paid, scale)}%"></span><span class="due" style="width:${dashPct(p.due, scale)}%"></span></div>
       <div class="wb-keys"><span><i class="paid"></i>Paid ${moneyShort(p.paid)}</span><span><i class="due"></i>Due ${moneyShort(p.due)}</span><span>Paycheck ${p.pay ? moneyShort(p.pay) : "not set"}</span></div>
     </section>`;
@@ -264,8 +272,12 @@ function wbBillRowHtml(r, today) {
     meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
     const seen = bankPaidNote(r.payment); // the bank feed confirmed it (bank.js)
     if (seen) meta.push(`<span class="wb-matched">${escapeHtml(seen)}</span>`);
-  } else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(shortDate(r.due))}</span>`);
-  else meta.push(escapeHtml(n === 0 ? "Today" : n === 1 ? "Tomorrow" : wbDay(r.due)));
+  } else if (overdue) {
+    const late = -n;
+    meta.push(
+      `<span class="overdue">${late === 1 ? "1 day" : `${late} days`} late · was due ${escapeHtml(shortDate(r.due))}</span>`,
+    );
+  } else meta.push(escapeHtml(n === 0 ? "Today" : n === 1 ? "Tomorrow" : wbDay(r.due)));
   if (!paid && b && b.autopay) meta.push("autopay");
   else if (!paid && b && r.current && dashManualSoon([b]).length)
     meta.push(`<span class="wb-manual">not on autopay</span>`);
@@ -353,7 +365,7 @@ function wbSpendingHtml(today) {
       const addPct = add ? Math.max(1, Math.min(100 - pct, Math.round((add / c.limit) * 100))) : 0;
       return `<div class="wb-cat ${tone}">
           <button class="wb-cat-btn" data-action="budget-cat-toggle" data-cat-id="${escapeAttr(c.id)}" aria-expanded="${open}">
-            <span class="wb-cat-head"><b>${escapeHtml(c.name)}</b><span class="wb-cat-amt">${add ? `<span class="wb-cat-new">+${moneyShort(add)} new · </span>` : ""}${moneyShort(total)} of ${moneyShort(c.limit)}${tone === "over" ? " · over" : ""}</span></span>
+            <span class="wb-cat-head"><b>${escapeHtml(c.name)}</b><span class="wb-cat-amt">${add ? `<span class="wb-cat-new">+${moneyShort(add)} new · </span>` : ""}${moneyShort(total)} of ${moneyShort(c.limit)}${tone === "over" ? ` · ${moneyShort(r2(total - c.limit))} over` : ""}</span></span>
             <span class="wb-track" aria-hidden="true"><span style="width:${pct}%"></span>${addPct ? `<span class="wb-track-new" style="width:${addPct}%"></span>` : ""}</span>
           </button>
           ${open ? wbCatItemsHtml(c, list) : ""}
@@ -372,16 +384,11 @@ function wbSpendingHtml(today) {
     .map((x) => wbCatItemsHtml(x.c, x.list))
     .join("");
   const month = noonOf(key + "-01").toLocaleDateString("en-US", { month: "long" });
-  const review = fresh.all
-    ? `<button class="jv-chip-sm on wb-review" data-action="bank-review">${fresh.all} new · Review</button>`
-    : "";
+  // the month view's own Spending card isn't repeated for this month on a phone, so adding one lives here
   return `<section class="wb-sec wb-spending" aria-label="Spending this month">${wbLabel(
     `Spending · ${escapeHtml(month)}`,
     limitTotal ? `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)}` : moneyShort(spentTotal),
-  ).replace(
-    /<\/div>$/,
-    `${review}</div>`,
-  )}<div class="wb-card wb-cats">${bars}${chips ? `<div class="wb-chips">${chips}</div>${looseOpen}` : ""}${!bars && !chips ? `<div class="empty">No categories yet.</div>` : ""}</div></section>`;
+  )}<div class="wb-card wb-cats">${bars}${chips ? `<div class="wb-chips">${chips}</div>${looseOpen}` : ""}${!bars && !chips ? `<div class="empty">No categories yet.</div>` : ""}<button class="wb-link wb-cat-add" data-action="budget-cat-add">+ Add category</button></div></section>`;
 }
 // What one paycheck puts toward a goal: its plan lines pointed at it, from this
 // pay period's check (or the next one that has some, else the latest)
@@ -489,23 +496,24 @@ function renderBudget() {
         hasIncome && paychecks.length
           ? `${tile("Income", `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`)}
       ${tile("Bills &amp; spending", `${estimated ? "~" : ""}${moneyShort(billsSpend)}`, estimated ? `${unplanned.length} check${unplanned.length === 1 ? "" : "s"} not planned yet` : `${paidCount} bills paid`)}
-      ${tile("Left over", signed(leftOver), toGoals ? `after ${moneyShort(toGoals)} to ${goalNames.length === 1 ? escapeHtml(goalNames[0]) : "goals"}` : "", leftOver < 0 ? "neg" : "good")}`
+      ${tile("Left over", signed(leftOver), `all of ${escapeHtml(monthName)}${toGoals ? `, after ${moneyShort(toGoals)} to ${goalNames.length === 1 ? escapeHtml(goalNames[0]) : "goals"}` : ""}`, leftOver < 0 ? "neg" : "good")}`
           : // no paycheck yet: bills and spending against the category budgets
             `${tile("Bills left", moneyShort(r2(sum(unpaid))), `${paidCount} paid`)}
       ${tile("Spent", moneyShort(r2(spentTotal)), limitTotal ? `of ${moneyShort(limitTotal)} budgeted` : "")}
       ${hasIncome ? tile("Income", "$0", `No paydays in ${monthName}`) : tile("Income", "—", "Add your paycheck", "", 'data-action="budget-add-income"')}`
       }
       ${
-        g0
-          ? tile(
-              escapeHtml(g0.name),
-              moneyShort(Math.round(g0s.saved)),
-              `of ${moneyShort(g0.target)} · ${g0s.pct}%`,
-              "goal",
-              'data-action="budget-goals-scroll"',
-            )
-          : hasIncome && paychecks.length
-            ? tile("Bills left", moneyShort(r2(sum(unpaid))), `${unpaid.length} unpaid`)
+        // the goal already has its ring at the top and its own card, so with a paycheck the fourth tile is Bills left
+        hasIncome && paychecks.length
+          ? tile("Bills left", moneyShort(r2(sum(unpaid))), `${unpaid.length} unpaid`)
+          : g0
+            ? tile(
+                escapeHtml(g0.name),
+                moneyShort(Math.round(g0s.saved)),
+                `of ${moneyShort(g0.target)} · ${g0s.pct}%`,
+                "goal",
+                'data-action="budget-goals-scroll"',
+              )
             : tile("Left to spend", signed(r2(limitTotal - spentTotal)), "")
       }
     </div>`;
@@ -551,6 +559,9 @@ function renderBudget() {
     const billsDue = billedDates.has(p.date) ? 0 : r2(sum(billRowsBetween(p.date, next)));
     billedDates.add(p.date);
     const now = p.date <= today && today < next;
+    // a check with no plan lines yet still has its bills due: count them, as the month totals do
+    const afterBills = !p.plan.lines.length && billsDue > 0;
+    const left = afterBills ? r2(p.left - billsDue) : p.left;
     const lines = p.plan.lines
       .map(
         (l) => `<div class="plan-row ${l.done ? "done" : ""}" data-sort-id="${l.id}">
@@ -569,7 +580,7 @@ function renderBudget() {
         ${lines}
         ${billsDue > 0 && !p.plan.lines.some((l) => /bill/i.test(l.name)) ? `<button class="plan-hint" data-action="plan-hint" data-plan-key="${escapeAttr(p.key)}">+ Bills due ${escapeHtml(shortDate(p.date))}–${escapeHtml(shortDate(end))} · ${money(billsDue)}</button>` : ""}
         <button class="plan-add" data-action="plan-line-add" data-plan-key="${escapeAttr(p.key)}">+ Add line</button>
-        <div class="pp-left ${p.left < 0 ? "over" : ""}"><span>Remaining</span><b>${p.left < 0 ? "−" : ""}${money(Math.abs(p.left))}</b></div>
+        <div class="pp-left ${left < 0 ? "over" : ""}"><span>${afterBills ? "Remaining after bills due" : "Remaining"}</span><b>${left < 0 ? "−" : ""}${money(Math.abs(left))}</b></div>
       </div>`;
   });
   let planCard;
@@ -598,14 +609,15 @@ function renderBudget() {
     </div>`,
     });
 
-  html += glanceCard;
+  // On a phone the totals above already say what Month at a Glance did, and this month's
+  // spending bars sit at the top; the wide sheet keeps both
   const goalsCard = budget.goals.length ? goalsCardHtml() : "";
   const debtsCard = budget.debts.length ? debtsCardHtml() : "";
   const cardsCard = cardsCardHtml(key, rows, paychecks);
   html += goalsCard + debtsCard + cardsCard + accountsCard;
   const spendingShown = spent.length || showSpending;
   const spendCard = spendingShown ? spendingCardHtml(spent, spentTotal) : "";
-  html += spendCard;
+  if (key !== today.slice(0, 7) || !wbSpendingHtml(today)) html += spendCard;
 
   // Manage: the set-up-once things, one line each
   const mrow = (label, value, attrs) =>
@@ -648,7 +660,7 @@ function renderBudget() {
         )
       : "";
     const order = orderListHtml();
-    el.innerHTML = `<div class="bsheet">
+    html = `<h2 class="sr-only">Budget</h2><div class="bsheet">
         <div class="bs-bar">${monthNav}<span class="bs-key">Blue = typed in · white = worked out</span>${budgetViewSwitch()}</div>
         ${kpisHtml}
         <div class="bs-grid">
@@ -656,17 +668,39 @@ function renderBudget() {
           <div class="bs-col">${planCard}${glanceCard}</div>
           <div class="bs-col">${g0Card}${order ? sheetBox("Goals · in your order", order) : ""}${debtsCard}${cardsCard}${comingNextHtml(key, today)}${spendCard}${goalsCard}</div>
         </div>
-        <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards, debts &amp; imports</em></button>
+        <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON} <span>Manage budget</span> <em>paychecks, cards, debts &amp; imports</em></button>
       </div>`;
+    budgetSwap(el, html);
     return;
   }
-  html = `<div class="bview-bar">${budgetViewSwitch()}</div>${budgetTopHtml(today)}
+  html = `<h2 class="sr-only">Budget</h2><div class="bview-bar">${budgetViewSwitch()}</div>${budgetTopHtml(today)}
     <details class="wb-month" id="wb-month"${wbMonthOpen() ? " open" : ""}>
       <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills and paycheck plan</span>${CHEVRON_RIGHT}</summary>
       <div class="wb-month-body">${html}</div>
     </details>
-    <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON}<span>Manage budget</span><em>paychecks, cards, debts &amp; imports</em></button>`;
+    <button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON} <span>Manage budget</span> <em>paychecks, cards, debts &amp; imports</em></button>`;
+  budgetSwap(el, html);
+}
+// Every change redraws the tab; put keyboard focus back on the same control (or, when that
+// control went away, like a bank charge just added, the first one left in its section)
+function budgetSwap(el, html) {
+  const a = document.activeElement;
+  let sel = null,
+    sec = null;
+  if (a && a !== el && el.contains(a)) {
+    const attrs = [...a.attributes]
+      .filter((x) => x.name.startsWith("data-") && x.name !== "data-sort-id")
+      .map((x) => `[${x.name}="${CSS.escape(x.value)}"]`)
+      .join("");
+    if (attrs) sel = a.tagName.toLowerCase() + attrs;
+    const s = a.closest("[id]");
+    if (s && s !== el) sec = s.id;
+  }
   el.innerHTML = html;
+  if (!sel && !sec) return;
+  const box = sec && document.getElementById(sec);
+  const to = (sel && el.querySelector(sel)) || (box && box.querySelector('button, [tabindex="0"], summary, a[href]'));
+  if (to) to.focus({ preventScroll: true });
 }
 // ---------- the wide sheet view ----------
 // On a big screen the month can be laid out like the spreadsheet: the bills
@@ -690,7 +724,7 @@ function setBudgetView(v) {
 function budgetViewSwitch() {
   const on = budgetSheetOn();
   return `<div class="bview-switch" role="group" aria-label="Budget layout">
-      <button type="button" class="bview-seg${on ? "" : " on"}" data-action="budget-view" data-view="phone" aria-pressed="${!on}">Phone</button>
+      <button type="button" class="bview-seg${on ? "" : " on"}" data-action="budget-view" data-view="phone" aria-pressed="${!on}">Summary</button>
       <button type="button" class="bview-seg${on ? " on" : ""}" data-action="budget-view" data-view="sheet" aria-pressed="${on}">Sheet</button>
     </div>`;
 }
@@ -871,3 +905,18 @@ function normalizeBudgetData() {
     true,
   );
 })();
+// The + button sits over the right edge, where Budget keeps its amounts: on this tab it tucks
+// away while scrolling down and comes back on any scroll up
+let budgetFabY = 0;
+document.addEventListener(
+  "scroll",
+  (e) => {
+    if (document.body.dataset.tab !== "budget" || !e.target || e.target.tagName !== "MAIN") return;
+    const y = e.target.scrollTop,
+      d = y - budgetFabY;
+    if (Math.abs(d) < 8) return;
+    document.body.classList.toggle("fab-tuck", d > 0 && y > 80);
+    budgetFabY = y;
+  },
+  { capture: true, passive: true },
+);

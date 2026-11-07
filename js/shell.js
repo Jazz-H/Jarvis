@@ -320,7 +320,6 @@ const SHELL_CLICK = {
     if (BANK_ID.test(id || "")) bankUndoAuto(id);
   },
   "bank-add-matched": () => bankAddMatched(),
-  "bank-review": () => bankReviewScroll(),
   "bill-unpay": (el, e) => {
     e.stopPropagation();
     const id = el.getAttribute("data-payment-id");

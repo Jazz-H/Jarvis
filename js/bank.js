@@ -271,11 +271,20 @@ function bankPickCategory(id) {
     return;
   }
   const s = bankSuggest(t);
+  const m = bankBillMatch(t);
   const names = budget.categories.map((c) => c.name);
   const merchant = t.name.toLowerCase().slice(0, 40);
   openModal(
     `${t.name} · ${money(t.amount)}`,
     [
+      ...(m && !m.payment
+        ? [
+            {
+              type: "html",
+              label: `<p class="bank-pick-note">This looks like your ${escapeHtml(m.bill.name)} bill. Not it? Put it in a category instead.</p>`,
+            },
+          ]
+        : []),
       { key: "cat", label: "Category", type: "select", options: names },
       { key: "always", label: `Always put “${t.name}” here (a rule)`, type: "checkbox" },
     ],
@@ -334,10 +343,6 @@ function bankAddMatched() {
     renderBudget();
   });
 }
-function bankReviewScroll() {
-  const el = document.getElementById("bank-sec");
-  if (el) el.scrollIntoView({ block: "start", behavior: "smooth" });
-}
 
 // ---------- layout A: "From your bank" ----------
 function bankRowHtml(r, bank) {
@@ -346,30 +351,31 @@ function bankRowHtml(r, bank) {
   const when = t.pending ? "Pending" : n === 0 ? "Today" : n === -1 ? "Yesterday" : shortDate(t.date);
   const acct = bankAccountName(bank, t.acct);
   const id = escapeAttr(t.id);
-  // its own line, so a long category or bill name never squeezes the name (large text sizes)
+  // The category (or the bill it pays) and the Add button share a line under the name, so a long
+  // name never squeezes either at large text sizes. Both tags open the picker: a wrong bill match
+  // can be put in a category instead.
   const tag = match
-    ? `<span class="bank-tag match">Pays ${escapeHtml(match.bill.name)}</span>`
+    ? `<button class="bank-tag match" data-action="bank-cat" data-bank-id="${id}" aria-label="Pays ${escapeAttr(match.bill.name)}. Change">${LINK_ICON}<span>Pays ${escapeHtml(match.bill.name)}</span> ▾</button>`
     : `<button class="bank-tag${sug ? "" : " pick"}" data-action="bank-cat" data-bank-id="${id}">${sug ? escapeHtml(budgetCat(sug.cat).name) : "Pick a category"} ▾</button>`;
-  const box = t.pending
-    ? `<span class="wb-later" aria-hidden="true"></span>`
-    : `<button class="todo-check" role="checkbox" aria-checked="false" aria-label="${match ? `Mark ${escapeAttr(match.bill.name)} paid with this` : `Add ${escapeAttr(t.name)} to Budget`}" data-action="bank-add" data-bank-id="${id}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
+  const add = t.pending
+    ? ""
+    : `<button class="bank-add" aria-label="${match ? `Mark ${escapeAttr(match.bill.name)} paid with this` : `Add ${escapeAttr(t.name)} to Budget`}" data-action="bank-add" data-bank-id="${id}">${match ? "Mark paid" : "Add"}</button>`;
   return `<div class="wb-bill bank-row${t.pending ? " pending" : ""}">
-      ${box}
       <div class="wb-bill-body">
         ${billLogoHtml(null, t.name)}
-        <span class="wb-bill-text"><b>${escapeHtml(t.name)}</b><span class="wb-bill-meta">${escapeHtml(when)} · ${escapeHtml(acct)}</span>${tag}</span>
+        <span class="wb-bill-text"><b>${escapeHtml(t.name)}</b><span class="wb-bill-meta">${escapeHtml(when)} · ${escapeHtml(acct)}</span></span>
         <b class="wb-bill-amt">${money(t.amount)}</b>
+        <span class="bank-acts">${tag}${add}</span>
       </div>
-      ${t.pending ? "" : `<button class="bank-skip" data-action="bank-skip" data-bank-id="${id}" aria-label="Skip ${escapeAttr(t.name)}">${X_ICON}</button>`}
+      ${t.pending ? `<span class="bank-skip" aria-hidden="true"></span>` : `<button class="bank-skip" data-action="bank-skip" data-bank-id="${id}" aria-label="Skip ${escapeAttr(t.name)}">${X_ICON}</button>`}
     </div>`;
 }
 function bankAutoRowHtml(e, bank) {
   const c = budgetCat(e.cat);
   return `<div class="wb-bill bank-row auto">
-      <span class="wb-later" aria-hidden="true"></span>
       <div class="wb-bill-body">
         ${billLogoHtml(null, e.name)}
-        <span class="wb-bill-text"><b>${escapeHtml(e.name)}</b><span class="wb-bill-meta">Added by your rule${c ? ` · ${escapeHtml(c.name)}` : ""}</span></span>
+        <span class="wb-bill-text"><b>${escapeHtml(e.name)}</b><span class="wb-bill-meta">Added by your rule${c ? ` to ${escapeHtml(c.name)}` : ""}</span></span>
         <b class="wb-bill-amt">${money(e.amount)}</b>
       </div>
       <button class="bank-undo" data-action="bank-undo" data-bank-id="${escapeAttr(e.bankId)}">Undo</button>
@@ -393,7 +399,7 @@ function bankSectionHtml() {
     .join("");
   return `<section class="wb-sec bank-sec" id="bank-sec" aria-label="From your bank">${wbLabel("From your bank", open.length ? `${open.length} to add` : "all added")}
     <div class="wb-card wb-bills">${rows.map((r) => bankRowHtml(r, bank)).join("")}${auto.map((e) => bankAutoRowHtml(e, bank)).join("")}
-      <div class="bank-foot">${ready > 1 ? `<button class="jv-chip-sm on" data-action="bank-add-matched">Add ${ready} matched</button>` : ""}<span>Synced ${escapeHtml(synced)} · card payments and transfers left out</span></div>
+      <div class="bank-foot">${ready > 1 ? `<button class="jv-chip-sm on" data-action="bank-add-matched">Add all ${ready} with a category or bill</button>` : ""}<span>Synced ${escapeHtml(synced)} · card payments and transfers left out</span></div>
       ${reconnect}
     </div></section>`;
 }
