@@ -2738,7 +2738,10 @@ await section("press and drag works across the app; no grip handles", async () =
   check(
     "goals reorder (and the top tile follows)",
     await page.evaluate(
-      () => budget.goals[0].id === "g2" && document.querySelector(".wb-goal-text b").textContent === "Second",
+      () =>
+        budget.goals[0].id === "g2" && // a wide screen shows the Goals card in the side column instead of the ring
+        (document.querySelector(".wb-goal-text b") || document.querySelector("#goals-card .goal-head b"))
+          .textContent === "Second",
     ),
   );
   check("no JS errors", errors.length === 0, errors);
@@ -18835,6 +18838,102 @@ await section("Budget Balances: cards' statements, bank balances, matching a car
         budget.plans[`inc-c|${addDaysIso(0)}`].bankId === "d000000000001",
     ),
   );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Budget on a wide screen: what needs you on the left, the money beside it", async () => {
+  const day = (n) => {
+    const x = new Date();
+    x.setHours(12);
+    x.setDate(x.getDate() + n);
+    return x.toLocaleDateString("en-CA");
+  };
+  const { ctx, page, errors } = await openApp({
+    query: "?tab=budget",
+    phone: false,
+    seed: {
+      "budget-view": "phone",
+      "budget-month-open": "1",
+      "jarvis-bank": {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        from: day(-45),
+        to: day(0),
+        accounts: [
+          {
+            id: "a000000000001",
+            item: "chase",
+            name: "Checking",
+            mask: "1111",
+            type: "depository",
+            balance: 900,
+            available: 880,
+            limit: null,
+          },
+        ],
+        txns: [],
+        errors: [],
+      },
+      "bills-content": [
+        {
+          id: "b-rent",
+          name: "Rent",
+          amount: 1450,
+          due: day(5),
+          repeat: "monthly",
+          autopay: false,
+          account: "Checking",
+        },
+      ],
+      "budget-content": {
+        accounts: ["Checking"],
+        income: [{ id: "i-pay", name: "CCCI", amount: 1850, start: day(-3), repeat: "biweekly" }],
+        goals: [
+          { id: "g1", name: "Emergency fund", target: 5000, saved: 2150, date: null, created: day(-30), log: [] },
+        ],
+      },
+    },
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.evaluate(() => renderBudget());
+  const layout = () =>
+    page.evaluate(() => {
+      const p = document.getElementById("panel-budget");
+      const main = p.querySelector(".wb-main"),
+        rail = p.querySelector(".wb-rail");
+      const r = (el) => el && el.getBoundingClientRect();
+      return {
+        main: !!main,
+        rail: !!rail,
+        heroLeft: !!(main && main.querySelector(".wb-hero")),
+        billsLeft: !!(main && main.querySelector("#wb-next")),
+        monthLeft: !!(main && main.querySelector("#wb-month")),
+        balRight: !!(rail && rail.querySelector("#wb-bal")),
+        goalsRight: !!(rail && rail.querySelector("#goals-card")),
+        goalsOnce: p.querySelectorAll("#goals-card").length,
+        side: main && rail ? r(rail).left > r(main).right : false,
+        twoUp: (() => {
+          const cols = p.querySelectorAll(".wb-mgrid > .bs-col");
+          return cols.length === 2 && r(cols[1]).left > r(cols[0]).right - 1;
+        })(),
+        scroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      };
+    });
+  const w = await layout();
+  check("1440: two columns, the money beside what needs you", w.main && w.rail && w.side, w);
+  check("1440: Safe to spend, Next 14 days and the month sit on the left", w.heroLeft && w.billsLeft && w.monthLeft, w);
+  check(
+    "1440: Balances and Goals sit in the side column (Goals once)",
+    w.balRight && w.goalsRight && w.goalsOnce === 1,
+    w,
+  );
+  check("1440: My Bills and the Paycheck Plan side by side", w.twoUp, w);
+  check("1440: no sideways scroll", w.scroll, w);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.waitForTimeout(100);
+  const n = await layout();
+  check("1024: the usual Summary (no side column)", !n.main && !n.rail, n);
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });

@@ -9575,3 +9575,50 @@ a.jv-track-icon svg {
     align-items: start;
   }
 }
+
+/* ---------- Budget on a wide screen (1100px+, Summary): what needs you, then the money beside it ---------- */
+@media (min-width: 1100px) {
+  body[data-tab="budget"] main {
+    padding-left: max(32px, calc(50% - 680px));
+    padding-right: max(32px, calc(50% - 680px));
+  }
+  .wb-desk {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .wb-main,
+  .wb-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+  }
+  .wb-main > .wb-month,
+  .wb-main > .budget-manage-link,
+  .wb-rail > .card {
+    margin: 0;
+  }
+  /* the rail is one narrow column: cards above bank accounts */
+  .wb-rail .bal-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wb-mgrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .wb-mgrid .bs-col > .card {
+    margin: 0;
+  }
+  .wb-desk .budget-kpis.four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) and (max-width: 1279px) {
+  .wb-desk .budget-kpis.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -673,6 +673,31 @@ function renderBudget() {
     budgetSwap(el, html);
     return;
   }
+  const manageLink = `<button class="budget-manage-link" data-action="budget-manage-open">${GEAR_ICON} <span>Manage budget</span> <em>paychecks, cards, debts &amp; imports</em></button>`;
+  if (budgetWide.matches) {
+    // A wide screen: one column for what needs you (what's safe to spend, the bills due, the
+    // bank's new charges, then the month), and a column beside it for the money you hold
+    // and have spent (balances, spending, the goal, the cards and accounts)
+    const bank = bankSectionHtml();
+    const otherMonth = key !== today.slice(0, 7) || !wbSpendingHtml(today);
+    const monthBody = `${monthNav}${kpisHtml}<div class="wb-mgrid">
+        <div class="bs-col">${billCards.personal}${billCards.joint}${otherMonth ? spendCard : ""}</div>
+        <div class="bs-col">${planCard}${debtsCard}</div>
+      </div>`;
+    html = `<h2 class="sr-only">Budget</h2><div class="bview-bar">${budgetViewSwitch()}</div>
+      <div class="wb-desk">
+        <div class="wb-main">${wbHeroHtml(today)}${wbBillsHtml(today)}${bank}
+          <details class="wb-month" id="wb-month"${wbMonthOpen() ? " open" : ""}>
+            <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills and paycheck plan</span>${CHEVRON_RIGHT}</summary>
+            <div class="wb-month-body">${monthBody}</div>
+          </details>
+          ${manageLink}
+        </div>
+        <aside class="wb-rail" aria-label="Balances and spending">${bankBalancesHtml()}${wbSpendingHtml(today)}${goalsCard || wbGoalHtml(today)}${cardsCard}${accountsCard}</aside>
+      </div>`;
+    budgetSwap(el, html);
+    return;
+  }
   html = `<h2 class="sr-only">Budget</h2><div class="bview-bar">${budgetViewSwitch()}</div>${budgetTopHtml(today)}
     <details class="wb-month" id="wb-month"${wbMonthOpen() ? " open" : ""}>
       <summary class="wb-month-row"><span><b>${escapeHtml(monthName)} in full</b> · bills and paycheck plan</span>${CHEVRON_RIGHT}</summary>

@@ -584,8 +584,8 @@ right now, with the full month folded under it:
   vs due bar, and Paid / Due / Paycheck. When it's negative, one line says why ("Bills due before
   payday come to $1,927.20, more than the $1,785 left of this paycheck"). Without a paycheck it
   offers **+ Add your paycheck**.
-- **Balances** (bank feed; folds from its label, remembered on this device; across the width on a
-  big screen): **Cards** with the balance, "of $5,000" limit and, once the login allows card
+- **Balances** (bank feed; folds from its label, remembered on this device; in the side column on a
+  wide screen): **Cards** with the balance, "of $5,000" limit and, once the login allows card
   details (`npm run plaid-link -- --update citi`, which the section names when it's needed), the
   **statement balance, minimum due and due date** ("Past due" in red when the bank says so); and
   **Bank accounts** with the balance and what's available. The label totals what's on the cards.
@@ -596,8 +596,8 @@ right now, with the full month folded under it:
   - **Paydays from deposits:** a deposit into a bank account whose description carries your
     income's name ("CCCI") within 3 days of a payday fills in that payday's real amount (and
     Received, for pay that varies). Once filled it's yours: edit it and it's never filled again.
-- **From your bank** (once the bank feed is set up: SETUP.md section 10; above Next 14 days, in
-  the left column on a big screen): your banks' charges from the last 45 days that aren't in
+- **From your bank** (once the bank feed is set up: SETUP.md section 10; above Next 14 days;
+  below it, in the left column, on a wide screen): your banks' charges from the last 45 days that aren't in
   Budget yet, newest first. It shows only when something is waiting.
   - **Each row:** the logo, the merchant (two lines before "…"), "date · account ··last 4", the
     amount and × to skip. Under them, its category (a chip: tap to change), **Pick a category**
@@ -639,8 +639,12 @@ right now, with the full month folded under it:
 - **Goal:** the first goal as a ring: saved of target and what a paycheck puts toward it
   (from its plan lines). Tap to edit it.
 - **<Month> in full · bills and paycheck plan:** a folded row that opens the month
-  view (open/closed is remembered on this device). On a wide screen the summary sits in two
-  columns.
+  view (open/closed is remembered on this device). On a tablet-width screen the summary sits in
+  two columns.
+- **Wide screens (1100px and up, Summary):** one column for what needs you (Safe to spend, Next 14
+  days, From your bank, then the month with My Bills and the Paycheck Plan side by side) and a
+  column beside it for the money you hold and have spent (Balances, Spending, Goals, Cards, By
+  account). The page widens from 1100px.
 
 The month view is laid out like the budget sheet, one calendar month at a time (‹ › to step months).
 - **Top:** four tiles: **Income** (this month's checks; ~ when some are expected),
