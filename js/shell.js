@@ -479,6 +479,7 @@ const SHELL_CLICK = {
     if (g) g.scrollIntoView({ behavior: "smooth" });
   },
   "budget-manage-open": () => openBudgetManage(),
+  "budget-drill": (el) => openBudgetDrill(el.getAttribute("data-drill")),
   "paycheck-edit": (el) => {
     const s = el.getAttribute("data-src-id"),
       d = el.getAttribute("data-date");

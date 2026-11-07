@@ -18838,6 +18838,15 @@ await section("Budget Balances: cards' statements, bank balances, matching a car
         budget.plans[`inc-c|${addDaysIso(0)}`].bankId === "d000000000001",
     ),
   );
+  check(
+    "a shouted bank name reads like the others (no broken characters or repeated last 4)",
+    await page.evaluate(
+      () =>
+        bankAcctName("WELLS FARGO AUTOGRAPH VISA�� CARD ...3545") === "Wells Fargo Autograph Visa Card" &&
+        bankAcctName("Citi Double Cash® Card") === "Citi Double Cash® Card" &&
+        bankAcctName("AT&T BIZ") === "AT&T Biz",
+    ),
+  );
   check("no errors", errors.length === 0, errors);
   await ctx.close();
 });
@@ -18930,6 +18939,21 @@ await section("Budget on a wide screen: what needs you on the left, the money be
   );
   check("1440: My Bills and the Paycheck Plan side by side", w.twoUp, w);
   check("1440: no sideways scroll", w.scroll, w);
+  await page.click('[data-drill="income"]');
+  const inc = await page.evaluate(() => ({
+    title: document.getElementById("modal-heading").textContent,
+    rows: [...document.querySelectorAll("#modal-body .bd-row")].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+  }));
+  check(
+    "the Income tile opens its paychecks and their total",
+    inc.title === "Income this month" && inc.rows.some((t) => /CCCI/.test(t)) && /^Total/.test(inc.rows.at(-1)),
+    inc,
+  );
+  await page.click("#modal-backdrop .modal-btn.primary");
+  await page.click('[data-drill="spend"]');
+  const sp = await page.evaluate(() => [...document.querySelectorAll("#modal-body .bd-row")].map((r) => r.textContent));
+  check("the Bills & spending tile opens its bills", sp.some((t) => /Rent/.test(t)) && /Total/.test(sp.at(-1)), sp);
+  await page.click("#modal-backdrop .modal-btn.primary");
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.waitForTimeout(100);
   const n = await layout();

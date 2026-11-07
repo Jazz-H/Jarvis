@@ -45,6 +45,20 @@ function spendingCardHtml(spent, spentTotal) {
 // those bills too; they're the same bills November's view will show.
 let showSpending = false;
 let budgetManageHtml = "";
+const budgetDrillHtml = { income: "", spend: "" };
+// A tap on the Income or Bills & spending tile: the lines that make up its number
+function openBudgetDrill(which) {
+  const html = budgetDrillHtml[which];
+  if (!html) return;
+  openModal(
+    which === "income" ? "Income this month" : "Bills & spending this month",
+    [{ type: "html", label: `<div class="bd-list">${html}</div>` }],
+    {},
+    () => {},
+    null,
+    { saveLabel: "Done" },
+  );
+}
 function openBudgetManage() {
   openModal(
     "Manage budget",
@@ -491,11 +505,70 @@ function renderBudget() {
       <span>${monthName}</span>
       <button class="cal-nav" data-action="budget-month" data-delta="1" aria-label="Next month">›</button>
     </div>`;
+  // Income and Bills & spending open what they add up (budgetDrillHtml, shown by openBudgetDrill)
+  const drow = (label, value, sub = "", cls = "") =>
+    `<div class="bd-row ${cls}"><span>${label}${sub ? `<i>${sub}</i>` : ""}</span><b>${value}</b></div>`;
+  budgetDrillHtml.income =
+    paychecks
+      .map((p) =>
+        drow(
+          `${escapeHtml(shortDate(p.date))} · ${escapeHtml(p.src.name)}`,
+          `${p.approx ? "~" : ""}${money(p.amount)}`,
+          p.received ? "Received" : p.approx ? "Expected" : p.date <= today ? "Paid" : "Coming",
+        ),
+      )
+      .join("") + drow("Total", `${estN ? "~" : ""}${money(r2(incomeTotal))}`, "", "total");
+  {
+    let d = "";
+    if (hasPlan) {
+      paychecks.forEach((p) => {
+        const ls = p.plan.lines.filter((l) => !goalById(l.goal));
+        if (!ls.length) return;
+        d += `<h4 class="bd-head">${escapeHtml(shortDate(p.date))} · ${escapeHtml(p.src.name)} plan</h4>`;
+        d += ls.map((l) => drow(escapeHtml(l.name), money(l.amount), "", l.done ? "done" : "")).join("");
+      });
+      if (unplannedBills)
+        d += drow(
+          "Bills due on checks not planned yet",
+          `~${money(unplannedBills)}`,
+          unplanned.map((p) => escapeHtml(shortDate(p.date))).join(", "),
+        );
+    } else {
+      if (monthRows.length) d += `<h4 class="bd-head">Bills</h4>`;
+      d += monthRows
+        .slice()
+        .sort((a, b) => (a.due < b.due ? -1 : 1))
+        .map((r) =>
+          drow(
+            escapeHtml(r.name || "Bill"),
+            money(Number(r.amount) || 0),
+            escapeHtml(shortDate(r.due)) + (r.payment ? " · paid" : ""),
+            r.payment ? "done" : "",
+          ),
+        )
+        .join("");
+      if (spentTotal) {
+        d += `<h4 class="bd-head">Spending</h4>`;
+        const byCat = {};
+        spent.forEach((e) => (byCat[e.cat || ""] = (byCat[e.cat || ""] || 0) + (Number(e.amount) || 0)));
+        d += Object.entries(byCat)
+          .sort((a, b) => b[1] - a[1])
+          .map(([c, v]) => {
+            const cat = budget.categories.find((x) => x.id === c);
+            return drow(escapeHtml(cat ? cat.name : "Other"), money(r2(v)));
+          })
+          .join("");
+      }
+    }
+    if (overdue) d += drow("Still unpaid from earlier months", money(overdue), "", "over");
+    if (toGoals) d += `<p class="bd-note">${money(toGoals)} to goals isn't counted here.</p>`;
+    budgetDrillHtml.spend = d + drow("Total", `${estimated ? "~" : ""}${money(billsSpend)}`, "", "total");
+  }
   const kpisHtml = `<div class="budget-kpis four">
       ${
         hasIncome && paychecks.length
-          ? `${tile("Income", `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`)}
-      ${tile("Bills &amp; spending", `${estimated ? "~" : ""}${moneyShort(billsSpend)}`, estimated ? `${unplanned.length} check${unplanned.length === 1 ? "" : "s"} not planned yet` : `${paidCount} bills paid`)}
+          ? `${tile(`Income${CHEVRON_RIGHT}`, `${estN ? "~" : ""}${moneyShort(r2(incomeTotal))}`, `${paychecks.length} paycheck${paychecks.length === 1 ? "" : "s"}${estN ? ` · ${estN} expected` : ""}`, "drill", 'data-action="budget-drill" data-drill="income" aria-haspopup="dialog"')}
+      ${tile(`Bills &amp; spending${CHEVRON_RIGHT}`, `${estimated ? "~" : ""}${moneyShort(billsSpend)}`, estimated ? `${unplanned.length} check${unplanned.length === 1 ? "" : "s"} not planned yet` : `${paidCount} bills paid`, "drill", 'data-action="budget-drill" data-drill="spend" aria-haspopup="dialog"')}
       ${tile("Left over", signed(leftOver), `all of ${escapeHtml(monthName)}${toGoals ? `, after ${moneyShort(toGoals)} to ${goalNames.length === 1 ? escapeHtml(goalNames[0]) : "goals"}` : ""}`, leftOver < 0 ? "neg" : "good")}`
           : // no paycheck yet: bills and spending against the category budgets
             `${tile("Bills left", moneyShort(r2(sum(unpaid))), `${paidCount} paid`)}

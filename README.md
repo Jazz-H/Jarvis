@@ -589,6 +589,8 @@ right now, with the full month folded under it:
   details (`npm run plaid-link -- --update citi`, which the section names when it's needed), the
   **statement balance, minimum due and due date** ("Past due" in red when the bank says so); and
   **Bank accounts** with the balance and what's available. The label totals what's on the cards.
+  Account names read like the others: "WELLS FARGO AUTOGRAPH VISA CARD ...3545" shows as "Wells
+  Fargo Autograph Visa Card ··3545" (broken characters and the repeated last 4 dropped).
   - **Match to your card ▾** ties a bank card to one of your Budget cards (it guesses by name; or
     "New card: …" adds it). Then its statement fills in that card's statement in **Cards** for the
     month it's due, and its due day if you hadn't set one. A statement you typed is never
@@ -652,6 +654,9 @@ The month view is laid out like the budget sheet, one calendar month at a time (
   bills plus spending), **Left over** ("all of November", after what goes to goals) and **Bills
   left**. Without a paycheck: Bills left, Spent, an Add-your-paycheck tile, and the first goal
   or Left to spend. The tiles go to one column when the text is large.
+  - **Income** and **Bills & spending** open what they add up: each paycheck (Received /
+    Expected), or each check's plan lines (bills, and spending by category, when nothing is
+    planned), anything still unpaid from earlier months, and the total.
 - **My Bills / Joint Bills:** tables like the sheet: Due · Expense (logo, name, and the
   card/bank under it) · Amount · Paid. Paid rows stay, struck through; overdue due days are
   red and the row says "Overdue"; each table ends in a Total. Tap a bill to edit it (or a paid one to fix the payment).

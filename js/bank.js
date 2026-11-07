@@ -16,6 +16,17 @@ const BANK_ID = /^t[0-9a-f]{12}$/;
 const BANK_ACCT = /^a[0-9a-f]{12}$/;
 let bankCache = { raw: undefined, file: null };
 
+// A bank's account name as people write it: "WELLS FARGO AUTOGRAPH VISA� CARD ...3545" reads
+// "Wells Fargo Autograph Visa Card" (the last 4 show after it anyway). Mixed-case names stay as they are.
+function bankAcctName(v) {
+  let t = bankText(v, 80)
+    .replace(/�/g, "")
+    .replace(/\s*(?:\.{2,}|…|[x*]{2,}|#)\s*\d{2,4}\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!/[a-z]/.test(t) && /[A-Z]{3}/.test(t)) t = t.replace(/[A-Z]{3,}/g, (w) => w[0] + w.slice(1).toLowerCase());
+  return t.slice(0, 60);
+}
 function bankText(v, max) {
   return typeof v === "string"
     ? v
@@ -40,7 +51,7 @@ function normalizeBank(raw) {
       return {
         id: a.id,
         item: bankText(a.item, 30),
-        name: bankText(a.name, 60) || "Account",
+        name: bankAcctName(a.name) || "Account",
         mask: /^\d{2,4}$/.test(a.mask || "") ? a.mask : "",
         type: bankText(a.type, 20),
         subtype: bankText(a.subtype, 30),
