@@ -911,9 +911,12 @@ Setup: `docs/jarvis/SETUP.md`.
 - **Phone notifications:** after the briefing is written, the orchestrator sends Web Push
   (`agents/tools/push.ts`, `web-push`) to every phone that turned them on (addresses in
   `jazz2-push.json` in the gist; the app writes only that file for this). Up to 3 messages: the
-  headline, bills not on autopay due within 3 days (or overdue), "bills before payday are more
-  than your paycheck", price drops on your Shopping list, and a package arriving today (the first
-  three that apply). Signed with the
+  headline, **Gmail needs you** (Google's sign-in expired, so Inbox and Deliveries stopped), bills
+  not on autopay due within 3 days (or overdue), "bills before payday are more than your
+  paycheck", price drops on your Shopping list, and a package arriving today (the first three
+  that apply). Gmail needs you comes every morning until it's fixed, and from a card refresh only
+  when the sign-in ended since the last run; the briefing card on Home shows the same warning
+  with the fix (briefing `reconnect`, cleared by the next run that signs in). Signed with the
   `VAPID_PRIVATE_KEY` secret (the public key is in `js/push.js` and `agents/config.ts`). Phones
   that revoked access are removed; a push failure never fails the run.
 - **Safety:**

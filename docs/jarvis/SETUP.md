@@ -91,9 +91,11 @@ of this text is stored or logged, and attachments are never opened.
    **`GOOGLE_REFRESH_TOKEN`** (the token from step 5). Don't paste the token anywhere else.
 7. Actions → Jarvis → **Run workflow**. Inbox and Deliveries appear on Home.
 
-**If Inbox says "Google access expired":** changing your Google password (or 6 months unused, or
-removing access at myaccount.google.com/permissions) ends the sign-in. Run
-`npm run google-auth` again and update `GOOGLE_REFRESH_TOKEN`.
+**If Home says "Gmail needs you"** (your phone gets the same notification, each morning until it's
+fixed): the sign-in ended. Usually the app is still in "Testing" (step 3: Publish app; its sign-ins
+last 7 days), or you changed your Google password, left it unused 6 months, or removed access at
+myaccount.google.com/permissions. Publish the app if it isn't, run `npm run google-auth` again
+(allow Gmail and Drive) and replace `GOOGLE_REFRESH_TOKEN`. The next run clears the warning.
 
 ### Google Drive for Ask Jarvis (about 5 minutes, once; after Gmail above)
 Lets Ask Jarvis search your Drive and read Docs, Sheets and Slides (read-only, all of Drive) when

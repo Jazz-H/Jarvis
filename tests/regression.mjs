@@ -18376,6 +18376,29 @@ await section("To-do Skip: a repeating to-do moves to its next date without coun
   await ctx.close();
 });
 
+await section("Briefing: an expired Google sign-in says so on Home, folded or open", async () => {
+  const b = briefingFixture({ reconnect: ["google", "<img src=x onerror=alert(1)>"] });
+  const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });
+  const r = await page.evaluate(() => ({
+    line: document.querySelector("#jv-briefing .jv-reconnect")?.textContent.replace(/\s+/g, " ") || "",
+    n: document.querySelectorAll("#jv-briefing .jv-reconnect").length,
+    peek: document.querySelector("#jv-briefing .coll-peek")?.textContent || "",
+    kinds: loadBriefing().reconnect,
+  }));
+  check(
+    "the line says what stopped and how to fix it",
+    /Gmail needs you/.test(r.line) && /npm run google-auth/.test(r.line) && /GOOGLE_REFRESH_TOKEN/.test(r.line),
+    r,
+  );
+  check("only known kinds are kept", r.n === 1 && JSON.stringify(r.kinds) === '["google"]', r);
+  check("the folded card's peek says it too", /Gmail needs you/.test(r.peek), r.peek);
+  await ctx.close();
+  const ok = await openApp({ hour: 9, seed: { "jarvis-briefing": briefingFixture({}) } });
+  check("no line when the sign-in is fine", !(await ok.page.$("#jv-briefing .jv-reconnect")));
+  check("no errors", errors.length === 0 && ok.errors.length === 0, [errors, ok.errors]);
+  await ok.ctx.close();
+});
+
 await section("Briefing: the headline follows the lines you dismiss", async () => {
   const b = briefingFixture({
     headline: "Call Luke at 10 AM",

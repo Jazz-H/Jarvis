@@ -88,5 +88,11 @@ export const Briefing = z.object({
     prices: BriefingCard(PricesCard).optional(), // Price watcher: the latest weekly check
   }),
   notes: z.array(z.string().max(200)).max(10),
+  // A sign-in the owner has to redo on their computer (Google's expired: Inbox and Deliveries stop).
+  // Home shows it and the phone is told; a run that signs in fine clears it.
+  reconnect: z
+    .array(z.enum(["google"]))
+    .max(4)
+    .optional(),
 });
 export type Briefing = z.infer<typeof Briefing>;

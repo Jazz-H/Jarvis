@@ -457,7 +457,21 @@ function normalizeBriefing(b) {
       .map((n) => str(n, 200))
       .filter(Boolean)
       .slice(0, 10),
+    // a sign-in the owner has to redo on their computer (only known kinds)
+    reconnect: arr(b.reconnect).includes("google") ? ["google"] : [],
   };
+}
+// Home's line for it, in the briefing card and its folded peek (the phone was told too)
+const RECONNECT_TEXT = {
+  google: "Gmail needs you: Google's sign-in expired, so Inbox and Deliveries stopped.",
+};
+function briefingReconnectHtml(b) {
+  return (b.reconnect || [])
+    .map(
+      (k) =>
+        `<div class="jv-reconnect" role="status"><strong>${escapeHtml(RECONNECT_TEXT[k])}</strong> On your computer: <code>cd agents</code>, <code>npm run google-auth</code>, then replace the <code>GOOGLE_REFRESH_TOKEN</code> secret (SETUP.md → Gmail).</div>`,
+    )
+    .join("");
 }
 function loadBriefing() {
   return hideDismissed(normalizeBriefing(loadContent(BRIEFING_KEY, null)));
@@ -656,7 +670,9 @@ function jarvisHeroHtml(b) {
   briefingCardSync(b, !!reviewRow);
   const late = b.date === today ? "" : briefingLateHtml(b);
   const count = b.summary.length;
+  const reconnect = b.date === today ? briefingReconnectHtml(b) : "";
   const peek = [
+    reconnect ? `<span class="coll-peek-note">${escapeHtml(RECONNECT_TEXT[b.reconnect[0]])}</span>` : "",
     late ? `<span class="coll-peek-note">${late.replace(/<[^>]+>/g, "")}</span>` : "",
     b.headline ? `<span class="coll-peek-text">${escapeHtml(head.title)}</span>` : "",
   ].join("");
@@ -669,6 +685,7 @@ function jarvisHeroHtml(b) {
     body: `
       ${b.headline ? `<h2 class="jv-headline">${escapeHtml(head.title)}</h2>${head.sub ? `<p class="jv-headsub">${escapeHtml(head.sub)}</p>` : ""}` : ""}
       ${late}
+      ${reconnect}
       ${b.cleared ? `<p class="jv-headsub">You dismissed every line of today's briefing. The next one comes tomorrow morning.</p>` : ""}
       <ul class="jv-summary">${reviewRow}${items}</ul>
       ${briefingSuggestHtml(b)}

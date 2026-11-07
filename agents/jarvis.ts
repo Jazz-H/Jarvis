@@ -39,7 +39,7 @@ import { gistClient, type GistClient } from "./tools/gist.ts";
 import { calendarHistory, fetchIcs } from "./tools/ics.ts";
 import { fetchItem, PlaidError, type PlaidCreds, type PlaidEnv } from "./tools/plaid.ts";
 import { buildBankFile, type ItemResult } from "./lib/bank.ts";
-import { gmailClient, googleAccessToken, type Gmail } from "./tools/gmail.ts";
+import { gmailClient, googleAccessToken, GoogleAuthError, type Gmail } from "./tools/gmail.ts";
 import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
 import { notifyPhones } from "./lib/notify.ts";
 import { answerPendingQuietly, askLimits, type AskLimits } from "./ask.ts";
@@ -192,7 +192,28 @@ async function readPrevious(gist: GistClient, trace: Trace): Promise<{ date: str
   }
 }
 
-type Settled = { name: SubagentName; ok: true; data: unknown } | { name: SubagentName; ok: false; error: string };
+type Settled =
+  { name: SubagentName; ok: true; data: unknown } | { name: SubagentName; ok: false; error: string; google?: boolean };
+
+// Google's sign-in ended (revoked, expired, password changed): only the owner can fix it, on a computer
+const isGoogleAuth = (e: unknown) =>
+  e instanceof GoogleAuthError || (e instanceof Error && /^Google access expired/.test(e.message));
+const GOOGLE_AGENTS: SubagentName[] = ["inbox", "deliveries"];
+// What this run says about the Google sign-in: expired, fine, or (no Google card ran) as before
+function reconnectNow(settled: Settled[], prev?: Briefing["reconnect"]): Briefing["reconnect"] {
+  const google = settled.filter((r) => GOOGLE_AGENTS.includes(r.name));
+  if (google.some((r) => !r.ok && r.google)) return ["google"];
+  if (google.some((r) => r.ok)) return undefined;
+  return prev?.length ? prev : undefined;
+}
+export function reconnectPush(): PushMessage {
+  return {
+    title: "Gmail needs you",
+    body: "Inbox and Deliveries stopped: Google's sign-in expired.\nOn your computer: npm run google-auth, then update GOOGLE_REFRESH_TOKEN.",
+    url: CONFIG.push.url,
+    tag: "reconnect",
+  };
+}
 
 // Runs each sub-agent that fits under the run's cost cap, side by side. One failing stops only itself.
 async function runCards(
@@ -213,7 +234,12 @@ async function runCards(
       } catch (e) {
         const error = trace.publicError(e);
         trace.log(name, "failed", { error });
-        return { name, ok: false, error: `${AGENT_LABEL[name]} didn't finish: ${error}` };
+        return {
+          name,
+          ok: false,
+          error: `${AGENT_LABEL[name]} didn't finish: ${error}`,
+          ...(isGoogleAuth(e) ? { google: true } : {}),
+        };
       } finally {
         ledger.release(name);
       }
@@ -304,7 +330,10 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing, edition?: "midday" |
   if (impl.inbox) tasks.inbox = () => impl.inbox!(sub, context);
   if (impl.deliveries) tasks.deliveries = () => impl.deliveries!(sub, context);
   const updatedAt = deps.now.toISOString();
-  const done = (await runCards(tasks, ledger, trace)).filter((r) => r.ok);
+  const settled = await runCards(tasks, ledger, trace);
+  const done = settled.filter((r) => r.ok);
+  const reconnect = reconnectNow(settled, prev.reconnect);
+  const newlyExpired = !!reconnect?.includes("google") && !prev.reconnect?.includes("google");
   const saveSpent = async () => {
     if (!ledger.spentUsd) return;
     try {
@@ -349,6 +378,7 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing, edition?: "midday" |
     refreshedAt: updatedAt,
     cards: allCards,
     notes: prev.notes.filter((n) => !redone.some((x) => n.startsWith(x))), // that problem is over
+    reconnect,
   });
   try {
     await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
@@ -362,10 +392,12 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing, edition?: "midday" |
   });
   if (deps.push) {
     // an update always announces itself (with what came up since); a plain refresh only for the urgent
-    const messages = [...(fresh ? [updatePushMessage(briefing)] : []), ...refreshPushMessages(prev, briefing)].slice(
-      0,
-      fresh ? 3 : 2,
-    );
+    // and a sign-in that ended since the last run, once
+    const messages = [
+      ...(fresh ? [updatePushMessage(briefing)] : []),
+      ...(newlyExpired ? [reconnectPush()] : []),
+      ...refreshPushMessages(prev, briefing),
+    ].slice(0, fresh ? 3 : 2);
     if (messages.length) await notifyPhones(gist, deps.push, messages, trace);
   }
   await appendDayDigest(gist, briefing, trace, true);
@@ -712,6 +744,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
           : {}),
     },
     notes: notes.map((n) => n.slice(0, 200)).slice(0, 10),
+    reconnect: reconnectNow(settled),
   });
   await gist.writeFile(CONFIG.gistFiles.briefing, JSON.stringify(briefing));
   trace.log("jarvis", "briefing written", { items: briefing.summary.length, notes: briefing.notes.length });
@@ -935,6 +968,8 @@ export function pushMessages(
     .map((x) => x.trim().replace(/[.;]$/, ""))
     .filter(Boolean);
   const out: PushMessage[] = [{ title: `${day}'s briefing`, body: lines(points), url, tag: "briefing" }];
+  // every morning until it's fixed: without it there's no Inbox or Deliveries
+  if (b.reconnect?.includes("google")) out.push(reconnectPush());
   const tomorrow = addDays(c.today, 1);
   const said = b.headline.toLowerCase();
   // Bill Guard: bills not on autopay, 3 days ahead (without it, the context's list through tomorrow)

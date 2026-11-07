@@ -9380,3 +9380,24 @@ a.jv-track-icon svg {
   margin-left: 8px;
   flex-shrink: 0;
 }
+
+/* A sign-in to redo (Google's expired): the briefing card's warning line */
+.jv-reconnect {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.jv-reconnect strong {
+  display: block;
+  color: var(--warn);
+  font-weight: 600;
+}
+.jv-reconnect code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
