@@ -692,6 +692,10 @@ The month view is laid out like the budget sheet, one calendar month at a time (
 - **Import link:** `jazz2.0.html#import=<base64url JSON>` adds bills, paychecks with plans,
   and goals after a confirm, skipping anything already there (a paycheck already there can be switched to "varies" and have its paydays' amounts set). The data stays in the URL
   fragment, so personal numbers never land in this repo.
+  With `{"app":"jazz2-rules", categories:[{name, limit}], rules:[{match, cat:"<category name>"}]}`
+  it adds spending categories and bank-feed rules in one go (a category already there by name, or a
+  rule for a match you have, is left as it is), then the new rules place the charges waiting in From
+  your bank.
 - Payments and expenses older than about 13 months are pruned automatically.
 
 **Adding things.** Console's box adds several to-dos and Shopping items at once (see Console

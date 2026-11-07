@@ -18490,6 +18490,85 @@ await section("Skip on every schedule: a workout, the weigh-in and wash day skip
   await ctx.close();
 });
 
+await section("Import link: categories and bank rules only add, then place waiting charges", async () => {
+  const day = (n) => {
+    const x = new Date();
+    x.setHours(12);
+    x.setDate(x.getDate() + n);
+    return x.toLocaleDateString("en-CA");
+  };
+  const link = (o) => "#import=" + Buffer.from(JSON.stringify(o)).toString("base64url");
+  const data = {
+    app: "jazz2-rules",
+    categories: [
+      { name: "Pets", limit: 0 },
+      { name: "groceries", limit: 999 }, // already there by name: left as it is
+      { name: "<img src=x onerror=alert(1)>", limit: 5 },
+    ],
+    rules: [
+      { match: "Chewy", cat: "Pets" },
+      { match: "harris teeter", cat: "Groceries" },
+      { match: "kroger", cat: "Pets" }, // already a rule: left as it is
+      { match: "x", cat: "Pets" }, // too short
+      { match: "nowhere", cat: "No such category" },
+    ],
+  };
+  const seed = {
+    "budget-content": {
+      accounts: [],
+      categories: [{ id: "c-groc", name: "Groceries", limit: 400 }],
+      expenses: [],
+      income: [],
+      rules: [{ id: "r1", match: "kroger", cat: "c-groc" }],
+    },
+    "jarvis-bank": {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      from: day(-45),
+      to: day(0),
+      accounts: [{ id: "a000000000001", item: "citi", name: "Card", mask: "4421", type: "credit", balance: 0 }],
+      txns: [
+        {
+          id: "t000000000001",
+          acct: "a000000000001",
+          date: day(-1),
+          amount: 41.5,
+          name: "Chewy",
+          raw: "CHEWY.COM",
+          pfc: "",
+          pfcDetailed: "",
+          confident: false,
+          pending: false,
+        },
+      ],
+      errors: [],
+    },
+  };
+  const { ctx, page, errors } = await openApp({ seed, query: link(data) });
+  await page.waitForTimeout(400);
+  const s = await page.evaluate(() => ({
+    cats: budget.categories.map((c) => `${c.name}:${c.limit}`),
+    rules: budget.rules.map((r) => `${r.match}→${budgetCat(r.cat).name}`),
+    chewy: budget.expenses.filter((e) => e.bankId === "t000000000001").map((e) => budgetCat(e.cat).name),
+    hash: location.hash,
+  }));
+  check(
+    "new categories are added; one already there by name isn't changed",
+    JSON.stringify(s.cats) === JSON.stringify(["Groceries:400", "Pets:0", "<img src=x onerror=alert(1)>:5"]),
+    s.cats,
+  );
+  check(
+    "new rules are added; an existing match, a too-short one and an unknown category aren't",
+    JSON.stringify(s.rules) === JSON.stringify(["kroger→Groceries", "chewy→Pets", "harris teeter→Groceries"]),
+    s.rules,
+  );
+  check("the new rule places the waiting charge", JSON.stringify(s.chewy) === '["Pets"]', s.chewy);
+  check("the link leaves the address bar", s.hash === "", s.hash);
+  check("a category name is shown as text", !(await page.$("#panel-budget img[src='x']")));
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Briefing: an expired Google sign-in says so on Home, folded or open", async () => {
   const b = briefingFixture({ reconnect: ["google", "<img src=x onerror=alert(1)>"] });
   const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });

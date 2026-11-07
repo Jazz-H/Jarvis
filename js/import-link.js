@@ -34,6 +34,10 @@ function importFromLink() {
     setTimeout(() => applyCleanup(data), wait);
     return;
   }
+  if (data && data.app === "jazz2-rules") {
+    setTimeout(() => applyRulesImport(data), wait);
+    return;
+  }
   if (!data || data.app !== "jazz2-budget" || !/^\d{4}-\d{2}$/.test(data.month || "")) {
     showToast("That isn't an import link", true);
     return;
@@ -217,6 +221,47 @@ function applyFitnessImport(data) {
   saveFitness();
   activateTab("jazz3");
   showToast(`Added ${parts.join(", ")}`);
+}
+// Spending categories and bank-feed rules: {app: "jazz2-rules", categories: [{name, limit}],
+// rules: [{match, cat: "<category name>"}]}. Only adds: a category already there by name, or a
+// rule for a match you already have, is left as it is. The new rules then place waiting charges.
+function applyRulesImport(data) {
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const name = (v) => bankText(v, 60);
+  const byName = (n) => budget.categories.find((c) => c.name.toLowerCase() === n.toLowerCase());
+  const seenCat = new Set();
+  const newCats = arr(data.categories)
+    .map((c) => c && { name: name(c.name), limit: Math.max(0, Math.round((Number(c.limit) || 0) * 100) / 100) })
+    .filter(
+      (c) => c && c.name && !byName(c.name) && !seenCat.has(c.name.toLowerCase()) && seenCat.add(c.name.toLowerCase()),
+    )
+    .slice(0, 40);
+  const catFor = (n) => byName(n) || newCats.find((c) => c.name.toLowerCase() === n.toLowerCase());
+  const have = new Set((budget.rules || []).map((r) => r.match));
+  const newRules = arr(data.rules)
+    .map((r) => r && { match: bankText(r.match, 40).toLowerCase(), cat: name(r.cat) })
+    .filter((r) => r && r.match.length >= 2 && catFor(r.cat) && !have.has(r.match) && have.add(r.match))
+    .slice(0, 100);
+  const parts = [
+    newCats.length && `${newCats.length} categor${newCats.length === 1 ? "y" : "ies"}`,
+    newRules.length && `${newRules.length} rule${newRules.length === 1 ? "" : "s"}`,
+  ].filter(Boolean);
+  if (!parts.length) {
+    showToast("Everything in that link is already in your budget");
+    return;
+  }
+  if (!confirm(`Add ${parts.join(" and ")} to Budget? Nothing already there is changed.`)) return;
+  newCats.forEach((c) => {
+    c.id = genId("cat");
+    budget.categories.push({ id: c.id, name: c.name, limit: c.limit });
+  });
+  budget.rules = budget.rules || [];
+  newRules.forEach((r) => budget.rules.push({ id: genId("rule"), match: r.match, cat: catFor(r.cat).id }));
+  normalizeBankBudget(); // checks every rule
+  bankAutoAdd(); // the new rules place the charges waiting in From your bank
+  saveBudgetData();
+  activateTab("budget");
+  showToast(`Added ${parts.join(" and ")}`);
 }
 function applyBudgetImport(data) {
   const arr = (v) => (Array.isArray(v) ? v : []);
