@@ -584,6 +584,18 @@ right now, with the full month folded under it:
   vs due bar, and Paid / Due / Paycheck. When it's negative, one line says why ("Bills due before
   payday come to $1,927.20, more than the $1,785 left of this paycheck"). Without a paycheck it
   offers **+ Add your paycheck**.
+- **Balances** (bank feed; folds from its label, remembered on this device; across the width on a
+  big screen): **Cards** with the balance, "of $5,000" limit and, once the login allows card
+  details (`npm run plaid-link -- --update citi`, which the section names when it's needed), the
+  **statement balance, minimum due and due date** ("Past due" in red when the bank says so); and
+  **Bank accounts** with the balance and what's available. The label totals what's on the cards.
+  - **Match to your card ▾** ties a bank card to one of your Budget cards (it guesses by name; or
+    "New card: …" adds it). Then its statement fills in that card's statement in **Cards** for the
+    month it's due, and its due day if you hadn't set one. A statement you typed is never
+    overwritten.
+  - **Paydays from deposits:** a deposit into a bank account whose description carries your
+    income's name ("CCCI") within 3 days of a payday fills in that payday's real amount (and
+    Received, for pay that varies). Once filled it's yours: edit it and it's never filled again.
 - **From your bank** (once the bank feed is set up: SETUP.md section 10; above Next 14 days, in
   the left column on a big screen): your banks' charges from the last 45 days that aren't in
   Budget yet, newest first. It shows only when something is waiting.

@@ -418,7 +418,7 @@ function budgetTopHtml(today) {
   // the bank feed's list (bank.js) sits above Next 14 days, in the same column on a big screen
   const bank = bankSectionHtml();
   const bills = wbBillsHtml(today);
-  return `<div class="wb-top">${wbHeroHtml(today)}${bank ? `<div class="wb-col">${bank}${bills}</div>` : bills}<div class="wb-side">${wbSpendingHtml(today)}${wbGoalHtml(today)}</div></div>`;
+  return `<div class="wb-top">${wbHeroHtml(today)}${bankBalancesHtml()}${bank ? `<div class="wb-col">${bank}${bills}</div>` : bills}<div class="wb-side">${wbSpendingHtml(today)}${wbGoalHtml(today)}</div></div>`;
 }
 function renderBudget() {
   const el = document.getElementById("panel-budget");
@@ -861,6 +861,8 @@ function normalizeBudgetData() {
     budget.plans[k] = {
       ...(v.amount != null && isFinite(Number(v.amount)) ? { amount: amt(v.amount) } : {}),
       ...(v.received ? { received: true } : {}),
+      // filled in from a bank deposit (bank.js bankApplyDeposits): never filled again
+      ...(typeof v.bankId === "string" && /^d[0-9a-f]{12}$/.test(v.bankId) ? { bankId: v.bankId } : {}),
       lines: (Array.isArray(v.lines) ? v.lines : [])
         .filter((l) => l && typeof l === "object")
         .map((l) => ({
@@ -896,7 +898,7 @@ function normalizeBudgetData() {
   panel.addEventListener(
     "toggle",
     (e) => {
-      const key = e.target.id === "wb-month" ? WB_MONTH_KEY : e.target.id === "wb-next" ? WB_NEXT_KEY : "";
+      const key = { "wb-month": WB_MONTH_KEY, "wb-next": WB_NEXT_KEY, "wb-bal": BANK_BAL_KEY }[e.target.id] || "";
       if (!key) return;
       try {
         localStorage.setItem(key, e.target.open ? "1" : "0");

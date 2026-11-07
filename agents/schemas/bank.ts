@@ -15,6 +15,19 @@ export const BankAccount = z.object({
   balance: z.number().nullable(),
   available: z.number().nullable(),
   limit: z.number().nullable(),
+  // a credit card's statement details (Plaid Liabilities), when the login allows them
+  card: z
+    .object({
+      statement: z.number().nullable(), // last statement balance
+      statementDate: isoDate.nullable(),
+      minDue: z.number().nullable(),
+      dueDate: isoDate.nullable(), // next payment due
+      lastPaid: z.number().nullable(),
+      lastPaidDate: isoDate.nullable(),
+      overdue: z.boolean(),
+      apr: z.number().nullable(), // purchase APR, %
+    })
+    .optional(),
 });
 export type BankAccount = z.infer<typeof BankAccount>;
 export const BankTxn = z.object({
@@ -30,6 +43,18 @@ export const BankTxn = z.object({
   pending: z.boolean(),
 });
 export type BankTxn = z.infer<typeof BankTxn>;
+// Money into a bank account (paychecks and the like; card refunds and transfers are left out), so
+// Budget can fill in a payday's real amount
+export const BankDeposit = z.object({
+  id: z.string().regex(/^d[0-9a-f]{12}$/),
+  acct: z.string().regex(/^a[0-9a-f]{12}$/),
+  date: isoDate,
+  amount: z.number().positive(),
+  name: z.string().max(60),
+  raw: z.string().max(80),
+  pfcDetailed: z.string().max(60),
+});
+export type BankDeposit = z.infer<typeof BankDeposit>;
 export const BankFile = z.object({
   version: z.literal(1),
   generatedAt: z.string(),
@@ -38,6 +63,9 @@ export const BankFile = z.object({
   accounts: z.array(BankAccount).max(40),
   txns: z.array(BankTxn).max(1000),
   errors: z.array(z.object({ item: z.string().max(30), code: z.string().max(60) })).max(20),
+  // logins with credit cards whose statement details need consent (npm run plaid-link -- --update <item>)
+  cardsNeed: z.array(z.string().max(30)).max(20).optional(),
+  deposits: z.array(BankDeposit).max(200).optional(),
   dropped: z.object({ transfers: z.number().int().min(0), incoming: z.number().int().min(0) }),
 });
 export type BankFile = z.infer<typeof BankFile>;

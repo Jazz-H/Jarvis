@@ -208,10 +208,15 @@ a computer, plus about 3 minutes per bank.
 5. **When a bank needs you** (most ask about once a year): Budget says
    "chase needs you: sign in again". Run `npm run plaid-link -- --update chase`. It keeps the
    same login and token, and doesn't use up a Trial slot.
+6. **Card statements, minimums and due dates** (Plaid Liabilities): a login linked from Nov 7 2026
+   on asks for them. A login linked before that, with a credit card on it, shows in Budget's
+   Balances as "allow card details once": run `npm run plaid-link -- --update citi` and approve.
+   Same login and token, no new Trial slot.
 
 The next Jarvis run (the 6 AM briefing or a card refresh) writes `jazz2-bank.json`, and the app
-picks it up on its next sync. It covers the last 45 days of spending; card payments, transfers and
-money coming in are left out. The run's log shows only counts, never names or amounts.
+picks it up on its next sync. It covers the last 45 days of spending, every account's balance,
+cards' statement details, and deposits (for paydays); card payments and transfers are left out.
+The run's log shows only counts, never names or amounts.
 
 ## When it runs
 - **Card refreshes** at about **12:30pm, 5pm and 9pm Eastern** redo today's Weather, Calendar, Inbox,

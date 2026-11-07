@@ -314,6 +314,10 @@ const SHELL_CLICK = {
     bankAdd(el.getAttribute("data-bank-id"));
   },
   "bank-cat": (el) => bankPickCategory(el.getAttribute("data-bank-id")),
+  "bank-card-link": (el) => {
+    const id = el.getAttribute("data-acct-id");
+    if (BANK_ACCT.test(id || "")) bankLinkCard(id);
+  },
   "bank-skip": (el) => bankSkip(el.getAttribute("data-bank-id")),
   "bank-undo": (el) => {
     const id = el.getAttribute("data-bank-id");

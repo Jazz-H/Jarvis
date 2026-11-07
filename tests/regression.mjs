@@ -18653,6 +18653,192 @@ await section("Bank feed: a bill rule says a merchant's charges pay a bill, neve
   await ctx.close();
 });
 
+await section("Budget Balances: cards' statements, bank balances, matching a card, paydays from deposits", async () => {
+  const day = (n) => {
+    const x = new Date();
+    x.setHours(12);
+    x.setDate(x.getDate() + n);
+    return x.toLocaleDateString("en-CA");
+  };
+  const due = day(9);
+  const seed = {
+    "jarvis-bank": {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      from: day(-45),
+      to: day(0),
+      accounts: [
+        {
+          id: "a000000000001",
+          item: "citi",
+          name: "Costco Card",
+          mask: "4421",
+          type: "credit",
+          subtype: "credit card",
+          balance: 1234.56,
+          available: null,
+          limit: 5000,
+          card: {
+            statement: 980.12,
+            statementDate: day(-12),
+            minDue: 35,
+            dueDate: due,
+            lastPaid: 512.4,
+            lastPaidDate: day(-20),
+            overdue: false,
+            apr: 22.49,
+          },
+        },
+        {
+          id: "a000000000002",
+          item: "wf",
+          name: "Active Cash <b>",
+          mask: "9876",
+          type: "credit",
+          balance: 88,
+          available: null,
+          limit: 2000,
+        },
+        {
+          id: "a000000000003",
+          item: "ally",
+          name: "Spending",
+          mask: "1111",
+          type: "depository",
+          balance: 2400,
+          available: 2350,
+          limit: null,
+        },
+      ],
+      txns: [],
+      errors: [],
+      cardsNeed: ["wf"],
+      deposits: [
+        {
+          id: "d000000000001",
+          acct: "a000000000003",
+          date: day(-1),
+          amount: 1923.45,
+          name: "CCCI",
+          raw: "CCCI PAYROLL PPD",
+        },
+        { id: "d000000000002", acct: "a000000000003", date: day(-1), amount: 40, name: "Venmo", raw: "VENMO CASHOUT" },
+      ],
+    },
+    "budget-content": {
+      accounts: ["Citi CC", "Checking"],
+      categories: [],
+      expenses: [],
+      income: [{ id: "inc-c", name: "CCCI", amount: 1850, start: day(-14), repeat: "biweekly", varies: true }],
+      cardInfo: { "Citi CC": { due: null, st: {} } },
+    },
+  };
+  const { ctx, page, errors } = await openApp({ seed, query: "?tab=budget" });
+  const bal = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#wb-bal .bal-row")].map((r) =>
+      r.textContent.replace(/\s+/g, " ").trim(),
+    );
+    return {
+      label: document.querySelector("#wb-bal .wb-label")?.textContent || "",
+      rows,
+      need: document.querySelector("#wb-bal .bank-err")?.textContent || "",
+      html: document.getElementById("wb-bal")?.innerHTML || "",
+    };
+  });
+  const citi = bal.rows.find((r) => /Costco Card ··4421/.test(r)) || "";
+  check(
+    "a card shows its balance, limit, statement, minimum and due date",
+    /\$1,234\.56/.test(citi) &&
+      /of \$5,000/.test(citi) &&
+      /Statement \$980\.12/.test(citi) &&
+      /min \$35\.00/.test(citi) &&
+      /due /.test(citi),
+    citi,
+  );
+  check(
+    "a bank account shows its balance and what's available",
+    bal.rows.some((r) => /Spending ··1111/.test(r) && /\$2,400\.00/.test(r) && /\$2,350\.00 available/.test(r)),
+    bal.rows,
+  );
+  check("the label totals what's on the cards", /\$1,322\.56 on cards/.test(bal.label), bal.label);
+  check(
+    "a login that hasn't allowed card details says how",
+    /wf: .*npm run plaid-link -- --update wf/.test(bal.need) &&
+      bal.rows.some((r) => /Active Cash.*not allowed yet/.test(r)),
+    bal,
+  );
+  check(
+    "bank text is shown as text",
+    !/<b>/.test(bal.html.replace(/<b>[^<]*<\/b>/g, "")) && !(await page.$("#wb-bal b b")),
+  );
+  // matching the card: the picker guesses "Citi CC" from the login's name; saving fills the statement
+  await page.tap('#wb-bal [data-action="bank-card-link"][data-acct-id="a000000000001"]');
+  const pick = await page.evaluate(() => document.querySelector("#modal-body select")?.value);
+  check("the picker guesses your card by name", pick === "Citi CC", pick);
+  await page.click("#modal-backdrop .modal-btn.primary");
+  const filled = await page.evaluate(
+    (due) => ({
+      link: budget.cardLinks.a000000000001,
+      st: budget.cardInfo["Citi CC"].st[due.slice(0, 7)],
+      dueDay: budget.cardInfo["Citi CC"].due,
+      tag: document.querySelector('#wb-bal [data-acct-id="a000000000001"]')?.textContent || "",
+    }),
+    due,
+  );
+  check(
+    "matched: the statement fills that card's month, its due day too",
+    filled.link === "Citi CC" &&
+      filled.st === 980.12 &&
+      filled.dueDay === Number(due.slice(8)) &&
+      /Citi CC/.test(filled.tag),
+    filled,
+  );
+  check(
+    "a statement you've typed isn't overwritten",
+    await page.evaluate((due) => {
+      budget.cardInfo["Citi CC"].st[due.slice(0, 7)] = 111;
+      bankFillStatements();
+      return budget.cardInfo["Citi CC"].st[due.slice(0, 7)] === 111;
+    }, due),
+  );
+  // paydays: the CCCI deposit fills the payday a day after it; Venmo doesn't
+  const pay = await page.evaluate(() => {
+    const p = budget.plans[`inc-c|${addDaysIso(0)}`] || {};
+    return {
+      amount: p.amount,
+      received: p.received,
+      bankId: p.bankId,
+      n: Object.values(budget.plans).filter((x) => x.bankId).length,
+    };
+  });
+  check(
+    "a CCCI deposit fills in its payday: the real amount, received",
+    pay.amount === 1923.45 && pay.received === true && pay.bankId === "d000000000001" && pay.n === 1,
+    pay,
+  );
+  check(
+    "a payday you've edited isn't filled again",
+    await page.evaluate(() => {
+      const p = budget.plans[`inc-c|${addDaysIso(0)}`];
+      p.amount = 1900;
+      bankApplyDeposits();
+      return p.amount === 1900;
+    }),
+  );
+  await page.reload();
+  await page.waitForTimeout(500);
+  check(
+    "the match and the filled payday survive a reload",
+    await page.evaluate(
+      () =>
+        budget.cardLinks.a000000000001 === "Citi CC" &&
+        budget.plans[`inc-c|${addDaysIso(0)}`].bankId === "d000000000001",
+    ),
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Briefing: an expired Google sign-in says so on Home, folded or open", async () => {
   const b = briefingFixture({ reconnect: ["google", "<img src=x onerror=alert(1)>"] });
   const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });

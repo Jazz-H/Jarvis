@@ -67,9 +67,15 @@ async function main() {
       language: "en",
       country_codes: ["US"],
       user: { client_user_id: "jazz-owner" },
+      // card statement details (Liabilities) are asked for too: on a new link, and on --update for
+      // logins linked before they were (Plaid then says ADDITIONAL_CONSENT_REQUIRED)
       ...(update
-        ? { access_token: accessToken }
-        : { products: ["transactions"], transactions: { days_requested: 730 } }),
+        ? { access_token: accessToken, additional_consented_products: ["liabilities"] }
+        : {
+            products: ["transactions"],
+            additional_consented_products: ["liabilities"],
+            transactions: { days_requested: 730 },
+          }),
       hosted_link: { url_lifetime_seconds: 1800 },
     },
     fetch,

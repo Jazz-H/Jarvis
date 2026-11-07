@@ -85,6 +85,47 @@ const TxnPage = z.object({
   total_transactions: z.number(),
 });
 
+// Liabilities: a credit card's statement, minimum due and due date (/liabilities/get). Needs the
+// login's consent: links made before Nov 7 2026 give ADDITIONAL_CONSENT_REQUIRED until
+// `npm run plaid-link -- --update <name>` asks for it.
+export const PlaidCredit = z.object({
+  account_id: z.string().nullable().optional(),
+  last_statement_balance: z.number().nullable().optional(),
+  last_statement_issue_date: z.string().nullable().optional(),
+  minimum_payment_amount: z.number().nullable().optional(),
+  next_payment_due_date: z.string().nullable().optional(),
+  last_payment_amount: z.number().nullable().optional(),
+  last_payment_date: z.string().nullable().optional(),
+  is_overdue: z.boolean().nullable().optional(),
+  aprs: z
+    .array(z.object({ apr_type: z.string().optional().default(""), apr_percentage: z.number().nullable().optional() }))
+    .nullable()
+    .optional(),
+});
+export type PlaidCredit = z.infer<typeof PlaidCredit>;
+const LiabPage = z.object({
+  liabilities: z.object({ credit: z.array(PlaidCredit).nullable().optional() }).optional(),
+});
+// The codes that mean "no card details for this login" rather than a broken login
+export const LIAB_SOFT = new Set([
+  "ADDITIONAL_CONSENT_REQUIRED",
+  "PRODUCTS_NOT_SUPPORTED",
+  "NO_LIABILITY_ACCOUNTS",
+  "PRODUCT_NOT_READY",
+  "INVALID_PRODUCT",
+  "PRODUCT_NOT_ENABLED",
+]);
+export async function fetchLiabilities(
+  creds: PlaidCreds,
+  accessToken: string,
+  fetchImpl: typeof fetch,
+): Promise<PlaidCredit[]> {
+  const raw = await plaidCall(creds, "/liabilities/get", { access_token: accessToken }, fetchImpl);
+  const p = LiabPage.safeParse(raw);
+  if (!p.success) throw new PlaidError("BAD_RESPONSE");
+  return p.data.liabilities?.credit ?? [];
+}
+
 // One Item's accounts and transactions from start to end (YYYY-MM-DD), every page (at most 4 × 500)
 export async function fetchItem(
   creds: PlaidCreds,

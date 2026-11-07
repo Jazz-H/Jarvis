@@ -71,6 +71,35 @@ describe("buildBankFile", () => {
     expect(file.dropped).toEqual({ transfers: 2, incoming: 2 });
   });
 
+  it("money into a bank account is kept as deposits (pay for Budget's paydays), ids hashed", () => {
+    const d = file.deposits ?? [];
+    expect(d.map((x) => x.amount).sort((a, b) => a - b)).toEqual([20, 1850]);
+    expect(d.every((x) => /^d[0-9a-f]{12}$/.test(x.id) && x.acct === file.accounts[0].id)).toBe(true);
+    expect(JSON.stringify(d)).not.toContain("t-pay");
+  });
+
+  it("a card's refund isn't a deposit, and neither is a transfer", () => {
+    const f = buildBankFile(
+      [
+        {
+          item: "citi",
+          accounts: [{ ...acct("plaid-card-1", "Card"), type: "credit" }],
+          transactions: [
+            txn("t-back", -15, { account_id: "plaid-card-1" }),
+            txn("t-in", -500, {
+              account_id: "plaid-card-1",
+              personal_finance_category: { primary: "TRANSFER_IN", detailed: "", confidence_level: "HIGH" },
+            }),
+          ],
+        },
+      ],
+      "2026-09-23",
+      "2026-11-07",
+      NOW,
+    );
+    expect(f.deposits).toEqual([]);
+  });
+
   it("a posted charge replaces its pending one; a new pending one is kept, marked", () => {
     const sb = file.txns.filter((t) => t.name === "Starbucks");
     expect(sb).toHaveLength(1);
@@ -178,6 +207,76 @@ describe("writeBank", () => {
     const down = fakePlaid(() => ({ status: 500, json: {} }));
     expect(await writeBank(g.gist, source, NOW, down.impl, new Trace())).toBe("failed");
     expect(g.files["jazz2-bank.json"]).toBe(before);
+  });
+});
+
+describe("card statement details (Liabilities)", () => {
+  const source = { creds: CREDS, items: { citi: "access-sandbox-citi00001", ally: "access-sandbox-ally00001" } };
+  const card = { ...acct("plaid-card-1", "Costco Card", "4421"), type: "credit", subtype: "credit card" };
+  const credit = {
+    account_id: "plaid-card-1",
+    last_statement_balance: 980.12,
+    last_statement_issue_date: "2026-10-20",
+    minimum_payment_amount: 35,
+    next_payment_due_date: "2026-11-16",
+    last_payment_amount: 512.4,
+    last_payment_date: "2026-10-14",
+    is_overdue: false,
+    aprs: [
+      { apr_type: "cash_apr", apr_percentage: 29.99 },
+      { apr_type: "purchase_apr", apr_percentage: 22.49 },
+    ],
+  };
+  const fake = (consent: boolean) =>
+    fakePlaid((path, body) => {
+      if (path === "/liabilities/get")
+        return consent
+          ? { json: { accounts: [card], liabilities: { credit: [credit] } } }
+          : { status: 400, json: { error_code: "ADDITIONAL_CONSENT_REQUIRED" } };
+      return body.access_token === source.items.citi
+        ? {
+            json: {
+              accounts: [card],
+              transactions: [txn("t1", 20, { account_id: "plaid-card-1" })],
+              total_transactions: 1,
+            },
+          }
+        : { json: { accounts: [acct("plaid-acct-2", "Savings")], transactions: [], total_transactions: 0 } };
+    });
+
+  it("puts a card's statement, minimum due, due date and purchase APR on its account", async () => {
+    const g = memoryGist();
+    const p = fake(true);
+    const trace = new Trace();
+    await writeBank(g.gist, source, NOW, p.impl, trace);
+    const file = BankFile.parse(JSON.parse(g.files["jazz2-bank.json"]));
+    const c = file.accounts.find((a) => a.type === "credit");
+    expect(c?.card).toEqual({
+      statement: 980.12,
+      statementDate: "2026-10-20",
+      minDue: 35,
+      dueDate: "2026-11-16",
+      lastPaid: 512.4,
+      lastPaidDate: "2026-10-14",
+      overdue: false,
+      apr: 22.49,
+    });
+    expect(file.accounts.find((a) => a.type === "depository")?.card).toBeUndefined();
+    expect(file.cardsNeed).toBeUndefined();
+    // only the login with a card is asked
+    expect(p.calls.filter((c) => c.path === "/liabilities/get")).toHaveLength(1);
+    const logged = JSON.stringify(trace.events);
+    for (const secret of ["980.12", "4421", "Costco"]) expect(logged).not.toContain(secret);
+  });
+
+  it("a login that hasn't allowed card details is flagged and its feed still written", async () => {
+    const g = memoryGist();
+    expect(await writeBank(g.gist, source, NOW, fake(false).impl, new Trace())).toBe("written");
+    const file = BankFile.parse(JSON.parse(g.files["jazz2-bank.json"]));
+    expect(file.cardsNeed).toEqual(["citi"]);
+    expect(file.errors).toEqual([]);
+    expect(file.txns).toHaveLength(1);
+    expect(file.accounts.find((a) => a.type === "credit")?.card).toBeUndefined();
   });
 });
 

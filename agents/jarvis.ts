@@ -37,7 +37,14 @@ import { PricesCard } from "./schemas/prices.ts";
 import { runPrices, watchItems, type WatchItem } from "./subagents/prices.ts";
 import { gistClient, type GistClient } from "./tools/gist.ts";
 import { calendarHistory, fetchIcs } from "./tools/ics.ts";
-import { fetchItem, PlaidError, type PlaidCreds, type PlaidEnv } from "./tools/plaid.ts";
+import {
+  fetchItem,
+  fetchLiabilities,
+  PlaidError,
+  type PlaidCreds,
+  type PlaidCredit,
+  type PlaidEnv,
+} from "./tools/plaid.ts";
 import { buildBankFile, type ItemResult } from "./lib/bank.ts";
 import { gmailClient, googleAccessToken, GoogleAuthError, type Gmail } from "./tools/gmail.ts";
 import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
@@ -806,7 +813,18 @@ export async function writeBank(
     const results: ItemResult[] = await Promise.all(
       Object.entries(plaid.items).map(async ([item, token]) => {
         try {
-          return { item, ...(await fetchItem(plaid.creds, token, from, to, fetchImpl)) };
+          const got = await fetchItem(plaid.creds, token, from, to, fetchImpl);
+          // credit cards: their statement, minimum due and due date (Liabilities); a login that
+          // hasn't allowed that yet is flagged, and any other problem just leaves the details out
+          let credit: PlaidCredit[] | undefined;
+          let cardsNeed = false;
+          if (got.accounts.some((a) => a.type === "credit"))
+            try {
+              credit = await fetchLiabilities(plaid.creds, token, fetchImpl);
+            } catch (e) {
+              cardsNeed = e instanceof PlaidError && e.code === "ADDITIONAL_CONSENT_REQUIRED";
+            }
+          return { item, ...got, ...(credit ? { credit } : {}), ...(cardsNeed ? { cardsNeed } : {}) };
         } catch (e) {
           return { item, error: e instanceof PlaidError ? e.code : "FAILED" };
         }
@@ -829,6 +847,9 @@ export async function writeBank(
       accounts: file.accounts.length,
       txns: file.txns.length,
       errors: file.errors.length,
+      cards: file.accounts.filter((a) => a.card).length,
+      deposits: (file.deposits ?? []).length,
+      cardsNeed: (file.cardsNeed ?? []).length,
     };
     if (old) {
       try {

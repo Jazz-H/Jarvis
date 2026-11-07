@@ -20,7 +20,10 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 - [x] Bank feed (Nov 7): Plaid through `npm run plaid-link` (Hosted Link) and the Action's
   `writeBank` → `jazz2-bank.json`; Budget's From your bank list, rules that add by themselves, bill
   matching, and the faint new spending on the bars (`js/bank.js`). Live once the Plaid secrets
-  are added (SETUP.md section 10). Not yet: balances in Bill Guard, Liabilities, a categorizer.
+  are added (SETUP.md section 10). Not yet: balances in Bill Guard, a categorizer.
+- [x] Bank feed, part 2 (Nov 7, asked for by the owner): Budget's **Balances** (cards with Plaid
+  Liabilities' statement, minimum and due date; bank accounts), a matched card fills its statement
+  in Cards, deposits fill in paydays (CCCI), bill rules and the `jazz2-rules` import link.
 - [x] Phase 4: Cross-source insights, suggested to-dos, Ask Jarvis, Weekly Review, Package Tracker
   (plan: PHASE4-JAZZ3-REDESIGN.md).
   - [x] Step 1: the orb opens **Console**; Jazz 3.0 is a hidden tab (Home tile, Console, links).

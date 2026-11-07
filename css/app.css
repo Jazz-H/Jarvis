@@ -9509,3 +9509,69 @@ a.jv-track-icon svg {
   display: flex;
   align-items: center;
 }
+
+/* Budget: Balances (bank.js bankBalancesHtml): cards with statement, minimum and due date, then bank accounts */
+.wb-bal {
+  min-width: 0;
+}
+.bal-groups {
+  display: grid;
+  gap: 12px;
+}
+.bal-head {
+  margin: 0 4px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.bal-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.bal-row:last-child {
+  border-bottom: none;
+}
+.bal-row .bill-logo {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.bal-row .bill-logo.letter {
+  font-size: 15px;
+}
+.bal-row .bank-tag {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+.bal-amt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  text-align: right;
+}
+.bal-amt b {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bal-amt i {
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+@media (min-width: 768px) {
+  .wb-top .wb-bal {
+    grid-column: 1 / -1;
+  }
+  .bal-groups {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}

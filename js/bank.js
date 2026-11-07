@@ -35,15 +35,35 @@ function normalizeBank(raw) {
   const accounts = (Array.isArray(raw.accounts) ? raw.accounts : [])
     .filter((a) => a && BANK_ACCT.test(a.id))
     .slice(0, 40)
-    .map((a) => ({
-      id: a.id,
-      item: bankText(a.item, 30),
-      name: bankText(a.name, 60) || "Account",
-      mask: /^\d{2,4}$/.test(a.mask || "") ? a.mask : "",
-      type: bankText(a.type, 20),
-      balance: n(a.balance),
-      available: n(a.available),
-    }));
+    .map((a) => {
+      const c = a.card && typeof a.card === "object" ? a.card : null;
+      return {
+        id: a.id,
+        item: bankText(a.item, 30),
+        name: bankText(a.name, 60) || "Account",
+        mask: /^\d{2,4}$/.test(a.mask || "") ? a.mask : "",
+        type: bankText(a.type, 20),
+        subtype: bankText(a.subtype, 30),
+        balance: n(a.balance),
+        available: n(a.available),
+        limit: n(a.limit),
+        // a credit card's statement details (Plaid Liabilities), when the login allows them
+        ...(c
+          ? {
+              card: {
+                statement: n(c.statement),
+                statementDate: day(c.statementDate) ? c.statementDate : null,
+                minDue: n(c.minDue),
+                dueDate: day(c.dueDate) ? c.dueDate : null,
+                lastPaid: n(c.lastPaid),
+                lastPaidDate: day(c.lastPaidDate) ? c.lastPaidDate : null,
+                overdue: c.overdue === true,
+                apr: n(c.apr),
+              },
+            }
+          : {}),
+      };
+    });
   const seen = new Set();
   const txns = (Array.isArray(raw.txns) ? raw.txns : [])
     .slice(0, 1500)
@@ -66,7 +86,24 @@ function normalizeBank(raw) {
     .filter((e) => e && /^[a-z0-9_-]{1,30}$/i.test(e.item) && /^[A-Z0-9_]{1,60}$/.test(e.code))
     .slice(0, 20)
     .map((e) => ({ item: e.item, code: e.code }));
-  return { version: 1, generatedAt: gen, from: raw.from, to: raw.to, accounts, txns, errors };
+  // logins whose cards need consent for statement details; money in (paydays)
+  const cardsNeed = (Array.isArray(raw.cardsNeed) ? raw.cardsNeed : [])
+    .filter((x) => typeof x === "string" && /^[a-z0-9_-]{1,30}$/i.test(x))
+    .slice(0, 20);
+  const dSeen = new Set();
+  const deposits = (Array.isArray(raw.deposits) ? raw.deposits : [])
+    .filter((d) => d && /^d[0-9a-f]{12}$/.test(d.id) && !dSeen.has(d.id) && dSeen.add(d.id))
+    .filter((d) => BANK_ACCT.test(d.acct) && day(d.date) && n(d.amount) > 0)
+    .slice(0, 200)
+    .map((d) => ({
+      id: d.id,
+      acct: d.acct,
+      date: d.date,
+      amount: n(d.amount),
+      name: bankText(d.name, 60) || "Deposit",
+      raw: bankText(d.raw, 80),
+    }));
+  return { version: 1, generatedAt: gen, from: raw.from, to: raw.to, accounts, txns, errors, cardsNeed, deposits };
 }
 function loadBank() {
   let raw = null;
@@ -124,6 +161,17 @@ function normalizeBankBudget() {
     })
     .filter((r) => r && r.match.length >= 2 && !seen.has(r.match) && seen.add(r.match))
     .slice(0, 150);
+  // bank card → your Budget card it fills the statement of
+  const links =
+    budget.cardLinks && typeof budget.cardLinks === "object" && !Array.isArray(budget.cardLinks)
+      ? budget.cardLinks
+      : {};
+  budget.cardLinks = {};
+  Object.entries(links)
+    .slice(0, 40)
+    .forEach(([k, v]) => {
+      if (BANK_ACCT.test(k) && typeof v === "string" && v.length <= 60) budget.cardLinks[k] = v;
+    });
   const since = addDaysIso(-90);
   const skipSeen = new Set();
   budget.bankSkip = (Array.isArray(budget.bankSkip) ? budget.bankSkip : [])
@@ -262,7 +310,10 @@ function bankAutoAdd() {
     });
     added++;
   });
-  return added > 0;
+  // matched cards' statements and paydays from deposits ride along (both run, whatever the other did)
+  const statements = bankFillStatements(bank),
+    paydays = bankApplyDeposits(bank);
+  return added > 0 || statements || paydays;
 }
 function bankExpense(t, cat) {
   return { id: "bk-" + t.id.slice(1), name: t.name, amount: t.amount, cat, date: t.date, bankId: t.id };
@@ -458,4 +509,177 @@ function bankPaidNote(payment) {
         return m && m.payment === payment;
       });
   return t ? `matched on ${bankAccountName(bank, t.acct)}` : "";
+}
+
+// ---------- balances: cards and bank accounts (decided Nov 7) ----------
+// Each card's balance, and its statement, minimum due and due date when the login allows them
+// (Plaid Liabilities); each bank account's balance. A card matched to one of your Budget cards
+// (budget.cardLinks: {bankAccountId: "Citi CC"}) fills in that card's statement for the month it's
+// due, unless you've typed one. Deposits that carry an income source's name fill in that payday.
+const BANK_BAL_KEY = "budget-bal-open";
+function bankBalOpen() {
+  try {
+    return localStorage.getItem(BANK_BAL_KEY) !== "0";
+  } catch (e) {
+    return true;
+  }
+}
+function bankCardLink(a) {
+  const name = (budget.cardLinks || {})[a.id];
+  return name && budget.accounts.includes(name) ? name : null;
+}
+function bankBalanceRowHtml(a, bank) {
+  const label = a.name + (a.mask ? ` ··${a.mask}` : "");
+  const credit = a.type === "credit";
+  const meta = [];
+  let tag = "";
+  if (credit) {
+    const c = a.card;
+    if (c && c.overdue) meta.push(`<span class="overdue">Past due</span>`);
+    if (c && (c.statement != null || c.minDue != null || c.dueDate)) {
+      if (c.statement != null) meta.push(escapeHtml(`Statement ${money(c.statement)}`));
+      if (c.minDue != null) meta.push(escapeHtml(`min ${money(c.minDue)}`));
+      if (c.dueDate) meta.push(escapeHtml(`due ${wbDay(c.dueDate)}`));
+    } else if (bank.cardsNeed.includes(a.item)) meta.push("Statement details not allowed yet");
+    const linked = bankCardLink(a);
+    tag = `<button class="bank-tag${linked ? "" : " pick"}" data-action="bank-card-link" data-acct-id="${escapeAttr(a.id)}">${linked ? `${LINK_ICON}<span>${escapeHtml(linked)}</span>` : "Match to your card"} ▾</button>`;
+  } else if (a.available != null && a.balance != null && Math.abs(a.available - a.balance) >= 0.01)
+    meta.push(escapeHtml(`${money(a.available)} available`));
+  const amt = a.balance == null ? "—" : money(a.balance);
+  const limit = credit && a.limit ? `<i>of ${escapeHtml(moneyShort(a.limit))}</i>` : "";
+  return `<div class="bal-row${credit ? " credit" : ""}">
+      ${billLogoHtml(null, a.name)}
+      <span class="wb-bill-text"><b>${escapeHtml(label)}</b>${meta.length ? `<span class="wb-bill-meta">${meta.join(" · ")}</span>` : ""}${tag}</span>
+      <span class="bal-amt"><b>${escapeHtml(amt)}</b>${limit}</span>
+    </div>`;
+}
+function bankBalancesHtml() {
+  const bank = loadBank();
+  if (!bank || !bank.accounts.length) return "";
+  const cards = bank.accounts.filter((a) => a.type === "credit"),
+    banks = bank.accounts.filter((a) => a.type !== "credit");
+  const owed = Math.round(cards.reduce((s, a) => s + (a.balance || 0), 0) * 100) / 100;
+  const group = (title, list) =>
+    list.length
+      ? `<div class="bal-group"><h3 class="bal-head">${title}</h3><div class="wb-card">${list.map((a) => bankBalanceRowHtml(a, bank)).join("")}</div></div>`
+      : "";
+  const need = bank.cardsNeed
+    .filter((item) => cards.some((a) => a.item === item))
+    .map(
+      (item) =>
+        `<p class="bank-err">${escapeHtml(item)}: to see statements and minimums, allow card details once with <code>npm run plaid-link -- --update ${escapeHtml(item)}</code></p>`,
+    )
+    .join("");
+  const count = cards.length
+    ? `${moneyShort(owed)} on cards`
+    : `${banks.length} account${banks.length === 1 ? "" : "s"}`;
+  return `<details class="wb-sec wb-bal" id="wb-bal"${bankBalOpen() ? " open" : ""}><summary class="jv-label wb-label wb-fold"><span>Balances</span><i></i><span class="jv-label-count">${escapeHtml(count)}</span>${CHEVRON_DOWN}</summary>
+    <div class="bal-groups">${group("Cards", cards)}${group("Bank accounts", banks)}</div>${need}</details>`;
+}
+// Match a bank card to one of your Budget cards (or add it as one), so its statement fills in
+function bankLinkCard(id) {
+  const bank = loadBank(),
+    a = bank && bank.accounts.find((x) => x.id === id && x.type === "credit");
+  if (!a) return;
+  const label = a.name + (a.mask ? ` ··${a.mask}` : "");
+  const NEW = `New card: ${label}`.slice(0, 60),
+    NONE = "Not matched";
+  const words = new Set(bankWords(`${a.item} ${a.name}`));
+  const guess = budget.accounts.find((n) => bankWords(n).some((w) => words.has(w)));
+  const cur = bankCardLink(a);
+  openModal(
+    label,
+    [
+      {
+        type: "note",
+        label: "Its statement fills in that card's statement each month (one you've typed stays as it is).",
+      },
+      { key: "to", label: "This is my card", type: "select", options: [...budget.accounts, NEW, NONE] },
+    ],
+    { to: cur || guess || NEW },
+    (v) => {
+      budget.cardLinks = budget.cardLinks || {};
+      let name = v.to;
+      if (name === NONE) {
+        delete budget.cardLinks[id];
+        saveBudgetData();
+        return;
+      }
+      if (name === NEW) {
+        name = bankText(label, 60);
+        if (!budget.accounts.includes(name)) budget.accounts.push(name);
+      }
+      if (!budget.accounts.includes(name)) return;
+      // the card it's matched to is a credit card
+      if (!budget.cardInfo[name]) {
+        const due = a.card && a.card.dueDate ? Number(a.card.dueDate.slice(8)) : null;
+        budget.cardInfo[name] = { due, st: {} };
+      }
+      budget.cardLinks[id] = name;
+      bankFillStatements(bank);
+      saveBudgetData();
+      showToast(`${label} → ${name}`);
+    },
+  );
+}
+// A matched card's statement goes on your card for the month it's due, unless you typed one
+function bankFillStatements(bank = loadBank()) {
+  if (!bank) return false;
+  let changed = false;
+  bank.accounts.forEach((a) => {
+    const name = a.type === "credit" && bankCardLink(a);
+    const c = a.card;
+    if (!name || !c || c.statement == null || !c.dueDate) return;
+    const info = budget.cardInfo[name] || (budget.cardInfo[name] = { due: null, st: {} });
+    const key = c.dueDate.slice(0, 7);
+    if (info.st[key] == null) {
+      info.st[key] = c.statement;
+      changed = true;
+    }
+    if (info.due == null) {
+      info.due = Number(c.dueDate.slice(8));
+      changed = true;
+    }
+  });
+  return changed;
+}
+// A deposit whose description carries an income source's name ("CCCI") within 3 days of one of
+// its paydays fills in that payday: the real amount, and Received for pay that varies. Once a
+// payday has been filled (bankId) it's yours: editing it by hand is never overwritten.
+const BANK_PAY_SKIP = new Set(["paycheck", "pay", "income", "salary", "work", "job", "deposit"]);
+function bankApplyDeposits(bank = loadBank()) {
+  if (!bank || !bank.deposits.length || !budget.income.length) return false;
+  const used = new Set(
+    Object.values(budget.plans)
+      .map((p) => p.bankId)
+      .filter(Boolean),
+  );
+  const gap = (a, b) => Math.abs(Math.round((noonOf(a) - noonOf(b)) / 864e5));
+  const after = (iso, n) => isoDate(new Date(noonOf(iso).getTime() + n * 864e5));
+  let changed = false;
+  bank.deposits.forEach((d) => {
+    if (used.has(d.id)) return;
+    const hay = `${d.name} ${d.raw}`.toLowerCase();
+    const src = budget.income.find((s) =>
+      bankWords(s.name)
+        .filter((w) => !BANK_PAY_SKIP.has(w))
+        .some((w) => hay.includes(w)),
+    );
+    if (!src || !src.start) return;
+    let best = null;
+    const until = after(d.date, 3);
+    for (let p = src.start, i = 0; i < 800 && p && p <= until; i++) {
+      if (gap(p, d.date) <= 3 && (!best || gap(p, d.date) < gap(best, d.date))) best = p;
+      p = nextBillIso(p, src.repeat, dayOf(src.start));
+    }
+    if (!best) return;
+    const plan = planFor(`${src.id}|${best}`);
+    if (plan.bankId) return;
+    plan.amount = d.amount;
+    if (src.varies) plan.received = true;
+    plan.bankId = d.id;
+    used.add(d.id);
+    changed = true;
+  });
+  return changed;
 }
