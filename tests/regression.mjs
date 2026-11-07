@@ -18408,6 +18408,28 @@ await section("Briefing: the headline follows the lines you dismiss", async () =
   await ctx.close();
 });
 
+await section("Briefing: a midday update is named as one, with when it came", async () => {
+  const b = briefingFixture({ headline: "Desk lamp arrives by 6 PM" });
+  const at = new Date();
+  at.setHours(12, 34, 0, 0);
+  Object.assign(b, { edition: "midday", editionAt: at.toISOString(), refreshedAt: at.toISOString() });
+  const { ctx, page, errors } = await openApp({ hour: 14, seed: { "jarvis-briefing": b } });
+  const r = await page.evaluate(() => ({
+    title: document.querySelector("#jv-briefing .coll-title, #jv-briefing .jv-label")?.textContent || "",
+    card: document.getElementById("jv-briefing").textContent,
+    status: document.querySelector(".jv-status").textContent,
+    edition: loadBriefing().edition,
+  }));
+  check("the card is the Midday update", /Midday update/.test(r.card) && !/Today in 60 seconds/.test(r.card), r);
+  check("the status line says when it was updated", /Updated 12:34 PM/.test(r.status), r.status);
+  const junk = await page.evaluate(() =>
+    normalizeBriefing({ ...loadContent(BRIEFING_KEY, null), edition: "<b>", editionAt: "soon" }),
+  );
+  check("a made-up edition is dropped", junk && junk.edition === "" && junk.editionAt === "", junk && junk.edition);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

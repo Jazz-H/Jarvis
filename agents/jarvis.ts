@@ -15,6 +15,7 @@ import {
   emptyBrain,
   withoutHidden,
   mentionsHidden,
+  restatesAny,
   BRAIN_RULES,
   type Brain,
   type DeviceLocation,
@@ -95,6 +96,25 @@ paid off this month, or a category over its limit, a Shopping item
 whose price dropped (priceDrops, from this week's price check). Keep at most one news item
 in the summary. Use only facts in the data; never invent numbers, names or events. If a source
 failed, don't guess what it would have said. Plain, direct tone; no greetings or sign-offs.`;
+
+// The midday and evening updates: same job, but only what's new since the morning
+export function updateRules(edition: "midday" | "evening"): string {
+  const focus =
+    edition === "midday"
+      ? "the rest of today: this afternoon and evening"
+      : "tonight and tomorrow morning (tomorrow's first events, weather and what's due)";
+  return `
+This is the ${edition} update, not the morning briefing. The owner already read "alreadySaid"
+(today's earlier headlines and lines, and lines they dismissed) and "alreadySuggested" (to-dos
+already offered). Write only what's new or has changed since then and matters for ${focus}:
+a new email, a package now arriving, rain moved, a calendar change, a to-do that's now overdue,
+money that changed. Never repeat or reword anything in alreadySaid or alreadySuggested, even
+partly; if something there changed, say what changed ("rain now starts at 3 PM, not 5").
+Skip anything that's already over ("now" is the local time). News is the morning's, so leave it
+out unless it touches tonight's plans. The summary may be 1 to 3 items. If nothing is new, return
+one item with source "jarvis" that says exactly: "${NOTHING_NEW}"`;
+}
+export const NOTHING_NEW = "Nothing new since your last briefing.";
 
 export interface Subagents {
   weather: (deps: SubagentDeps, washDay: boolean, here?: DeviceLocation | null) => Promise<WeatherCard>;
@@ -224,10 +244,12 @@ function refreshSpent(raw: string | null, month: string): number {
   return u.month === month ? u.costUsd : 0;
 }
 
-// Later in the day: redo what goes stale, keep what the owner already read. The summary, Top 3,
-// suggestions, News and the briefing's id stay as they are, so nothing is announced as new and no
-// dismissed line comes back reworded. A card that fails keeps the morning's version.
-async function runRefresh(deps: JarvisDeps, prev: Briefing): Promise<RunOutcome> {
+// Later in the day: redo what goes stale, keep what the owner already read. A plain refresh leaves
+// the summary, Top 3, suggestions, News and the briefing's id as they are, so nothing is announced
+// as new and no dismissed line comes back reworded. An update (midday, evening) also has Jarvis
+// write a fresh headline and summary with only what's new (writeUpdate). A card that fails keeps
+// the morning's version.
+async function runRefresh(deps: JarvisDeps, prev: Briefing, edition?: "midday" | "evening"): Promise<RunOutcome> {
   const { gist, trace } = deps;
   const today = prev.date;
   const month = today.slice(0, 7);
@@ -313,10 +335,16 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing): Promise<RunOutcome>
     trace.log("money", "failed", { error: trace.publicError(e) });
   }
   const redone = done.map((r) => `${AGENT_LABEL[r.name]} didn't finish`);
+  const allCards = { ...prev.cards, ...cards } as Briefing["cards"];
+  // An update: Jarvis writes a fresh headline and summary from here, without anything said before
+  const fresh = edition
+    ? await writeUpdate({ edition, prev, cards: allCards, context, brain, ledger, deps, today })
+    : null;
   const briefing = Briefing.parse({
     ...prev,
+    ...(fresh ?? {}),
     refreshedAt: updatedAt,
-    cards: { ...prev.cards, ...cards },
+    cards: allCards,
     notes: prev.notes.filter((n) => !redone.some((x) => n.startsWith(x))), // that problem is over
   });
   try {
@@ -324,9 +352,17 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing): Promise<RunOutcome>
   } finally {
     await saveSpent();
   }
-  trace.log("jarvis", "cards refreshed", { cards: done.length, costUsd: Number(ledger.spentUsd.toFixed(4)) });
+  trace.log("jarvis", fresh ? "update written" : "cards refreshed", {
+    cards: done.length,
+    ...(fresh ? { edition, items: briefing.summary.length } : {}),
+    costUsd: Number(ledger.spentUsd.toFixed(4)),
+  });
   if (deps.push) {
-    const messages = refreshPushMessages(prev, briefing);
+    // an update always announces itself (with what came up since); a plain refresh only for the urgent
+    const messages = [...(fresh ? [updatePushMessage(briefing)] : []), ...refreshPushMessages(prev, briefing)].slice(
+      0,
+      fresh ? 3 : 2,
+    );
     if (messages.length) await notifyPhones(gist, deps.push, messages, trace);
   }
   await appendDayDigest(gist, briefing, trace, true);
@@ -342,6 +378,104 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing): Promise<RunOutcome>
       push: deps.push,
     });
   return { status: "refreshed", briefing, cost: ledger.summary() };
+}
+
+// The midday or evening update's own part of the briefing: a new headline, summary, suggestions
+// and Top 3, a new id (so the app shows it as new and asks about it afresh), and what's now been
+// said today. Nothing that was said or offered before comes back, nor what the owner dismissed: the
+// model is told, and code checks every line. null (the morning's summary stays, nothing is
+// announced) when it can't fit the run's cap, fails, or finds nothing new.
+async function writeUpdate(o: {
+  edition: "midday" | "evening";
+  prev: Briefing;
+  cards: Briefing["cards"];
+  context: JazzContext;
+  brain: Brain;
+  ledger: CostLedger;
+  deps: JarvisDeps;
+  today: string;
+}): Promise<Partial<Briefing> | null> {
+  const { edition, prev, cards, context, brain, ledger, deps } = o;
+  const trace = deps.trace;
+  const ok = <T>(c: { status: string; data?: unknown } | undefined) => (c?.status === "ok" ? (c.data as T) : null);
+  const said = [...new Set([...(prev.said ?? []), prev.headline, ...prev.summary.map((s) => s.text)])]
+    .filter(Boolean)
+    .slice(-40);
+  const suggested = [...new Set([...(prev.suggested ?? []), ...(prev.suggestions ?? []).map((s) => s.text)])].slice(
+    -20,
+  );
+  const off = [...said, ...brain.hiddenLines]; // what's been said, and what the owner waved away
+  if (!ledger.reserve("jarvis", CONFIG.costEstimateUsd.jarvis)) {
+    trace.log("jarvis", "update skipped", { reason: "cost cap" });
+    return null;
+  }
+  let out: JarvisOutput;
+  try {
+    const t = localTime(deps.now, CONFIG.timezone).minutes;
+    const now = `${Math.floor(t / 60) % 12 || 12}:${String(t % 60).padStart(2, "0")} ${t < 720 ? "AM" : "PM"}`;
+    out = await runAgent(
+      jarvisSpec(context, ok<WeatherCard>(cards.weather), ok<NewsCard>(cards.news), [], {
+        calendar: ok<CalendarCard>(cards.calendar),
+        inbox: ok<InboxCard>(cards.inbox),
+        deliveries: ok<DeliveryCard>(cards.deliveries),
+        money: ok<MoneyCard>(cards.money),
+        brain,
+        update: { edition, now, alreadySaid: off, alreadySuggested: [...suggested, ...brain.hiddenSuggestions] },
+      }),
+      ledger,
+      trace,
+      deps.queryFn,
+    );
+  } catch (e) {
+    trace.log("jarvis", "update failed", { error: trace.publicError(e) });
+    return null;
+  } finally {
+    ledger.release("jarvis");
+  }
+  const lines = out.summary.filter(
+    (s) =>
+      s.text !== NOTHING_NEW && !restatesAny(s.text, off) && !mentionsHidden(s.text, brain.hiddenPackages, s.source),
+  );
+  if (!lines.length) {
+    trace.log("jarvis", "update: nothing new", { dropped: out.summary.length });
+    return null;
+  }
+  const headlineOk =
+    !restatesAny(out.headline, off) &&
+    !mentionsHidden(out.headline, brain.hiddenPackages) &&
+    out.summary.some((s) => lines.includes(s)); // a headline over lines that were all dropped is stale too
+  const suggestions = cleanSuggestions(
+    out.suggestions?.filter(
+      (s) =>
+        !restatesAny(s.text, [...suggested, ...brain.hiddenSuggestions]) &&
+        !mentionsHidden(s.text, brain.hiddenPackages),
+    ),
+    context,
+  );
+  const top3 = out.top3?.length ? cleanTop3(out.top3, context) : codeTop3(context);
+  const time = deps.now.toISOString();
+  return {
+    id: `${o.today}T${time.slice(11, 19)}Z`,
+    edition,
+    editionAt: time,
+    headline: (headlineOk ? out.headline : lines[0].text).slice(0, 100),
+    summary: lines,
+    summaryBy: "jarvis",
+    suggestions,
+    top3,
+    said,
+    suggested: [...new Set([...suggested, ...(suggestions ?? []).map((s) => s.text)])].slice(-20),
+  };
+}
+
+// An update's notification: what it's called, then its headline
+export function updatePushMessage(b: Briefing): PushMessage {
+  return {
+    title: b.edition === "evening" ? "Evening update" : "Midday update",
+    body: lines(b.headline.split(/;\s+/).map((x) => x.trim().replace(/[.;]$/, ""))),
+    url: CONFIG.push.url,
+    tag: "briefing",
+  };
 }
 
 // A refresh stays quiet unless it found something new that can't wait for the next look at the app:
@@ -409,7 +543,8 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
               lastUpdate: prev.data.refreshedAt ?? prev.data.generatedAt,
             });
       trace.log("jarvis", "refresh check", { refresh: due.refresh, reason: due.reason });
-      if (due.refresh && prev.success) return runRefresh(deps, prev.data);
+      if (due.refresh && prev.success)
+        return runRefresh(deps, prev.data, "slot" in due && due.slot ? CONFIG.refresh.updates[due.slot] : undefined);
     }
     if (deps.forceRefresh) return { status: "skipped", reason: "there's no briefing from today to refresh" };
     if (!gate.deliver) return { status: "skipped", reason: gate.reason };
@@ -661,10 +796,14 @@ export function jarvisSpec(
     money?: MoneyCard | null;
     brain?: Brain | null;
     prices?: PricesCard | null;
+    // a midday or evening update: what's been said already, and the local time
+    update?: { edition: "midday" | "evening"; now: string; alreadySaid: string[]; alreadySuggested: string[] } | null;
   } = {},
 ): AgentSpec<JarvisOutput> {
+  const u = extra.update ?? null;
   const input = {
     today: context.today,
+    ...(u ? { now: u.now, alreadySaid: u.alreadySaid, alreadySuggested: u.alreadySuggested } : {}),
     jazz: context,
     weather: weather && {
       summary: weather.summary,
@@ -698,7 +837,7 @@ export function jarvisSpec(
   return {
     name: "jarvis",
     model: CONFIG.models.jarvis,
-    system: JARVIS_SYSTEM,
+    system: u ? JARVIS_SYSTEM + updateRules(u.edition) : JARVIS_SYSTEM,
     prompt: `Today's inputs:\n${dataBlock("jazz+subagents", input)}\nReturn the JSON object.`,
     schema: JarvisOutput,
     effort: "medium",

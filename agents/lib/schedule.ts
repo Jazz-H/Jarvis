@@ -64,17 +64,15 @@ export function dueRefresh(opts: {
   times: string[];
   windowMinutes: number;
   lastUpdate: string;
-}): { refresh: boolean; reason: string } {
+}): { refresh: boolean; reason: string; slot?: string } {
   const { date, minutes } = localTime(opts.now, opts.timeZone);
-  const slot = opts.times
-    .map(toMinutes)
-    .filter((t) => t <= minutes && minutes < t + opts.windowMinutes)
-    .pop();
-  if (slot == null) return { refresh: false, reason: "not a refresh time" };
+  const time = opts.times.filter((t) => toMinutes(t) <= minutes && minutes < toMinutes(t) + opts.windowMinutes).pop();
+  if (time == null) return { refresh: false, reason: "not a refresh time" };
+  const slot = toMinutes(time);
   const at = new Date(opts.lastUpdate);
   const last = isNaN(at.getTime()) ? null : localTime(at, opts.timeZone);
   if (last && last.date === date && last.minutes >= slot) return { refresh: false, reason: "already refreshed" };
-  return { refresh: true, reason: "refresh time" };
+  return { refresh: true, reason: "refresh time", slot: time };
 }
 
 // Day of the week (0 = Sunday) of a YYYY-MM-DD date, independent of any time zone

@@ -79,7 +79,9 @@ function dashGreetingHtml(b) {
   const when = !b
     ? ""
     : b.date === addDaysIso(0)
-      ? `Briefed ${jvTime(b.generatedAt)}`
+      ? b.edition && b.editionAt
+        ? `Updated ${jvTime(b.editionAt)}`
+        : `Briefed ${jvTime(b.generatedAt)}`
       : `Last briefed ${shortDate(b.date)}`;
   return `<div class="jv-greet">
       <div class="jv-status"><span class="jv-status-name"><span class="jv-dot"></span>${state}</span><span>${escapeHtml(when)}</span></div>

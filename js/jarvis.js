@@ -421,6 +421,12 @@ function normalizeBriefing(b) {
       typeof b.refreshedAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(b.refreshedAt)
         ? isoTime(b.refreshedAt)
         : "",
+    // a midday or evening update rewrote the headline and summary (only what's new since)
+    edition: b.edition === "midday" || b.edition === "evening" ? b.edition : "",
+    editionAt:
+      typeof b.editionAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(b.editionAt)
+        ? isoTime(b.editionAt)
+        : "",
     headline: str(b.headline, 100),
     summary: arr(b.summary)
       .filter(isObj)
@@ -657,7 +663,7 @@ function jarvisHeroHtml(b) {
   return collapsibleCard({
     id: "jv-briefing",
     cls: `home-card jv-card jv-hero${b.date === today ? "" : " jv-stale"}`,
-    title: `Today in 60 seconds${isNew ? ' <span class="jv-pill">New</span>' : ""}`,
+    title: `${BRIEFING_TITLES[b.date === today ? b.edition : ""] || BRIEFING_TITLES[""]}${isNew ? ' <span class="jv-pill">New</span>' : ""}`,
     insight: count ? `${count} item${count === 1 ? "" : "s"}` : "",
     peek,
     body: `
@@ -676,6 +682,9 @@ function jarvisHeroHtml(b) {
       ${notes}`,
   });
 }
+
+// The card's name: the morning's, or the update that last rewrote it (only what's new since)
+const BRIEFING_TITLES = { "": "Today in 60 seconds", midday: "Midday update", evening: "Evening update" };
 
 // Suggested to-dos under the summary: tap to add (with its due date), Undo in the toast.
 // Tapped chips are remembered for this briefing until the page reloads.

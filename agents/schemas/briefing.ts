@@ -52,6 +52,14 @@ export const Briefing = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   generatedAt: z.string(),
   refreshedAt: z.string().optional(), // when a card refresh last redid the cards (jarvis.ts runRefresh)
+  // Midday and evening updates (jarvis.ts runRefresh at CONFIG.refresh.updates): Jarvis wrote this
+  // headline and summary then, over refreshed cards. Absent on the morning's own.
+  edition: z.enum(["midday", "evening"]).optional(),
+  editionAt: z.string().optional(),
+  // What today's briefings already said (headlines and lines), and the to-dos they already suggested,
+  // so a later update never says them again
+  said: z.array(z.string().max(240)).max(40).optional(),
+  suggested: z.array(z.string().max(80)).max(20).optional(),
   trigger: z.enum(["schedule", "manual"]),
   headline: z.string().max(100),
   summary: JarvisOutput.shape.summary,

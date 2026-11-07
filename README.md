@@ -1136,16 +1136,25 @@ title and its list are split by a thin rule (the briefing, Outfit).
 devices so iOS doesn't zoom.
 
 ## Known limitations and ideas
-- **Card refresh:** at about 12:30pm, 5pm and 9pm the backend redoes Weather, Calendar, Inbox, Deliveries and
-  Bill Guard in today's briefing, and the Planner's calendar file. The summary, Top 3, suggestions and
-  News stay as the morning wrote them, so Home shows no "New" badge, only "Cards updated 12:30 PM", and
-  a dismissed line can't come back reworded. A card that fails keeps the morning's version. No phone
-  notification unless it found something new that can't wait: a Severe or Extreme weather alert, urgent
-  email from a new sender, or a package now arriving today. What the Weekly Review saw that morning is
+- **Card refresh and updates:** at about 12:30pm, 5pm and 9pm the backend redoes Weather, Calendar, Inbox,
+  Deliveries and Bill Guard in today's briefing, and the Planner's calendar file. A card that fails keeps
+  the morning's version.
+  - **12:30 and 5pm are updates:** Jarvis also writes a fresh headline, summary (1 to 3 lines), Top 3
+    and suggestions over the refreshed cards and the morning's News. It's told what today's
+    briefings already said, the lines you dismissed and the to-dos already suggested, and code drops
+    any line that restates one of them, even reworded. The card becomes **Midday update** (the rest
+    of today) or **Evening update** (tonight and tomorrow morning), with a New badge, and the status
+    line reads "Updated 12:34 PM". Each sends a phone notification ("Midday update" / "Evening
+    update" and its headline). When nothing new is left, the cards still refresh but the summary stays
+    and nothing is announced.
+  - **9pm stays a plain refresh:** the summary stays, "Cards updated 9:05 PM", and no phone
+    notification unless it found something new that can't wait: a Severe or Extreme weather alert,
+    urgent email from a new sender, or a package now arriving today. What the Weekly Review saw that morning is
   added to, not replaced. The alarm clock starts these runs, with a GitHub schedule as a backup; "Run
-  workflow" in mode `refresh` does one by hand. A run is capped at $0.25 and refreshes at $12 a month
-  (`jazz2-refresh.json` holds the count; over it they stop until next month, and the morning briefing
-  doesn't). Like every sync, new cards reach the app the next time it's opened or brought back up.
+  workflow" in mode `refresh` does one by hand. A run is capped at $0.25; refreshes and updates together at $20 a month (about $3 at
+  today's costs: an update is ~$0.045, a refresh ~$0.003). `jazz2-refresh.json` holds the count;
+  over it they stop until next month, and the morning briefing doesn't. Too close to the cap for
+  Jarvis, a run only redoes the cards. Like every sync, new cards reach the app the next time it's opened or brought back up.
 - **Notifications come only from Jarvis's scheduled runs.** The app can't wake itself up, so
   phone notifications are sent by the GitHub Action (headline, bills, deliveries). There are no
   per-to-do reminders; an idea is "Add to calendar" on dated to-dos (an `.ics` file with an

@@ -41,6 +41,9 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 
 - [x] Card refresh (Nov 4): Weather, Calendar, Inbox, Deliveries and Bill Guard are redone at about
   12:30pm and 5pm (9pm added Nov 5); the morning's summary stays (`agents/jarvis.ts` `runRefresh`).
+- [x] Midday and evening updates (Nov 6): at 12:30pm and 5pm Jarvis also rewrites the summary with
+  only what's new (nothing said, offered or dismissed earlier comes back; `writeUpdate`), and the
+  phones are notified. 9pm stays a plain refresh. Refreshes and updates share a $20 monthly cap.
 - [x] Hey Jarvis (Nov 5): hands-free voice while the app is open (`js/wake.js`). The wake word runs on
   the device (openWakeWord, `vendor/wake`); one command goes through the browser's speech recognition
   and is matched by code, no model. Tested on the owner's Android phone first (`spike/wake`, removed).
@@ -49,7 +52,8 @@ work (fixes, decisions, ideas) is tracked in `BACKLOG.md`.
 ## My preferences
 - Location: Springfield, IL
 - Time zone: America/New_York
-- Card refresh: about 12:30pm, 5pm and 9pm ET, phone notifications only for something new and urgent.
+- Card refresh: about 12:30pm, 5pm and 9pm ET. 12:30 and 5pm are updates (a fresh summary of only
+  what's new, with a phone notification); 9pm notifies only for something new and urgent.
 - Briefing time: around 6:00am ET (moved from 7:00, Nov 5). Schedule the cron a little early so GitHub's delay still
   lands it near 6, and convert to UTC for both EST and EDT.
 - News topics: AI, tech, cars, trending. Sources: Jarvis picks reputable RSS feeds for these

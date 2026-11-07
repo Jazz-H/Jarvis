@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 import { runBriefing, refreshPushMessages, type JarvisDeps, type Subagents } from "../jarvis.ts";
@@ -98,6 +98,14 @@ beforeEach(() => {
 });
 
 describe("card refresh", () => {
+  // plain refreshes: no update times while these run (the updates have their own tests below)
+  const updates = CONFIG.refresh.updates;
+  beforeEach(() => {
+    CONFIG.refresh.updates = {};
+  });
+  afterEach(() => {
+    CONFIG.refresh.updates = updates;
+  });
   it("redoes the cards that go stale and keeps everything the morning wrote", async () => {
     const m = await morning();
     const { subagents, ran } = stubs();
@@ -350,6 +358,140 @@ describe("what a refresh tells the phone", () => {
         }),
       ),
     ).toHaveLength(2);
+  });
+});
+
+// Midday and evening updates: at CONFIG.refresh.updates times Jarvis writes a fresh summary over the
+// refreshed cards, with nothing said before, and the phones hear about it
+describe("updates (midday and evening)", () => {
+  const NIGHT = new Date("2026-10-30T01:15:00Z"); // 9:15pm EDT
+  const PUSH = {
+    "jazz2-push.json": JSON.stringify({
+      subs: [{ endpoint: "https://push.example/1", keys: { p256dh: "p256dh-key-1", auth: "auth-key-1" } }],
+    }),
+  };
+  const MIDDAY_OUT = {
+    headline: "Desk lamp arrives by 6 PM",
+    summary: [
+      { text: "Light rain by noon; bring a jacket.", source: "weather" }, // the morning's, word for word
+      { text: "Rain by noon, so take a jacket along.", source: "weather" }, // the morning's, reworded
+      { text: "Your desk lamp is out for delivery, due by 6 PM.", source: "deliveries" },
+      { text: "Sam is still waiting on your lunch reply.", source: "inbox" },
+    ],
+    suggestions: [
+      { text: "Call the bank", due: null }, // offered this morning
+      { text: "Reply to Sam about lunch", due: null },
+    ],
+  };
+  const run = (m: { gist: GistClient }, out: unknown, now: Date) => {
+    const q = fakeQuery([{ structured_output: out, total_cost_usd: 0.04 }]);
+    const sent: { title: string; body: string }[] = [];
+    const ranStubs = stubs();
+    return {
+      q,
+      sent,
+      ran: ranStubs.ran,
+      go: () =>
+        runBriefing(
+          deps(m.gist, {
+            now,
+            queryFn: q.fn,
+            subagents: ranStubs.subagents,
+            push: async (_s, p) => void sent.push(JSON.parse(p)),
+          }),
+        ),
+    };
+  };
+
+  it("12:30 writes only what's new, with a new id and a Midday update notification", async () => {
+    const m = await morning(PUSH);
+    const r = run(m, MIDDAY_OUT, MIDDAY);
+    expect((await r.go()).status).toBe("refreshed");
+    expect(r.ran.sort()).toEqual(["calendar", "deliveries", "inbox", "weather"]); // News stays the morning's
+    expect(r.q.seen).toHaveLength(1);
+    const prompt = String(r.q.seen[0].prompt);
+    expect(String(r.q.seen[0].options?.systemPrompt ?? "")).toContain("This is the midday update");
+    expect(prompt).toContain("alreadySaid");
+    expect(prompt).toContain("Light rain by noon; bring a jacket.");
+    const saved = Briefing.parse(JSON.parse(m.files["jazz2-briefing.json"]));
+    expect(saved.edition).toBe("midday");
+    expect(saved.id).not.toBe(m.briefing.id);
+    expect(saved.generatedAt).toBe(m.briefing.generatedAt);
+    expect(saved.headline).toBe("Desk lamp arrives by 6 PM");
+    // the morning's line, and a rewording of it, never come back
+    expect(saved.summary.map((s) => s.text)).toEqual([
+      "Your desk lamp is out for delivery, due by 6 PM.",
+      "Sam is still waiting on your lunch reply.",
+    ]);
+    expect(saved.suggestions!.map((s) => s.text)).toEqual(["Reply to Sam about lunch"]);
+    expect(saved.said).toEqual([m.briefing.headline, ...m.briefing.summary.map((s) => s.text)]);
+    expect(saved.cards.news).toEqual(m.briefing.cards.news);
+    expect(r.sent[0]).toMatchObject({ title: "Midday update", body: "Desk lamp arrives by 6 PM" });
+  });
+
+  it("5 PM leaves out what midday said too, and a line the owner dismissed", async () => {
+    const m = await morning(PUSH);
+    await run(m, MIDDAY_OUT, MIDDAY).go();
+    // the owner dismissed one of midday's lines on Home
+    const data = JSON.parse(m.files["jazz2-data.json"]);
+    data.data["jarvis-settings"] = {
+      hiddenLines: [{ text: "Sam is still waiting on your lunch reply.", at: "2026-10-29" }],
+    };
+    m.files["jazz2-data.json"] = JSON.stringify(data);
+    const r = run(
+      m,
+      {
+        headline: "Desk lamp arrives by 6 PM",
+        summary: [
+          { text: "Your desk lamp is out for delivery, due by 6 PM.", source: "deliveries" },
+          { text: "Sam is still waiting on a lunch reply from you.", source: "inbox" },
+          { text: "Tomorrow starts with standup at 9:30 AM.", source: "calendar" },
+        ],
+      },
+      EVENING,
+    );
+    await r.go();
+    const saved = Briefing.parse(JSON.parse(m.files["jazz2-briefing.json"]));
+    expect(saved.edition).toBe("evening");
+    expect(saved.summary.map((s) => s.text)).toEqual(["Tomorrow starts with standup at 9:30 AM."]);
+    expect(saved.headline).toBe("Tomorrow starts with standup at 9:30 AM."); // its own headline was said at midday
+    expect(saved.said).toContain("Your desk lamp is out for delivery, due by 6 PM.");
+    expect(r.sent[0]).toMatchObject({ title: "Evening update" });
+  });
+
+  it("nothing new: the cards refresh, the summary stays, and no update is announced", async () => {
+    const m = await morning(PUSH);
+    const r = run(
+      m,
+      { headline: "x", summary: [{ text: "Nothing new since your last briefing.", source: "jarvis" }] },
+      MIDDAY,
+    );
+    await r.go();
+    const saved = Briefing.parse(JSON.parse(m.files["jazz2-briefing.json"]));
+    expect(saved.edition).toBeUndefined();
+    expect(saved.id).toBe(m.briefing.id);
+    expect(saved.summary).toEqual(m.briefing.summary);
+    expect(saved.refreshedAt).toBe(MIDDAY.toISOString());
+    expect(r.sent.some((p) => /update/.test(p.title))).toBe(false);
+  });
+
+  it("9 PM stays a plain card refresh", async () => {
+    const m = await morning();
+    const r = run(m, MIDDAY_OUT, NIGHT);
+    expect((await r.go()).status).toBe("refreshed");
+    expect(r.q.seen).toHaveLength(0);
+    expect(Briefing.parse(JSON.parse(m.files["jazz2-briefing.json"])).summary).toEqual(m.briefing.summary);
+  });
+
+  it("shares the $20 monthly budget with refreshes; too close to it, only the cards are redone", async () => {
+    expect(CONFIG.refresh.monthlyBudgetUsd).toBe(20);
+    const m = await morning({
+      "jazz2-refresh.json": JSON.stringify({ version: 1, month: "2026-10", costUsd: 19.95 }),
+    });
+    const r = run(m, MIDDAY_OUT, MIDDAY);
+    expect((await r.go()).status).toBe("refreshed");
+    expect(r.q.seen).toHaveLength(0); // Jarvis's estimate doesn't fit in what's left
+    expect(Briefing.parse(JSON.parse(m.files["jazz2-briefing.json"])).edition).toBeUndefined();
   });
 });
 

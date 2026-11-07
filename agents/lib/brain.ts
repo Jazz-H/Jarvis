@@ -204,6 +204,50 @@ export function mentionsHidden(text: string, hidden: string[], source: string | 
   });
 }
 
+// Does this line say what one of these already said? Most of its words (3+ letters, common ones
+// left out) are in one of them, or one of them is mostly in it. For the midday and evening updates:
+// a reworded line about the same thing counts as said. (The app's restates() is the headline's
+// lighter cousin.)
+const SAID_SKIP = new Set([
+  "the",
+  "and",
+  "for",
+  "your",
+  "you",
+  "with",
+  "from",
+  "today",
+  "tonight",
+  "this",
+  "that",
+  "are",
+  "has",
+  "have",
+  "still",
+  "now",
+  "its",
+  "it's",
+  "will",
+  "but",
+  "not",
+]);
+// words and amounts ("$12.50", "9:30" reads as 9 and 30), without the punctuation around them
+const saidWords = (s: string) => [
+  ...new Set(
+    (s.toLowerCase().match(/\$?[a-z0-9']+(?:\.\d+)?/g) ?? []).filter((w) => w.length >= 3 && !SAID_SKIP.has(w)),
+  ),
+];
+export function restatesAny(text: string, said: string[]): boolean {
+  const w = saidWords(text);
+  if (!w.length) return false;
+  return said.some((s) => {
+    const o = new Set(saidWords(s));
+    if (!o.size) return false;
+    const hits = w.filter((x) => o.has(x)).length;
+    return hits / w.length >= 0.6 || (hits >= 3 && hits / o.size >= 0.6);
+  });
+}
+
 // The Notebook for Ask: newest first, whole notes until about 12k characters, then titles only
 export function notesForPrompt(b: Brain) {
   let left = BRAIN_LIMITS.notesPromptChars;

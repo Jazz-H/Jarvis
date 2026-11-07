@@ -16,8 +16,13 @@ export const CONFIG = {
   refresh: {
     times: ["12:30", "17:00", "21:00"],
     windowMinutes: 240, // a start later than this after its time waits for the next one; no window runs past midnight
-    maxRunCostUsd: 0.25, // about $0.10 at the estimates below
-    monthlyBudgetUsd: 12, // 3 a day at most ~$9; over this, refreshes stop until next month; the morning briefing never does
+    maxRunCostUsd: 0.25, // a plain refresh is ~$0.003; an update (Jarvis rewrites the summary) ~$0.045
+    // Refresh and update runs together (the morning briefing never stops): about $0.10 a day, $3 a
+    // month, at today's costs. Over this, they stop until next month.
+    monthlyBudgetUsd: 20,
+    // Updates: at these times Jarvis also writes a fresh summary over the refreshed cards and the
+    // morning's News, leaving out anything already said today, and it notifies the phones
+    updates: { "12:30": "midday", "17:00": "evening" } as Record<string, "midday" | "evening">,
   },
   reviewDay: 0, // Sunday (0 = Sunday … 6 = Saturday, like Date.getDay)
   reviewTime: "18:00",
