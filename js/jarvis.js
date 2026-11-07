@@ -683,7 +683,8 @@ function jarvisHeroHtml(b) {
     insight: count ? `${count} item${count === 1 ? "" : "s"}` : "",
     peek,
     body: `
-      ${b.headline ? `<h2 class="jv-headline">${escapeHtml(head.title)}</h2>${head.sub ? `<p class="jv-headsub">${escapeHtml(head.sub)}</p>` : ""}` : ""}
+      <div class="jv-brief-head">${b.headline ? `<h2 class="jv-headline">${escapeHtml(head.title)}</h2>` : "<span></span>"}${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}</div>
+      ${b.headline && head.sub ? `<p class="jv-headsub">${escapeHtml(head.sub)}</p>` : ""}
       ${late}
       ${reconnect}
       ${b.cleared ? `<p class="jv-headsub">You dismissed every line of today's briefing. The next one comes tomorrow morning.</p>` : ""}
@@ -692,10 +693,12 @@ function jarvisHeroHtml(b) {
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
       ${b.date === today && b.refreshedAt ? `<div class="jv-meta">Cards updated ${escapeHtml(jvTime(b.refreshedAt))}</div>` : ""}
       ${((ref) =>
-        // once rated (on any device: ratings sync), the question goes; 🔊 stays
-        `<div class="jv-rate-row">${speakBtnHtml("briefing:" + b.id, "jv-speak-briefing", "", "Read the briefing aloud")}${
-          brainVote("briefing", ref) ? "" : `<span>Was this briefing useful?</span>${brainRateHtml("briefing", ref)}`
-        }</div>`)(b.id.replace(/[^A-Za-z0-9_-]/g, "-"))}
+        // once rated (on any device: ratings sync), the question goes (🔊 is at the top, by the headline)
+        brainVote("briefing", ref)
+          ? ""
+          : `<div class="jv-rate-row"><span>Was this briefing useful?</span>${brainRateHtml("briefing", ref)}</div>`)(
+        b.id.replace(/[^A-Za-z0-9_-]/g, "-"),
+      )}
       ${notes}`,
   });
 }

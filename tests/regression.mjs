@@ -12072,8 +12072,8 @@ await section("Jarvis's brain: memory, settings, check-ins and ratings (synced, 
   const rated = await page.evaluate(() => ({
     fb: jarvisFeedback,
     asks: !!document.querySelector(".jv-rate-row .jv-rates"),
-    text: document.querySelector(".jv-rate-row").textContent,
-    speak: !!document.querySelector('.jv-rate-row [data-action="jv-speak-briefing"]'),
+    text: document.querySelector("#jv-briefing").textContent,
+    speak: !!document.querySelector('#jv-briefing .jv-brief-head [data-action="jv-speak-briefing"]'),
     toast: document.getElementById("toast").textContent,
   }));
   check(
@@ -12303,7 +12303,7 @@ await section("Read aloud: 🔊 on answers and the briefing; a spoken question's
   );
   // the briefing's Listen button
   await a.page.evaluate(() => activateTab("home"));
-  await a.page.click('.jv-rate-row [data-action="jv-speak-briefing"]');
+  await a.page.click('#jv-briefing .jv-brief-head [data-action="jv-speak-briefing"]');
   check(
     "the briefing reads its headline, then each item as its own part",
     await a.page.evaluate(() => {

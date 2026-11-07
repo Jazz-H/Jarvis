@@ -9381,6 +9381,22 @@ a.jv-track-icon svg {
   flex-shrink: 0;
 }
 
+/* The briefing's headline with Read aloud beside it, at the top of the card */
+.jv-brief-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.jv-brief-head .jv-headline {
+  flex: 1;
+  min-width: 0;
+}
+.jv-brief-head > .speak-btn,
+.jv-brief-head > button {
+  flex-shrink: 0;
+}
+
 /* A sign-in to redo (Google's expired): the briefing card's warning line */
 .jv-reconnect {
   margin: 8px 0;
