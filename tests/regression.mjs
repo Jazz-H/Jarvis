@@ -1072,7 +1072,9 @@ await section("home: calendar strip picks any day", async () => {
   const cell = `.home-day[aria-label^="${label}:"]`;
   check("far date has a dot", (await page.$$eval(`${cell} .marks i`, (els) => els.length)) === 1);
   await page.click(cell);
-  check("picking a far date shows its to-dos", JSON.stringify(await titles()) === '["Far thing"]', await titles());
+  // (a wash day falls on that date some years: its Wash hair row comes from the schedule, not the to-dos)
+  const far = (await titles()).filter((t) => t !== "Wash hair");
+  check("picking a far date shows its to-dos", JSON.stringify(far) === '["Far thing"]', far);
   check("Today button appears away from today", !!(await page.$(".home-cal-today")));
   await showFab(page);
   await page.click("#fab");
