@@ -1247,7 +1247,7 @@ await section("wash day shows as a Wash hair to-do", async () => {
   });
   const later = await page.evaluate(() => ({
     homeRow: !!document.querySelector("#panel-home .wash-row"),
-    icons: document.querySelectorAll("#todo-list .wash-row svg:not(.box svg)").length,
+    icons: document.querySelectorAll("#todo-list .wash-row svg:not(.box svg):not(.todo-skip svg)").length,
     todoCheck: !!document.querySelector("#todo-list .wash-row .todo-check"),
   }));
   check("not on Home on a non-wash day", !later.homeRow);
@@ -18377,6 +18377,113 @@ await section("To-do Skip: a repeating to-do moves to its next date without coun
     "To-Do's row has Skip as well",
     await page.evaluate(
       () => !!document.querySelector('#panel-todo [data-action="todo-skip"][data-todo-id="t-trash"]'),
+    ),
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Skip on every schedule: a workout, the weigh-in and wash day skip one day, with Undo", async () => {
+  const today = new Date().toLocaleDateString("en-CA");
+  const dow = new Date().getDay();
+  const seed = {
+    "fitness-content": {
+      start: 200,
+      goal: 180,
+      weighDay: dow,
+      weights: [],
+      plan: [
+        { id: "wo-gym", name: "Gym", days: [dow, (dow + 1) % 7], every: 1, anchor: today, time: "", kind: "fitness" },
+      ],
+      checks: {},
+      skips: { "bad key": true, [`${today}|wo-gym<x>`]: true },
+    },
+    "skin-routine-content": {
+      am: [],
+      pm: [],
+      washPm: [{ id: "wp-1", label: "Shampoo", product: "" }],
+      wash: { anchor: today, everyDays: 3, skips: ["nope", 5] },
+    },
+  };
+  const { ctx, page, errors } = await openApp({ seed });
+  const has = (sel) => page.evaluate((s) => !!document.querySelector(s), sel);
+  check(
+    "hostile skip keys are dropped",
+    await page.evaluate(
+      () =>
+        Object.keys(fitness.skips).length === 0 &&
+        !("skips" in skinRoutine.wash) &&
+        workoutsOn(addDaysIso(0)).length === 1,
+    ),
+  );
+  check(
+    "Home's workout, weigh-in and wash rows each have Skip",
+    (await has('#panel-home [data-action="workout-skip"][data-workout-id="wo-gym"]')) &&
+      (await has('#panel-home [data-action="weigh-skip"]')) &&
+      (await has('#panel-home [data-action="wash-skip"]')),
+  );
+  // the workout: skipped is not done and not due; Undo brings it back
+  await page.tap('#panel-home [data-action="workout-skip"][data-workout-id="wo-gym"]');
+  const w = await page.evaluate(() => ({
+    skipped: !!fitness.skips[`${addDaysIso(0)}|wo-gym`],
+    done: workoutDone(addDaysIso(0), "wo-gym"),
+    due: workoutsOn(addDaysIso(0)).length,
+    row: !!document.querySelector('#panel-home [data-workout-id="wo-gym"]'),
+    toast: document.getElementById("toast").textContent,
+  }));
+  check("Skip takes today's workout off without marking it done", w.skipped && !w.done && w.due === 0 && !w.row, w);
+  check("the toast says so, with Undo", /Skipped Gym/.test(w.toast) && /Undo/.test(w.toast), w.toast);
+  await page.tap("#toast .toast-undo");
+  check("Undo puts it back", await page.evaluate(() => workoutsOn(addDaysIso(0)).length === 1));
+  // the edit sheet opened from the row offers Skip for that day, closes and skips
+  await page.tap('#panel-home [data-action="workout-occ-edit"][data-workout-id="wo-gym"]');
+  const sheet = await page.evaluate(() => document.querySelector("#modal-body .tde-skip")?.textContent || "");
+  check("Edit workout from a day's row offers Skip this one", /Skip this one · Today/.test(sheet), sheet);
+  await page.tap("#modal-body .tde-skip");
+  check(
+    "Skip from the sheet closes it and skips that day only",
+    await page.evaluate(
+      () =>
+        document.getElementById("modal-backdrop").hasAttribute("inert") &&
+        workoutsOn(addDaysIso(0)).length === 0 &&
+        workoutsOn(addDaysIso(7)).length === 1,
+    ),
+  );
+  check(
+    "the plan's own sheet (no day) has no Skip",
+    await page.evaluate(() => {
+      editWorkout("wo-gym");
+      const none = !document.querySelector("#modal-body .tde-skip");
+      closeModal();
+      return none;
+    }),
+  );
+  // the weigh-in and wash day
+  await page.tap('#panel-home [data-action="weigh-skip"]');
+  check("Skip the weigh-in: not due today", await page.evaluate(() => !weighInDue(addDaysIso(0))));
+  await page.tap('#panel-home [data-action="wash-skip"]');
+  check(
+    "Skip wash day: off today's list, the schedule stays",
+    await page.evaluate(
+      () =>
+        !isWashDay(noonOf(addDaysIso(0))) &&
+        isWashDay(noonOf(addDaysIso(3))) &&
+        skinRoutine.wash.everyDays === 3 &&
+        !document.querySelector('#panel-home [data-action="wash-skip"]'),
+    ),
+  );
+  // To-Do's coming week: next week's workout can be skipped ahead of time
+  await page.evaluate(() => activateTab("todo"));
+  check(
+    "To-Do's upcoming workout row has Skip",
+    await has(`#panel-todo [data-action="workout-skip"][data-date="${await page.evaluate(() => addDaysIso(1))}"]`),
+  );
+  await page.reload();
+  await page.waitForTimeout(500);
+  check(
+    "skips survive a reload",
+    await page.evaluate(
+      () => workoutsOn(addDaysIso(0)).length === 0 && !weighInDue(addDaysIso(0)) && !isWashDay(noonOf(addDaysIso(0))),
     ),
   );
   check("no errors", errors.length === 0, errors);

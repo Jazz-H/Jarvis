@@ -3915,6 +3915,10 @@ body[data-tab="wants"] main {
   flex-shrink: 0;
   color: var(--olive);
 }
+/* first in Edit workout (opened from a day's row), so it's in reach without scrolling */
+.tde-skip.first {
+  margin-bottom: 18px;
+}
 .todo-skip {
   color: var(--olive);
 }

@@ -7,7 +7,8 @@
 // (like wash days), so nothing piles up as to-dos.
 //   plan: [{id, name, days:[0-6], every:1-4 weeks, anchor:"YYYY-MM-DD", time:"", kind}]
 //   checks: {"YYYY-MM-DD|planId": true}
-const DEFAULT_FITNESS = { start: null, goal: null, weights: [], plan: [], checks: {} };
+//   skips: {"YYYY-MM-DD|planId": true, "YYYY-MM-DD|weigh": true}: occurrences skipped (not done, not due)
+const DEFAULT_FITNESS = { start: null, goal: null, weights: [], plan: [], checks: {}, skips: {} };
 let fitness = JSON.parse(JSON.stringify(DEFAULT_FITNESS));
 let showWeighIns = false;
 function normalizeFitness() {
@@ -50,10 +51,13 @@ function normalizeFitness() {
         kind: TODO_KINDS[w.kind] ? w.kind : "fitness",
       })),
     checks: {},
+    skips: {},
   };
-  Object.keys(f.checks && typeof f.checks === "object" ? f.checks : {}).forEach((k) => {
-    if (/^\d{4}-\d{2}-\d{2}\|[A-Za-z0-9_-]+$/.test(k) && f.checks[k] && k.slice(0, 10) >= cutoff)
-      fitness.checks[k] = true;
+  ["checks", "skips"].forEach((m) => {
+    const src = f[m] && typeof f[m] === "object" && !Array.isArray(f[m]) ? f[m] : {};
+    Object.keys(src).forEach((k) => {
+      if (/^\d{4}-\d{2}-\d{2}\|[A-Za-z0-9_-]+$/.test(k) && src[k] && k.slice(0, 10) >= cutoff) fitness[m][k] = true;
+    });
   });
 }
 function saveFitness() {
@@ -75,8 +79,23 @@ function workoutOn(w, iso) {
   const weeks = Math.round((noonOf(weekStartIso(iso)) - noonOf(weekStartIso(w.anchor))) / (7 * 864e5));
   return ((weeks % w.every) + w.every) % w.every === 0;
 }
+// A skipped occurrence isn't on that day any more: not due, not counted, and it doesn't break the streak
 function workoutsOn(iso) {
-  return fitness.plan.filter((w) => workoutOn(w, iso));
+  return fitness.plan.filter((w) => workoutOn(w, iso) && !fitness.skips[`${iso}|${w.id}`]);
+}
+// Skip one occurrence (a workout, or "weigh" for the weigh-in), with Undo
+function skipFitnessDay(iso, id, name) {
+  const k = `${iso}|${id}`;
+  if (fitness.skips[k]) return;
+  fitness.skips[k] = true;
+  saveFitness();
+  showUndoToast(`Skipped ${name} · ${dueLabel(iso)}`, () => {
+    delete fitness.skips[k];
+    saveFitness();
+  });
+}
+function fitnessSkipBtnHtml(action, iso, label, attrs = "") {
+  return `<button class="todo-icon-btn todo-skip" style="order:3;" data-action="${action}" data-date="${iso}" ${attrs} aria-label="Skip this one: ${escapeAttr(label)}" title="Skip this one">${SKIP_ICON}</button>`;
 }
 function workoutDone(iso, id) {
   return !!fitness.checks[`${iso}|${id}`];
@@ -110,8 +129,10 @@ function workoutRowHtml(w, iso) {
     iso > today
       ? `<span class="row-icon repeat-icon" aria-hidden="true">${REPEAT_ICON}</span>`
       : `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Not done" : "Done"}: ${escapeAttr(w.name)}" data-action="workout-occ-toggle" data-workout-id="${w.id}" data-date="${iso}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
+  const skip = done ? "" : fitnessSkipBtnHtml("workout-skip", iso, w.name, `data-workout-id="${w.id}"`);
   return `<div class="todo-wrap workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${done ? "checked" : ""}">
       ${lead}
+      ${skip}
       <div class="body" role="button" tabindex="0" data-action="workout-occ-edit" data-workout-id="${w.id}" data-date="${iso}"><div class="title">${kindIconHtml({ kind: w.kind, text: w.name })}${escapeHtml(w.name)}</div><div class="todo-meta"><span class="repeat-meta">${REPEAT_ICON}${escapeHtml([w.every > 1 ? `Every ${w.every} weeks` : "Weekly", fmtTime(w.time)].filter(Boolean).join(" · "))}</span></div></div>
     </div></div>`;
 }
@@ -263,6 +284,7 @@ function weighInDue(iso) {
   const d = weighDay(),
     today = addDaysIso(0);
   if (d < 0 || (fitness.goal == null && !fitness.weights.length)) return false;
+  if (fitness.skips[`${iso}|weigh`]) return false;
   if (noonOf(iso).getDay() === d) return true;
   if (iso !== today) return false;
   const last = fitness.weights.length ? fitness.weights[fitness.weights.length - 1].date : null;
@@ -280,6 +302,7 @@ function weighRowHtml(iso) {
       : `<button class="todo-check" role="checkbox" aria-checked="${!!w}" aria-label="Weigh in" data-action="weigh-row-check" ${open}><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap weigh-row workout-row ${iso > today ? "repeat-ghost" : ""}"><div class="item ${w ? "checked" : ""}">
       ${lead}
+      ${w ? "" : fitnessSkipBtnHtml("weigh-skip", iso, "Weigh in")}
       <div class="body" role="button" tabindex="0" data-action="weigh-row-open" ${open}><div class="title">${kindIconHtml({ kind: "fitness", text: "" })}Weigh in</div><div class="todo-meta">${escapeHtml(meta)}</div></div>
     </div></div>`;
 }
@@ -323,12 +346,22 @@ function editWeightGoal() {
   );
 }
 const WORKOUT_EVERY = ["Every week", "Every 2 weeks", "Every 3 weeks", "Every 4 weeks"];
-function editWorkout(id) {
+function editWorkout(id, iso) {
   const w = id ? fitness.plan.find((x) => x.id === id) : null;
   const kinds = KIND_ORDER.map((k) => TODO_KINDS[k].label);
+  // opened from one day's row: that day can be skipped (the plan stays as it is)
+  const skipDay = w && iso && !workoutDone(iso, w.id) && workoutsOn(iso).includes(w);
   openModal(
     w ? "Edit workout" : "Add workout",
     [
+      ...(skipDay
+        ? [
+            {
+              type: "html",
+              label: `<button type="button" class="tde-skip first" data-action="workout-skip" data-workout-id="${w.id}" data-date="${iso}" data-close="1">${SKIP_ICON}Skip this one · ${escapeHtml(dueLabel(iso))}</button>`,
+            },
+          ]
+        : []),
       { key: "name", label: "Workout (e.g. Gym, Yoga, Run)", type: "text" },
       { key: "days", label: "Days", type: "days" },
       { key: "time", label: "Time (optional)", type: "time" },

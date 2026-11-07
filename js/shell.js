@@ -356,7 +356,27 @@ const SHELL_CLICK = {
   // Workout occurrence rows (workoutRowHtml; Home day list and To-Do upcoming groups). The row must name a planned workout that
   // really lands on the rendered date. Only today and earlier dates can be checked (future rows are previews with no check).
   "workout-occ-edit": (el) => {
-    if (workoutOccurrence(el)) editWorkout(el.getAttribute("data-workout-id"));
+    if (workoutOccurrence(el)) editWorkout(el.getAttribute("data-workout-id"), el.getAttribute("data-date"));
+  },
+  // Skip one day of a schedule (row icon, or the edit sheet, which closes): workouts, the weigh-in, wash day
+  "workout-skip": (el, e) => {
+    e.stopPropagation();
+    const w = workoutOccurrence(el),
+      iso = el.getAttribute("data-date");
+    if (!w || workoutDone(iso, w.id)) return;
+    if (el.getAttribute("data-close")) closeModal();
+    skipFitnessDay(iso, w.id, w.name);
+  },
+  "weigh-skip": (el, e) => {
+    e.stopPropagation();
+    const iso = el.getAttribute("data-date");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") && weighInDue(iso) && !weighedOn(iso))
+      skipFitnessDay(iso, "weigh", "Weigh in");
+  },
+  "wash-skip": (el, e) => {
+    e.stopPropagation();
+    const iso = el.getAttribute("data-date");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") && isoDate(noonOf(iso)) === iso) skipWashDay(iso);
   },
   "workout-occ-toggle": (el, e) => {
     e.stopPropagation();

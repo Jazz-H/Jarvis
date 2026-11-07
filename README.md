@@ -234,6 +234,10 @@ the Planner is on screen and adds to the day picked there; above it, Quick add i
 - **Skip:** a repeating to-do has a skip icon (⏭) on its row, on Home and To-Do, and **Skip this
   one · it moves to …** in its edit sheet (**Skip** beside Done in the desktop Details pane). It moves
   the to-do to its next date without counting it done (nothing goes to Completed). Undo is in the toast.
+  Everything else on a schedule has it too: a **planned workout**, the **weigh-in** and **wash day**
+  (on any day's row, today or coming up; Edit workout opened from a day's row starts with **Skip this
+  one · <day>**). Skipping drops that one day: it isn't done, isn't due, and doesn't break the workout
+  streak; the schedule stays as it is. Bills don't skip: a bill still has to be paid.
 - **Types:** each to-do shows a small colored icon for its type, guessed from its words
   (health, appointment, fitness, birthday, social, travel, car, pet, work, call, errand,
   chores; a time like "@ 9am" reads as an appointment). Edit's **Type** row shows the

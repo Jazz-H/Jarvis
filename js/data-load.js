@@ -120,6 +120,13 @@ function sanitizeCoreData() {
       delete t.repeatDay;
   });
   if (!isObj(skinRoutine)) skinRoutine = routineFromDays(DEFAULT_SKIN_DAYS);
+  // skipped wash days: dates only, the last 400 days
+  if (isObj(skinRoutine.wash) && "skips" in skinRoutine.wash) {
+    const cutoff = addDaysIso(-400);
+    const skips = [...new Set(arr(skinRoutine.wash.skips).filter((d) => isIso(d) && d >= cutoff))];
+    if (skips.length) skinRoutine.wash.skips = skips;
+    else delete skinRoutine.wash.skips;
+  }
   ["am", "pm", "washPm"].forEach((b) => {
     skinRoutine[b] = arr(skinRoutine[b])
       .filter(isObj)

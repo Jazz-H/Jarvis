@@ -182,7 +182,23 @@ function homeCalHtml() {
 // doesn't have: shampoo, mask), so it stays in step with Beauty. Only
 // today's can be ticked; other days show the droplet instead.
 function isWashDay(d) {
-  return isWashDate(d) && skinRoutine.washPm.length > 0;
+  return isWashDate(d) && skinRoutine.washPm.length > 0 && !washSkipped(isoDate(d));
+}
+// A skipped wash day drops off the lists (the schedule stays as it is); kept in skinRoutine.wash.skips
+function washSkipped(iso) {
+  const w = skinRoutine && skinRoutine.wash;
+  return !!(w && Array.isArray(w.skips) && w.skips.includes(iso));
+}
+function skipWashDay(iso) {
+  if (!isWashDay(noonOf(iso)) || washHairDone(iso)) return;
+  const w = (skinRoutine.wash = { ...washSchedule(), ...(skinRoutine.wash || {}) });
+  w.skips = [...(w.skips || []), iso];
+  saveRoutine();
+  showUndoToast(`Skipped Wash hair · ${dueLabel(iso)}`, () => {
+    const cur = skinRoutine.wash; // a sync may have replaced it
+    if (cur && Array.isArray(cur.skips)) cur.skips = cur.skips.filter((x) => x !== iso);
+    saveRoutine();
+  });
 }
 function washHairSteps() {
   const regular = new Set(skinRoutine.pm.map((s) => s.label));
@@ -216,6 +232,7 @@ function washRowHtml(iso) {
   const check = `<button class="todo-check" role="checkbox" aria-checked="${done}" aria-label="${done ? "Mark not done" : "Complete"}: Wash hair" data-action="home-wash-toggle" data-date="${iso}"><span class="box">${BOX_CHECK_SVG}</span></button>`;
   return `<div class="todo-wrap wash-row"><div class="item ${done ? "checked" : ""}">
       ${check}
+      ${done ? "" : `<button class="todo-icon-btn todo-skip" style="order:3;" data-action="wash-skip" data-date="${iso}" aria-label="Skip this one: Wash hair" title="Skip this one">${SKIP_ICON}</button>`}
       <div class="body" role="button" tabindex="0" data-action="home-wash-open"><div class="title wash-title">Wash hair${DROPLET_ICON}</div></div>
     </div></div>`;
 }
