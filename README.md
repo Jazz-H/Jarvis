@@ -73,7 +73,8 @@ it. Each fact appears once, and each tile drills down: tile → its detail → i
   Shopping, Fitness (weigh-ins, workouts) or To-do. Each item is its own row, divided by a thin
   rule, with its tag lined up with the first line of text. Every row except Jarvis's own drills
   into its detail (the › on the right): Budget opens Money, To-do the Planner, and so on. The
-  **×** at the end of a row dismisses it for the day (Undo in the toast).
+  **×** at the end of a row dismisses it for the day (Undo in the toast). A headline that restates a
+  dismissed line gives way to the next line; with every line dismissed it reads **All caught up**.
   If the Jarvis model didn't finish, the items are assembled automatically and say so; an
   older day's briefing is dimmed and labeled "From <date>"; from 7 AM on, it says in amber
   "Today's briefing hasn't arrived", so a missed morning run doesn't pass as today's. Problems from the run are listed

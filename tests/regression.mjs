@@ -18374,6 +18374,40 @@ await section("To-do Skip: a repeating to-do moves to its next date without coun
   await ctx.close();
 });
 
+await section("Briefing: the headline follows the lines you dismiss", async () => {
+  const b = briefingFixture({
+    headline: "Call Luke at 10 AM",
+    summary: [
+      { text: "Call Luke at 10 AM; it's your first thing today.", source: "jazz" },
+      { text: "Light rain by noon; bring a jacket.", source: "weather" },
+    ],
+  });
+  const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });
+  const head = () =>
+    page.evaluate(() => ({
+      h: document.querySelector("#jv-briefing .jv-headline")?.textContent || "",
+      note: document.querySelector("#jv-briefing .jv-headsub")?.textContent || "",
+      lines: document.querySelectorAll("#jv-briefing .jv-sum-li").length,
+    }));
+  check("before: the morning's headline", (await head()).h === "Call Luke at 10 AM");
+  await page.evaluate(() => hideBriefingLine(0));
+  const one = await head();
+  check(
+    "dismissing the line it restates swaps the headline for the next line",
+    /Light rain by noon/.test(one.h) && one.lines === 1,
+    one,
+  );
+  await page.evaluate(() => hideBriefingLine(0));
+  const all = await head();
+  check(
+    "dismissing every line: All caught up, saying why",
+    all.h === "All caught up" && /dismissed every line/.test(all.note) && all.lines === 0,
+    all,
+  );
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

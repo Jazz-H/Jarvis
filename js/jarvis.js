@@ -43,12 +43,29 @@ function hideDismissed(b) {
         !pkgIds(p.item).some((w) => ids.has(w)) &&
         !pk.some((h) => samePackage(h, p.item)),
     );
+  const had = b.summary.length;
+  const gone = b.summary.filter((s) => lines.has(lineKey(s.text)));
   b.summary = b.summary.filter((s) => !lines.has(lineKey(s.text)) && !mentionsPackage(s.text, pk, s.source));
   b.suggestions = b.suggestions.filter((t) => !sugg.has(lineKey(t.text)) && !mentionsPackage(t.text, pk));
-  // a headline about it gives way to the first line left
-  if (mentionsPackage(b.headline, pk))
+  // Every line dismissed: the headline goes too. A headline about a package that came, or one that
+  // restates a dismissed line ("Call Luke at 10 AM" over "Call Luke at 10 AM, then…"), gives way
+  // to the first line left.
+  if (had && !b.summary.length) {
+    b.headline = "All caught up";
+    b.cleared = true;
+  } else if (mentionsPackage(b.headline, pk) || gone.some((s) => restates(b.headline, s.text)))
     b.headline = b.summary.length ? b.summary[0].text.slice(0, 100) : "Your morning briefing";
   return b;
+}
+// Does the headline say what this line says? Most of its words (3+ letters) are in the line
+function restates(headline, line) {
+  const words = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .match(/[a-z0-9]{3,}/g) || [];
+  const h = [...new Set(words(headline))],
+    l = new Set(words(line));
+  return h.length >= 2 && h.filter((w) => l.has(w)).length / h.length >= 0.6;
 }
 // Is this line or suggestion about a package you said came? Its whole name, or two of its words
 // ("Acme Glow" for "Acme Glow C-10 serum"). A one-word name only counts on a delivery or inbox
@@ -646,6 +663,7 @@ function jarvisHeroHtml(b) {
     body: `
       ${b.headline ? `<h2 class="jv-headline">${escapeHtml(head.title)}</h2>${head.sub ? `<p class="jv-headsub">${escapeHtml(head.sub)}</p>` : ""}` : ""}
       ${late}
+      ${b.cleared ? `<p class="jv-headsub">You dismissed every line of today's briefing. The next one comes tomorrow morning.</p>` : ""}
       <ul class="jv-summary">${reviewRow}${items}</ul>
       ${briefingSuggestHtml(b)}
       ${b.summaryBy === "fallback" ? '<div class="jv-meta">Assembled automatically (Jarvis didn\'t finish)</div>' : ""}
