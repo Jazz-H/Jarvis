@@ -110,11 +110,20 @@ function bankAfterSync() {
 function normalizeBankBudget() {
   const cats = new Set(budget.categories.map((c) => c.id));
   const seen = new Set();
+  // a category rule needs its category; a bill rule keeps up to 4 bill ids (a deleted bill is skipped when matching)
   budget.rules = (Array.isArray(budget.rules) ? budget.rules : [])
     .filter((r) => r && typeof r === "object")
-    .map((r) => ({ id: safeId(r.id, "rule"), match: bankText(r.match, 40).toLowerCase(), cat: safeId(r.cat, "cat") }))
-    .filter((r) => r.match.length >= 2 && cats.has(r.cat) && !seen.has(r.match) && seen.add(r.match))
-    .slice(0, 100);
+    .map((r) => {
+      const base = { id: safeId(r.id, "rule"), match: bankText(r.match, 40).toLowerCase() };
+      if (Array.isArray(r.bills)) {
+        const ids = [...new Set(r.bills.filter((b) => typeof b === "string" && SAFE_ID.test(b)))].slice(0, 4);
+        return ids.length ? { ...base, bills: ids } : null;
+      }
+      const cat = safeId(r.cat, "cat");
+      return cats.has(cat) ? { ...base, cat } : null;
+    })
+    .filter((r) => r && r.match.length >= 2 && !seen.has(r.match) && seen.add(r.match))
+    .slice(0, 150);
   const since = addDaysIso(-90);
   const skipSeen = new Set();
   budget.bankSkip = (Array.isArray(budget.bankSkip) ? budget.bankSkip : [])
@@ -151,9 +160,14 @@ const BANK_PFC = [
   ["RENT_AND_UTILITIES", /util|rent|bill/i],
   ["GENERAL_SERVICES", /service|subscri/i],
 ];
+// A rule puts a merchant's charges in a category ({match, cat}) or says they pay bills ({match, bills})
 function bankRuleFor(t) {
   const hay = `${t.name} ${t.raw}`.toLowerCase();
-  return (budget.rules || []).find((r) => hay.includes(r.match)) || null;
+  return (budget.rules || []).find((r) => r.cat && hay.includes(r.match)) || null;
+}
+function bankBillRule(t) {
+  const hay = `${t.name} ${t.raw}`.toLowerCase();
+  return (budget.rules || []).find((r) => r.bills && hay.includes(r.match)) || null;
 }
 // {cat, by: "rule" | "bank"} or null
 function bankSuggest(t) {
@@ -179,6 +193,23 @@ const bankWords = (s) =>
     .filter((w) => w.length >= 3 && !["the", "and", "inc", "llc", "com", "www", "pay", "payment", "bill"].includes(w));
 function bankBillMatch(t) {
   const dayGap = (a, b) => Math.abs(Math.round((noonOf(a) - noonOf(b)) / 864e5));
+  // A bill rule ("Langford pays Rent"): the name doesn't have to match, and the dates get 10 days.
+  // Its payment logged near the charge, or the bill due near it: that one. Otherwise it paid an
+  // earlier one, so it's a bill payment either way and never spending ({payment: {counted: true}}).
+  const br = bankBillRule(t);
+  const ruled = br ? br.bills.map((id) => bills.find((b) => b.id === id)).filter(Boolean) : [];
+  if (ruled.length) {
+    const off = (b, amount) => Math.abs((amount ?? billShare(b)) - t.amount);
+    const pays = billPayments
+      .filter((p) => (!p.bankId || p.bankId === t.id) && dayGap(t.date, p.date) <= 10)
+      .map((p) => ({ p, b: ruled.find((b) => b.id === p.billId) }))
+      .filter((x) => x.b)
+      .sort((x, y) => off(x.b, x.p.amount) - off(y.b, y.p.amount));
+    if (pays.length) return { bill: pays[0].b, payment: pays[0].p };
+    const due = ruled.filter((b) => !b.done && b.due && dayGap(t.date, b.due) <= 10).sort((x, y) => off(x) - off(y));
+    if (due.length) return { bill: due[0], payment: null };
+    return { bill: ruled.slice().sort((x, y) => off(x) - off(y))[0], payment: { counted: true } };
+  }
   const words = new Set([...bankWords(t.name), ...bankWords(t.raw)]);
   const fits = (b, amount, date) => {
     const gap = dayGap(t.date, date);

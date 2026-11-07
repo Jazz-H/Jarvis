@@ -599,6 +599,10 @@ right now, with the full month folded under it:
   - **Your rules add by themselves:** a charge a rule matches goes straight into Budget and shows
     as "Added by your rule to <category>" with **Undo** until the next feed. Undo takes it back
     out. A category that comes only from the bank (when it's sure) still waits for your tick.
+  - **Bill rules** ("Langford pays Rent + Water + Trash"; one merchant can pay a few bills, like
+    Progressive for two insurance bills, and the closest amount wins): that merchant's charges are
+    bill payments, never spending. One within 10 days of the bill's due date shows **Pays <bill>**
+    with **Mark paid**; one near a payment already logged, or an older one, isn't listed.
   - **Add all N with a category or bill:** adds every charge that has a category and pays every bill a charge
     matched, in one tap, with Undo.
   - **What's left out:** card payments, transfers between your accounts and money coming in. A
@@ -692,7 +696,8 @@ The month view is laid out like the budget sheet, one calendar month at a time (
 - **Import link:** `jazz2.0.html#import=<base64url JSON>` adds bills, paychecks with plans,
   and goals after a confirm, skipping anything already there (a paycheck already there can be switched to "varies" and have its paydays' amounts set). The data stays in the URL
   fragment, so personal numbers never land in this repo.
-  With `{"app":"jazz2-rules", categories:[{name, limit}], rules:[{match, cat:"<category name>"}]}`
+  With `{"app":"jazz2-rules", categories:[{name, limit}], rules:[{match, cat:"<category name>"} or
+  {match, bills:["<bill name>", …]}]}`
   it adds spending categories and bank-feed rules in one go (a category already there by name, or a
   rule for a match you have, is left as it is), then the new rules place the charges waiting in From
   your bank.

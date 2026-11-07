@@ -18569,6 +18569,90 @@ await section("Import link: categories and bank rules only add, then place waiti
   await ctx.close();
 });
 
+await section("Bank feed: a bill rule says a merchant's charges pay a bill, never spending", async () => {
+  const day = (n) => {
+    const x = new Date();
+    x.setHours(12);
+    x.setDate(x.getDate() + n);
+    return x.toLocaleDateString("en-CA");
+  };
+  const tx = (n, name, amount, date) => ({
+    id: "t00000000000" + n,
+    acct: "a000000000001",
+    date,
+    amount,
+    name,
+    raw: name.toUpperCase(),
+    pfc: "",
+    pfcDetailed: "",
+    confident: false,
+    pending: false,
+  });
+  const link =
+    "#import=" +
+    Buffer.from(
+      JSON.stringify({
+        app: "jazz2-rules",
+        rules: [
+          { match: "langford", bills: ["Rent + Water + Trash"] },
+          { match: "progressive", bills: ["Moto Insurance", "Auto Insurance"] },
+          { match: "nobill", bills: ["No such bill"] },
+        ],
+      }),
+    ).toString("base64url");
+  const seed = {
+    "bills-content": [
+      { id: "b-rent", name: "Rent + Water + Trash", amount: 1454, due: day(3), repeat: "monthly", autopay: false },
+      { id: "b-moto", name: "Moto Insurance", amount: 75.71, due: day(8), repeat: "monthly", autopay: false },
+      { id: "b-auto", name: "Auto Insurance", amount: 140, due: day(2), repeat: "monthly", autopay: false },
+    ],
+    "budget-content": { accounts: [], categories: [{ id: "c-o", name: "Other", limit: 0 }], expenses: [], income: [] },
+    "jarvis-bank": {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      from: day(-45),
+      to: day(0),
+      accounts: [{ id: "a000000000001", item: "wf", name: "Checking", mask: "1111", type: "depository", balance: 0 }],
+      txns: [
+        tx(1, "Langford - Lang WEB PMTS", 1454.27, day(-1)), // the rent due in 3 days
+        tx(2, "Langford - Lang WEB PMTS", 1454.27, day(-30)), // last month's: already a bill payment
+        tx(3, "Progressive Insurance", 76.1, day(-1)), // closest to Moto, due in 8 days
+      ],
+      errors: [],
+    },
+  };
+  const { ctx, page, errors } = await openApp({ seed, query: link });
+  await page.waitForTimeout(400);
+  const s = await page.evaluate(() => ({
+    rules: budget.rules.map((r) => `${r.match}→${(r.bills || []).join("+")}`),
+    rows: [...document.querySelectorAll("#bank-sec .bank-row")].map((r) => r.textContent.replace(/\s+/g, " ").trim()),
+  }));
+  check(
+    "bill rules come in by bill name; one naming no bill you have doesn't",
+    JSON.stringify(s.rules) === JSON.stringify(["langford→b-rent", "progressive→b-moto+b-auto"]),
+    s.rules,
+  );
+  const rent = s.rows.filter((r) => /Langford/.test(r));
+  check(
+    "this month's Langford charge pays Rent; last month's isn't listed",
+    rent.length === 1 && /Pays Rent \+ Water \+ Trash/.test(rent[0]) && /Mark paid/.test(rent[0]),
+    s.rows,
+  );
+  check(
+    "Progressive picks the insurance bill closest in amount",
+    s.rows.some((r) => /Progressive/.test(r) && /Pays Moto Insurance/.test(r)),
+    s.rows,
+  );
+  await page.tap('#bank-sec [data-action="bank-add"][data-bank-id="t000000000001"]');
+  const paid = await page.evaluate(() => ({
+    pay: billPayments.find((p) => p.bankId === "t000000000001")?.billId,
+    spent: budget.expenses.length,
+  }));
+  check("Mark paid pays the bill with it, and nothing is spending", paid.pay === "b-rent" && paid.spent === 0, paid);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Briefing: an expired Google sign-in says so on Home, folded or open", async () => {
   const b = briefingFixture({ reconnect: ["google", "<img src=x onerror=alert(1)>"] });
   const { ctx, page, errors } = await openApp({ hour: 9, seed: { "jarvis-briefing": b } });

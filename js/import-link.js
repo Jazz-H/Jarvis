@@ -223,8 +223,9 @@ function applyFitnessImport(data) {
   showToast(`Added ${parts.join(", ")}`);
 }
 // Spending categories and bank-feed rules: {app: "jazz2-rules", categories: [{name, limit}],
-// rules: [{match, cat: "<category name>"}]}. Only adds: a category already there by name, or a
-// rule for a match you already have, is left as it is. The new rules then place waiting charges.
+// rules: [{match, cat: "<category name>"} or {match, bills: ["<bill name>", …]}]}. Only adds: a
+// category already there by name, or a rule for a match you already have, is left as it is. A bill
+// rule needs at least one of its bills to exist. The new rules then place waiting charges.
 function applyRulesImport(data) {
   const arr = (v) => (Array.isArray(v) ? v : []);
   const name = (v) => bankText(v, 60);
@@ -238,9 +239,29 @@ function applyRulesImport(data) {
     .slice(0, 40);
   const catFor = (n) => byName(n) || newCats.find((c) => c.name.toLowerCase() === n.toLowerCase());
   const have = new Set((budget.rules || []).map((r) => r.match));
+  const billIds = (names) => [
+    ...new Set(
+      arr(names)
+        .map((n) => bills.find((b) => b.name.toLowerCase() === name(n).toLowerCase()))
+        .filter(Boolean)
+        .map((b) => b.id),
+    ),
+  ];
   const newRules = arr(data.rules)
-    .map((r) => r && { match: bankText(r.match, 40).toLowerCase(), cat: name(r.cat) })
-    .filter((r) => r && r.match.length >= 2 && catFor(r.cat) && !have.has(r.match) && have.add(r.match))
+    .map((r) => {
+      if (!r) return null;
+      const match = bankText(r.match, 40).toLowerCase();
+      if (Array.isArray(r.bills)) return { match, bills: billIds(r.bills).slice(0, 4) };
+      return { match, cat: name(r.cat) };
+    })
+    .filter(
+      (r) =>
+        r &&
+        r.match.length >= 2 &&
+        (r.bills ? r.bills.length > 0 : catFor(r.cat)) &&
+        !have.has(r.match) &&
+        have.add(r.match),
+    )
     .slice(0, 100);
   const parts = [
     newCats.length && `${newCats.length} categor${newCats.length === 1 ? "y" : "ies"}`,
@@ -256,7 +277,13 @@ function applyRulesImport(data) {
     budget.categories.push({ id: c.id, name: c.name, limit: c.limit });
   });
   budget.rules = budget.rules || [];
-  newRules.forEach((r) => budget.rules.push({ id: genId("rule"), match: r.match, cat: catFor(r.cat).id }));
+  newRules.forEach((r) =>
+    budget.rules.push(
+      r.bills
+        ? { id: genId("rule"), match: r.match, bills: r.bills }
+        : { id: genId("rule"), match: r.match, cat: catFor(r.cat).id },
+    ),
+  );
   normalizeBankBudget(); // checks every rule
   bankAutoAdd(); // the new rules place the charges waiting in From your bank
   saveBudgetData();
