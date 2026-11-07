@@ -35,6 +35,11 @@ that file before any Jarvis work, and README.md before any app work.
 - Gmail is headers and snippets, except order and shipping emails: code trims their bodies
   (`orderExcerpt`) before Deliveries' model sees them, and reads USPS's digest itself. Never log or
   store email text.
+- Bank feed (Plaid): `PLAID_CLIENT_ID`, `PLAID_SECRET` and `PLAID_ACCESS_TOKENS` are Actions
+  secrets / local `.env` only. Access tokens are printed once by `npm run plaid-link` in the
+  owner's terminal and never logged, stored or committed. The Action writes only its own
+  `jazz2-bank.json` (hashed ids, no full account numbers); logs and traces get counts only.
+  Rules, categories and bill matching run in the app (`js/bank.js`), which adds expenses itself.
 - The backend never writes the app's gist files; its only exception is deleting a question's
   `jazz2-file-*.json` once that question is no longer open. An answer about a file may only add (to-dos,
   Shopping, memory).

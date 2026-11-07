@@ -153,9 +153,13 @@ export const CONFIG = {
     calendar: "jazz2-calendar.json",
     prices: "jazz2-prices.json", // the Price watcher's last check (this Action's own file)
     refresh: "jazz2-refresh.json", // what card refreshes spent this month (this Action's own file)
+    bank: "jazz2-bank.json", // the bank feed (Plaid): this Action's own file, read by Budget
   },
   // Price watcher: Shopping items with a saved price, checked once a week in the morning run
   prices: { maxItems: 8, everyDays: 7 },
+  // The bank feed (Plaid, jarvis.ts writeBank): this many days of spending in jazz2-bank.json, read
+  // by Budget. Long enough to cover a month and a charge that posts late.
+  bank: { days: 45 },
   // Web Push (phone notifications). The public key is also in js/push.js; the private key is the
   // VAPID_PRIVATE_KEY secret.
   push: {

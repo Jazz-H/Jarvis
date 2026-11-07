@@ -1,6 +1,7 @@
 # Bank link scope: Plaid (and the alternatives)
 
-Status: **scoping only (Oct 31).** Nothing is built. This reopens the Oct 31 "Budget only"
+Status: **built Nov 7** (sections 10 and SETUP.md section 10): Plaid Trial, rules that add by themselves.
+Scoped Oct 31. Not built yet: balances in Bill Guard, Liabilities, the categorizer. This reopens the Oct 31 "Budget only"
 decision in `PLAN.md`; that decision stands until you pick an option in section 9.
 Prices were read on Oct 31, 2026 from the sources linked inline. **Estimate** means the price
 isn't published and the number is our best-sourced guess.
@@ -325,3 +326,72 @@ the feed when one exists.
    as accounts** (statement balance → the paycheck plan's card line); (3) a **wide month view**;
    (4) the bank feed on the Plaid Trial, filling balances, card statements and one-off spending.
    Steps 1–3 need no bank access and close most of the gap with the sheet.
+
+## 10. Nov 7 update: what's left, and how Budget would show it
+
+Status: **built Nov 7**: A and B, rules that add by themselves, bill matching (`js/bank.js`,
+`agents/lib/bank.ts`, `agents/plaid-link.ts`). Prices in sections 2–4 are from Oct 31 and
+weren't rechecked.
+
+**Section 9 so far:**
+- (0) The morning run fires. The Google alarm clock (`docs/jarvis/alarm-clock.gs`) starts it.
+- (1)–(3) Debts in your own order, credit cards as accounts, and the wide Sheet view shipped Nov 1.
+- What's left is (4), the bank feed itself.
+
+**Decided (Nov 7):** charges that match one of your rules are **added automatically** (decision 3).
+Each still shows in the list as "Added by your rule · Undo" until the next sync, so a wrong rule is easy to
+catch. A confident bank category without a rule still waits for a tick.
+
+**Still open:** 1, 2 and 4 in section 9: the feed (Plaid Trial or SimpleFIN), Liabilities, and the
+categorizer.
+
+### Where transactions show up in Budget (previews, Nov 7)
+Both previews use the app's own parts: Next 14 days rows, Spending bars, chips and theme tokens.
+They add nothing new to the design system.
+
+- **A. A "From your bank" list** above Next 14 days, in the left column on desktop.
+  - **Each transaction is a bill-style row:** the tick adds it to Budget, then the logo, a clean
+    merchant name, "date · account · category ▾", and the amount.
+  - **A row that matches a bill** says "Matches Moto Insurance"; ticking it marks that bill paid.
+  - **Amazon and other unknowns** say "Pick a category ▾" in gold.
+  - **Pending charges** are faded, with no tick.
+  - **"Add 3 matched"** adds every row a rule or a confident bank category already placed.
+  - **Footer:** "Synced 6:02 AM · card payments and transfers left out".
+  - **The section only appears when something is waiting.**
+- **B. Folded into Spending.** There's no list. Each category bar gets a faint extra segment and
+  "+$63.18 new" for charges not added yet. Spending's label gets a "5 new · Review" chip that opens
+  the same rows in a sheet. Bills the feed confirmed say "matched on Citi CC" in Next 14 days.
+- **Chosen (Nov 7): A and B together.**
+  - **A's list:** reviewing is a daily thumb task, and A's list is one tap per row.
+  - **B's faint segments:** they show where the month is heading before you've added anything.
+  - **Bill matches** need no review at all: an autopay bill already counts as paid, and the feed
+    only confirms or flags it.
+
+### Designing it with impeccable
+[impeccable](https://github.com/pbakaus/impeccable) (Apache 2.0) is a design skill with review
+commands (`critique`, `audit`) and finishing commands (`adapt`, `polish`, `harden`, `clarify`).
+It isn't installed on this computer yet. The plan:
+
+1. **Install.**
+   - **Plugin:** `/plugin marketplace add pbakaus/impeccable`, then install it from `/plugin`.
+   - **Or the CLI:** `npx impeccable install` in the repo.
+   - **Telemetry:** turn it off.
+   - **The design hook:** keep it. It scans UI files as they're edited.
+   - **Live mode:** never use it, because it runs the agent with approvals off.
+2. **`init`:** write `PRODUCT.md`, the monthly budgeting job.
+   - **Paychecks:** every two weeks, with a plan per check.
+   - **Bills:** My Bills and Joint Bills, and paid-from accounts.
+   - **Cards:** paid in full each month.
+   - **Money:** Safe to spend until payday, a savings goal first, then debts in your own order.
+   - **Usage:** quick phone check-ins, and a month-at-once Sheet view on desktop.
+3. **`document`:** write `DESIGN.md` from the existing tokens in `css/app.css`, so impeccable
+   steers toward this app's look rather than its own defaults.
+4. **`critique` and `audit` on Budget at phone and desktop sizes,** before and after the feed.
+   They score hierarchy, the 44px touch targets, contrast in both themes, and overflow at large
+   Android text sizes.
+5. **`adapt` and `polish`** on the chosen layout. Everything still follows AGENTS.md: theme tokens,
+   `collapsibleCard()`, no inline handlers, and every bank field escaped.
+
+**One gap the previews already show:** at large text sizes on a phone, a row's meta line wraps to
+three lines ("Matches Moto Insurance"). The build should move the category or match onto its own
+line, as Deliveries does.

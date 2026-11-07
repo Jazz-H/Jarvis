@@ -170,7 +170,8 @@ function processAutopay() {
   });
   return changed;
 }
-function recordPayment(b, amount) {
+// from: a bank charge that paid it (bank.js): its date and id ride along, so the charge isn't also spending
+function recordPayment(b, amount, from = null) {
   delete b.hold;
   const p = {
     id: genId("pay"),
@@ -178,9 +179,10 @@ function recordPayment(b, amount) {
     name: b.name,
     amount,
     due: b.due,
-    date: addDaysIso(0),
+    date: from ? from.date : addDaysIso(0),
     group: b.group || "personal",
     account: b.account || null,
+    ...(from ? { bankId: from.id } : {}),
   };
   billPayments.push(p);
   const prevDue = b.due,

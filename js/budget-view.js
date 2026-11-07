@@ -260,8 +260,11 @@ function wbBillRowHtml(r, today) {
     overdue = !paid && r.due < today;
   const n = daysFromToday(r.due);
   const meta = [];
-  if (paid) meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
-  else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(shortDate(r.due))}</span>`);
+  if (paid) {
+    meta.push(`${r.payment.auto ? "Autopaid" : "Paid"} ${escapeHtml(billWhen(r.payment.date))}`);
+    const seen = bankPaidNote(r.payment); // the bank feed confirmed it (bank.js)
+    if (seen) meta.push(`<span class="wb-matched">${escapeHtml(seen)}</span>`);
+  } else if (overdue) meta.push(`<span class="overdue">Overdue · ${escapeHtml(shortDate(r.due))}</span>`);
   else meta.push(escapeHtml(n === 0 ? "Today" : n === 1 ? "Tomorrow" : wbDay(r.due)));
   if (!paid && b && b.autopay) meta.push("autopay");
   else if (!paid && b && r.current && dashManualSoon([b]).length)
@@ -339,15 +342,19 @@ function wbSpendingHtml(today) {
   const orphan = sum(spent.filter((e) => !budgetCat(e.cat)));
   const limitTotal = r2(limited.reduce((s, x) => s + x.c.limit, 0)),
     spentTotal = sum(spent);
+  // the bank feed's charges not added yet (bank.js): a faint segment and "+$X new" on their category
+  const fresh = bankNewByCat(key);
   const bars = limited
     .map(({ c, list, total }) => {
       const tone = total > c.limit ? "over" : total >= c.limit * 0.9 ? "near" : "";
       const open = openBudgetCats.has(c.id);
       const pct = Math.min(100, Math.round((total / c.limit) * 100));
+      const add = fresh.byCat[c.id] || 0;
+      const addPct = add ? Math.max(1, Math.min(100 - pct, Math.round((add / c.limit) * 100))) : 0;
       return `<div class="wb-cat ${tone}">
           <button class="wb-cat-btn" data-action="budget-cat-toggle" data-cat-id="${escapeAttr(c.id)}" aria-expanded="${open}">
-            <span class="wb-cat-head"><b>${escapeHtml(c.name)}</b><span class="wb-cat-amt">${moneyShort(total)} of ${moneyShort(c.limit)}${tone === "over" ? " · over" : ""}</span></span>
-            <span class="wb-track" aria-hidden="true"><span style="width:${pct}%"></span></span>
+            <span class="wb-cat-head"><b>${escapeHtml(c.name)}</b><span class="wb-cat-amt">${add ? `<span class="wb-cat-new">+${moneyShort(add)} new · </span>` : ""}${moneyShort(total)} of ${moneyShort(c.limit)}${tone === "over" ? " · over" : ""}</span></span>
+            <span class="wb-track" aria-hidden="true"><span style="width:${pct}%"></span>${addPct ? `<span class="wb-track-new" style="width:${addPct}%"></span>` : ""}</span>
           </button>
           ${open ? wbCatItemsHtml(c, list) : ""}
         </div>`;
@@ -365,9 +372,15 @@ function wbSpendingHtml(today) {
     .map((x) => wbCatItemsHtml(x.c, x.list))
     .join("");
   const month = noonOf(key + "-01").toLocaleDateString("en-US", { month: "long" });
+  const review = fresh.all
+    ? `<button class="jv-chip-sm on wb-review" data-action="bank-review">${fresh.all} new · Review</button>`
+    : "";
   return `<section class="wb-sec wb-spending" aria-label="Spending this month">${wbLabel(
     `Spending · ${escapeHtml(month)}`,
     limitTotal ? `${moneyShort(spentTotal)} of ${moneyShort(limitTotal)}` : moneyShort(spentTotal),
+  ).replace(
+    /<\/div>$/,
+    `${review}</div>`,
   )}<div class="wb-card wb-cats">${bars}${chips ? `<div class="wb-chips">${chips}</div>${looseOpen}` : ""}${!bars && !chips ? `<div class="empty">No categories yet.</div>` : ""}</div></section>`;
 }
 // What one paycheck puts toward a goal: its plan lines pointed at it, from this
@@ -395,7 +408,10 @@ function wbGoalHtml(today) {
     </button></section>`;
 }
 function budgetTopHtml(today) {
-  return `<div class="wb-top">${wbHeroHtml(today)}${wbBillsHtml(today)}<div class="wb-side">${wbSpendingHtml(today)}${wbGoalHtml(today)}</div></div>`;
+  // the bank feed's list (bank.js) sits above Next 14 days, in the same column on a big screen
+  const bank = bankSectionHtml();
+  const bills = wbBillsHtml(today);
+  return `<div class="wb-top">${wbHeroHtml(today)}${bank ? `<div class="wb-col">${bank}${bills}</div>` : bills}<div class="wb-side">${wbSpendingHtml(today)}${wbGoalHtml(today)}</div></div>`;
 }
 function renderBudget() {
   const el = document.getElementById("panel-budget");
@@ -760,6 +776,7 @@ function normalizeBudgetData() {
       group: p.group,
       account: p.account,
       ...(p.auto ? { auto: true } : {}),
+      ...(BANK_ID.test(p.bankId || "") ? { bankId: p.bankId } : {}),
     }));
   budget.categories = budget.categories
     .filter((c) => c && typeof c === "object")
@@ -772,6 +789,9 @@ function normalizeBudgetData() {
       amount: amt(e.amount),
       cat: e.cat ? safeId(e.cat, "cat") : null,
       date: e.date,
+      // added from the bank feed (bank.js): the charge's id, and the feed it was added by a rule from
+      ...(BANK_ID.test(e.bankId || "") ? { bankId: e.bankId } : {}),
+      ...(typeof e.auto === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(e.auto) ? { auto: e.auto } : {}),
     }));
   budget.accounts = (Array.isArray(budget.accounts) ? budget.accounts : DEFAULT_BUDGET.accounts)
     .map((a) => str(a, 40).trim())
@@ -832,6 +852,7 @@ function normalizeBudgetData() {
         .map((e) => ({ id: safeId(e.id, "gl"), date: e.date, amount: Number(e.amount), note: str(e.note, 80) })),
     }));
   normalizeDebts();
+  normalizeBankBudget();
 }
 
 // Budget's calendar: swipe down for the month, up for the week

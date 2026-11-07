@@ -70,6 +70,10 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
+          PLAID_SECRET: ${{ secrets.PLAID_SECRET }}
+          PLAID_ACCESS_TOKENS: ${{ secrets.PLAID_ACCESS_TOKENS }}
+          PLAID_ENV: ${{ vars.PLAID_ENV }}
           # optional: phone notifications (SETUP section 7)
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           MAX_RUN_COST_USD: ${{ vars.MAX_RUN_COST_USD }}

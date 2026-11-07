@@ -18432,6 +18432,297 @@ await section("Briefing: a midday update is named as one, with when it came", as
   await ctx.close();
 });
 
+await section("Budget: the bank feed (From your bank list, rules, bills, Spending's new segment)", async () => {
+  const day = (n) => {
+    const x = new Date();
+    x.setHours(12);
+    x.setDate(x.getDate() + n);
+    return x.toLocaleDateString("en-CA");
+  };
+  const A1 = "a000000000001",
+    A2 = "a000000000002";
+  const tx = (n, name, amount, over = {}) => ({
+    id: "t00000000000" + n,
+    acct: A2,
+    date: day(-1),
+    amount,
+    name,
+    raw: name.toUpperCase(),
+    pfc: "",
+    pfcDetailed: "",
+    confident: false,
+    pending: false,
+    ...over,
+  });
+  const bank = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    from: day(-45),
+    to: day(0),
+    accounts: [
+      {
+        id: A1,
+        item: "chase",
+        name: "Checking",
+        mask: "1111",
+        type: "depository",
+        subtype: "checking",
+        balance: 900,
+        available: 880,
+        limit: null,
+      },
+      {
+        id: A2,
+        item: "citi",
+        name: "Citi Card",
+        mask: "4421",
+        type: "credit",
+        subtype: "credit card",
+        balance: 300,
+        available: null,
+        limit: 5000,
+      },
+    ],
+    txns: [
+      tx(1, "Kroger", 63.18, { acct: A1, date: day(0) }), // your rule: Groceries, added by itself
+      tx(2, "Shell", 41.02, { pfc: "TRANSPORTATION", pfcDetailed: "TRANSPORTATION_GAS", confident: true }),
+      tx(3, "Progressive", 75.71), // pays the Moto Insurance bill
+      tx(4, "Amazon", 32.99), // no category: pick one
+      tx(5, "Starbucks", 6.45, { pending: true, pfc: "FOOD_AND_DRINK", confident: true }),
+      tx(6, "VERIZON WIRELESS", 65, { date: day(0) }), // the autopaid Phone bill: counted there already
+      tx(7, '<img src=x onerror="alert(1)">', 9.99),
+      { id: "bad", acct: A1, date: day(0), amount: 5, name: "junk" },
+    ],
+    errors: [{ item: "citi", code: "ITEM_LOGIN_REQUIRED" }],
+  };
+  const seed = {
+    "jarvis-bank": bank,
+    "bills-content": [
+      { id: "b-moto", name: "Moto Insurance", amount: 75.71, due: day(1), repeat: "monthly", autopay: false },
+      { id: "b-phone", name: "Phone", amount: 65, due: day(0), repeat: "monthly", autopay: true, account: "Citi CC" },
+    ],
+    "budget-content": {
+      accounts: ["Checking", "Citi CC"],
+      categories: [
+        { id: "c-groc", name: "Groceries", limit: 400 },
+        { id: "c-gas", name: "Gas", limit: 120 },
+        { id: "c-shop", name: "Shopping", limit: 200 },
+      ],
+      expenses: [],
+      income: [{ id: "i-pay", name: "Paycheck", amount: 1850, start: day(-3), repeat: "biweekly" }],
+      rules: [
+        { id: "r1", match: "kroger", cat: "c-groc" },
+        { id: "r-bad", match: "x", cat: "nope" },
+      ],
+    },
+  };
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed });
+  const state = () =>
+    page.evaluate(() => {
+      const sec = document.getElementById("bank-sec");
+      return {
+        rows: sec
+          ? [...sec.querySelectorAll(".bank-row")].map((r) =>
+              [...r.querySelectorAll(".wb-bill-text > *, .bank-undo")].map((x) => x.textContent.trim()).join(" | "),
+            )
+          : [],
+        label: sec ? sec.querySelector(".wb-label").textContent : "",
+        expenses: budget.expenses.map((e) => `${e.name}|${e.cat}|${e.bankId || ""}|${e.auto ? "auto" : ""}`),
+        skip: (budget.bankSkip || []).map((s) => s.id),
+        payments: billPayments.filter((p) => p.bankId).map((p) => p.billId),
+        rules: budget.rules.map((r) => `${r.match}→${r.cat}`),
+      };
+    });
+  let s = await state();
+  check(
+    "the rule placed Kroger by itself, and the list says so with Undo",
+    s.expenses.includes(`Kroger|c-groc|t000000000001|auto`) &&
+      s.rows.some((r) => /^Kroger \| Added by your rule · Groceries \| Undo$/.test(r)),
+    s,
+  );
+  check(
+    "a junk rule and a junk charge are dropped",
+    s.rules.join() === "kroger→c-groc" && !s.rows.some((r) => /junk/.test(r)),
+    s,
+  );
+  check(
+    "Plaid's sure category is suggested (Shell → Gas)",
+    s.rows.some((r) => /^Shell \| Yesterday · Citi Card ··4421 \| Gas ▾$/.test(r)),
+    s.rows,
+  );
+  check(
+    "a charge that pays a bill says so",
+    s.rows.some((r) => /^Progressive \| .* \| Pays Moto Insurance$/.test(r)),
+    s.rows,
+  );
+  check(
+    "no category: Pick a category",
+    s.rows.some((r) => /^Amazon \| .* \| Pick a category ▾$/.test(r)),
+    s.rows,
+  );
+  check(
+    "the autopaid Phone bill's charge isn't listed (it's counted there)",
+    !s.rows.some((r) => /VERIZON/.test(r)),
+    s.rows,
+  );
+  const ui = await page.evaluate(() => ({
+    pending: !!document.querySelector('#bank-sec .bank-row.pending [data-action="bank-add"]'),
+    pendingRow: !!document.querySelector("#bank-sec .bank-row.pending"),
+    hostile:
+      ![...document.querySelectorAll("#bank-sec img")].some((i) => i.hasAttribute("onerror")) &&
+      /<img src=x/.test(document.getElementById("bank-sec").textContent),
+    err: document.querySelector("#bank-sec .bank-err")?.textContent || "",
+    matched:
+      [...document.querySelectorAll("#wb-next .wb-bill")]
+        .map((r) => r.textContent.replace(/\s+/g, " "))
+        .find((t) => /Phone/.test(t)) || "",
+    gas: document.querySelector(".wb-cat:nth-child(2)")?.textContent.replace(/\s+/g, " ") || "",
+    newSeg: document.querySelectorAll(".wb-track-new").length,
+    review: document.querySelector('[data-action="bank-review"]')?.textContent || "",
+    order: [...document.querySelectorAll(".wb-top section")].map((x) => x.id || x.className).slice(0, 3),
+  }));
+  check("a pending charge is shown faded, with no tick", ui.pendingRow && !ui.pending, ui);
+  check("text from the bank is shown as text", ui.hostile, ui);
+  check(
+    "a login that needs signing in again says how",
+    /citi needs you: sign in again with npm run plaid-link -- --update citi/.test(ui.err),
+    ui.err,
+  );
+  check(
+    "Next 14 days: the autopaid bill is matched on the card",
+    /matched on Citi Card ··4421/.test(ui.matched),
+    ui.matched,
+  );
+  check("Spending: Gas shows the new charge, faint", /\+\$41\.02 new/.test(ui.gas) && ui.newSeg === 1, ui);
+  check("Spending's label has the Review chip", /new · Review/.test(ui.review), ui.review);
+  // tick Shell: added under Gas
+  await page.tap('#bank-sec [data-action="bank-add"][data-bank-id="t000000000002"]');
+  s = await state();
+  check("ticking adds it in its category", s.expenses.includes("Shell|c-gas|t000000000002|"), s.expenses);
+  // tick Progressive: the bill is paid with it, on the charge's date
+  await page.tap('#bank-sec [data-action="bank-add"][data-bank-id="t000000000003"]');
+  s = await state();
+  const moto = await page.evaluate(() => ({
+    due: bills.find((b) => b.id === "b-moto").due,
+    p: billPayments.find((p) => p.bankId === "t000000000003"),
+  }));
+  check(
+    "ticking a bill's charge marks the bill paid with it",
+    s.payments.includes("b-moto") && !!moto.p && moto.p.date === day(-1) && moto.due > day(1),
+    moto,
+  );
+  check("…and it isn't spending too", !s.expenses.some((e) => e.startsWith("Progressive")), s.expenses);
+  // Amazon: the picker, and "always" makes a rule
+  await page.tap('#bank-sec [data-action="bank-add"][data-bank-id="t000000000004"]');
+  check("no category: the tick opens the picker", await page.isVisible("#modal-backdrop.open"));
+  await page.selectOption("#modal-cat", "Shopping");
+  await page.check("#modal-always");
+  await page.click('[data-action="modal-save"]');
+  s = await state();
+  check(
+    "the picker adds it and saves a rule",
+    s.expenses.includes("Amazon|c-shop|t000000000004|") && s.rules.includes("amazon→c-shop"),
+    s,
+  );
+  // skip the hostile one; undo Kroger's rule
+  await page.tap('#bank-sec [data-action="bank-skip"][data-bank-id="t000000000007"]');
+  await page.tap('#bank-sec [data-action="bank-undo"][data-bank-id="t000000000001"]');
+  s = await state();
+  check(
+    "skip and undo leave them out",
+    s.skip.includes("t000000000007") &&
+      s.skip.includes("t000000000001") &&
+      !s.expenses.some((e) => e.startsWith("Kroger")),
+    s,
+  );
+  const left = await page.evaluate(() => ({
+    sec: !!document.getElementById("bank-sec"),
+    rows: document.querySelectorAll("#bank-sec .bank-row").length,
+  }));
+  check("only the pending charge is left (with the reconnect note)", left.sec && left.rows === 1, left);
+  check("the feed stays on this device", await page.evaluate(() => !SYNC_KEYS.includes("jarvis-bank")));
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
+await section("Budget: Add N matched adds every charge with a category and pays its bills, with Undo", async () => {
+  const day = (n) => {
+    const x = new Date();
+    x.setHours(12);
+    x.setDate(x.getDate() + n);
+    return x.toLocaleDateString("en-CA");
+  };
+  const A = "a000000000001";
+  const t = (n, name, amount, extra = {}) => ({
+    id: "t00000000000" + n,
+    acct: A,
+    date: day(-1),
+    amount,
+    name,
+    raw: name,
+    pfc: "",
+    pfcDetailed: "",
+    confident: false,
+    pending: false,
+    ...extra,
+  });
+  const seed = {
+    "jarvis-bank": {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      from: day(-45),
+      to: day(0),
+      accounts: [
+        {
+          id: A,
+          item: "chase",
+          name: "Checking",
+          mask: "",
+          type: "depository",
+          subtype: "checking",
+          balance: null,
+          available: null,
+          limit: null,
+        },
+      ],
+      txns: [
+        t(1, "Shell", 41.02, { pfc: "TRANSPORTATION", pfcDetailed: "TRANSPORTATION_GAS", confident: true }),
+        t(2, "Progressive", 75.71),
+        t(3, "Amazon", 12),
+      ],
+      errors: [],
+    },
+    "bills-content": [
+      { id: "b-moto", name: "Moto Insurance", amount: 75.71, due: day(1), repeat: "monthly", autopay: false },
+    ],
+    "budget-content": {
+      accounts: [],
+      categories: [{ id: "c-gas", name: "Gas", limit: 120 }],
+      expenses: [],
+      income: [],
+    },
+  };
+  const { ctx, page, errors } = await openApp({ query: "?tab=budget", seed });
+  const btn = await page.textContent('[data-action="bank-add-matched"]');
+  check("the button counts what's ready (not Amazon)", /Add 2 matched/.test(btn), btn);
+  await page.tap('[data-action="bank-add-matched"]');
+  const r = await page.evaluate(() => ({
+    exp: budget.expenses.length,
+    pay: billPayments.filter((p) => p.bankId).length,
+    rows: document.querySelectorAll("#bank-sec .bank-row").length,
+  }));
+  check("both are added, Amazon waits", r.exp === 1 && r.pay === 1 && r.rows === 1, r);
+  await page.click("#toast .toast-undo");
+  const u = await page.evaluate(() => ({
+    exp: budget.expenses.length,
+    pay: billPayments.filter((p) => p.bankId).length,
+    due: bills[0].due,
+  }));
+  check("Undo takes both back", u.exp === 0 && u.pay === 0 && u.due === day(1), u);
+  check("no errors", errors.length === 0, errors);
+  await ctx.close();
+});
+
 await section("Budget: + Bills due adds the line to the paycheck", async () => {
   const { ctx, page, errors } = await openApp({ query: "?tab=budget" });
   const shown = await page.evaluate(() => {

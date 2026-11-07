@@ -37,6 +37,8 @@ import { PricesCard } from "./schemas/prices.ts";
 import { runPrices, watchItems, type WatchItem } from "./subagents/prices.ts";
 import { gistClient, type GistClient } from "./tools/gist.ts";
 import { calendarHistory, fetchIcs } from "./tools/ics.ts";
+import { fetchItem, PlaidError, type PlaidCreds, type PlaidEnv } from "./tools/plaid.ts";
+import { buildBankFile, type ItemResult } from "./lib/bank.ts";
 import { gmailClient, googleAccessToken, type Gmail } from "./tools/gmail.ts";
 import { vapidSender, type PushMessage, type Sender } from "./tools/push.ts";
 import { notifyPhones } from "./lib/notify.ts";
@@ -129,6 +131,7 @@ export interface Subagents {
 // Where Phase 2 data comes from. Built in main() from secrets; tests pass stubs or nothing.
 export interface Sources {
   calendarUrl?: string | null;
+  plaid?: PlaidSource | null; // the bank feed, when PLAID_ACCESS_TOKENS is set
   gmail?: (() => Promise<Gmail>) | null; // signs in to Google once; shared by Inbox and Deliveries
 }
 
@@ -367,6 +370,7 @@ async function runRefresh(deps: JarvisDeps, prev: Briefing, edition?: "midday" |
   }
   await appendDayDigest(gist, briefing, trace, true);
   if (ics) await writeCalendarHistory(gist, ics, deps.now, trace);
+  if (deps.sources?.plaid) await writeBank(gist, deps.sources.plaid, deps.now, deps.fetchImpl, trace);
   if (deps.ask)
     await answerPendingQuietly({
       gist,
@@ -715,6 +719,7 @@ export async function runBriefing(deps: JarvisDeps): Promise<RunOutcome> {
     await notifyPhones(gist, deps.push, pushMessages(briefing, context, extra.deliveries, money, freshPrices), trace);
   await appendDayDigest(gist, briefing, trace);
   if (ics) await writeCalendarHistory(gist, ics, deps.now, trace);
+  if (deps.sources?.plaid) await writeBank(gist, deps.sources.plaid, deps.now, deps.fetchImpl, trace);
   if (deps.ask)
     await answerPendingQuietly({
       gist,
@@ -747,6 +752,71 @@ export async function appendDayDigest(gist: GistClient, briefing: Briefing, trac
 // Writes jazz2-calendar.json (90 days back to 60 ahead) from the calendar feed. A failed fetch or
 // parse keeps the existing file; an unchanged list (everything but generatedAt) isn't rewritten.
 // Never fails the briefing. The trace gets counts only, never titles.
+// The bank feed: each linked login's last CONFIG.bank.days of spending, in code, to jazz2-bank.json.
+// A login that fails (re-consent needed, not ready yet) is listed by its error code and the rest
+// still land; only when every login fails is the old file kept. Never fails the run. The trace
+// gets counts only: no names, amounts, balances or ids (the repo's logs are public).
+export interface PlaidSource {
+  creds: PlaidCreds;
+  items: Record<string, string>; // login name → access token
+}
+export async function writeBank(
+  gist: GistClient,
+  plaid: PlaidSource,
+  now: Date,
+  fetchImpl: typeof fetch,
+  trace: Trace,
+): Promise<"written" | "unchanged" | "failed"> {
+  try {
+    const to = localTime(now, CONFIG.timezone).date;
+    const from = addDays(to, -CONFIG.bank.days);
+    const results: ItemResult[] = await Promise.all(
+      Object.entries(plaid.items).map(async ([item, token]) => {
+        try {
+          return { item, ...(await fetchItem(plaid.creds, token, from, to, fetchImpl)) };
+        } catch (e) {
+          return { item, error: e instanceof PlaidError ? e.code : "FAILED" };
+        }
+      }),
+    );
+    if (results.length && results.every((r) => r.error)) {
+      trace.log("jarvis", "bank feed failed", { logins: results.length, codes: results.map((r) => r.error).join(",") });
+      return "failed";
+    }
+    const file = buildBankFile(results, from, to, now);
+    const { generatedAt, ...body } = file;
+    let old: string | null = null;
+    try {
+      old = await gist.readFile(CONFIG.gistFiles.bank);
+    } catch {
+      old = null;
+    }
+    const counts = {
+      logins: results.length,
+      accounts: file.accounts.length,
+      txns: file.txns.length,
+      errors: file.errors.length,
+    };
+    if (old) {
+      try {
+        const { generatedAt: _g, ...was } = JSON.parse(old);
+        if (JSON.stringify(was) === JSON.stringify(body)) {
+          trace.log("jarvis", "bank feed unchanged", counts);
+          return "unchanged";
+        }
+      } catch {
+        // unreadable: write over it
+      }
+    }
+    await gist.writeFile(CONFIG.gistFiles.bank, JSON.stringify(file));
+    trace.log("jarvis", "bank feed written", counts);
+    return "written";
+  } catch (e) {
+    trace.log("jarvis", "bank feed failed", { error: trace.publicError(e) });
+    return "failed";
+  }
+}
+
 export async function writeCalendarHistory(
   gist: GistClient,
   ics: () => Promise<string>,
@@ -990,6 +1060,26 @@ export function fallbackSummary(c: JazzContext, w: WeatherCard | null, n: NewsCa
   return { headline: "Your morning briefing", summary: items.slice(0, 5) };
 }
 
+// PLAID_CLIENT_ID, PLAID_SECRET and PLAID_ACCESS_TOKENS ({"chase":"access-…"}, from npm run plaid-link)
+// turn the bank feed on; PLAID_ENV is "production" unless set to "sandbox". Logins with a name
+// that isn't plain (a-z, 0-9, - and _) or a token that doesn't look like one are left out.
+export function plaidSource(env: Record<string, string | undefined>): PlaidSource | null {
+  if (!env.PLAID_CLIENT_ID || !env.PLAID_SECRET || !env.PLAID_ACCESS_TOKENS) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(env.PLAID_ACCESS_TOKENS);
+  } catch {
+    throw new Error("PLAID_ACCESS_TOKENS isn't JSON (see docs/jarvis/SETUP.md → Bank feed)");
+  }
+  const items: Record<string, string> = {};
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+    for (const [k, v] of Object.entries(parsed).slice(0, 10))
+      if (/^[a-z0-9_-]{1,30}$/i.test(k) && typeof v === "string" && /^access-[a-z]+-[\w-]{8,}$/.test(v)) items[k] = v;
+  if (!Object.keys(items).length) return null;
+  const penv: PlaidEnv = env.PLAID_ENV === "sandbox" ? "sandbox" : "production";
+  return { creds: { clientId: env.PLAID_CLIENT_ID, secret: env.PLAID_SECRET, env: penv }, items };
+}
+
 async function main() {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const envFile = path.join(here, ".env");
@@ -1011,6 +1101,7 @@ async function main() {
           refreshToken: env.GOOGLE_REFRESH_TOKEN,
         }
       : null;
+  const plaid = plaidSource(env);
   const trace = new Trace([
     gistToken,
     env.ANTHROPIC_API_KEY ?? "",
@@ -1018,6 +1109,8 @@ async function main() {
     env.GOOGLE_CLIENT_SECRET ?? "",
     env.GOOGLE_REFRESH_TOKEN ?? "",
     env.VAPID_PRIVATE_KEY ?? "",
+    env.PLAID_SECRET ?? "",
+    ...Object.values(plaid?.items ?? {}),
   ]);
   const manual = startedByHand(process.argv, process.env);
   const outDir = path.join(here, "out");
@@ -1038,6 +1131,7 @@ async function main() {
       sources: {
         calendarUrl,
         gmail: google ? async () => gmailClient(await googleAccessToken(google)) : null,
+        plaid,
       },
     });
     if (outcome.status === "skipped") console.log(`Skipped: ${outcome.reason}`);

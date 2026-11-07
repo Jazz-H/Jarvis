@@ -308,6 +308,19 @@ const SHELL_CLICK = {
     const b = bills.find((x) => x.id === id);
     if (b && !b.done && b.due && b.due === due) payBill(b.id);
   },
+  // Budget's "From your bank" (bank.js): the charge id must be one in the feed; each action checks it again
+  "bank-add": (el, e) => {
+    e.stopPropagation();
+    bankAdd(el.getAttribute("data-bank-id"));
+  },
+  "bank-cat": (el) => bankPickCategory(el.getAttribute("data-bank-id")),
+  "bank-skip": (el) => bankSkip(el.getAttribute("data-bank-id")),
+  "bank-undo": (el) => {
+    const id = el.getAttribute("data-bank-id");
+    if (BANK_ID.test(id || "")) bankUndoAuto(id);
+  },
+  "bank-add-matched": () => bankAddMatched(),
+  "bank-review": () => bankReviewScroll(),
   "bill-unpay": (el, e) => {
     e.stopPropagation();
     const id = el.getAttribute("data-payment-id");

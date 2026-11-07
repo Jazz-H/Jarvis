@@ -361,6 +361,7 @@ async function fetchRemote(gistId) {
   ingestBriefingFile(g.files && g.files[BRIEFING_FILENAME]); // Jarvis's read-only briefing rides along
   ingestReviewFile(g.files && g.files[REVIEWS_FILENAME]); // and so do the weekly reviews
   ingestCalendarFile(g.files && g.files[CALENDAR_FILENAME]); // and the calendar history for the Planner
+  ingestBankFile(g.files && g.files[BANK_FILENAME]); // and the bank feed for Budget (bank.js)
   ingestAskFile(g.files && g.files[ASK_FILE]); // Ask Jarvis: questions from other devices, Clear history
   ingestAnswersFile(g.files && g.files[ANSWERS_FILE]); // and Jarvis's answers (read-only)
   const file = g.files && g.files[GIST_FILENAME];
@@ -486,6 +487,7 @@ async function syncNow() {
     localStorage.setItem(SYNC_BASE_GIST_KEY, gistId);
     if (epoch !== syncEpoch) return false;
     setSyncStatus("ok");
+    bankAfterSync(); // your rules place new bank charges, now that the merge is done (bank.js)
     return true;
   } catch (e) {
     if (epoch !== syncEpoch) return false;

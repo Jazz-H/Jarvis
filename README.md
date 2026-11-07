@@ -578,6 +578,29 @@ right now, with the full month folded under it:
 - **Safe to spend:** what's left of the latest paycheck after the bills due before the next
   payday (the same numbers as Home's Money detail), "until payday Fri, Nov 6 · 7 days", a paid
   vs due bar, and Paid / Due / Paycheck. Without a paycheck it offers **+ Add your paycheck**.
+- **From your bank** (once the bank feed is set up: SETUP.md section 10; above Next 14 days, in
+  the left column on a big screen): your banks' charges from the last 45 days that aren't in
+  Budget yet, newest first. It shows only when something is waiting.
+  - **Each row:** a tick, the logo, the merchant, "date · account ··last 4", and the amount.
+    Under the name is its category (tap to change) or **Pick a category** in gold, or
+    **Pays <bill>**.
+  - **The tick:** adds it as spending in that category, with Undo. A charge that pays a bill
+    marks that bill paid with it, on the charge's date, so it isn't counted twice. With no
+    category yet, the tick opens the picker.
+  - **The picker:** a category, and **Always put "Kroger" here**, which makes a rule.
+  - **× skips** a charge. Pending charges are faded with no tick until they post.
+  - **Your rules add by themselves:** a charge a rule matches goes straight into Budget and shows
+    as "Added by your rule · <category>" with **Undo** until the next feed. Undo takes it back
+    out. A category that comes only from the bank (when it's sure) still waits for your tick.
+  - **Add N matched:** adds every charge that has a category and pays every bill a charge
+    matched, in one tap, with Undo.
+  - **What's left out:** card payments, transfers between your accounts and money coming in. A
+    charge for a bill that's already paid (autopay) isn't listed either; Next 14 days says
+    "matched on Citi Card ··4421" on that bill instead.
+  - **When a bank needs you:** a login that needs signing in again says which one and how
+    (`npm run plaid-link -- --update chase`).
+  - **Where it's kept:** the feed is on this device only and read-only. What you do with it
+    (added, skipped, your rules) syncs with Budget.
 - **Next 14 days** (folds from its label; remembered on this device): every bill due from today through 14 days out, across month ends (Nov 1
   shows on Oct 30), with the total still due. Overdue unpaid bills come first, in red. Each row:
   a tick box (pays it, with Undo), the logo, name, due day and "autopay", or an amber "not on
@@ -588,7 +611,8 @@ right now, with the full month folded under it:
   since the bills on the card already are.
 - **Spending · <Month>:** spent of the categories' limits, a bar per category with a limit
   (amber at 90%, red over); categories without a limit as compact chips. Tap one to see its
-  expenses.
+  expenses. Bank charges with a category that aren't added yet show faintly on their bar
+  ("+$41.02 new"), and the label gets **N new · Review**, which scrolls to From your bank.
 - **Goal:** the first goal as a ring: saved of target and what a paycheck puts toward it
   (from its plan lines). Tap to edit it.
 - **<Month> in full · bills and paycheck plan:** a folded row that opens the month
@@ -792,6 +816,7 @@ only turning sync off still asks first.
    | `skin.js` | Beauty routine, wash-day schedule, rules |
    | `shopping.js` | Shopping tab and wardrobe items |
    | `budget-bills.js`, `budget-income.js`, `budget-goals.js`, `budget-import.js`, `budget-debts.js`, `budget-view.js` | Budget: bills and logos; income and paycheck plans; goals; cards and spreadsheet import; debts, credit cards and by-account totals; pay-period view, the Sheet view, `renderBudget`, data normalizing |
+   | `bank.js` | Budget: the bank feed (`jazz2-bank.json`, device only): From your bank, your rules (they add by themselves), bill matching, the faint new spending on Spending's bars |
    | `fitness.js`, `jazz3.js` | Jazz 3.0: workouts/weigh-ins; plan sections |
    | `console.js` | Console: the Ask / Capture box, mode guess, local capture parser, preview, Add with Undo, the device-only feed (`renderConsole`, `consoleParse`, `normalizeConsoleFeed`) |
    | `brain.js` | Jarvis's brain: memory, ratings, settings and check-ins (`normalizeJarvisBrain`, `brainRemember`, `brainRate`, `brainCardHtml`) |

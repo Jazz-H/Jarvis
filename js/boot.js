@@ -44,6 +44,7 @@ function writeQuietly(key, value) {
 (async function init() {
   loadAllContent();
   archiveOldTodos();
+  if (bankAutoAdd()) saveContent("budget-content", budget, { toast: false }); // a rule made since the last feed
 
   setHeaderDate();
   setInterval(checkDayChange, 60000);

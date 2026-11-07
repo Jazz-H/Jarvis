@@ -186,6 +186,31 @@ only in the script's Script Properties: never in the script's code, the app, the
 To stop it, delete the trigger (or the project). If the token expires, the executions log says
 "GitHub said 401": make a new one and replace the property.
 
+## 10. The bank feed (optional): Plaid
+Your banks' charges in Budget's **From your bank** (README → Budget). About 15 minutes, once, on
+a computer, plus about 3 minutes per bank.
+
+1. **Sign up:** at dashboard.plaid.com/signup choose **Personal use** and start the free **Trial**.
+   It covers 10 bank logins for good: a login you link counts even if you remove it later, so
+   always reconnect with `--update` (step 5), never by linking again.
+2. **Keys:** in the Dashboard → Developers → Keys, copy the client id and the Production secret.
+   Add them to `agents/.env` as `PLAID_CLIENT_ID` and `PLAID_SECRET`, and as GitHub secrets
+   with the same names. To try it with Plaid's fake banks first, set `PLAID_ENV=sandbox` in
+   `agents/.env` and use the Sandbox secret (user `user_good`, password `pass_good`).
+3. **Link a bank:** `cd agents && npm run plaid-link -- chase` (any short name for that login).
+   Plaid's own page opens in your browser; sign in to your bank there. The terminal then prints
+   `"chase": "access-…"`. Do it once per bank login (cards on the same login count once).
+4. **Add the tokens:** make one GitHub secret, `PLAID_ACCESS_TOKENS`, with every login as JSON:
+   `{"chase":"access-…","citi":"access-…"}`. Never paste a token into the app, a chat or a file
+   in the repo. For local runs, add the same line to `agents/.env`.
+5. **When a bank needs you** (most ask about once a year): Budget says
+   "chase needs you: sign in again". Run `npm run plaid-link -- --update chase`. It keeps the
+   same login and token, and doesn't use up a Trial slot.
+
+The next Jarvis run (the 6 AM briefing or a card refresh) writes `jazz2-bank.json`, and the app
+picks it up on its next sync. It covers the last 45 days of spending; card payments, transfers and
+money coming in are left out. The run's log shows only counts, never names or amounts.
+
 ## When it runs
 - **Card refreshes** at about **12:30pm, 5pm and 9pm Eastern** redo today's Weather, Calendar, Inbox,
   Deliveries and Bill Guard cards. They come from the alarm clock, so after updating to this version
